@@ -1,0 +1,21 @@
+rule nvcc
+  command = nvcc -O2 -Xcompiler -Wall -Xcompiler -fPIC -g -std=c++20 -I ../ThunderKittens/include/ $in -c -o $out -MD -MF $out.d -arch compute_80 -code sm_80 --expt-extended-lambda --expt-relaxed-constexpr
+  depfile = $out.d
+
+rule cxx
+  command = g++ -O2 -Wall -fPIC -g -std=c++20 -I ../ThunderKittens/include/ $in -c -o $out -MD -MF $out.d -I /usr/local/cuda-12.3/targets/x86_64-linux/include/
+  depfile = $out.d
+
+rule link
+  command = nvcc $in -o $out
+
+rule link_lib
+  command = nvcc $in -o $out -shared
+
+build all: phony attn libattn.so
+build bin/tk_4090_fwd.o : nvcc tk_4090_fwd.cu
+build bin/baseline.o : nvcc baseline.cu
+build bin/matrix_util.o : nvcc matrix_util.cu
+build bin/attn_main.o : cxx attn_main.cpp
+build attn : link bin/tk_4090_fwd.o bin/baseline.o bin/attn_main.o bin/matrix_util.o
+build libattn.so : link_lib bin/tk_4090_fwd.o bin/matrix_util.o

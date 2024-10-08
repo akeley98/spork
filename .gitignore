@@ -1,0 +1,13 @@
+*.pyc
+__pycache__
+bin/*
+.cache
+*~
+compile_commands.json
+.ninja*
+*.log
+*.out
+*.aux
+docs/spork.pdf
+attn
+libattn.so
