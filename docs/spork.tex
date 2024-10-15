@@ -12,7 +12,7 @@
 \begin{document}
 \myTitle{Project Spork: EXO GPU}
 
-Prototyping for how to extend Exo to safely support GPU accelerators (specifically what CUDA offers), including features like \lighttt{memcpy\_async} and wgmma, which I've argued are impossible to model using a fork/join approach while preserving maximum throughput. We will still be taking the approach of proving equivalence between ``sequential semantics'' and ``parallel semantics'', where parallel-for loops and barriers are modelled as sequential-for loops and no-ops respectively under sequential semantics.
+Prototyping for how to extend Exo to safely support GPU accelerators (specifically what CUDA offers), including features like \lighttt{memcpy\_async} and wgmma, which I've argued are impossible to model using a fork/join approach while preserving maximum throughput. We will still be taking the approach of proving equivalence between ``sequential (single-threaded) semantics'' and ``parallel (multi-threaded) semantics'', where parallel-for loops and barriers are modelled as sequential-for loops and no-ops respectively under sequential semantics.
 
 \mySub{Goals}
 
@@ -31,10 +31,10 @@ Thread 1:         y = 10*x;
 \end{verbatim}
 }
 
-the \textit{Descend} borrow-checking model only requires proving that thread 1's read of \lighttt{x} does not overlap with either of thread 0's assignments to \lighttt{x}, and so \lighttt{y = 10*}$x_0$, \lighttt{y = 30}, and \lighttt{y = 50} are all possible outcomes depending on how the user synchronized the two threads. Wheras for Exo we will check that the user's synchronization will guarantee the single outcome that matches that given by the equivalent code under sequential semantics.
+the \textit{Descend} borrow-checking model only requires proving that thread 1's read of \lighttt{x} does not overlap with either of thread 0's assignments to \lighttt{x}, and so \lighttt{y = 10*}$x_0$, \lighttt{y = 30}, and \lighttt{y = 50} are all possible outcomes depending on how the user synchronized the two threads. Wheras for Exo we will check that the user's synchronization will guarantee the single outcome that matches that given by the equivalent code under single-threaded semantics.
 
 \filbreak
-\myKey{Ring Buffer:} We need to support ring buffer optimization under parallel semantics as well.
+\myKey{Ring Buffer:} We need to support ring buffer optimization under multi-threaded semantics as well.
 
 \filbreak
 \myKey{Array Race Analysis:} We may need a mechanism similar to the ``view'' concept in \textit{Descend} to make more complicated array access patterns tractible to analyze. i.e. we need to allow the user to prove that two threads' parallel writes to the same array won't cause a hazard by showing the access pattern leads to disjoint arary indices used for each thread.
@@ -91,8 +91,8 @@ For the most part there seem to be four categories of synchronization primitives
 
 \flagged{Question:} Unclear if \webText{cp.async.bulk.\textbf{tensor}}{https://docs.nvidia.com/cuda/parallel-thread-execution/\#data-movement-and-conversion-instructions-cp-async-bulk-tensor} methods include the implicit fence; the \webText{async proxy documentation}{https://docs.nvidia.com/cuda/parallel-thread-execution/\#async-proxy} states ``The completion of a \lighttt{cp\{.reduce\}.async.bulk} operation is followed by an implicit generic-async proxy fence.'' which I'm unsure if it intends to exclude the tensor variants.
 
-\filbreak
-\hook{Async Code Label:} We may need a mechanism to allow users to label certain Exo code and accelerator functions as async, and only allow async accelerator functions to be substituted for async code. Somehow distinguish labelling code as ``merely'' async, or as async and executing in the async proxy.
+%% \filbreak
+%% \hook{Async Code Label:} We may need a mechanism to allow users to label certain Exo code and accelerator functions as async, and only allow async accelerator functions to be substituted for async code. Somehow distinguish labelling code as ``merely'' async, or as async and executing in the async proxy.
 
 \filbreak
 \mySub{Asynchronous Memory Copy}
@@ -184,18 +184,9 @@ I'll start with an outline of the new language features and then move on to a pr
 The point of this for now is to try to frame our thinking and set up some vocabulary to further discuss the problem -- this is ``non-constructive'' in that I will have to learn more about formal program analysis and Exo's solver to figure out how to implement this.
 
 \filbreak
-The goal is to prove equivalence between synchronous semantics and asynchronous (parallel) semantics.
-I'll refer to them as ``S-semantics'' and ``A-semantics'' to avoid confusion with other uses of these words.
-Furthermore the prefix S- and A- will mean ``under synchronous semantics'' or ``under asynchronous semantics'' respectively, e.g., ``write X is S-prior to read Y means ``write X is prior to read Y under synchronous semantics''.
-
-% Parallel for i in cuda_clusters(lo, hi)
-% Execution model, for i in seq(lo, hi, model = ...)
-% Sequential Parnode: sequence of code w/ sequential execution model, same parscope, no synchronization statements.
-% Async Parnode: single statement w/ execution model other than sequential.
-% Parlane
-% Parview, par-superview, par-subview, par-
-% sync(), arrive(i, barrier, model = ), await(i, barrier)
-% Edges: defined by synchronization statements, and implicit conditional edges between sequential statements in the same lane.
+The goal is to prove equivalence between single-threaded semantics and multi-threaded semantics.
+I'll refer to them as ``S-semantics'' and ``M-semantics''.
+Furthermore the prefix S- and M- will mean ``under single-threaded semantics'' or ``under multi-threaded semantics'' respectively, e.g., ``write X is S-prior to read Y means ``write X is prior to read Y under single-threaded semantics''.
 
 \filbreak
 \mySub{Sketch of New Language Features}
@@ -240,6 +231,8 @@ Child for loops must not be parallel-for loops, and must not specify a different
 A parview consists of an array variable and a mapping function $f$ mapping array indices to parlane indices.
 If an array is accessed through a parview at index $i$, it is a promise that the access is being performed by the parlane with index $f(i)$.
 Simple patterns may be statically checked as in \textit{Descend}, but note it would not be too difficult to defer checking to runtime by compiling the given mapping function to an \lighttt{assert} statement.
+We probably need to extend this to handle asserting that reads and writes won't conflict ``temporally'' i.e. proving that different loop iterations only use disjoint subsets of some array.
+This would be needed for ring buffer optimization to work for deep pipelining.
 
 \hook{Hook:} Need to teach Exo to statically verify the promise, or pass through the mapping function to codegen in order to generate the assert.
 
@@ -272,7 +265,7 @@ This defines a dependency from the threads of the parlane executing the \lighttt
 I'm not sure this is really the right approach to take, but my gut feeling is it's best to expose a higher-level synchronization interface and compile to the appropriate CUDA synchronization primitive depending on the \lighttt{xmodel} (e.g. a ring buffer of \mbarrier).
 
 \filbreak
-\hook{Hook:} For the analysis and codegen to be feasible, I'm expecting language restrictions that make it possible to statically verify that for each split barrier constructed, we call at most one matching pair of \lighttt{arrive} and \lighttt{await} for each loop index, with the same arriving and awaiting parlane each time.
+\hook{Hook:} For the analysis and codegen to be feasible, I'm expecting language restrictions that make it possible to statically verify that for each split barrier constructed, we call at most one matching pair of \lighttt{arrive} and \lighttt{await} for each loop index, with the same parlane used for all arrives and the same parlane used for all awaits.
 
 \filbreak
 \myKey{GPU Register Variables:} The barrier lifting requirement will cause the bodies of for-cuda-blocks loops to be split into many for-cuda-threads (or for-cuda-warps) loops.
@@ -285,21 +278,60 @@ GPU register accesses are always considered to be using an implied parview with 
 \filbreak
 \mySub{Concepts}
 
-\myKey{Parscope:} 
+For illustration, imagine that the Exo program is being simulated sequentially by an ``S-machine'', which builds a graph of execution nodes (xnodes) and execution edges (xedges).
+Statements executed are grouped into xnodes, tagged with the parlane and xmodel used to execute them.
+The (directed) xedges connecting xnodes represent synchronization.
+We then analyze this graph to ensure the xedges generated are sufficient to ensure the same results had the program been simulated on an M-machine.
+
+The question is how to implement this with static formal program analysis i.e. without actually doing this simulation.
 
 \filbreak
-\myKey{Parlane:}
+\myKey{Parscope:} Each parscope is defined by its \textit{resources}, \textit{unit type}, \textit{shape}, and its parent parlane (except the top-level parscope, representing the main CPU thread, has no parent). Two parscopes are the same when all these values match. A parscope is created when executing parallel-for loops of the form
+
+{\color{lightttColor}
+\begin{verbatim}
+# The parlane that executes this loop is the parent parlane
+with cuda_{unit type}s(lo, hi):  # Optional resource specialization
+    # Partial parscope defined here (shape not yet defined)
+    for _ in cuda_{unit type}s(lo, hi):
+        # Invalid parscope (between dimensions)
+        for _ in cuda_{unit type}s(lo, hi):  # Optional multidimensional for loop
+            # The N-dimensional iteration space is the shape
+            # Here we say that we are in {unit type}-scope (e.g. block-scope)
+\end{verbatim}
+}
+
+Only control flow and synchronization statements may appear where the parscope is partially defined (synchronization operates over the subset of resources specified by the resource specialization)
+No code at all can appear where the parscope is invalid.
+The parscope contains one parlane of the given unit type for each point (index) in the shape.
+
+The resources of a parlane are a subset of its parent parlane (except for the case of a CPU thread launching a CUDA grid, where the resources are defined by the grid size); the resources are defined by the shape and the optional resource specialization.
+There must not be more parlanes than that supported by the available resources, but there may be fewer.
+
+\filbreak
+\myKey{Parlane:} A single unit of a parscope, which is assigned to execute one iteration of the parscope's defining parallel-for loop.
+Only parlanes with unit type cpu-thread or cuda-thread can execute ``ordinary'' arithmetic, read, or write instructions. 
+The expectation is that after scheduling, all code at cluster, block, warpgroup, or warp scope is either synchronization, control flow, or custom procedures.
+Two parlanes are equal when they come from the same parscope and correspond to the same index.
 
 \filbreak
 \myKey{Execution Model (xmodel):} %% sequential, non_bulk_cp_async, tma_to_shared, tma_to_global, wgmma
-
+The xmodel is an attribute of each memory read or write performed, as defined by the async-loop construct.
+We need the following xmodels; all models other than \lighttt{sequential} are async xmodels:
+\begin{enumerate}
+  \item \lighttt{sequential} (default)
+  \item \lighttt{non\_bulk\_cp\_async} (Ampere non-bulk async copies)
+  \item \lighttt{tma\_to\_shared} (Hopper bulk async copies to shared memory; mbarrier synchronization)
+  \item \lighttt{tma\_to\_global} (Hopper bulk async copies to global memory; async-group synchronization)
+  \item \lighttt{wgmma}
+\end{enumerate}
 
 \filbreak
 \myKey{Race Eligibility:} In the context of analyzing a write operation, a read operation or another write operation is considered to be \textit{race-ineligible} if any of the following:
 
 \begin{enumerate}
   \item The operations are not using the same variable.
-  \item The operations are done using the same parview, and are performed by two different parlanes from the same parscope.
+  \item The operations are done using the same parview, and are performed by parlanes from the same parscope; if either xmodel is not sequential, the two parlanes must be distinct.
   \item (Future work) The two operations are both atomic operations of the same type (e.g. both \lighttt{atomicAdd}), and the return value of the atomic is not used.
 \end{enumerate}
 
@@ -307,79 +339,65 @@ If none of these apply, the operation in question is \textit{race-eligible}.
 
 \filbreak
 \myKey{Execution Node (xnode):}
+Vertices of the graph being built for analysis.
+The S-machine records reads and writes performed as xnodes, with each xnode tracking the access set (reads and writes), the parlane used, and the xmodel used.
+
+When simulating code under the sequential xmodel, the S-machine may group the effects of a block of sequential statements into one xnode, as long as the executing parlane has not changed and no synchronization statement occurs in the block. When simulating code under an async xmodel, each statement must become its own xnode.
+
+Note that there is a total ordering of the xnodes under S-semantics.
 
 \filbreak
-\myKey{Execution Edge (xedge):}
+\myKey{Access Sets:} Each xnode has a write set and a read set, tracking which variables were written to / read from, and optionally the parview used.
+Note array indices are not tracked.
+
+\hook{Hook:} Building these access sets will require some non-trivial introspection.
+The lack of index information should greatly simplify this.
 
 \filbreak
-\myKey{Execution Edge Admissibility (xedge-admissible):}
+\myKey{Execution Edge (xedge):} Directed edge connecting two xnodes.
+The S-machine generates explicit xedges between xnodes related by a synchronization operation.
+The S-machine generates implicit xedges between xnodes that are executed sequentially by the same parlane.
+To model all the async proxy complexity, we will have to store a \textit{lot} of info for each xedge, but at a minimum, each explicit xedge records the xmodel used for the arrive operation and the await operation (implicitly \lighttt{sequential} for \lighttt{barrier}, and implicitly \lighttt{sequential}-arrive, \lighttt{wgmma}-await for \lighttt{wgmma\_fence}).
+
+\filbreak
+\myKey{Execution Edge Admissibility:} Not all synchronization points can be used to handle all dependencies.
+A pair of writes, or a read and a write, are \textit{admissible} to an xedge if the underlying synchronization primitive is documented to protect the kind of memory operation done. For example, only non-async instructions' reads and writes are admissible to the xedges defined by a \lighttt{\_\_syncthreads}.
+
+\filbreak
+The most important restriction for an explicit xedge is that the xmodel used for the prior memory operation and the xmodel used for the subsequent memory operation must match, respectively, the xmodel used for the arrive and await (exceptions: Ampere non-bulk async copies can be protected by an \textit{await} operation with sequential xmodel; \lighttt{wgmma.fence} handles both \lighttt{sequential} and \lighttt{wgmma} xmodels for the implied arrive).
+
+\filbreak
+Implicit xedges (defined between subsequent xnodes executed with the same parlane) admit only reads and writes with the \lighttt{sequential} xmodel, except for the special ``same matrix format'' exception for \lighttt{wgmma} accumulators.
+
+\filbreak
+An xedge may further restrict the types of memory types for admissible memory operations, e.g., the xedges defined by the \lighttt{wgmma.fence} further restrict admissibility to register reads and writes.
 
 \filbreak
 \mySub{Safety Checking}
 
-%% These must be strictly nested (skipping levels is OK), with the exception of allowing immediately nested parallel-for statements of the same type.
-%% These may be used to define a multidimensional domain. The \lighttt{warps} argument on the outermost for-cuda-blocks loop defines the size of the thread block; similarly for \lighttt{blocks} and for-cuda-clusters.
-%% Each for-cuda-warpgroups or for-cuda-warps loop implicitly distributes the N-dimensional work over all available warpgroups/warps, unless restricted by a \lighttt{specialize} argument.
-%% Probably for-cuda-threads loops should be required to define an iteration count only up to the number of threads available.
+The hypothetical model I'm imagining is that we simulate an S-machine that executes the program under S-semantics, constructing the graph of xnodes and xedges. Then, for each xnode $n_1$, and for each write $w_1$ recorded (variable-parview tuple) in the \textbf{write set} of the xnode
+\begin{enumerate}
+  \item Search backwards in S-order for the previous xnode $n_0$ that has a race-eligible write $w_0$.
+  \item Check that there exists a directed path of xedges from $n_0$ to $n_1$ that admit the pair of writes $(w_0, w_1)$ (WAW hazard check).
+  \item For each xnode $n_2$ in between $n_0$ and $n_1$ in S-order, if the read set of $n_2$ contains a race-eligible read,
+  \begin{enumerate}
+    \item Check that there exists a directed path of xedges from $n_0$ to $n_2$ that admit the write/read pair $(w_0, r)$ (RAW hazard check).
+    \item Check that there exists a directed path of xedges from $n_2$ to $n_1$ that admit the read/write pair $(r, w_1)$ (WAR hazard check).
+  \end{enumerate}
+\end{enumerate}
+Finally, we check that there exist no xedge cycles (deadlock freedom).
 
-%% {\color{lightttColor}
-%% \begin{verbatim}
-%% # Dispatch a grid of size (16, 4, 1), each block has 8*32 = 256 threads
-%% for yb in cuda_blocks(0, 4, warps = 8):
-%%     for xb in cuda_blocks(0, 16):
+\filbreak
+\mySub{Unanswered Questions}
 
-%%         # At this point in the code, the parscope [defined later] is the entire grid.
-%%         # One parlane = one block
+Primarily, I need to learn about formal program verification and figure out how to compile this simulation-based safety model into something that is statically verifiable.
 
-%%         for w in cuda_warps(0, 4, specialize = (0,4)):
-%%             # This code only runs on warps 0, 1, 2, 3 i.e. those warps are the parscope
-%%             for ty in cuda_threads(0, 4):
-%%                 for tx in cuda_threads(0, 8):
-%%                     # 4*8 = 32 iterations, matching 32 threads per warp
-%%                     # At this point in the grid, the parscope is one warp.
-%%                     # One parlane = one thread
-
-%%         for w in cuda_warps(0, 32, specialize = (4,8)):
-%%             # This code only runs on warps 4, 5, 6, 8
-%%             # with each warp executing 8 = 32/4 iterations
-
-%%         sync()  # __syncthreads(); discussed later
-
-%%         for w in cuda_warps(0, 16):
-%%             # This code runs on all 8 warps, with each warp executing 2 = 16/8 iterations
-%%             sync()  # warp sync; discussed later
-
-%% # Outside these loops, the parscope is 1 CPU thread
-
-%% \end{verbatim}
-%% }
-
-%% \filbreak
-%% Each level of the parallel-for loop hierarchy creates a new parscope (``parallelization scope'') comprising the execution units that cooperate to execute the full loop (nested parallel-for loops of the same type together define one parscope).
-%% Each iteration of a parallel-for loop is a parlane (``parallelization lane'').
-%% The parscope of a loop is always a subset (not necessarily proper subset) of the containing loop's parlane.
-
-%% \myKey{Model-for:} Allow an optional ``model'' keyword argument in ``\lighttt{for \_ in seq(lo, hi, model=sequential)}'' (sequential is the default).
-%% This flags the statements within the for loop as operating with a different ``execution model'', which is my proposed mechanism for flagging statements as substitutable with asynchronous accelerators. Within the definition of the accelerator, \lighttt{seq} loops must also be annotated with the correct execution model. All nested for loops within a model-for loops are implied to have the same \lighttt{model} parameter; there must not be nested parallel-for loops or model-for loops with a different model.
-
-%% \myKey{Synchronization Statements:} The simplest statement is \lighttt{sync} which defines an all-to-all sync between all threads within one parlane. The previous example shows a \lighttt{\_\_syncthreads} and warp sync
-
-%% \myKey{Parview:} (``Parallelization View'')
-
-%% \filbreak
-%% \myKey{Vocabulary}
-
-%% \myKey{Execution Model:}
-
-%% \myKey{Parscope:} (``Parallelization Scope'')
-
-%% \myKey{Parlane:} (``Parallelization Lane'')
-
-%% \myKey{Sequential Parnode:} (``Sequential Parallelization Node'')
-
-%% \myKey{Async Parnode:} (``Asynchronous Parallelization Node'')
-
-%% \filbreak
-%% \mySub{Analysis}
+Further unanswered questions:
+\begin{enumerate}
+  \item Compiling \lighttt{arrive} and \lighttt{await} statements into real CUDA synchronization constructs.
+    In particular, there's the difficulty of proving 1:1 correspondence between arrive and await operations.
+    Need to analyze the loop iteration space.
+  \item Extensions to the parview concept needed to express common safe patterns such as deep pipelining and ring-buffer optimization (statically partitioning an array into disjoint subsets that are uniquely assigned to loop iterations, rather than uniquely assigned to parlanes).
+\end{enumerate}
 
 \end{document}
