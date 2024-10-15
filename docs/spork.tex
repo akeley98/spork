@@ -62,7 +62,9 @@ The primary point of this is to take a census of the synchronization patterns we
 \filbreak
 \mySub{Synchronization Summary}
 
-CUDA has two different notions of ``async'': asynchronous instructions (simple enough), and the more complicated \webText{async proxy}{https://docs.nvidia.com/cuda/archive/12.3.2/parallel-thread-execution/index.html\#proxies}. An instruction being async implies control continues to the next instruction without waiting for completion. If an async instruction further documents that it operates on the async proxy, the user (in addition to synchronizing execution order) must further include \fenceProxyAsync\ (and also maybe \webText{wgmma.fence}{https://docs.nvidia.com/cuda/parallel-thread-execution/\#asynchronous-warpgroup-level-matrix-instructions-wgmma-fence}) to ensure visibility between the async proxy and the ``generic proxy'', which is what most CUDA instructions operate on. Note in the case of mbarrier that this includes observing the barrier itself: ``To make the initialized barrier visible to subsequent bulk-asynchronous copies, the fence.proxy.async.shared::cta instruction is used. This instruction ensures that subsequent bulk-asynchronous copy operations operate on the initialized barrier'' (\webText{source}{https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html\#tensor-memory-access}).
+CUDA has two different notions of ``async'': asynchronous instructions (simple enough), and the more complicated \webText{async proxy}{https://docs.nvidia.com/cuda/archive/12.3.2/parallel-thread-execution/index.html\#proxies}. An instruction being async implies control continues to the next instruction without waiting for completion. If an async instruction further documents that it operates on the async proxy, the user (in addition to synchronizing execution order) must further include \fenceProxyAsync\ (and also maybe \webText{wgmma.fence}{https://docs.nvidia.com/cuda/parallel-thread-execution/\#asynchronous-warpgroup-level-matrix-instructions-wgmma-fence}) to ensure visibility between the async proxy and the ``generic proxy'', which is what most CUDA instructions operate on. Essentially, this is exporting the responsibility for memory coherence to the user.
+
+Note in the case of mbarrier that this incoherence includes observing the mbarrier object (in shared memory) itself: ``To make the initialized barrier visible to subsequent bulk-asynchronous copies, the fence.proxy.async.shared::cta instruction is used. This instruction ensures that subsequent bulk-asynchronous copy operations operate on the initialized barrier'' (\webText{source}{https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html\#tensor-memory-access}).
 
 \filbreak
 Of the new instructions we want to model,
@@ -81,13 +83,22 @@ For the most part there seem to be four categories of synchronization primitives
 \myKey{All-to-all:} Like \lighttt{\_\_syncthreads} and cooperative group syncs; useful in the common case but these do nothing for asynchronous instructions.
 
 \filbreak
-\myKey{mbarrier:} Split barrier where consumer threads wait for a certain number of producer threads to arrive. This may be used to synchronize ordinary non-async instructions, synchronize non-bulk \cpAsync\ (Ampere), and to synchronize a supported subset of Hopper \cpAsyncBulk\ (TMA) instructions. The \mbarrier\ must be constructed in shared memory.
+\myKey{mbarrier:} Split barrier where consumer threads wait for a certain number of producer threads to arrive.
+This may be used to synchronize ordinary non-async instructions, synchronize non-bulk \cpAsync\ (Ampere), and to Hopper \cpAsyncBulk\ (TMA) instructions that copy to shared memory.
+The \mbarrier\ must be constructed in shared memory.
+The \mbarrier\ can only be used to wait for the current (incomplete) set of arrives or the immediately prior complete set of arrives; thus, a ring-buffer of \mbarrier\ objects would be needed to implement pipelining.
 
 \filbreak
-\myKey{Async-group:} Supported with separate instructions for \webText{non-bulk async copy}{https://docs.nvidia.com/cuda/parallel-thread-execution/\#data-movement-and-conversion-instructions-asynchronous-copy-completion-mechanisms}, some bulk async copies, and for \webText{wgmma}{https://docs.nvidia.com/cuda/parallel-thread-execution/\#asynchronous-warpgroup-level-matrix-instructions-wgmma-commit-group}. These don't require constructing state like mbarrier. Each wgmma or async copy instruction is initially uncommitted, and is commited to a new async-group with a commit\_group instruction. You may then wait for the Nth previous async-group of the same thread to finish with a wait\_group instruction. This may implement deep pipelining but \flagged{cannot be used} to implement separate producer/consumer threads.
+\myKey{Async-group:} Supported with separate instructions for \webText{non-bulk async copy}{https://docs.nvidia.com/cuda/parallel-thread-execution/\#data-movement-and-conversion-instructions-asynchronous-copy-completion-mechanisms}, bulk async copies to global memory, and for \webText{wgmma}{https://docs.nvidia.com/cuda/parallel-thread-execution/\#asynchronous-warpgroup-level-matrix-instructions-wgmma-commit-group}.
+These don't require constructing state like mbarrier.
+Each wgmma or async copy instruction is initially uncommitted, and is commited to a new async-group with a commit\_group instruction.
+You may then wait for the Nth previous async-group of the same thread to finish with a wait\_group instruction.
+This may implement deep pipelining but \flagged{cannot be used} to implement separate producer/consumer threads.
 
 \filbreak
-\myKey{Fences:} The previous primitives only synchronize execution order, and as mentioned, for the async proxy, a fence is needed in addition to this to ensure visibility. wgmma and bulk copy instructions include an implicit fence afterwards, so only execution order synchronization is needed to see the outputs; the reverse is not true (i.e. generic proxy code generating inputs for async proxy instructions requires a fence).
+\myKey{Fences:} The previous primitives only synchronize execution order, and as mentioned, for the async proxy, a fence is needed in addition to this to ensure visibility.
+wgmma and bulk copy instructions include an implicit fence afterwards, so only execution order synchronization is needed to see the outputs; the reverse is not true (i.e. generic proxy code generating inputs for async proxy instructions requires a fence).
+wgmma also requires fences for \textit{registers}, to be described in the dedicated wgmma subsection.
 
 \flagged{Question:} Unclear if \webText{cp.async.bulk.\textbf{tensor}}{https://docs.nvidia.com/cuda/parallel-thread-execution/\#data-movement-and-conversion-instructions-cp-async-bulk-tensor} methods include the implicit fence; the \webText{async proxy documentation}{https://docs.nvidia.com/cuda/parallel-thread-execution/\#async-proxy} states ``The completion of a \lighttt{cp\{.reduce\}.async.bulk} operation is followed by an implicit generic-async proxy fence.'' which I'm unsure if it intends to exclude the tensor variants.
 
@@ -102,10 +113,15 @@ According to William, it's best to use inline PTX instead of the CUDA C++ \light
 \filbreak
 \myKey{Ampere / Non-bulk:} We use the \cpAsync\ instruction to issue a single asynchronous copy of 4, 8, or 16 aligned bytes from global memory to shared memory. This is the only source+destination memory type supported. Presumably the CUDA C++ async copy functions for Ampere are implemented by \flagged{distributing the copy over the participating threads}.
 
-All cp.async instructions issued are not implicitly ordered with each other, not even in the same thread, so write-after-write hazards are possible if two cp.async instructions share the same destination address. Since these don't operate on the async proxy, we do need synchronization after the \cpAsync\ instruction, but synchronization isn't needed for \cpAsync\ to see global memory writes issued earlier in program order, as they run in the generic proxy and ``asynchronous operations are ordered after prior instructions in the same thread'' (\webText{Asynchronous Operations}{https://docs.nvidia.com/cuda/parallel-thread-execution/\#program-order-async-operations}).
+All cp.async instructions issued are not implicitly ordered with each other, not even in the same thread, so write-after-write hazards are possible if two cp.async instructions share the same destination address. Since these operate on the generic proxy, we still do need synchronization after the \cpAsync\ instruction, but synchronization isn't needed for \cpAsync\ to see global memory writes issued by non-async instructions earlier in program order, as they also run in the generic proxy and ``asynchronous operations are ordered after prior instructions in the same thread'' (\webText{Asynchronous Operations}{https://docs.nvidia.com/cuda/parallel-thread-execution/\#program-order-async-operations}).
 
 \filbreak
 \myKey{Hopper TMA / Bulk:} \cpAsyncBulk\ instructions allow you to instead specify a range of 16-byte-aligned memory to copy, and supports these src/dst memory types: global to cluster-shared, cluster-shared to CTA-shared, and CTA-shared to global. The memory types determine whether commit\_group or mbarrier must be used (completion mechanism). Unlike non-bulk async copy, the expected usage is to nominate just one thread to issue the instruction: ``...the TMA programming model is single-threaded, where a single thread in a warp is elected to issue an asynchronous TMA operation'' (\hopperBlog). As a reminder, this operates on the async proxy.
+
+\filbreak
+Copies \textit{to} global memory allow for an optional \lighttt{.reduce} op parameter (e.g. add, max, bitwise or).
+If supplied, instead of each input \lighttt{src[i]} overwriting \lighttt{dst[i]}, we instead execute a parallel component-wise reduction \lighttt{dst[i] = reduceOp(dst[i], src[i])}.
+I suspect this is used to implement some form of near-data processing.
 
 \filbreak
 TODO Look into tensor copy versions of these instructions, which seem really complicated.
@@ -115,7 +131,7 @@ TODO Look into tensor copy versions of these instructions, which seem really com
 \filbreak
 \myKey{commit\_group:} The commit\_group mechanism has a per-thread scope for bulk and non-bulk async copies. So it's rather unclear to me how this mechanism is useful in the common case where we cache stuff in shared memory for all the threads to read from. (Contrast with wgmma async-groups, which have per-warpgroup scope). I'll discuss the more complicated mbarrier in the next section.
 
-TODO Investigate how this is implemented: ``a single thread in a warp is elected to issue an asynchronous TMA operation ... multiple threads can wait on a cuda::barrier for completion of the data transfer'' (\hopperBlog).
+Fortunately, non-bulk \cpAsync\ allows for \mbarrier\ as an alternative, and for TMA, the common case of copying \textit{to} shared memory is also handled by \mbarrier\ (copying from shared to global requires commit\_group).
 
 \filbreak
 \mySub{mbarrier}
@@ -132,7 +148,10 @@ Instructions performed in the \textit{generic proxy} following the await operati
 
 The ``one thread'' condition for advancing the phase complicates implementing multiple threads waiting on an mbarrier. The mechanism for \webText{this sort of  wait}{https://docs.nvidia.com/cuda/parallel-thread-execution/\#parallel-synchronization-and-communication-instructions-mbarrier-test-wait-try-wait} is either to pass the \lighttt{state} operand (from mbarrier.arrive) or specify the parity of the phase to wait for with the \lighttt{phaseParity} operand; either way, this allows the wait instruction to know whether to immediately return due to the previous phase being complete, or block waiting for the current phase.
 
-It's required that no ``arrive'' operation for phase $n+1$ occurs until an ``await'' operation for phase $n$ is successful. This requirement is easily met for self-synchronizing $n$-many threads (with useful work possible between the alternating arrives and waits), but is harder if implementing a producer/consumer threads model. It's also not allowed to wait for phase $n-2$ or older (in constrast to async-group).
+It's required that no ``arrive'' operation for phase $n+1$ occurs until an ``await'' operation for phase $n$ is successful.
+This requirement is easily met for self-synchronizing $n$-many threads (with useful work possible between the alternating arrives and waits), but is harder if implementing a producer/consumer threads model.
+It's also not allowed to wait for phase $n-2$ or older (in constrast to async-group).
+Hence my comment about ring-buffers of mbarriers.
 
 \filbreak
 \myKey{Non-bulk Async Copy mbarrier:} The \webText{cp.async.mbarrier.arrive}{https://docs.nvidia.com/cuda/archive/12.3.2/parallel-thread-execution/index.html\#parallel-synchronization-and-communication-instructions-cp-async-mbarrier-arrive} instruction takes the place of mbarrier.arrive in the above description, causing the awaiting threads to observe changes performed by non-bulk \cpAsync\ instructions issued by the arriving threads, \textit{instead} of changes by non-async instructions issued.
@@ -162,10 +181,12 @@ As mentioned, the execution order is handled by the fairly straightforward pipel
 \filbreak
 It's another story though for fencing the inputs, with separate mechanisms for shared memory and for matrix fragment registers.
 
-\myKey{Shared Memory Fence:} The \webText{fence.proxy.async}{https://docs.nvidia.com/cuda/parallel-thread-execution/\#asynchronous-warpgroup-level-matrix-async-proxy} instruction must be used to make prior writes in the generic proxy to shared memory visible to subsequent wgmma.mma\_async instructions issued by the same warpgroup. Supposedly this is not needed for inputs loaded by bulk async copy (TMA) according to \webText{this source}{https://research.colfax-intl.com/cutlass-tutorial-wgmma-hopper/}, as TMA also operates in the async proxy: ``Since we use TMA load, we don’t need fence.proxy.async in our example, and indeed it doesn’t appear in the WGMMA tutorial code or in the mainloop of CUTLASS Hopper GEMM kernels''. However, it appears in this case that \flagged{we still need to synchronize the execution order between bulk async copies and wgmma operations} ... only the memory visibility given by fence.proxy.async is not needed in this case.
+\myKey{Shared Memory Fence:} The \webText{fence.proxy.async}{https://docs.nvidia.com/cuda/parallel-thread-execution/\#asynchronous-warpgroup-level-matrix-async-proxy} instruction must be used to make prior shared memory writes in the generic proxy to visible to subsequent wgmma.mma\_async instructions issued by the same warpgroup.
+Supposedly this is not needed for inputs loaded by bulk async copy (TMA) according to \webText{this source}{https://research.colfax-intl.com/cutlass-tutorial-wgmma-hopper/}, as TMA also operates in the async proxy: ``Since we use TMA load, we don’t need fence.proxy.async in our example, and indeed it doesn’t appear in the WGMMA tutorial code or in the mainloop of CUTLASS Hopper GEMM kernels''.
+However, it appears in this case that \flagged{we still need to synchronize the execution order between bulk async copies and wgmma operations} ... only the memory visibility given by fence.proxy.async is not needed in this case.
 
 \filbreak
-\myKey{Register Fence:} The confusingly-similar-sounding \webText{wgmma.fence}{https://docs.nvidia.com/cuda/parallel-thread-execution/\#asynchronous-warpgroup-level-matrix-instructions-wgmma-fence} instruction must be issued before the first wgmma.mma\_async instruction, and issued whenever we must make prior register writes to $A$ and $D$ visible to a subsequent wgmma.mma\_async instruction. This includes between two wgmma.mma\_async instructions, with the \textbf{notable, common exception} of two wgmma.mma\_async instructions using the same registers for the accumulator $D$ where $D$ is using the same matrix fragment format. After the wgmma.mma\_async instruction is issued and prior to its completion, the registers holding $A$ and/or $D$ may be read or modified asynchronously.
+\myKey{Register Fence:} The confusingly-similar-sounding \webText{wgmma.fence}{https://docs.nvidia.com/cuda/parallel-thread-execution/\#asynchronous-warpgroup-level-matrix-instructions-wgmma-fence} instruction must be issued before the first wgmma.mma\_async instruction, and issued whenever we must make prior register writes to $A$ and $D$ visible to a subsequent wgmma.mma\_async instruction. This includes between two wgmma.mma\_async instructions, with the \textbf{notable, common exception} of two wgmma.mma\_async instructions using the same registers for the accumulator $D$ where $D$ is using the same matrix fragment format. After the wgmma.mma\_async instruction is issued and prior to its completion, the registers holding $A$ and/or $D$ can be read or modified asynchronously by the wgmma hardware.
 
 \filbreak
 In both cases, I don't see it explicitly stated, but it appears based on Nvidia's expected usage pattern that the wgmma.mma\_async instruction following either kind of fence \flagged{observes changes made by all four warps of the warpgroup} issuing the wgmma.mma\_async instruction, so there is some sort of weak execution order guarantee as well.
@@ -217,7 +238,7 @@ Something like \lighttt{with cuda\_warps(lo, hi):} may work.
 \filbreak
 \myKey{Async-for:} The \lighttt{for \_ in seq(lo, hi, xmodel=...)} construct will have a new optional \lighttt{xmodel} (execution model) parameter.
 The default xmodel is sequential; all others are asynchronous xmodels.
-If an async xmodel is given, then child statements are consider to execute with an asynchronous xmodel, marking them as eligible for replacement with asynchronous CUDA constructs.
+If an async xmodel is given, then child statements are considered to execute with an asynchronous xmodel, marking them as eligible for replacement with asynchronous CUDA constructs.
 The for loop and all child for loops are considered async-for loops in this case.
 Child for loops must not be parallel-for loops, and must not specify a different xmodel.
 
@@ -230,8 +251,9 @@ Child for loops must not be parallel-for loops, and must not specify a different
 \myKey{Parallel View (parview):} Borrowing a concept from \textit{Descend}.
 A parview consists of an array variable and a mapping function $f$ mapping array indices to parlane indices.
 If an array is accessed through a parview at index $i$, it is a promise that the access is being performed by the parlane with index $f(i)$.
-Simple patterns may be statically checked as in \textit{Descend}, but note it would not be too difficult to defer checking to runtime by compiling the given mapping function to an \lighttt{assert} statement.
-We probably need to extend this to handle asserting that reads and writes won't conflict ``temporally'' i.e. proving that different loop iterations only use disjoint subsets of some array.
+Simple patterns (e.g. striping) may be statically checked as in \textit{Descend}, but note it would not be too difficult to defer checking to runtime by compiling the given mapping function to an \lighttt{assert} statement.
+
+I haven't figured this out yet, but we probably need to extend this to handle asserting that reads and writes won't conflict ``temporally'' i.e. proving that different loop iterations only use disjoint subsets of some array.
 This would be needed for ring buffer optimization to work for deep pipelining.
 
 \hook{Hook:} Need to teach Exo to statically verify the promise, or pass through the mapping function to codegen in order to generate the assert.
@@ -301,7 +323,7 @@ with cuda_{unit type}s(lo, hi):  # Optional resource specialization
 \end{verbatim}
 }
 
-Only control flow and synchronization statements may appear where the parscope is partially defined (synchronization operates over the subset of resources specified by the resource specialization)
+Only control flow and synchronization statements may appear where the parscope is partially defined (synchronization operates over the subset of resources specified by the resource specialization).
 No code at all can appear where the parscope is invalid.
 The parscope contains one parlane of the given unit type for each point (index) in the shape.
 
@@ -364,7 +386,7 @@ To model all the async proxy complexity, we will have to store a \textit{lot} of
 A pair of writes, or a read and a write, are \textit{admissible} to an xedge if the underlying synchronization primitive is documented to protect the kind of memory operation done. For example, only non-async instructions' reads and writes are admissible to the xedges defined by a \lighttt{\_\_syncthreads}.
 
 \filbreak
-The most important restriction for an explicit xedge is that the xmodel used for the prior memory operation and the xmodel used for the subsequent memory operation must match, respectively, the xmodel used for the arrive and await (exceptions: Ampere non-bulk async copies can be protected by an \textit{await} operation with sequential xmodel; \lighttt{wgmma.fence} handles both \lighttt{sequential} and \lighttt{wgmma} xmodels for the implied arrive).
+The most important restriction for an explicit xedge is that the xmodel used for the prior memory operation and the xmodel used for the subsequent memory operation must match, respectively, the xmodel used for the arrive and await (exceptions: Ampere non-bulk async copies can be protected by an \textit{await} operation with \lighttt{sequential} xmodel; \lighttt{wgmma.fence} handles both \lighttt{sequential} and \lighttt{wgmma} xmodels for the implied arrive).
 
 \filbreak
 Implicit xedges (defined between subsequent xnodes executed with the same parlane) admit only reads and writes with the \lighttt{sequential} xmodel, except for the special ``same matrix format'' exception for \lighttt{wgmma} accumulators.
@@ -375,7 +397,7 @@ An xedge may further restrict the types of memory types for admissible memory op
 \filbreak
 \mySub{Safety Checking}
 
-The hypothetical model I'm imagining is that we simulate an S-machine that executes the program under S-semantics, constructing the graph of xnodes and xedges. Then, for each xnode $n_1$, and for each write $w_1$ recorded (variable-parview tuple) in the \textbf{write set} of the xnode
+The hypothetical model I'm imagining is that we simulate an S-machine that executes the program under S-semantics, constructing the graph of xnodes and xedges. Then, for each xnode $n_1$, and for each write $w_1$ recorded (variable-parview tuple) in the \textbf{write set} of the xnode $n_1$:
 \begin{enumerate}
   \item Search backwards in S-order for the previous xnode $n_0$ that has a race-eligible write $w_0$.
   \item Check that there exists a directed path of xedges from $n_0$ to $n_1$ that admit the pair of writes $(w_0, w_1)$ (WAW hazard check).
@@ -385,6 +407,8 @@ The hypothetical model I'm imagining is that we simulate an S-machine that execu
     \item Check that there exists a directed path of xedges from $n_2$ to $n_1$ that admit the read/write pair $(r, w_1)$ (WAR hazard check).
   \end{enumerate}
 \end{enumerate}
+This ensures that the program is both race free and that each read executed under M-semantics matches what would have been read in the equivalent program under S-semantics.
+
 Finally, we check that there exist no xedge cycles (deadlock freedom).
 
 \filbreak
@@ -398,6 +422,7 @@ Further unanswered questions:
     In particular, there's the difficulty of proving 1:1 correspondence between arrive and await operations.
     Need to analyze the loop iteration space.
   \item Extensions to the parview concept needed to express common safe patterns such as deep pipelining and ring-buffer optimization (statically partitioning an array into disjoint subsets that are uniquely assigned to loop iterations, rather than uniquely assigned to parlanes).
+  \item Modeling sparse tensor operations. (Probably this won't happen as this would require data-dependent indexing which is outside the scope of the kind of changes the spork project should do).
 \end{enumerate}
 
 \end{document}
