@@ -349,7 +349,7 @@ We need the following xmodels; all models other than \lighttt{sequential} are as
 \end{enumerate}
 
 \filbreak
-\myKey{Race Eligibility:} In the context of analyzing a write operation, a read operation or another write operation is considered to be \textit{race-ineligible} if any of the following:
+\myKey{Hazard Eligibility:} In the context of analyzing a write operation, a read operation or another write operation is considered to be \textit{hazard-ineligible} if any of the following:
 
 \begin{enumerate}
   \item The operations are not using the same variable.
@@ -357,7 +357,7 @@ We need the following xmodels; all models other than \lighttt{sequential} are as
   \item (Future work) The two operations are both atomic operations of the same type (e.g. both \lighttt{atomicAdd}), and the return value of the atomic is not used.
 \end{enumerate}
 
-If none of these apply, the operation in question is \textit{race-eligible}.
+If none of these apply, the operation in question is \textit{hazard-eligible}.
 
 \filbreak
 \myKey{Execution Node (xnode):}
@@ -399,9 +399,9 @@ An xedge may further restrict the types of memory types for admissible memory op
 
 The hypothetical model I'm imagining is that we simulate an S-machine that executes the program under S-semantics, constructing the graph of xnodes and xedges. Then, for each xnode $n_1$, and for each write $w_1$ recorded (variable-parview tuple) in the \textbf{write set} of the xnode $n_1$:
 \begin{enumerate}
-  \item Search backwards in S-order for the previous xnode $n_0$ that has a race-eligible write $w_0$.
+  \item Search backwards in S-order for the previous xnode $n_0$ that has a hazard-eligible write $w_0$.
   \item Check that there exists a directed path of xedges from $n_0$ to $n_1$ that admit the pair of writes $(w_0, w_1)$ (WAW hazard check).
-  \item For each xnode $n_2$ in between $n_0$ and $n_1$ in S-order, if the read set of $n_2$ contains a race-eligible read,
+  \item For each xnode $n_2$ in between $n_0$ and $n_1$ in S-order, if the read set of $n_2$ contains a hazard-eligible read,
   \begin{enumerate}
     \item Check that there exists a directed path of xedges from $n_0$ to $n_2$ that admit the write/read pair $(w_0, r)$ (RAW hazard check).
     \item Check that there exists a directed path of xedges from $n_2$ to $n_1$ that admit the read/write pair $(r, w_1)$ (WAR hazard check).
