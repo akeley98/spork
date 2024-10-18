@@ -102,9 +102,6 @@ wgmma also requires fences for \textit{registers}, to be described in the dedica
 
 \flagged{Question:} Unclear if \webText{cp.async.bulk.\textbf{tensor}}{https://docs.nvidia.com/cuda/parallel-thread-execution/\#data-movement-and-conversion-instructions-cp-async-bulk-tensor} methods include the implicit fence; the \webText{async proxy documentation}{https://docs.nvidia.com/cuda/parallel-thread-execution/\#async-proxy} states ``The completion of a \lighttt{cp\{.reduce\}.async.bulk} operation is followed by an implicit generic-async proxy fence.'' which I'm unsure if it intends to exclude the tensor variants.
 
-%% \filbreak
-%% \hook{Async Code Label:} We may need a mechanism to allow users to label certain Exo code and accelerator functions as async, and only allow async accelerator functions to be substituted for async code. Somehow distinguish labelling code as ``merely'' async, or as async and executing in the async proxy.
-
 \filbreak
 \mySub{Asynchronous Memory Copy}
 
@@ -230,6 +227,7 @@ Different levels of the hiererchy need to be strictly nested, except that as a c
 Skipping the cluster, warpgroup, or warp level is acceptable.
 Each level of parallel-for defines a new ``parscope'' (parallelization scope), with each iteration executed by its own ``parlane'' (parallelization lane); both will be detailed in the concepts section.
 Each parlane is indexed by the parallel-for loop index and comprises all the GPU threads of the loop level's GPU unit (e.g. each parlane of a \lighttt{cuda\_warps} loop consists of 32 threads).
+The iteration variable of a parallel-for loop is a \textbf{spatial loop index} (is there conventional vocabulary for this?)
 
 \filbreak
 We also need a mechanism for specializing warps, i.e. specifying that a \lighttt{for \_ in cuda\_warps} statement is parallelized over only a subset of warps.
@@ -241,11 +239,15 @@ The default xmodel is sequential; all others are asynchronous xmodels.
 If an async xmodel is given, then child statements are considered to execute with an asynchronous xmodel, marking them as eligible for replacement with asynchronous CUDA constructs.
 The for loop and all child for loops are considered async-for loops in this case.
 Child for loops must not be parallel-for loops, and must not specify a different xmodel.
+The iteration variable is an \textbf{async-temporal loop index}.
 
 \filbreak
 \myKey{Sequential-for:} for loops other than as described above are sequential-for loops.
+The iteration variable is a \textbf{sync-temporal loop index}.
 
 \hook{Hook:} Need to teach Exo that parallel-for and async-for loops are to be treated as ordinary for loops under S-semantics.
+If it would make the implementation easier, maybe modify the parallel-for construct to extend the \lighttt{for \_ in seq(\_, \_):\_} syntax with a parallelization argument.
+Also the \lighttt{with cuda\_*(...):} construct would need a new LoopIR node, and be like \lighttt{if True:} under S-semantics.
 
 \filbreak
 \myKey{Parallel View (parview):} Borrowing a concept from \textit{Descend}.
@@ -288,6 +290,7 @@ I'm not sure this is really the right approach to take, but my gut feeling is it
 
 \filbreak
 \hook{Hook:} For the analysis and codegen to be feasible, I'm expecting language restrictions that make it possible to statically verify that for each split barrier constructed, we call at most one matching pair of \lighttt{arrive} and \lighttt{await} for each loop index, with the same parlane used for all arrives and the same parlane used for all awaits.
+We need to verify that only sync-temporal loop indices are used, and the iteration spaces for the arrive and awaits are the same.
 
 \filbreak
 \myKey{GPU Register Variables:} The barrier lifting requirement will cause the bodies of for-cuda-blocks loops to be split into many for-cuda-threads (or for-cuda-warps) loops.
@@ -296,6 +299,10 @@ At block scope, we should allow defining \lighttt{@CUDA\_REGISTER} variables as 
 At thread scope, a thread must only access entries at its own index.
 At warp scope, only the warp index must match -- certain patterns of reads and writes to random access thread indices may be implemented with \lighttt{shfl\_sync}.
 GPU register accesses are always considered to be using an implied parview with an identity mapping function.
+
+\hook{Hook:} Add new \lighttt{lift\_alloc} features that support this sort of scalar-to-thread-parallel-array lifting.
+Also, \lighttt{stage\_mem} will need to be augmented to allow more direct control of how the staging occurs
+(or maybe it's good enough to keep as is and then use existing scheduling operators to manipulate the generated allocation and loops?)
 
 \filbreak
 \mySub{Concepts}
@@ -337,7 +344,10 @@ The expectation is that after scheduling, all code at cluster, block, warpgroup,
 Two parlanes are equal when they come from the same parscope and correspond to the same index.
 
 \filbreak
-\myKey{Execution Model (xmodel):} %% sequential, non_bulk_cp_async, tma_to_shared, tma_to_global, wgmma
+\myKey{Temporal/Spatial Loop Index:} Loop index variables are ``spatial'' if they correspond to a parallel-for loop and ``temporal'' otherwise, with temporal loop indices further distinguished as ``sync-temporal'' for sequential-for loops and ``async-temporal'' for async-for loops.
+
+\filbreak
+\myKey{Execution Model (xmodel):}
 The xmodel is an attribute of each memory read or write performed, as defined by the async-loop construct.
 We need the following xmodels; all models other than \lighttt{sequential} are async xmodels:
 \begin{enumerate}
@@ -373,6 +383,7 @@ Note that there is a total ordering of the xnodes under S-semantics.
 Note array indices are not tracked.
 
 \hook{Hook:} Building these access sets will require some non-trivial introspection.
+It looks like the solver already has some notion of access sets, which would need to be extended to track parviews (I'm not sure if this will cause too much change to the core code for this experimental, possibly temporary project).
 The lack of index information should greatly simplify this.
 
 \filbreak
