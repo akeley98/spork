@@ -1,9 +1,9 @@
 rule nvcc
-  command = /data/cl/u/akeley98/cuda-12.3/bin/nvcc -O2 -Xcompiler -Wall -Xcompiler -fPIC -g -std=c++20 -I ../ThunderKittens/include/ $in -c -o $out -MD -MF $out.d -arch compute_80 -code sm_80 --expt-extended-lambda --expt-relaxed-constexpr
+  command = /data/cl/u/akeley98/cuda-12.3/bin/nvcc -allow-unsupported-compiler -O2 -Xcompiler -Wall -Xcompiler -fPIC -g -std=c++20 -I ../ThunderKittens/include/ $in -c -o $out -MD -MF $out.d -arch compute_80 -code sm_80 --expt-extended-lambda --expt-relaxed-constexpr
   depfile = $out.d
 
 rule nvcc_sm90
-  command = /data/cl/u/akeley98/cuda-12.3/bin/nvcc -O2 -Xcompiler -Wall -Xcompiler -fPIC -g -std=c++20 -I ../ThunderKittens/include/ $in -c -o $out -MD -MF $out.d -arch compute_90 -code sm_90 --expt-extended-lambda --expt-relaxed-constexpr
+  command = /data/cl/u/akeley98/cuda-12.3/bin/nvcc -allow-unsupported-compiler -O2 -Xcompiler -Wall -Xcompiler -fPIC -g -std=c++20 -I ../ThunderKittens/include/ $in -c -o $out -MD -MF $out.d -arch compute_90 -code sm_90 --expt-extended-lambda --expt-relaxed-constexpr
   depfile = $out.d
 
 rule cxx
