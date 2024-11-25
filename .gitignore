@@ -9,5 +9,7 @@ compile_commands.json
 *.out
 *.aux
 docs/spork.pdf
+gemm/gemm
 attn
 libattn.so
+ninja
