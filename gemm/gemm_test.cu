@@ -4,6 +4,7 @@
 #include <stdio.h>
 
 #include "gemm_sm80.h"
+#include "exo_par.h"
 
 namespace {
 
@@ -155,7 +156,10 @@ void gemm_test(TestParams params, cudaStream_t stream)
     }
 
     // XXX
-    launch_device_compare_tensor(params, d_c_sm80, d_c_sm80, params.M, params.N, d_bitfield, stream);
+    {
+        gpu_gemm(nullptr, params.M, params.N, params.K, d_a, d_b, d_c_sm90_warmup);
+    }
+    launch_device_compare_tensor(params, d_c_sm80, d_c_sm90_warmup, params.M, params.N, d_bitfield, stream);
 
     cudaFreeAsync(d_a, stream);
     cudaFreeAsync(d_b, stream);

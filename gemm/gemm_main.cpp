@@ -10,4 +10,9 @@ int main()
     params.test_data_code_B = TestDataCode::identity;
     gemm_test(params, {});
     cudaDeviceSynchronize();
+    params.test_data_code_B = TestDataCode::random;
+    gemm_test(params, {});
+    cudaDeviceSynchronize();
+    gemm_test(params, {});
+    cudaDeviceSynchronize();
 }

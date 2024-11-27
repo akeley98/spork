@@ -28,4 +28,5 @@ build bin/gemm/gemm_sm90.o : nvcc_sm90 gemm/gemm_sm90.cu
 build bin/gemm/gemm_sm80.o : nvcc gemm/gemm_sm80.cu
 build bin/gemm/gemm_test.o : nvcc gemm/gemm_test.cu
 build bin/gemm/gemm_main.o : nvcc gemm/gemm_main.cpp
-build gemm/gemm: link bin/gemm/gemm_sm90.o bin/gemm/gemm_sm80.o bin/gemm/gemm_test.o bin/gemm/gemm_main.o
+build bin/gemm/exo_par.o : nvcc gemm/exo_par.cu
+build gemm/gemm: link bin/gemm/gemm_sm90.o bin/gemm/gemm_sm80.o bin/gemm/gemm_test.o bin/gemm/gemm_main.o bin/gemm/exo_par.o
