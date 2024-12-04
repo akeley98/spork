@@ -1,9 +1,11 @@
 #include "gemm_test.h"
 
+#include <algorithm>
 #include <stdlib.h>
 #include <stdio.h>
 
 #include "gemm_sm80.h"
+#include "gemm_sm90.h"
 
 namespace {
 
@@ -102,6 +104,23 @@ __global__ void device_compare_tensor_test_print(TestParams test_params,
         printf("TestParams{%u,%u,%u, %i,%i} [%u,%u] %g != %g\n", test_params.M, test_params.N, test_params.K,
                static_cast<int>(test_params.test_data_code_A), static_cast<int>(test_params.test_data_code_B),
                y, x, a, b);
+        uint32_t y_min = y < 2 ? 0u : y - 2;
+        uint32_t y_max = y + 2 >= rows ? rows - 1u : y + 2;
+        uint32_t x_min = x < 2 ? 0u : x - 2;
+        uint32_t x_max = x + 2 >= cols ? cols - 1u : x + 2;
+
+        for (uint32_t cy = y_min; cy <= y_max; cy++) {
+            for (uint32_t cx = x_min; cx <= x_max; cx++) {
+                if (cy == y && cx == x) {
+                    printf("\x1b[1m");
+                }
+                printf("[%6g, %5g]  ", d_a[cy*cols + cx], d_b[cy*cols + cx]);
+                if (cy == y && cx == x) {
+                    printf("\x1b[0m");
+                }
+            }
+            printf("\n");
+        }
     }
 }
 
@@ -148,18 +167,70 @@ void gemm_test(TestParams params, cudaStream_t stream)
         device_init_test_data<<<grid_b, block, 0, stream>>>(d_b, params.K, params.N, params.test_data_code_B);
     }
 
+    auto fill_garbage = [params, stream] (float* d_c)
+    {
+        cudaMemsetAsync(d_c, 0xDD, sizeof(*d_c) * params.M * params.N, stream);
+    };
+
     // Initialize SM80 data
     {
         GPU_Tensors t{params.M, params.N, params.K, d_a, d_b, d_c_sm80};
+        fill_garbage(t.c);
         matmul_sm80(t, stream);
     }
 
-    // XXX
-    launch_device_compare_tensor(params, d_c_sm80, d_c_sm80, params.M, params.N, d_bitfield, stream);
+    // Initialize SM90 data
+    {
+        GPU_Tensors t{params.M, params.N, params.K, d_a, d_b, d_c_sm90_warmup};
+        fill_garbage(t.c);
+        matmul_sm90(t, stream);
+    }
+    launch_device_compare_tensor(params, d_c_sm80, d_c_sm90_warmup, params.M, params.N, d_bitfield, stream);
+
+    // Test loop
+    constexpr uint32_t test_count = 11;
+    float test_times[test_count] = {};
+    cudaEvent_t test_events[test_count + 1];
+    auto new_event = [stream]
+    {
+        cudaEvent_t event{};
+        if (const cudaError_t err = cudaEventCreate(&event)) {
+            fprintf(stderr, "cudaError_t %i: %s\n", (int)err, cudaGetErrorString(err));
+            exit(1);
+        }
+        cudaEventRecord(event, stream);
+        return event;
+    };
+    for (uint32_t test_i = 0; test_i < test_count; ++test_i) {
+        if (test_i == 0) {
+            test_events[0] = new_event();
+        }
+        GPU_Tensors t{params.M, params.N, params.K, d_a, d_b, d_c_sm90_tested};
+        matmul_sm90(t, stream);
+        test_events[test_i + 1] = new_event();
+    }
+    cudaStreamSynchronize(stream);
+    for (uint32_t test_i = 0; test_i < test_count; ++test_i) {
+        cudaEventElapsedTime(&test_times[test_i], test_events[test_i], test_events[test_i + 1]);
+        cudaEventDestroy(test_events[test_i]);
+    }
+    cudaEventDestroy(test_events[test_count]);
+    std::sort(&test_times[0], &test_times[test_count]);
+    printf("TestParams{%u,%u,%u, %i,%i} %.3g ms\n", params.M, params.N, params.K,
+           static_cast<int>(params.test_data_code_A), static_cast<int>(params.test_data_code_B),
+           test_times[test_count / 4]);
+
+    launch_device_compare_tensor(params, d_c_sm80, d_c_sm90_tested, params.M, params.N, d_bitfield, stream);
 
     cudaFreeAsync(d_a, stream);
     cudaFreeAsync(d_b, stream);
     cudaFreeAsync(d_c_sm80, stream);
     cudaFreeAsync(d_c_sm90_warmup, stream);
     cudaFreeAsync(d_c_sm90_tested, stream);
+
+    cudaStreamSynchronize(stream);
+    if (const cudaError_t err = cudaGetLastError()) {
+        fprintf(stderr, "cudaError_t %i: %s\n", (int)err, cudaGetErrorString(err));
+        exit(1);
+    }
 }
