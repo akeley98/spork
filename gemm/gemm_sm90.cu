@@ -292,6 +292,7 @@ struct TiledMultiplier
 
         extern __shared__ char smem[];
         cta_first_time_init(reinterpret_cast<Shared&>(*smem));
+        __syncthreads();
         cta_compute_block(cta_m_idx * SMEM_M, cta_n_idx * SMEM_N, reinterpret_cast<Shared&>(*smem));
     }
 
