@@ -13,3 +13,4 @@ gemm/gemm
 attn
 libattn.so
 ninja
+/gemm_sm90.*

@@ -3,7 +3,7 @@ rule nvcc
   depfile = $out.d
 
 rule nvcc_sm90
-  command = nvcc -ccbin g++-12 -O2 -Xcompiler -Wall -Xcompiler -fPIC -g -std=c++20 -I ../ThunderKittens/include/ $in -c -o $out -MD -MF $out.d -arch compute_90 -code sm_90 --expt-extended-lambda --expt-relaxed-constexpr
+  command = nvcc -lineinfo -keep -Xcompiler -Wno-abi -ccbin g++-12 -O2 -Xcompiler -Wall -Xcompiler -fPIC -g -std=c++20 -I ../ThunderKittens/include/ $in -c -o $out -MD -MF $out.d -arch compute_90 -code sm_90 --expt-extended-lambda --expt-relaxed-constexpr
   depfile = $out.d
 
 rule cxx
@@ -11,10 +11,10 @@ rule cxx
   depfile = $out.d
 
 rule link
-  command = nvcc -ccbin g++-12 $in -o $out
+  command = nvcc -ccbin g++-12 $in -o $out -lcuda
 
 rule link_lib
-  command = nvcc -ccbin g++-12 $in -o $out -shared
+  command = nvcc -ccbin g++-12 $in -o $out -shared -lcuda
 
 build all: phony attn libattn.so
 build bin/tk_4090_fwd.o : nvcc tk_4090_fwd.cu

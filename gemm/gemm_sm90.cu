@@ -5,20 +5,36 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#include <cuda.h>
+
 namespace {
+
+using mbarrier_t = long long;
+
+__device__ uint32_t smem_ptr_u32(const void* smem_ptr)
+{
+    return static_cast<uint32_t>(__cvta_generic_to_shared(smem_ptr));
+}
 
 template <uint32_t SMEM_M, uint32_t SMEM_N, uint32_t SMEM_K, uint32_t CTA_MODULUS>
 struct TiledMultiplier
 {
     uint32_t size_m, size_n, size_k;
+
+    // TODO remove
     float const* a;
     float const* b;
     float* c;
+
+    const CUtensorMap* tensorMap_a;
+    const CUtensorMap* tensorMap_b;
+    const CUtensorMap* tensorMap_c;
 
     static constexpr uint32_t WG_M = 64;
     static constexpr uint32_t WG_N = 64;
     static constexpr uint32_t WG_K = 8;
     static constexpr uint32_t RING_BUFFER_SIZE = 1;
+    static constexpr CUtensorMapSwizzle swizzle = CU_TENSOR_MAP_SWIZZLE_NONE;
 
     // One buffer of ring buffer.
     struct Buffers
@@ -31,6 +47,7 @@ struct TiledMultiplier
     {
         Buffers buffers[RING_BUFFER_SIZE];
         float c_tile[SMEM_M * SMEM_N];
+        mbarrier_t mbar[RING_BUFFER_SIZE];
     };
 
     __host__ __device__ static constexpr uint32_t smem_size()
@@ -52,13 +69,13 @@ struct TiledMultiplier
     }
 
     // If output matrix is cut into (SMEM_M, SMEM_N) blocks, one CTA handles one matrix block.
-    __host__ __device__ uint32_t m_cta() const
+    static __host__ __device__ uint32_t m_cta(uint32_t size_m)
     {
         assert(size_m % SMEM_M == 0);
         return size_m / SMEM_M;
     }
 
-    __host__ __device__ uint32_t n_cta() const
+    static __host__ __device__ uint32_t n_cta(uint32_t size_n)
     {
         assert(size_n % SMEM_N == 0);
         return size_n / SMEM_N;
@@ -82,12 +99,11 @@ struct TiledMultiplier
     {
         const uint32_t lane = threadIdx.x % 128u;
 
-        for (uint32_t r = 0; r < accum.regcount; ++r) {
-            const uint32_t r_in_wg = r + accum.regcount * lane;
-            const uint32_t local_m = r_in_wg / WG_N;
-            const uint32_t local_n = r_in_wg % WG_N;
-
-            for (uint32_t local_k = 0; local_k < WG_K; ++local_k) {
+        for (uint32_t local_k = 0; local_k < WG_K; ++local_k) {
+            for (uint32_t r = 0; r < accum.regcount; ++r) {
+                const uint32_t r_in_wg = r + accum.regcount * lane;
+                const uint32_t local_m = r_in_wg / WG_N;
+                const uint32_t local_n = r_in_wg % WG_N;
                 const uint32_t outer_m = wg_m_offset + local_m;
                 const uint32_t outer_n = wg_n_offset + local_n;
                 const uint32_t outer_k = wg_k_offset + local_k;
@@ -122,16 +138,42 @@ struct TiledMultiplier
 
     // Fill shared memory A tile with SMEM_M×SMEM_K block starting at (cta_m_offset, cta_k_offset)
     // Fill shared memory B tile with SMEM_K×SMEM_N block starting at (cta_k_offset, cta_n_offset)
-    __device__ void warp_async_load_block(Buffers& buffers, uint32_t cta_m_offset,
+    __device__ void warp_async_load_block(Buffers& buffers, mbarrier_t& mbar, uint32_t cta_m_offset,
                                           uint32_t cta_n_offset, uint32_t cta_k_offset) const
     {
-        // TODO TMA so it's really async.
         const uint32_t lane = threadIdx.x % 32u;
-        for (uint32_t local_m = 0; local_m < SMEM_M; local_m++) {
-            for (uint32_t local_k = lane; local_k < SMEM_K; local_k += 32) {
-                const uint32_t global_m = local_m + cta_m_offset;
-                const uint32_t global_k = local_k + cta_k_offset;
-                buffers.a_tile[local_m * SMEM_K + local_k] = a[global_m * size_k + global_k];
+
+        const bool use_tma = true;
+        if (use_tma && lane == 0) {  // XXX lane == 0 is "wrong"
+            asm volatile(
+                "cp.async.bulk.tensor.2d.shared::cluster.global.tile.mbarrier::complete_tx::bytes"
+                " [%0], [%1, {%3, %4}], [%2];"
+                :
+                : "r"(smem_ptr_u32(&buffers.a_tile)),
+                  "l"(tensorMap_a),
+                  "r"(smem_ptr_u32(&mbar)),
+                  "r"(cta_k_offset), "r"(cta_m_offset)
+                : "memory");
+            const uint32_t expect_count = SMEM_M * SMEM_K * sizeof(float);
+            uint64_t mbar_state;
+            asm volatile(
+                "mbarrier.arrive.expect_tx.shared::cta.b64 %0, [%1], %2;"
+                : "=l"(mbar_state)
+                : "r"(smem_ptr_u32(&mbar)), "r"(expect_count));
+            asm volatile(
+                "{.reg.pred P1; BEFORE_WAIT: mbarrier.try_wait.acquire.cta.shared::cta.b64 P1, [%0], %1; @P1 bra.uni WAIT_DONE; bra.uni BEFORE_WAIT; WAIT_DONE: }"
+                :
+                : "r"(smem_ptr_u32(&mbar)), "l"(mbar_state));
+        }
+
+        // TODO TMA so it's really async.
+        if (!use_tma) {
+            for (uint32_t local_m = 0; local_m < SMEM_M; local_m++) {
+                for (uint32_t local_k = lane; local_k < SMEM_K; local_k += 32) {
+                    const uint32_t global_m = local_m + cta_m_offset;
+                    const uint32_t global_k = local_k + cta_k_offset;
+                    buffers.a_tile[local_m * SMEM_K + local_k] = a[global_m * size_k + global_k];
+                }
             }
         }
         for (uint32_t local_n = 0; local_n < SMEM_N; local_n++) {
@@ -165,6 +207,14 @@ struct TiledMultiplier
         return wg_index % (SMEM_N / WG_N);
     }
 
+    __device__ void cta_first_time_init(Shared& shared) const
+    {
+        for (uint32_t i = threadIdx.x; i < RING_BUFFER_SIZE; i += blockDim.x) {
+            asm volatile("mbarrier.init.shared::cta.b64 [%0], 1;" :: "r"(smem_ptr_u32(&shared.mbar[i])));
+            asm volatile("fence.proxy.async;");
+        }
+    }
+
     // CTA cooperates to fill the output matrix block of size (SMEM_M, SMEM_N) starting at (cta_m_offset, cta_n_offset).
     // Requires smem-allocated ring buffer.
     __device__ void cta_compute_block(uint32_t cta_m_offset, uint32_t cta_n_offset, Shared& shared) const
@@ -180,7 +230,7 @@ struct TiledMultiplier
             if (is_memory_wg()) {
                 if (threadIdx.x % 128u < 32u) {
                     const auto cta_k_offset = cta_k_idx * SMEM_K;
-                    warp_async_load_block(shared.buffers[0], cta_m_offset, cta_n_offset, cta_k_offset);
+                    warp_async_load_block(shared.buffers[0], shared.mbar[0], cta_m_offset, cta_n_offset, cta_k_offset);
                 }
             }
             __syncthreads();  // TODO
@@ -215,7 +265,7 @@ struct TiledMultiplier
 
     __device__ void kernel_main()
     {
-        assert(gridDim.x == m_cta() * n_cta());
+        assert(gridDim.x == m_cta(size_m) * n_cta(size_n));
         assert(blockDim.x == cta_size());
 
         const uint32_t cta_rows = size_m / SMEM_M;
@@ -224,46 +274,94 @@ struct TiledMultiplier
         const uint32_t superblock_count = cta_cols / CTA_MODULUS;
         const uint32_t superblock_cta_count = cta_rows * CTA_MODULUS;
         const uint32_t superblock_idx = blockIdx.x / superblock_cta_count;
-        const uint32_t cta_index_mn_superblock = blockIdx.x % superblock_cta_count;
+        const uint32_t cta_index_in_superblock = blockIdx.x % superblock_cta_count;
 
         uint32_t cta_m_idx, cta_n_idx;
 
         if (superblock_idx < superblock_count) {
-            cta_m_idx = cta_index_mn_superblock / CTA_MODULUS;
-            cta_n_idx = cta_index_mn_superblock % CTA_MODULUS + CTA_MODULUS * superblock_idx;
+            cta_m_idx = cta_index_in_superblock / CTA_MODULUS;
+            cta_n_idx = cta_index_in_superblock % CTA_MODULUS + CTA_MODULUS * superblock_idx;
         }
         else {
             assert(superblock_idx == superblock_count);
-            cta_m_idx = cta_index_mn_superblock / cta_col_remainder;
-            cta_n_idx = cta_index_mn_superblock % cta_col_remainder + CTA_MODULUS * superblock_idx;
+            cta_m_idx = cta_index_in_superblock / cta_col_remainder;
+            cta_n_idx = cta_index_in_superblock % cta_col_remainder + CTA_MODULUS * superblock_idx;
         }
         assert(cta_m_idx < cta_rows);
         assert(cta_n_idx < cta_cols);
 
         extern __shared__ char smem[];
+        cta_first_time_init(reinterpret_cast<Shared&>(*smem));
         cta_compute_block(cta_m_idx * SMEM_M, cta_n_idx * SMEM_N, reinterpret_cast<Shared&>(*smem));
     }
 
-    void launch(cudaStream_t stream);
+    static void init_tensorMap(CUtensorMap* tensorMap, const float* globalAddress, uint32_t rows, uint32_t cols,
+                               uint32_t smem_rows, uint32_t smem_cols)
+    {
+        const CUtensorMapDataType tensorDataType = CU_TENSOR_MAP_DATA_TYPE_FLOAT32;
+        const uint32_t tensorRank = 2;
+        cuuint64_t globalDim[2] = {cols, rows};
+        const cuuint64_t globalStrides[1] = {4*cols};
+        const cuuint32_t boxDim[2] = {smem_cols, smem_rows};
+        const cuuint32_t elementStrides[2] = {1, 1};
+        const CUtensorMapInterleave interleave = CU_TENSOR_MAP_INTERLEAVE_NONE;
+        const CUtensorMapL2promotion l2Promotion = CU_TENSOR_MAP_L2_PROMOTION_NONE;
+        const CUtensorMapFloatOOBfill oobFill = CU_TENSOR_MAP_FLOAT_OOB_FILL_NAN_REQUEST_ZERO_FMA;
+
+        const CUresult result = cuTensorMapEncodeTiled(
+                tensorMap,
+                tensorDataType,
+                tensorRank,
+                const_cast<float*>(globalAddress),
+                globalDim,
+                globalStrides,
+                boxDim,
+                elementStrides,
+                interleave,
+                swizzle,
+                l2Promotion,
+                oobFill);
+        if (result != 0) {
+            fprintf(stderr, "cuTensorMapEncodeTiled: %i\n", (int)result);
+            assert(0);
+        }
+    }
+
+    static void launch(cudaStream_t stream, uint32_t size_m, uint32_t size_n, uint32_t size_k,
+                       const float* a, const float* b, float* c);
 };
 
 template <typename Multiplier>
 __global__ void
 __launch_bounds__(Multiplier::cta_size())
-tiled_multiplier_kernel(Multiplier multiplier)
+tiled_multiplier_kernel(uint32_t size_m, uint32_t size_n, uint32_t size_k,
+                        const float* a, const float* b, float* c,
+                        __grid_constant__ const CUtensorMap tensorMap_a,
+                        __grid_constant__ const CUtensorMap tensorMap_b,
+                        __grid_constant__ const CUtensorMap tensorMap_c)
 {
+    Multiplier multiplier{size_m, size_n, size_k, a, b, c, &tensorMap_a, &tensorMap_b, &tensorMap_c};
     multiplier.kernel_main();
 }
 
 template <uint32_t SMEM_M, uint32_t SMEM_N, uint32_t SMEM_K, uint32_t CTA_MODULUS>
-void TiledMultiplier<SMEM_M, SMEM_N, SMEM_K, CTA_MODULUS>::launch(cudaStream_t stream)
+void TiledMultiplier<SMEM_M, SMEM_N, SMEM_K, CTA_MODULUS>::launch(
+        cudaStream_t stream, uint32_t size_m, uint32_t size_n, uint32_t size_k,
+        const float* a, const float* b, float* c)
 {
-    using Multiplier = std::remove_reference_t<decltype(*this)>;
-    const dim3 grid{m_cta() * n_cta(), 1, 1};
+    using Multiplier = TiledMultiplier<SMEM_M, SMEM_N, SMEM_K, CTA_MODULUS>;
+
+    CUtensorMap tensorMap_a, tensorMap_b, tensorMap_c;
+    init_tensorMap(&tensorMap_a, a, size_m, size_k, SMEM_M, SMEM_K);
+    init_tensorMap(&tensorMap_b, b, size_k, size_n, SMEM_K, SMEM_N);
+    init_tensorMap(&tensorMap_c, c, size_m, size_n, SMEM_M, SMEM_N);
+
+    const uint32_t grid = m_cta(size_m) * n_cta(size_n);
     const uint32_t block = cta_size();
     const uint32_t smem = smem_size();
     cudaFuncSetAttribute(tiled_multiplier_kernel<Multiplier>, cudaFuncAttributeMaxDynamicSharedMemorySize, smem);
-    tiled_multiplier_kernel<Multiplier> <<<grid, block, smem, stream>>>(*this);
+    tiled_multiplier_kernel<Multiplier> <<<grid, block, smem, stream>>>(size_m, size_n, size_k, a, b, c,
+                                                                        tensorMap_a, tensorMap_b, tensorMap_c);
 }
 
 }  // end namespace
@@ -272,7 +370,7 @@ void matmul_sm90(GPU_Tensors t, cudaStream_t stream)
 {
     constexpr uint32_t smem_m = 128;
     constexpr uint32_t smem_n = 128;
-    constexpr uint32_t smem_k = 8;
+    constexpr uint32_t smem_k = 16;
     constexpr uint32_t cta_modulus = 4;
 
     const uint32_t size_m = t.M;
@@ -280,8 +378,7 @@ void matmul_sm90(GPU_Tensors t, cudaStream_t stream)
     const uint32_t size_k = t.K;
 
     if (size_m % smem_m == 0 && size_n % smem_n == 0 && size_k % smem_k == 0) {
-        TiledMultiplier<smem_m, smem_n, smem_k, cta_modulus> multiplier{size_m, size_n, size_k, t.a, t.b, t.c};
-        multiplier.launch(stream);
+        TiledMultiplier<smem_m, smem_n, smem_k, cta_modulus>::launch(stream, size_m, size_n, size_k, t.a, t.b, t.c);
     }
     else {
         assert(0);

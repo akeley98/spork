@@ -188,7 +188,7 @@ void gemm_test(TestParams params, cudaStream_t stream)
     launch_device_compare_tensor(params, d_c_sm80, d_c_sm90_warmup, params.M, params.N, d_bitfield, stream);
 
     // Test loop
-    constexpr uint32_t test_count = 11;
+    constexpr uint32_t test_count = 15;
     float test_times[test_count] = {};
     cudaEvent_t test_events[test_count + 1];
     auto new_event = [stream]
