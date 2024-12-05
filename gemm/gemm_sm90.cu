@@ -137,7 +137,7 @@ struct TiledMultiplier
     }
 
     // Fill shared memory A tile with SMEM_M×SMEM_K block starting at (cta_m_offset, cta_k_offset)
-    // Fill shared memory B tile with SMEM_K×SMEM_N block starting at (cta_k_offset, cta_n_offset)
+    // Fill shared memory B^T tile with SMEM_N×SMEM_K block starting at (cta_n_offset, cta_k_offset)
     __device__ void warp_async_load_block(Buffers& buffers, mbarrier_t& mbar, uint32_t cta_m_offset,
                                           uint32_t cta_n_offset, uint32_t cta_k_offset) const
     {
@@ -154,7 +154,16 @@ struct TiledMultiplier
                   "r"(smem_ptr_u32(&mbar)),
                   "r"(cta_k_offset), "r"(cta_m_offset)
                 : "memory");
-            const uint32_t expect_count = SMEM_M * SMEM_K * sizeof(float);
+            asm volatile(
+                "cp.async.bulk.tensor.2d.shared::cluster.global.tile.mbarrier::complete_tx::bytes"
+                " [%0], [%1, {%3, %4}], [%2];"
+                :
+                : "r"(smem_ptr_u32(&buffers.bT_tile)),
+                  "l"(tensorMap_bT),
+                  "r"(smem_ptr_u32(&mbar)),
+                  "r"(cta_k_offset), "r"(cta_n_offset)
+                : "memory");
+            const uint32_t expect_count = (SMEM_M + SMEM_N) * SMEM_K * sizeof(float);
             uint64_t mbar_state;
             asm volatile(
                 "mbarrier.arrive.expect_tx.shared::cta.b64 %0, [%1], %2;"
@@ -164,26 +173,6 @@ struct TiledMultiplier
                 "{.reg.pred P1; BEFORE_WAIT: mbarrier.try_wait.acquire.cta.shared::cta.b64 P1, [%0], %1; @P1 bra.uni WAIT_DONE; bra.uni BEFORE_WAIT; WAIT_DONE: }"
                 :
                 : "r"(smem_ptr_u32(&mbar)), "l"(mbar_state));
-        }
-
-        // TODO TMA so it's really async.
-        if (!use_tma) {
-            for (uint32_t local_m = 0; local_m < SMEM_M; local_m++) {
-                for (uint32_t local_k = lane; local_k < SMEM_K; local_k += 32) {
-                    const uint32_t global_m = local_m + cta_m_offset;
-                    const uint32_t global_k = local_k + cta_k_offset;
-                    buffers.a_tile[local_m * SMEM_K + local_k] = a[global_m * size_k + global_k];
-                }
-            }
-        }
-        for (uint32_t local_n = 0; local_n < SMEM_N; local_n++) {
-            for (uint32_t local_k = lane; local_k < SMEM_K; local_k += 32) {
-                const uint32_t global_n = local_n + cta_n_offset;
-                const uint32_t global_k = local_k + cta_k_offset;
-                const float b_val = bT[global_n * size_k + global_k];
-
-                buffers.bT_tile[local_n * SMEM_K + local_k] = b_val;
-            }
         }
     }
 
