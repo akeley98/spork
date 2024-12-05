@@ -24,8 +24,9 @@ int main()
             gemm_test(params, {});
         }
     };
-    sized_tests(128, 128, 16);
-    sized_tests(256, 256, 16);
+    sized_tests(256, 256, 64);
+    sized_tests(256, 256, 96);
+    sized_tests(256, 256, 1600);
     sized_tests(256, 1024, 192);
     sized_tests(1280, 768, 640);
     sized_tests(1280, 2560, 640);
