@@ -23,11 +23,11 @@ struct TiledMultiplier
 
     // TODO remove
     float const* a;
-    float const* b;
+    float const* bT;
     float* c;
 
     const CUtensorMap* tensorMap_a;
-    const CUtensorMap* tensorMap_b;
+    const CUtensorMap* tensorMap_bT;  // Transposed; column major
     const CUtensorMap* tensorMap_c;
 
     static constexpr uint32_t WG_M = 64;
@@ -180,7 +180,7 @@ struct TiledMultiplier
             for (uint32_t local_k = lane; local_k < SMEM_K; local_k += 32) {
                 const uint32_t global_n = local_n + cta_n_offset;
                 const uint32_t global_k = local_k + cta_k_offset;
-                const float b_val = b[global_k * size_n + global_n];
+                const float b_val = bT[global_n * size_k + global_k];
 
                 buffers.bT_tile[local_n * SMEM_K + local_k] = b_val;
             }
@@ -301,7 +301,7 @@ struct TiledMultiplier
     {
         const CUtensorMapDataType tensorDataType = CU_TENSOR_MAP_DATA_TYPE_FLOAT32;
         const uint32_t tensorRank = 2;
-        cuuint64_t globalDim[2] = {cols, rows};
+        const cuuint64_t globalDim[2] = {cols, rows};
         const cuuint64_t globalStrides[1] = {4*cols};
         const cuuint32_t boxDim[2] = {smem_cols, smem_rows};
         const cuuint32_t elementStrides[2] = {1, 1};
@@ -336,33 +336,33 @@ template <typename Multiplier>
 __global__ void
 __launch_bounds__(Multiplier::cta_size())
 tiled_multiplier_kernel(uint32_t size_m, uint32_t size_n, uint32_t size_k,
-                        const float* a, const float* b, float* c,
+                        const float* a, const float* bT, float* c,
                         __grid_constant__ const CUtensorMap tensorMap_a,
-                        __grid_constant__ const CUtensorMap tensorMap_b,
+                        __grid_constant__ const CUtensorMap tensorMap_bT,
                         __grid_constant__ const CUtensorMap tensorMap_c)
 {
-    Multiplier multiplier{size_m, size_n, size_k, a, b, c, &tensorMap_a, &tensorMap_b, &tensorMap_c};
+    Multiplier multiplier{size_m, size_n, size_k, a, bT, c, &tensorMap_a, &tensorMap_bT, &tensorMap_c};
     multiplier.kernel_main();
 }
 
 template <uint32_t SMEM_M, uint32_t SMEM_N, uint32_t SMEM_K, uint32_t CTA_MODULUS>
 void TiledMultiplier<SMEM_M, SMEM_N, SMEM_K, CTA_MODULUS>::launch(
         cudaStream_t stream, uint32_t size_m, uint32_t size_n, uint32_t size_k,
-        const float* a, const float* b, float* c)
+        const float* a, const float* bT, float* c)
 {
     using Multiplier = TiledMultiplier<SMEM_M, SMEM_N, SMEM_K, CTA_MODULUS>;
 
-    CUtensorMap tensorMap_a, tensorMap_b, tensorMap_c;
+    CUtensorMap tensorMap_a, tensorMap_bT, tensorMap_c;
     init_tensorMap(&tensorMap_a, a, size_m, size_k, SMEM_M, SMEM_K);
-    init_tensorMap(&tensorMap_b, b, size_k, size_n, SMEM_K, SMEM_N);
+    init_tensorMap(&tensorMap_bT, bT, size_n, size_k, SMEM_N, SMEM_K);
     init_tensorMap(&tensorMap_c, c, size_m, size_n, SMEM_M, SMEM_N);
 
     const uint32_t grid = m_cta(size_m) * n_cta(size_n);
     const uint32_t block = cta_size();
     const uint32_t smem = smem_size();
     cudaFuncSetAttribute(tiled_multiplier_kernel<Multiplier>, cudaFuncAttributeMaxDynamicSharedMemorySize, smem);
-    tiled_multiplier_kernel<Multiplier> <<<grid, block, smem, stream>>>(size_m, size_n, size_k, a, b, c,
-                                                                        tensorMap_a, tensorMap_b, tensorMap_c);
+    tiled_multiplier_kernel<Multiplier> <<<grid, block, smem, stream>>>(size_m, size_n, size_k, a, bT, c,
+                                                                        tensorMap_a, tensorMap_bT, tensorMap_c);
 }
 
 }  // end namespace

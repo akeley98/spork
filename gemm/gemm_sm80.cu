@@ -308,6 +308,10 @@ void matmul_sm80(GPU_Tensors t, cudaStream_t stream) {
     const uint32_t size_j = t.N;
     const uint32_t size_k = t.K;
 
+    assert(!t.a_col_major);
+    assert(!t.b_col_major);
+    assert(!t.c_col_major);
+
     if (size_i % smem_i == 0 && size_j % smem_j == 0 && size_k % smem_k == 0) {
         TiledMultiplier<smem_i, smem_j, smem_k, cta_modulus> multiplier{size_i, size_j, size_k, t.a, t.b, t.c};
         multiplier.launch(stream);

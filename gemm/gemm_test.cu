@@ -33,13 +33,16 @@ __device__ uint64_t pcg3d(uint32_t x, uint32_t y, uint32_t z)
   return x ^ uint64_t(y) << 12u ^ uint64_t(z) << 24u;
 }
 
-__global__ void device_init_test_data(float* d_tensor, uint32_t rows, uint32_t cols, TestDataCode code)
+__global__ void device_init_test_data(float* d_tensor, uint32_t rows, uint32_t cols,
+                                      TestDataCode code, bool transpose_rule)
 {
     uint32_t tid_x = threadIdx.x + blockIdx.x * blockDim.x;
     uint32_t tid_y = threadIdx.y + blockIdx.y * blockDim.y;
-    for (uint32_t y = tid_y; y < rows; y += blockDim.y * gridDim.y) {
-        for (uint32_t x = tid_x; x < cols; x += blockDim.x * gridDim.x) {
+    for (uint32_t r = tid_y; r < rows; r += blockDim.y * gridDim.y) {
+        for (uint32_t c = tid_x; c < cols; c += blockDim.x * gridDim.x) {
             float value;
+            const uint32_t x = transpose_rule ? r : c;
+            const uint32_t y = transpose_rule ? c : r;
             switch (code) {
               case TestDataCode::identity:
                 value = x == y ? 1.0f : 0.0f;
@@ -52,7 +55,7 @@ __global__ void device_init_test_data(float* d_tensor, uint32_t rows, uint32_t c
                 value = float(pcg3d(x, y, 19980724) % 20010106u);
                 break;
             }
-            d_tensor[y * cols + x] = value;
+            d_tensor[r * cols + c] = value;
         }
     }
 }
@@ -142,6 +145,7 @@ void gemm_test(TestParams params, cudaStream_t stream)
     unsigned long long* d_bitfield = nullptr;
     float* d_a = nullptr;
     float* d_b = nullptr;
+    float* d_bT = nullptr;
     float* d_c_sm80 = nullptr;
     float* d_c_sm90_warmup = nullptr;
     float* d_c_sm90_tested = nullptr;
@@ -149,6 +153,7 @@ void gemm_test(TestParams params, cudaStream_t stream)
     cudaMallocAsync(&d_bitfield, sizeof(unsigned long long), stream);
     cudaMallocAsync(&d_a, params.M * params.K * sizeof(float), stream);
     cudaMallocAsync(&d_b, params.N * params.K * sizeof(float), stream);
+    cudaMallocAsync(&d_bT, params.N * params.K * sizeof(float), stream);
     cudaMallocAsync(&d_c_sm80, params.M * params.N * sizeof(float), stream);
     cudaMallocAsync(&d_c_sm90_warmup, params.M * params.N * sizeof(float), stream);
     cudaMallocAsync(&d_c_sm90_tested, params.M * params.N * sizeof(float), stream);
@@ -163,8 +168,9 @@ void gemm_test(TestParams params, cudaStream_t stream)
         dim3 grid_a{(params.K + 15u) / 16u, (params.M + 15u) / 16u, 1};
         dim3 grid_b{(params.N + 15u) / 16u, (params.K + 15u) / 16u, 1};
         dim3 block{16, 16, 1};
-        device_init_test_data<<<grid_a, block, 0, stream>>>(d_a, params.M, params.K, params.test_data_code_A);
-        device_init_test_data<<<grid_b, block, 0, stream>>>(d_b, params.K, params.N, params.test_data_code_B);
+        device_init_test_data<<<grid_a, block, 0, stream>>>(d_a, params.M, params.K, params.test_data_code_A, false);
+        device_init_test_data<<<grid_b, block, 0, stream>>>(d_b, params.K, params.N, params.test_data_code_B, false);
+        device_init_test_data<<<grid_b, block, 0, stream>>>(d_bT, params.N, params.K, params.test_data_code_B, true);
     }
 
     auto fill_garbage = [params, stream] (float* d_c)
@@ -174,14 +180,14 @@ void gemm_test(TestParams params, cudaStream_t stream)
 
     // Initialize SM80 data
     {
-        GPU_Tensors t{params.M, params.N, params.K, d_a, d_b, d_c_sm80};
+        GPU_Tensors t{params.M, params.N, params.K, d_a, d_b, d_c_sm80, 0, 0, 0};
         fill_garbage(t.c);
         matmul_sm80(t, stream);
     }
 
     // Initialize SM90 data
     {
-        GPU_Tensors t{params.M, params.N, params.K, d_a, d_b, d_c_sm90_warmup};
+        GPU_Tensors t{params.M, params.N, params.K, d_a, d_bT, d_c_sm90_warmup, 0, 1, 0};
         fill_garbage(t.c);
         matmul_sm90(t, stream);
     }
@@ -205,7 +211,7 @@ void gemm_test(TestParams params, cudaStream_t stream)
         if (test_i == 0) {
             test_events[0] = new_event();
         }
-        GPU_Tensors t{params.M, params.N, params.K, d_a, d_b, d_c_sm90_tested};
+        GPU_Tensors t{params.M, params.N, params.K, d_a, d_bT, d_c_sm90_tested, 0, 1, 0};
         matmul_sm90(t, stream);
         test_events[test_i + 1] = new_event();
     }
@@ -224,6 +230,7 @@ void gemm_test(TestParams params, cudaStream_t stream)
 
     cudaFreeAsync(d_a, stream);
     cudaFreeAsync(d_b, stream);
+    cudaFreeAsync(d_bT, stream);
     cudaFreeAsync(d_c_sm80, stream);
     cudaFreeAsync(d_c_sm90_warmup, stream);
     cudaFreeAsync(d_c_sm90_tested, stream);
