@@ -263,11 +263,18 @@ struct TiledMultiplier
 
         __syncthreads();  // TODO
 
-        for (uint32_t m = 0; m < SMEM_M; m++) {
-            for (uint32_t n = threadIdx.x; n < SMEM_N; n += blockDim.x) {
-                const uint32_t global_m = m + cta_m_offset;
-                const uint32_t global_n = n + cta_n_offset;
-                c[global_m * size_n + global_n] = shared.c_tile[m * SMEM_N + n];
+        if (is_memory_wg()) {
+            if (threadIdx.x % 128u == 0u) {
+                asm volatile("fence.proxy.async;");
+                asm volatile(
+                "cp.async.bulk.tensor.2d.global.shared::cta.tile.bulk_group"
+                " [%0, {%1, %2}], [%3];"
+                :
+                : "l"(tensorMap_c),
+                  "r"(cta_n_offset), "r"(cta_m_offset),
+                  "r"(smem_ptr_u32(&shared.c_tile)));
+                asm volatile("cp.async.bulk.commit_group;");
+                asm volatile("cp.async.bulk.wait_group 0;");
             }
         }
     }
