@@ -419,8 +419,8 @@ struct TiledMultiplier
 
 void matmul_sm90(GPU_Tensors t, cudaStream_t stream)
 {
-    constexpr uint32_t smem_m = 128;
-    constexpr uint32_t smem_n = 128;
+    constexpr uint32_t smem_m = 64;
+    constexpr uint32_t smem_n = 256;
     constexpr uint32_t smem_k = 16;
     constexpr uint32_t cta_k_max_tiles = 12;
     constexpr uint32_t cta_modulus = 4;

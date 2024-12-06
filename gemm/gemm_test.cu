@@ -174,7 +174,8 @@ void gemm_test(TestParams params, cudaStream_t stream)
     cudaMallocAsync(&d_c16,             params.M * params.N * sizeof(half_t), stream);
 
     if (!d_bitfield || !d_a || !d_b || !d_c_sm80 || !d_c_sm90_warmup || !d_c_sm90_tested) {
-        fprintf(stderr, "Out of GPU memory\n");
+        const cudaError_t err = cudaGetLastError();
+        fprintf(stderr, "Error on cudaMallocAsync: %i (%s)\n", (int)err, cudaGetErrorString(err));
         exit(1);
     }
 
