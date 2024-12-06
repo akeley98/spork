@@ -222,9 +222,11 @@ void gemm_test(TestParams params, cudaStream_t stream)
     }
     cudaEventDestroy(test_events[test_count]);
     std::sort(&test_times[0], &test_times[test_count]);
-    printf("TestParams{%u,%u,%u, %i,%i} %.3g ms\n", params.M, params.N, params.K,
+    const double percentile_25_ms = test_times[test_count / 4];
+    const double flops = double(params.M) * params.N * params.K * 2.0 * 1000.0 / percentile_25_ms;
+    printf("TestParams{%u,%u,%u, %i,%i} %.3g ms %.3g TFLOPS\n", params.M, params.N, params.K,
            static_cast<int>(params.test_data_code_A), static_cast<int>(params.test_data_code_B),
-           test_times[test_count / 4]);
+           percentile_25_ms, flops * 1e-12);
 
     launch_device_compare_tensor(params, d_c_sm80, d_c_sm90_tested, params.M, params.N, d_bitfield, stream);
 

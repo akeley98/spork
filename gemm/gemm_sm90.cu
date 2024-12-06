@@ -7,11 +7,16 @@
 
 #include <cuda.h>
 
+#define DEVICE_INLINE __device__ __forceinline__
+
+#define DEVICE_ASSERT(x) assert(x)
+// #define DEVICE_ASSERT(x)
+
 namespace {
 
 using mbarrier_t = long long;
 
-__device__ uint32_t smem_ptr_u32(const void* smem_ptr)
+DEVICE_INLINE uint32_t smem_ptr_u32(const void* smem_ptr)
 {
     return static_cast<uint32_t>(__cvta_generic_to_shared(smem_ptr));
 }
@@ -51,38 +56,38 @@ struct TiledMultiplier
         mbarrier_t tile_read_mbar[RING_BUFFER_SIZE];
     };
 
-    __host__ __device__ static constexpr uint32_t smem_size()
+    __host__ DEVICE_INLINE static constexpr uint32_t smem_size()
     {
         return sizeof(Shared);
     }
 
-    __host__ __device__ static constexpr uint32_t consumer_wg_count()
+    __host__ DEVICE_INLINE static constexpr uint32_t consumer_wg_count()
     {
         // If output matrix is cut into (WG_M, WG_N) blocks, one warpgroup handles one matrix block.
         static_assert(SMEM_M % WG_M == 0);
         static_assert(SMEM_N % WG_N == 0);
         return (SMEM_M / WG_M) * (SMEM_N / WG_N);
     }
-    __host__ __device__ static constexpr uint32_t cta_size()
+    __host__ DEVICE_INLINE static constexpr uint32_t cta_size()
     {
         // 1 extra warpgroup for memory.
         return (1 + consumer_wg_count()) * 128;
     }
 
     // If output matrix is cut into (SMEM_M, SMEM_N) blocks, one CTA handles one matrix block.
-    static __host__ __device__ uint32_t m_cta(uint32_t size_m)
+    static __host__ DEVICE_INLINE uint32_t m_cta(uint32_t size_m)
     {
-        assert(size_m % SMEM_M == 0);
+        DEVICE_ASSERT(size_m % SMEM_M == 0);
         return size_m / SMEM_M;
     }
 
-    static __host__ __device__ uint32_t n_cta(uint32_t size_n)
+    static __host__ DEVICE_INLINE uint32_t n_cta(uint32_t size_n)
     {
-        assert(size_n % SMEM_N == 0);
+        DEVICE_ASSERT(size_n % SMEM_N == 0);
         return size_n / SMEM_N;
     }
 
-    static __device__ void mbar_wait(mbarrier_t& mbar, uint32_t parity)
+    static DEVICE_INLINE void mbar_wait(mbarrier_t& mbar, uint32_t parity)
     {
         asm volatile(
                 "{.reg.pred P1; BEFORE_WAIT: mbarrier.try_wait.parity.acquire.cta.shared::cta.b64 P1, [%0], %1; @P1 bra.uni WAIT_DONE; bra.uni BEFORE_WAIT; WAIT_DONE: }"
@@ -103,14 +108,13 @@ struct TiledMultiplier
     //   a_tile[wg_m_offset : wg_m_offset + WG_M, wg_k_offset : wg_k_offset + WG_K]
     //   bT_tile[wg_n_offset : wg_n_offset + WG_N, wg_k_offset : wg_k_offset + WG_K]
     // and add to the (WG_M, WG_N) tile held in WG_Accum.
-    __device__ void wg_accum_tile(WG_Accum& accum, const Buffers& buffers, uint32_t wg_m_offset, uint32_t wg_n_offset,
-                                  uint32_t wg_k_offset, bool zero_output) const
+    DEVICE_INLINE void wg_accum_tile(WG_Accum& d, const Buffers& buffers, uint32_t wg_m_offset, uint32_t wg_n_offset,
+                                     uint32_t wg_k_offset, bool zero_output) const
     {
         const uint32_t lane = threadIdx.x % 128u;
-
         for (uint32_t local_k = 0; local_k < WG_K; ++local_k) {
-            for (uint32_t r = 0; r < accum.regcount; ++r) {
-                const uint32_t r_in_wg = r + accum.regcount * lane;
+            for (uint32_t r = 0; r < d.regcount; ++r) {
+                const uint32_t r_in_wg = r + d.regcount * lane;
                 const uint32_t local_m = r_in_wg / WG_N;
                 const uint32_t local_n = r_in_wg % WG_N;
                 const uint32_t outer_m = wg_m_offset + local_m;
@@ -119,10 +123,10 @@ struct TiledMultiplier
                 const float a_val = buffers.a_tile[outer_m * SMEM_K + outer_k];
                 const float b_val = buffers.bT_tile[outer_n * SMEM_K + outer_k];
                 if (zero_output && local_k == 0) {
-                    accum.regs[r] = a_val * b_val;
+                    d.regs[r] = a_val * b_val;
                 }
                 else {
-                    accum.regs[r] = fma(a_val, b_val, accum.regs[r]);
+                    d.regs[r] = fma(a_val, b_val, d.regs[r]);
                 }
             }
         }
@@ -130,8 +134,8 @@ struct TiledMultiplier
 
     // Warpgroup-convergent code
     // Write the (WG_M, WG_N) tile to shared.c_tile, at offset (wg_m_offset, wg_n_offset).
-    __device__ void wg_accum_to_shared(Shared& shared, const WG_Accum& accum,
-                                       uint32_t wg_m_offset, uint32_t wg_n_offset) const
+    DEVICE_INLINE void wg_accum_to_shared(Shared& shared, const WG_Accum& accum,
+                                          uint32_t wg_m_offset, uint32_t wg_n_offset) const
     {
         const uint32_t lane = threadIdx.x % 128u;
 
@@ -147,11 +151,16 @@ struct TiledMultiplier
 
     // Fill shared memory A tile with SMEM_M×SMEM_K block starting at (cta_m_offset, cta_k_offset)
     // Fill shared memory B^T tile with SMEM_N×SMEM_K block starting at (cta_n_offset, cta_k_offset)
-    __device__ void warp_async_load_block(Buffers& buffers, mbarrier_t& mbar,
-                                          uint32_t cta_m_offset, uint32_t cta_n_offset, uint32_t cta_k_offset) const
+    DEVICE_INLINE void warp_async_load_block(Buffers& buffers, mbarrier_t& mbar,
+                                             uint32_t cta_m_offset, uint32_t cta_n_offset, uint32_t cta_k_offset) const
     {
         const uint32_t lane = threadIdx.x % 32u;
         if (lane == 0) {  // XXX lane == 0 is "wrong"
+            constexpr uint32_t expect_count = (SMEM_M + SMEM_N) * SMEM_K * sizeof(float);
+            asm volatile(
+                "mbarrier.arrive.expect_tx.shared::cta.b64 _, [%0], %1;"
+                :
+                : "r"(smem_ptr_u32(&mbar)), "n"(expect_count));
             asm volatile(
                 "cp.async.bulk.tensor.2d.shared::cluster.global.tile.mbarrier::complete_tx::bytes"
                 " [%0], [%1, {%3, %4}], [%2];"
@@ -170,35 +179,30 @@ struct TiledMultiplier
                   "r"(smem_ptr_u32(&mbar)),
                   "r"(cta_k_offset), "r"(cta_n_offset)
                 : "memory");
-            constexpr uint32_t expect_count = (SMEM_M + SMEM_N) * SMEM_K * sizeof(float);
-            asm volatile(
-                "mbarrier.arrive.expect_tx.shared::cta.b64 _, [%0], %1;"
-                :
-                : "r"(smem_ptr_u32(&mbar)), "n"(expect_count));
         }
     }
 
     // Static assignment of warpgroups within CTA to per-warpgroup output tiles (WG_M, WG_N) within
     // per-CTA output tile (SMEM_M, SMEM_N), plus one extra warpgroup for memory transactions.
-    __device__ bool is_memory_wg() const
+    DEVICE_INLINE bool is_memory_wg() const
     {
         return (threadIdx.x / 128u) == consumer_wg_count();
     }
 
-    __device__ uint32_t get_wg_m_idx() const
+    DEVICE_INLINE uint32_t get_wg_m_idx() const
     {
         const uint32_t wg_index = threadIdx.x / 128u;
-        assert(wg_index < consumer_wg_count());
+        DEVICE_ASSERT(wg_index < consumer_wg_count());
         return wg_index / (SMEM_N / WG_N);
     }
 
-    __device__ uint32_t get_wg_n_idx() const
+    DEVICE_INLINE uint32_t get_wg_n_idx() const
     {
         const uint32_t wg_index = threadIdx.x / 128u;
         return wg_index % (SMEM_N / WG_N);
     }
 
-    __device__ void cta_first_time_init(Shared& shared) const
+    DEVICE_INLINE void cta_first_time_init(Shared& shared) const
     {
         for (uint32_t i = threadIdx.x; i < RING_BUFFER_SIZE; i += blockDim.x) {
             constexpr unsigned consumer_thread_count = consumer_wg_count() * 128u;
@@ -211,11 +215,11 @@ struct TiledMultiplier
 
     // CTA cooperates to fill the output matrix block of size (SMEM_M, SMEM_N) starting at (cta_m_offset, cta_n_offset).
     // Requires smem-allocated ring buffer.
-    __device__ void cta_compute_block(uint32_t cta_m_offset, uint32_t cta_n_offset, Shared& shared) const
+    DEVICE_INLINE void cta_compute_block(uint32_t cta_m_offset, uint32_t cta_n_offset, Shared& shared) const
     {
-        assert(cta_m_offset % SMEM_M == 0);
-        assert(cta_n_offset % SMEM_N == 0);
-        assert(size_k % SMEM_K == 0);
+        DEVICE_ASSERT(cta_m_offset % SMEM_M == 0);
+        DEVICE_ASSERT(cta_n_offset % SMEM_N == 0);
+        DEVICE_ASSERT(size_k % SMEM_K == 0);
         const uint32_t k_blk_dim = size_k / SMEM_K;
 
         WG_Accum accum;
@@ -268,10 +272,10 @@ struct TiledMultiplier
         }
     }
 
-    __device__ void kernel_main()
+    DEVICE_INLINE void kernel_main()
     {
-        assert(gridDim.x == m_cta(size_m) * n_cta(size_n));
-        assert(blockDim.x == cta_size());
+        DEVICE_ASSERT(gridDim.x == m_cta(size_m) * n_cta(size_n));
+        DEVICE_ASSERT(blockDim.x == cta_size());
 
         const uint32_t cta_rows = size_m / SMEM_M;
         const uint32_t cta_cols = size_n / SMEM_N;
@@ -288,12 +292,12 @@ struct TiledMultiplier
             cta_n_idx = cta_index_in_superblock % CTA_MODULUS + CTA_MODULUS * superblock_idx;
         }
         else {
-            assert(superblock_idx == superblock_count);
+            DEVICE_ASSERT(superblock_idx == superblock_count);
             cta_m_idx = cta_index_in_superblock / cta_col_remainder;
             cta_n_idx = cta_index_in_superblock % cta_col_remainder + CTA_MODULUS * superblock_idx;
         }
-        assert(cta_m_idx < cta_rows);
-        assert(cta_n_idx < cta_cols);
+        DEVICE_ASSERT(cta_m_idx < cta_rows);
+        DEVICE_ASSERT(cta_n_idx < cta_cols);
 
         extern __shared__ char smem[];
         cta_first_time_init(reinterpret_cast<Shared&>(*smem));
