@@ -54,12 +54,49 @@ struct TiledMultiplier
     static constexpr uint32_t RING_BUFFER_SIZE = 3;
     static constexpr CUtensorMapSwizzle swizzle = CU_TENSOR_MAP_SWIZZLE_NONE;
 
+    // wgmma core matrix dimensions.
+    static constexpr uint32_t SMEM_MN_INNER = 8u;
+    static constexpr uint32_t SMEM_K_INNER = 16u / sizeof(float);
+
+    static constexpr uint32_t SMEM_M_OUTER = SMEM_M / SMEM_MN_INNER;
+    static_assert(SMEM_MN_INNER * SMEM_M_OUTER == SMEM_M);
+    static constexpr uint32_t SMEM_N_OUTER = SMEM_N / SMEM_MN_INNER;
+    static_assert(SMEM_MN_INNER * SMEM_N_OUTER == SMEM_N);
+    static constexpr uint32_t SMEM_K_OUTER = SMEM_K / SMEM_K_INNER;
+    static_assert(SMEM_K_INNER * SMEM_K_OUTER == SMEM_K);
+
     // One buffer of ring buffer.
     struct Buffers
     {
-        float a_tile[SMEM_M * SMEM_K];
-        float bT_tile[SMEM_N * SMEM_K];  // Transposed
+        // Inner (rightmost) 2 dimensions correspond to a wgmma core matrix.
+        // Note outer 2 dimensions have MN/K swapped compared to inner 2 dimensions.
+        // This is to make TMA (cp.async.bulk.tensor) more efficient.
+        // We can treat the right 3 dimensions as a C-order 2D array, which is what 2D TMA supports.
+        float a_tile[SMEM_K_OUTER][SMEM_M_OUTER][SMEM_MN_INNER][SMEM_K_INNER];
+        float bT_tile[SMEM_K_OUTER][SMEM_N_OUTER][SMEM_MN_INNER][SMEM_K_INNER];
+
+        DEVICE_INLINE float* a_tile_mk_offset(uint32_t m_offset, uint32_t k_offset)
+        {
+            DEVICE_ASSERT(m_offset % SMEM_MN_INNER == 0);
+            DEVICE_ASSERT(k_offset % SMEM_K_INNER == 0);
+            return &a_tile[k_offset / SMEM_K_INNER][m_offset / SMEM_MN_INNER][0][0];
+        }
+
+        DEVICE_INLINE float* bT_tile_nk_offset(uint32_t n_offset, uint32_t k_offset)
+        {
+            DEVICE_ASSERT(n_offset % SMEM_MN_INNER == 0);
+            DEVICE_ASSERT(k_offset % SMEM_K_INNER == 0);
+            return &bT_tile[k_offset / SMEM_K_INNER][n_offset / SMEM_MN_INNER][0][0];
+        }
     };
+
+    // Strides between core matrices, and configuration for TMA tensormap.
+    static constexpr uint32_t core_matrix_mn_stride = sizeof(float) * SMEM_MN_INNER * SMEM_K_INNER;
+    static constexpr uint32_t core_matrix_a_k_stride = core_matrix_mn_stride * SMEM_M_OUTER;
+    static constexpr uint32_t core_matrix_bT_k_stride = core_matrix_mn_stride * SMEM_N_OUTER;
+    static constexpr uint32_t tensorMap_box_m = SMEM_M;
+    static constexpr uint32_t tensorMap_box_n = SMEM_N;
+    static constexpr uint32_t tensorMap_box_k = SMEM_K_INNER;
 
     struct Shared
     {
@@ -146,11 +183,20 @@ struct TiledMultiplier
                 const uint32_t r_in_wg = r + d.regcount * lane;
                 const uint32_t local_m = r_in_wg / WG_N;
                 const uint32_t local_n = r_in_wg % WG_N;
-                const uint32_t outer_m = wg_m_offset + local_m;
-                const uint32_t outer_n = wg_n_offset + local_n;
-                const uint32_t outer_k = wg_k_offset + local_k;
-                const float a_val = buffers.a_tile[outer_m * SMEM_K + outer_k];
-                const float b_val = buffers.bT_tile[outer_n * SMEM_K + outer_k];
+
+                const uint32_t smem_m_offset = wg_m_offset + local_m;
+                const uint32_t smem_n_offset = wg_n_offset + local_n;
+                const uint32_t smem_k_offset = wg_k_offset + local_k;
+
+                const uint32_t outer_m = smem_m_offset / SMEM_MN_INNER;
+                const uint32_t inner_m = smem_m_offset % SMEM_MN_INNER;
+                const uint32_t outer_n = smem_n_offset / SMEM_MN_INNER;
+                const uint32_t inner_n = smem_n_offset % SMEM_MN_INNER;
+                const uint32_t outer_k = smem_k_offset / SMEM_K_INNER;
+                const uint32_t inner_k = smem_k_offset % SMEM_K_INNER;
+
+                const float a_val = buffers.a_tile[outer_k][outer_m][inner_m][inner_k];
+                const float b_val = buffers.bT_tile[outer_k][outer_n][inner_n][inner_k];
                 if (zero_output && local_k == 0) {
                     d.regs[r] = a_val * b_val;
                 }
@@ -180,6 +226,7 @@ struct TiledMultiplier
 
     // Fill shared memory A tile with SMEM_M×SMEM_K block starting at (cta_m_offset, cta_k_offset)
     // Fill shared memory B^T tile with SMEM_N×SMEM_K block starting at (cta_n_offset, cta_k_offset)
+    // Due to the tiling of shared memory, this is done as SMEM_K / SMEM_K_INNER separate copies.
     DEVICE_INLINE void warp_async_load_block(Buffers& buffers, mbarrier_t& mbar,
                                              uint32_t cta_m_offset, uint32_t cta_n_offset, uint32_t cta_k_offset) const
     {
@@ -190,24 +237,30 @@ struct TiledMultiplier
                 "mbarrier.arrive.expect_tx.shared::cta.b64 _, [%0], %1;"
                 :
                 : "r"(smem_ptr_u32(&mbar)), "n"(expect_count));
-            asm volatile(
-                "cp.async.bulk.tensor.2d.shared::cluster.global.tile.mbarrier::complete_tx::bytes"
-                " [%0], [%1, {%3, %4}], [%2];"
-                :
-                : "r"(smem_ptr_u32(&buffers.a_tile)),
-                  "l"(tensorMap_a),
-                  "r"(smem_ptr_u32(&mbar)),
-                  "r"(cta_k_offset), "r"(cta_m_offset)
-                : "memory");
-            asm volatile(
-                "cp.async.bulk.tensor.2d.shared::cluster.global.tile.mbarrier::complete_tx::bytes"
-                " [%0], [%1, {%3, %4}], [%2];"
-                :
-                : "r"(smem_ptr_u32(&buffers.bT_tile)),
-                  "l"(tensorMap_bT),
-                  "r"(smem_ptr_u32(&mbar)),
-                  "r"(cta_k_offset), "r"(cta_n_offset)
-                : "memory");
+
+            for (uint32_t smem_k_offset = 0; smem_k_offset < SMEM_K; smem_k_offset += SMEM_K_INNER) {
+                static_assert(tensorMap_box_m == SMEM_M_OUTER * SMEM_MN_INNER);
+                static_assert(tensorMap_box_n == SMEM_N_OUTER * SMEM_MN_INNER);
+                static_assert(tensorMap_box_k == SMEM_K_INNER);
+                asm volatile(
+                    "cp.async.bulk.tensor.2d.shared::cluster.global.tile.mbarrier::complete_tx::bytes"
+                    " [%0], [%1, {%3, %4}], [%2];"
+                    :
+                    : "r"(smem_ptr_u32(buffers.a_tile_mk_offset(0, smem_k_offset))),
+                      "l"(tensorMap_a),
+                      "r"(smem_ptr_u32(&mbar)),
+                      "r"(cta_k_offset + smem_k_offset), "r"(cta_m_offset)
+                    : "memory");
+                asm volatile(
+                    "cp.async.bulk.tensor.2d.shared::cluster.global.tile.mbarrier::complete_tx::bytes"
+                    " [%0], [%1, {%3, %4}], [%2];"
+                    :
+                    : "r"(smem_ptr_u32(buffers.bT_tile_nk_offset(0, smem_k_offset))),
+                      "l"(tensorMap_bT),
+                      "r"(smem_ptr_u32(&mbar)),
+                      "r"(cta_k_offset + smem_k_offset), "r"(cta_n_offset)
+                    : "memory");
+            }
         }
     }
 
@@ -298,6 +351,9 @@ struct TiledMultiplier
         __syncthreads();  // TODO
 
         if (is_memory_wg()) {
+            // Copy or reduce shared memory C tile to global memory.
+            static_assert(tensorMap_box_m == SMEM_M);
+            static_assert(tensorMap_box_n == SMEM_N);
             if (threadIdx.x % 128u == 0u) {
                 asm volatile("fence.proxy.async;");
                 if (using_cp_reduce(size_k)) {
@@ -398,9 +454,9 @@ struct TiledMultiplier
                        const float* a, const float* bT, float* c)
     {
         CUtensorMap tensorMap_a, tensorMap_bT, tensorMap_c;
-        init_tensorMap(&tensorMap_a, a, size_m, size_k, SMEM_M, SMEM_K);
-        init_tensorMap(&tensorMap_bT, bT, size_n, size_k, SMEM_N, SMEM_K);
-        init_tensorMap(&tensorMap_c, c, size_m, size_n, SMEM_M, SMEM_N);
+        init_tensorMap(&tensorMap_a, a, size_m, size_k, tensorMap_box_m, tensorMap_box_k);
+        init_tensorMap(&tensorMap_bT, bT, size_n, size_k, tensorMap_box_n, tensorMap_box_k);
+        init_tensorMap(&tensorMap_c, c, size_m, size_n, tensorMap_box_m, tensorMap_box_n);
 
         if (using_cp_reduce(size_k)) {
             cudaMemsetAsync(c, 0, size_m * size_n * sizeof(*c), stream);

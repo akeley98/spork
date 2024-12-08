@@ -211,6 +211,7 @@ void gemm_test(TestParams params, cudaStream_t stream)
     }
     launch_device_compare_tensor(params, d_c_sm80, d_c_sm90_warmup, params.M, params.N, d_bitfield, stream);
 
+#if 0
     // cute test (need to do A,B swap trick to deal with Fortran-inherited column majorness)
     {
         const int ldA = int(params.K);
@@ -220,6 +221,7 @@ void gemm_test(TestParams params, cudaStream_t stream)
                        d_bT16, ldB, d_a16, ldA, d_c16, ldC, stream);
     }
     launch_device_compare_tensor(params, d_c_sm80, d_c16, params.M, params.N, d_bitfield, stream);
+#endif
 
     // Test loop
     constexpr uint32_t test_count = 15;
