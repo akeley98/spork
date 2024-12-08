@@ -25,17 +25,15 @@ int main()
         }
     };
 
-    sized_tests(256, 512, 3 * 128, false);
-    sized_tests(512, 256, 3 * 128, false);
-    sized_tests(256, 256, 3 * 512, false);
-    sized_tests(256, 1024, 3 * 128, false);
-    sized_tests(1280, 768, 3 * 256, false);
-    sized_tests(1280, 2560, 3 * 256, false);
-    sized_tests(12800, 2560, 3 * 2048, true);
-    sized_tests(12800, 25600, 3 * 512, true);
-    sized_tests(2048, 2048, 3 * 4096, true);
-    sized_tests(1024, 1024, 3 * 4096, true);
-    sized_tests(256, 512, 3 * 4096, true);
+    sized_tests(768, 768, 3 * 128, false);
+    sized_tests(768, 7680, 3 * 128, false);
+    sized_tests(7680, 768, 3 * 128, false);
+    sized_tests(7680, 7680, 3 * 128, false);
+    sized_tests(3 * 4096, 2560, 3 * 2048, true);
+    sized_tests(3 * 4096, 25600, 3 * 512, true);
+    sized_tests(1536, 2048, 3 * 40960, true);
+    sized_tests(1536, 1024, 3 * 40960, true);
+    sized_tests(768, 512, 3 * 40960, true);
     cudaDeviceSynchronize();
 }
 

@@ -25,33 +25,26 @@ template <typename Multiplier>
 __global__ void
 __launch_bounds__(Multiplier::cta_size())
 tiled_multiplier_kernel(uint32_t size_m, uint32_t size_n, uint32_t size_k,
-                        const float* a, const float* bT, float* c,
                         __grid_constant__ const CUtensorMap tensorMap_a,
                         __grid_constant__ const CUtensorMap tensorMap_bT,
                         __grid_constant__ const CUtensorMap tensorMap_c)
 {
-    Multiplier multiplier{size_m, size_n, size_k, a, bT, c, &tensorMap_a, &tensorMap_bT, &tensorMap_c};
+    Multiplier multiplier{size_m, size_n, size_k, &tensorMap_a, &tensorMap_bT, &tensorMap_c};
     multiplier.kernel_main();
 }
 
-template <uint32_t SMEM_M, uint32_t SMEM_N, uint32_t SMEM_K, uint32_t K_MAX_TILES, uint32_t CTA_MODULUS>
+template <uint32_t SMEM_M, uint32_t SMEM_N, uint32_t SMEM_K, uint32_t K_MAX_TILES, uint32_t CTA_MODULUS, uint32_t RING_BUFFER_SIZE>
 struct TiledMultiplier
 {
     uint32_t size_m, size_n, size_k;
-
-    // TODO remove
-    float const* a;
-    float const* bT;
-    float* c;
 
     const CUtensorMap* tensorMap_a;
     const CUtensorMap* tensorMap_bT;  // Transposed; column major
     const CUtensorMap* tensorMap_c;
 
     static constexpr uint32_t WG_M = 64;
-    static constexpr uint32_t WG_N = 64;
+    static constexpr uint32_t WG_N = 128;
     static constexpr uint32_t WG_K = 8;
-    static constexpr uint32_t RING_BUFFER_SIZE = 4;
     static constexpr CUtensorMapSwizzle swizzle = CU_TENSOR_MAP_SWIZZLE_NONE;
 
     // wgmma core matrix dimensions.
@@ -100,8 +93,10 @@ struct TiledMultiplier
 
     struct Shared
     {
-        Buffers buffers[RING_BUFFER_SIZE];
-        float c_tile[SMEM_M * SMEM_N];
+        union {
+            Buffers aliased_input_ring_buffer[RING_BUFFER_SIZE];
+            float aliased_output_c_tile[SMEM_M * SMEM_N];
+        };
         mbarrier_t tile_fill_mbar[RING_BUFFER_SIZE];
         mbarrier_t tile_read_mbar[RING_BUFFER_SIZE];
     };
@@ -171,7 +166,11 @@ struct TiledMultiplier
         float d8, d9, d10, d11, d12, d13, d14, d15;
         float d16, d17, d18, d19, d20, d21, d22, d23;
         float d24, d25, d26, d27, d28, d29, d30, d31;
-        static_assert(regcount == 32);
+        float d32, d33, d34, d35, d36, d37, d38, d39;
+        float d40, d41, d42, d43, d44, d45, d46, d47;
+        float d48, d49, d50, d51, d52, d53, d54, d55;
+        float d56, d57, d58, d59, d60, d61, d62, d63;
+        static_assert(regcount == 64);
     };
 
     static DEVICE_INLINE uint64_t matrix_descriptor_encode(uint32_t val)
@@ -206,20 +205,24 @@ struct TiledMultiplier
         auto desc_b = matrix_descriptor_mn_k_stride(buffers.bT_tile_nk_offset(wg_n_offset, wg_k_offset),
                                                     core_matrix_mn_stride, core_matrix_bT_k_stride);
         static_assert(WG_M == 64);
-        static_assert(WG_N == 64);
+        static_assert(WG_N == 128);
         static_assert(WG_K == 8);
         asm volatile(
         "{\n"
           ".reg .pred p;\n"
-          "setp.ne.b32 p, %34, 0;\n"
-          "wgmma.mma_async.sync.aligned.m64n64k8.f32.tf32.tf32 "
-          "{%0,  %1,  %2,  %3,  %4,  %5,  %6,  %7,  "
-          " %8,  %9,  %10, %11, %12, %13, %14, %15, "
-          " %16, %17, %18, %19, %20, %21, %22, %23, "
-          " %24, %25, %26, %27, %28, %29, %30, %31},"
-          " %32,"
-          " %33,"
-          " p,   1, 1;\n"
+          "setp.ne.b32 p, %66, 0;\n"
+          "wgmma.mma_async.sync.aligned.m64n128k8.f32.tf32.tf32 "
+          "{%0,   %1,   %2,   %3,   %4,   %5,   %6,   %7,   "
+          " %8,   %9,   %10,  %11,  %12,  %13,  %14,  %15,  "
+          " %16,  %17,  %18,  %19,  %20,  %21,  %22,  %23,  "
+          " %24,  %25,  %26,  %27,  %28,  %29,  %30,  %31,  "
+          " %32,  %33,  %34,  %35,  %36,  %37,  %38,  %39,  "
+          " %40,  %41,  %42,  %43,  %44,  %45,  %46,  %47,  "
+          " %48,  %49,  %50,  %51,  %52,  %53,  %54,  %55,  "
+          " %56,  %57,  %58,  %59,  %60,  %61,  %62,  %63},"
+          " %64,"
+          " %65,"
+          " p,    1,  1;\n"
         "}\n"
           : "+f"(d.d0), "+f"(d.d1), "+f"(d.d2), "+f"(d.d3),
             "+f"(d.d4), "+f"(d.d5), "+f"(d.d6), "+f"(d.d7),
@@ -228,7 +231,15 @@ struct TiledMultiplier
             "+f"(d.d16), "+f"(d.d17), "+f"(d.d18), "+f"(d.d19),
             "+f"(d.d20), "+f"(d.d21), "+f"(d.d22), "+f"(d.d23),
             "+f"(d.d24), "+f"(d.d25), "+f"(d.d26), "+f"(d.d27),
-            "+f"(d.d28), "+f"(d.d29), "+f"(d.d30), "+f"(d.d31)
+            "+f"(d.d28), "+f"(d.d29), "+f"(d.d30), "+f"(d.d31),
+            "+f"(d.d32), "+f"(d.d33), "+f"(d.d34), "+f"(d.d35),
+            "+f"(d.d36), "+f"(d.d37), "+f"(d.d38), "+f"(d.d39),
+            "+f"(d.d40), "+f"(d.d41), "+f"(d.d42), "+f"(d.d43),
+            "+f"(d.d44), "+f"(d.d45), "+f"(d.d46), "+f"(d.d47),
+            "+f"(d.d48), "+f"(d.d49), "+f"(d.d50), "+f"(d.d51),
+            "+f"(d.d52), "+f"(d.d53), "+f"(d.d54), "+f"(d.d55),
+            "+f"(d.d56), "+f"(d.d57), "+f"(d.d58), "+f"(d.d59),
+            "+f"(d.d60), "+f"(d.d61), "+f"(d.d62), "+f"(d.d63)
           :  "l"(desc_a),
              "l"(desc_b),
              "r"(int32_t(!zero_output)));
@@ -241,17 +252,21 @@ struct TiledMultiplier
     {
         const uint32_t tid = threadIdx.x % 128u;
 
-        static_assert(WG_Accum::regcount == 32);
+        static_assert(WG_Accum::regcount == 64);
         #define X(REG_INDEX) { \
             const uint32_t r = (tid / 32u) * 16u + (tid % 32u) / 4u + ((REG_INDEX % 4u) / 2u) * 8u; \
             const uint32_t c = (tid % 4u) * 2u + (REG_INDEX / 4u) * 8 + (REG_INDEX % 2u); \
             const uint32_t smem_m_offset = wg_m_offset + r; \
             const uint32_t smem_n_offset = wg_n_offset + c; \
-            shared.c_tile[smem_m_offset * SMEM_N + smem_n_offset] = d.d##REG_INDEX; }
+            shared.aliased_output_c_tile[smem_m_offset * SMEM_N + smem_n_offset] = d.d##REG_INDEX; }
         X(0) X(1) X(2) X(3) X(4) X(5) X(6) X(7)
         X(8) X(9) X(10) X(11) X(12) X(13) X(14) X(15)
         X(16) X(17) X(18) X(19) X(20) X(21) X(22) X(23)
         X(24) X(25) X(26) X(27) X(28) X(29) X(30) X(31)
+        X(32) X(33) X(34) X(35) X(36) X(37) X(38) X(39)
+        X(40) X(41) X(42) X(43) X(44) X(45) X(46) X(47)
+        X(48) X(49) X(50) X(51) X(52) X(53) X(54) X(55)
+        X(56) X(57) X(58) X(59) X(60) X(61) X(62) X(63)
         #undef X
     }
 
@@ -325,6 +340,7 @@ struct TiledMultiplier
             asm volatile("fence.proxy.async;");
         }
         asm volatile("wgmma.fence.sync.aligned;");
+        asm volatile("wgmma.commit_group.sync.aligned;");
     }
 
     // CTA cooperates to fill or add to the output matrix block of size (SMEM_M, SMEM_N) starting at
@@ -353,7 +369,7 @@ struct TiledMultiplier
                     mbar_wait(shared.tile_read_mbar[ring_idx], !ring_usage_parity);
                 }
                 if (threadIdx.x % 128u < 32u) {
-                    warp_async_load_block(shared.buffers[ring_idx], shared.tile_fill_mbar[ring_idx],
+                    warp_async_load_block(shared.aliased_input_ring_buffer[ring_idx], shared.tile_fill_mbar[ring_idx],
                                           cta_m_offset, cta_n_offset, cta_k_offset);
                 }
             }
@@ -364,7 +380,8 @@ struct TiledMultiplier
                 const uint32_t wg_n_offset = get_wg_n_idx() * WG_N;
                 for (uint32_t wg_k_idx = 0; wg_k_idx < SMEM_K / WG_K; ++wg_k_idx) {
                     const uint32_t wg_k_offset = wg_k_idx * WG_K;
-                    wg_accum_tile(accum, shared.buffers[ring_idx], wg_m_offset, wg_n_offset, wg_k_offset, first_time);
+                    wg_accum_tile(accum, shared.aliased_input_ring_buffer[ring_idx],
+                                  wg_m_offset, wg_n_offset, wg_k_offset, first_time);
                     first_time = false;
                 }
                 asm volatile(
@@ -373,6 +390,8 @@ struct TiledMultiplier
                     : "r"(smem_ptr_u32(&shared.tile_read_mbar[ring_idx])));
             }
         }
+
+        __syncthreads();  // Switch from using aliased shared memory for input tile to output tile.
 
         if (!is_memory_wg()) {
             // Wait for wgmma and copy registers to shared memory C tile.
@@ -398,7 +417,7 @@ struct TiledMultiplier
                     :
                     : "l"(tensorMap_c),
                       "r"(cta_n_offset), "r"(cta_m_offset),
-                      "r"(smem_ptr_u32(&shared.c_tile)));
+                      "r"(smem_ptr_u32(&shared.aliased_output_c_tile)));
                 }
                 else {
                     asm volatile(
@@ -407,7 +426,7 @@ struct TiledMultiplier
                     :
                     : "l"(tensorMap_c),
                       "r"(cta_n_offset), "r"(cta_m_offset),
-                      "r"(smem_ptr_u32(&shared.c_tile)));
+                      "r"(smem_ptr_u32(&shared.aliased_output_c_tile)));
                 }
                 asm volatile("cp.async.bulk.commit_group;");
                 asm volatile("cp.async.bulk.wait_group 0;");
@@ -500,9 +519,10 @@ struct TiledMultiplier
         const uint32_t grid = m_cta(size_m) * n_cta(size_n) * k_cta(size_k);
         const uint32_t block = cta_size();
         const uint32_t smem = smem_size();
+        assert(smem <= 256u << 10);
         cudaFuncSetAttribute(tiled_multiplier_kernel<TiledMultiplier>, cudaFuncAttributeMaxDynamicSharedMemorySize, smem);
         tiled_multiplier_kernel<TiledMultiplier> <<<grid, block, smem, stream>>>(
-                size_m, size_n, size_k, a, bT, c, tensorMap_a, tensorMap_bT, tensorMap_c);
+                size_m, size_n, size_k, tensorMap_a, tensorMap_bT, tensorMap_c);
     }
 };
 
@@ -510,18 +530,23 @@ struct TiledMultiplier
 
 void matmul_sm90(GPU_Tensors t, cudaStream_t stream)
 {
-    constexpr uint32_t smem_m = 64;
+    constexpr uint32_t smem_m = 128;
     constexpr uint32_t smem_n = 256;
-    constexpr uint32_t smem_k = 32;
-    constexpr uint32_t cta_k_max_tiles = 12;
+    constexpr uint32_t smem_k = 48;
+    constexpr uint32_t cta_k_max_tiles = 36;
     constexpr uint32_t cta_modulus = 4;
+    constexpr uint32_t ring_buffer_size = 3;
 
     const uint32_t size_m = t.M;
     const uint32_t size_n = t.N;
     const uint32_t size_k = t.K;
 
+    assert(!t.a_col_major);
+    assert(t.b_col_major);
+    assert(!t.c_col_major);
+
     if (size_m % smem_m == 0 && size_n % smem_n == 0 && size_k % smem_k == 0) {
-        TiledMultiplier<smem_m, smem_n, smem_k, cta_k_max_tiles, cta_modulus>::launch(
+        TiledMultiplier<smem_m, smem_n, smem_k, cta_k_max_tiles, cta_modulus, ring_buffer_size>::launch(
                 stream, size_m, size_n, size_k, t.a, t.b, t.c);
     }
     else {
