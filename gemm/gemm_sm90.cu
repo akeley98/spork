@@ -9,8 +9,8 @@
 
 #define DEVICE_INLINE __device__ __forceinline__
 
-#define DEVICE_ASSERT(x) assert(x)
-// #define DEVICE_ASSERT(x)
+// #define DEVICE_ASSERT(x) assert(x)
+#define DEVICE_ASSERT(x)
 
 namespace {
 
@@ -51,7 +51,7 @@ struct TiledMultiplier
     static constexpr uint32_t WG_M = 64;
     static constexpr uint32_t WG_N = 64;
     static constexpr uint32_t WG_K = 8;
-    static constexpr uint32_t RING_BUFFER_SIZE = 3;
+    static constexpr uint32_t RING_BUFFER_SIZE = 4;
     static constexpr CUtensorMapSwizzle swizzle = CU_TENSOR_MAP_SWIZZLE_NONE;
 
     // wgmma core matrix dimensions.
@@ -75,14 +75,14 @@ struct TiledMultiplier
         float a_tile[SMEM_K_OUTER][SMEM_M_OUTER][SMEM_MN_INNER][SMEM_K_INNER];
         float bT_tile[SMEM_K_OUTER][SMEM_N_OUTER][SMEM_MN_INNER][SMEM_K_INNER];
 
-        DEVICE_INLINE float* a_tile_mk_offset(uint32_t m_offset, uint32_t k_offset)
+        DEVICE_INLINE const float* a_tile_mk_offset(uint32_t m_offset, uint32_t k_offset) const
         {
             DEVICE_ASSERT(m_offset % SMEM_MN_INNER == 0);
             DEVICE_ASSERT(k_offset % SMEM_K_INNER == 0);
             return &a_tile[k_offset / SMEM_K_INNER][m_offset / SMEM_MN_INNER][0][0];
         }
 
-        DEVICE_INLINE float* bT_tile_nk_offset(uint32_t n_offset, uint32_t k_offset)
+        DEVICE_INLINE const float* bT_tile_nk_offset(uint32_t n_offset, uint32_t k_offset) const
         {
             DEVICE_ASSERT(n_offset % SMEM_MN_INNER == 0);
             DEVICE_ASSERT(k_offset % SMEM_K_INNER == 0);
@@ -164,10 +164,32 @@ struct TiledMultiplier
     // Per-warpgroup accumulator, holding one (WG_M, WG_N) tile.
     struct WG_Accum
     {
-        // TODO use wgmma
         static constexpr uint32_t regcount = WG_M * WG_N / 128u;
-        float regs[regcount];
+
+        // wgmma register tile
+        float d0, d1, d2, d3, d4, d5, d6, d7;
+        float d8, d9, d10, d11, d12, d13, d14, d15;
+        float d16, d17, d18, d19, d20, d21, d22, d23;
+        float d24, d25, d26, d27, d28, d29, d30, d31;
+        static_assert(regcount == 32);
     };
+
+    static DEVICE_INLINE uint64_t matrix_descriptor_encode(uint32_t val)
+    {
+        uint64_t enc = (val & 0x3FFFF) >> 4;
+        DEVICE_ASSERT(val == enc << 4);
+        return enc;
+    }
+
+    static DEVICE_INLINE uint64_t matrix_descriptor_mn_k_stride(const float* smem_ptr,
+                                                                uint32_t mn_stride, uint32_t k_stride)
+    {
+        // Swizzling not supported.
+        static_assert(swizzle == CU_TENSOR_MAP_SWIZZLE_NONE);
+        return matrix_descriptor_encode(smem_ptr_u32(smem_ptr))
+               | matrix_descriptor_encode(k_stride) << 16u
+               | matrix_descriptor_encode(mn_stride) << 32u;
+    }
 
     // Warpgroup-convergent code.
     // Accumulate data from shared memory. Multiply the block matrices
@@ -177,51 +199,60 @@ struct TiledMultiplier
     DEVICE_INLINE void wg_accum_tile(WG_Accum& d, const Buffers& buffers, uint32_t wg_m_offset, uint32_t wg_n_offset,
                                      uint32_t wg_k_offset, bool zero_output) const
     {
-        const uint32_t lane = threadIdx.x % 128u;
-        for (uint32_t local_k = 0; local_k < WG_K; ++local_k) {
-            for (uint32_t r = 0; r < d.regcount; ++r) {
-                const uint32_t r_in_wg = r + d.regcount * lane;
-                const uint32_t local_m = r_in_wg / WG_N;
-                const uint32_t local_n = r_in_wg % WG_N;
-
-                const uint32_t smem_m_offset = wg_m_offset + local_m;
-                const uint32_t smem_n_offset = wg_n_offset + local_n;
-                const uint32_t smem_k_offset = wg_k_offset + local_k;
-
-                const uint32_t outer_m = smem_m_offset / SMEM_MN_INNER;
-                const uint32_t inner_m = smem_m_offset % SMEM_MN_INNER;
-                const uint32_t outer_n = smem_n_offset / SMEM_MN_INNER;
-                const uint32_t inner_n = smem_n_offset % SMEM_MN_INNER;
-                const uint32_t outer_k = smem_k_offset / SMEM_K_INNER;
-                const uint32_t inner_k = smem_k_offset % SMEM_K_INNER;
-
-                const float a_val = buffers.a_tile[outer_k][outer_m][inner_m][inner_k];
-                const float b_val = buffers.bT_tile[outer_k][outer_n][inner_n][inner_k];
-                if (zero_output && local_k == 0) {
-                    d.regs[r] = a_val * b_val;
-                }
-                else {
-                    d.regs[r] = fma(a_val, b_val, d.regs[r]);
-                }
-            }
-        }
+        [[maybe_unused]] const uint32_t lane = threadIdx.x % 128u;
+        static_assert(WG_K % SMEM_K_INNER == 0);
+        auto desc_a = matrix_descriptor_mn_k_stride(buffers.a_tile_mk_offset(wg_m_offset, wg_k_offset),
+                                                    core_matrix_mn_stride, core_matrix_a_k_stride);
+        auto desc_b = matrix_descriptor_mn_k_stride(buffers.bT_tile_nk_offset(wg_n_offset, wg_k_offset),
+                                                    core_matrix_mn_stride, core_matrix_bT_k_stride);
+        static_assert(WG_M == 64);
+        static_assert(WG_N == 64);
+        static_assert(WG_K == 8);
+        asm volatile(
+        "{\n"
+          ".reg .pred p;\n"
+          "setp.ne.b32 p, %34, 0;\n"
+          "wgmma.mma_async.sync.aligned.m64n64k8.f32.tf32.tf32 "
+          "{%0,  %1,  %2,  %3,  %4,  %5,  %6,  %7,  "
+          " %8,  %9,  %10, %11, %12, %13, %14, %15, "
+          " %16, %17, %18, %19, %20, %21, %22, %23, "
+          " %24, %25, %26, %27, %28, %29, %30, %31},"
+          " %32,"
+          " %33,"
+          " p,   1, 1;\n"
+        "}\n"
+          : "+f"(d.d0), "+f"(d.d1), "+f"(d.d2), "+f"(d.d3),
+            "+f"(d.d4), "+f"(d.d5), "+f"(d.d6), "+f"(d.d7),
+            "+f"(d.d8), "+f"(d.d9), "+f"(d.d10), "+f"(d.d11),
+            "+f"(d.d12), "+f"(d.d13), "+f"(d.d14), "+f"(d.d15),
+            "+f"(d.d16), "+f"(d.d17), "+f"(d.d18), "+f"(d.d19),
+            "+f"(d.d20), "+f"(d.d21), "+f"(d.d22), "+f"(d.d23),
+            "+f"(d.d24), "+f"(d.d25), "+f"(d.d26), "+f"(d.d27),
+            "+f"(d.d28), "+f"(d.d29), "+f"(d.d30), "+f"(d.d31)
+          :  "l"(desc_a),
+             "l"(desc_b),
+             "r"(int32_t(!zero_output)));
     }
 
     // Warpgroup-convergent code
     // Write the (WG_M, WG_N) tile to shared.c_tile, at offset (wg_m_offset, wg_n_offset).
-    DEVICE_INLINE void wg_accum_to_shared(Shared& shared, const WG_Accum& accum,
+    DEVICE_INLINE void wg_accum_to_shared(Shared& shared, const WG_Accum& d,
                                           uint32_t wg_m_offset, uint32_t wg_n_offset) const
     {
-        const uint32_t lane = threadIdx.x % 128u;
+        const uint32_t tid = threadIdx.x % 128u;
 
-        for (uint32_t r = 0; r < accum.regcount; ++r) {
-            const uint32_t r_in_wg = r + accum.regcount * lane;
-            const uint32_t local_m = r_in_wg / WG_N;
-            const uint32_t local_n = r_in_wg % WG_N;
-            const uint32_t outer_m = wg_m_offset + local_m;
-            const uint32_t outer_n = wg_n_offset + local_n;
-            shared.c_tile[outer_m * SMEM_N + outer_n] = accum.regs[r];
-        }
+        static_assert(WG_Accum::regcount == 32);
+        #define X(REG_INDEX) { \
+            const uint32_t r = (tid / 32u) * 16u + (tid % 32u) / 4u + ((REG_INDEX % 4u) / 2u) * 8u; \
+            const uint32_t c = (tid % 4u) * 2u + (REG_INDEX / 4u) * 8 + (REG_INDEX % 2u); \
+            const uint32_t smem_m_offset = wg_m_offset + r; \
+            const uint32_t smem_n_offset = wg_n_offset + c; \
+            shared.c_tile[smem_m_offset * SMEM_N + smem_n_offset] = d.d##REG_INDEX; }
+        X(0) X(1) X(2) X(3) X(4) X(5) X(6) X(7)
+        X(8) X(9) X(10) X(11) X(12) X(13) X(14) X(15)
+        X(16) X(17) X(18) X(19) X(20) X(21) X(22) X(23)
+        X(24) X(25) X(26) X(27) X(28) X(29) X(30) X(31)
+        #undef X
     }
 
     // Fill shared memory A tile with SMEM_M×SMEM_K block starting at (cta_m_offset, cta_k_offset)
@@ -293,6 +324,7 @@ struct TiledMultiplier
                          "r"(smem_ptr_u32(&shared.tile_read_mbar[i])), "n"(consumer_thread_count));
             asm volatile("fence.proxy.async;");
         }
+        asm volatile("wgmma.fence.sync.aligned;");
     }
 
     // CTA cooperates to fill or add to the output matrix block of size (SMEM_M, SMEM_N) starting at
@@ -343,12 +375,15 @@ struct TiledMultiplier
         }
 
         if (!is_memory_wg()) {
+            // Wait for wgmma and copy registers to shared memory C tile.
+            asm volatile("wgmma.commit_group.sync.aligned;");
+            asm volatile("wgmma.wait_group.sync.aligned 0;");
             const uint32_t wg_m_offset = get_wg_m_idx() * WG_M;
             const uint32_t wg_n_offset = get_wg_n_idx() * WG_N;
             wg_accum_to_shared(shared, accum, wg_m_offset, wg_n_offset);
         }
 
-        __syncthreads();  // TODO
+        __syncthreads();
 
         if (is_memory_wg()) {
             // Copy or reduce shared memory C tile to global memory.
@@ -477,7 +512,7 @@ void matmul_sm90(GPU_Tensors t, cudaStream_t stream)
 {
     constexpr uint32_t smem_m = 64;
     constexpr uint32_t smem_n = 256;
-    constexpr uint32_t smem_k = 16;
+    constexpr uint32_t smem_k = 32;
     constexpr uint32_t cta_k_max_tiles = 12;
     constexpr uint32_t cta_modulus = 4;
 
