@@ -371,7 +371,6 @@ struct TiledMultiplier
             init_mbar<consumer_thread_count>(shared.all_consumers_mbar);
         }
         asm volatile("fence.proxy.async;");
-        asm volatile("wgmma.fence.sync.aligned;");
     }
 
     // CTA cooperates to fill or add to the output matrix block of size (SMEM_M, SMEM_N) starting at
@@ -393,7 +392,10 @@ struct TiledMultiplier
         std::conditional_t<IS_PRODUCER, int, WG_Accum> accum;
         bool first_time = true;
 
-        # pragma unroll RING_BUFFER_SIZE
+        if constexpr (!IS_PRODUCER) {
+            asm volatile("wgmma.fence.sync.aligned;  // GMMA");
+        }
+
         for (uint32_t cta_k_blk_counter = 0; cta_k_blk_counter < k_iters; ++cta_k_blk_counter, cta_k_offset += SMEM_K) {
             const uint32_t ring_idx = cta_k_blk_counter % RING_BUFFER_SIZE;
             const uint32_t ring_usage_parity = (cta_k_blk_counter / RING_BUFFER_SIZE) % 2u;
@@ -425,11 +427,13 @@ struct TiledMultiplier
         }
 
         if constexpr (!IS_PRODUCER) {
-            // All-to-all consumer warpgroups sync + wait for wgmma async MMA to finish.
+            // Wait for wgmma to finish fully.
+            asm volatile("wgmma.commit_group.sync.aligned;  // GMMA");
+            asm volatile("wgmma.wait_group.sync.aligned 0;  // GMMA");
+
+            // All-to-all consumer warpgroups sync.
             mbar_arrive(shared.all_consumers_mbar);
             mbar_wait(shared.all_consumers_mbar, 0);
-            asm volatile("wgmma.commit_group.sync.aligned;");
-            asm volatile("wgmma.wait_group.sync.aligned 0;");
 
             // Now copy wgmma registers to shared memory C tile.
             const uint32_t wg_m_offset = get_wg_m_idx() * WG_M;
