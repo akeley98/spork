@@ -2,6 +2,7 @@
 
 #include <cassert>
 #include <math.h>
+#include <mutex>
 #include <stdint.h>
 #include <stdio.h>
 #include <type_traits>
@@ -96,6 +97,7 @@ struct TiledMultiplier
 
     __host__ DEVICE_INLINE static constexpr uint32_t smem_size()
     {
+        static_assert(sizeof(Shared) <= (227u << 10));
         return sizeof(Shared);
     }
 
@@ -565,10 +567,21 @@ struct TiledMultiplier
         const uint32_t grid = m_cta(size_m) * n_cta(size_n) * k_cta(size_k);
         const uint32_t block = cta_size();
         const uint32_t smem = smem_size();
-        assert(smem <= 256u << 10);
-        cudaFuncSetAttribute(tiled_multiplier_kernel<TiledMultiplier>, cudaFuncAttributeMaxDynamicSharedMemorySize, smem);
-        tiled_multiplier_kernel<TiledMultiplier> <<<grid, block, smem, stream>>>(
-                size_m, size_n, size_k, tensorMap_a, tensorMap_bT, tensorMap_c);
+
+        const auto kernel = tiled_multiplier_kernel<TiledMultiplier>;
+        static std::once_flag f;
+        std::call_once(f, [&] () {
+            cudaFuncSetAttribute(kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, smem);
+            if (1) {
+                fprintf(stderr, "GRID:    %u\n", grid);
+                fprintf(stderr, "BLOCK:   %u\n", block);
+                fprintf(stderr, "SMEM:    %g KiB\n", double(smem) / 1024.0);
+                cudaFuncAttributes attr;
+                cudaFuncGetAttributes(&attr, kernel);
+                fprintf(stderr, "numRegs: %i\n", attr.numRegs);
+            }
+        });
+        kernel<<<grid, block, smem, stream>>>(size_m, size_n, size_k, tensorMap_a, tensorMap_bT, tensorMap_c);
     }
 };
 
@@ -578,10 +591,10 @@ void matmul_sm90(GPU_Tensors t, cudaStream_t stream)
 {
     constexpr uint32_t smem_m = 128;
     constexpr uint32_t smem_n = 256;
-    constexpr uint32_t smem_k = 48;
-    constexpr uint32_t cta_k_max_tiles = 36;
+    constexpr uint32_t smem_k = 32;
+    constexpr uint32_t cta_k_max_tiles = 128;
     constexpr uint32_t cta_modulus = 4;
-    constexpr uint32_t ring_buffer_size = 3;
+    constexpr uint32_t ring_buffer_size = 1;
 
     const uint32_t size_m = t.M;
     const uint32_t size_n = t.N;

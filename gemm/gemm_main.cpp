@@ -6,7 +6,7 @@ int main()
         TestParams params{};
         params.M = 768;
         params.N = 768;
-        params.K = 192;
+        params.K = 3 * 128;
         params.test_data_code_A = TestDataCode::tiled_numbers;
         params.test_data_code_B = TestDataCode::identity;
         gemm_test(params, {});
