@@ -2,6 +2,16 @@
 
 int main()
 {
+    {
+        TestParams params{};
+        params.M = 768;
+        params.N = 768;
+        params.K = 192;
+        params.test_data_code_A = TestDataCode::tiled_numbers;
+        params.test_data_code_B = TestDataCode::identity;
+        gemm_test(params, {});
+    }
+
     auto sized_tests = [] (uint32_t M, uint32_t N, uint32_t K, bool nontrivial_only)
     {
         TestParams params{};
@@ -34,6 +44,6 @@ int main()
     sized_tests(1536, 2048, 3 * 40960, true);
     sized_tests(1536, 1024, 3 * 40960, true);
     sized_tests(768, 512, 3 * 40960, true);
+
     cudaDeviceSynchronize();
 }
-
