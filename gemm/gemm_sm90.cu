@@ -4,6 +4,7 @@
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <type_traits>
 
 #include <cuda.h>
 
@@ -245,7 +246,7 @@ struct TiledMultiplier
         static_assert(WG_N == 128);
         static_assert(WG_K == 8);
         asm volatile(
-        "{\n"
+        "{  // GMMA \n"
           ".reg .pred p;\n"
           "setp.ne.b32 p, %66, 0;\n"
           "wgmma.mma_async.sync.aligned.m64n128k8.f32.tf32.tf32 "
@@ -377,6 +378,7 @@ struct TiledMultiplier
     // (cta_m_offset, cta_n_offset); we process up to K_MAX_TILES input blocks on the K dimension starting
     // at cta_k_offset.
     // Requires smem-allocated ring buffer.
+    template <bool IS_PRODUCER>
     DEVICE_INLINE void cta_main_loop(uint32_t cta_m_offset, uint32_t cta_n_offset, uint32_t cta_k_offset,
                                      Shared& shared) const
     {
@@ -384,17 +386,19 @@ struct TiledMultiplier
         DEVICE_ASSERT(cta_n_offset % SMEM_N == 0);
         DEVICE_ASSERT(cta_k_offset % (SMEM_K * K_MAX_TILES) == 0);
         DEVICE_ASSERT(size_k % SMEM_K == 0);
+        DEVICE_ASSERT(IS_PRODUCER == is_producer_wg());
 
         const uint32_t k_iters = min((size_k - cta_k_offset) / SMEM_K, K_MAX_TILES);
 
-        WG_Accum accum;
+        std::conditional_t<IS_PRODUCER, int, WG_Accum> accum;
         bool first_time = true;
 
+        # pragma unroll RING_BUFFER_SIZE
         for (uint32_t cta_k_blk_counter = 0; cta_k_blk_counter < k_iters; ++cta_k_blk_counter, cta_k_offset += SMEM_K) {
             const uint32_t ring_idx = cta_k_blk_counter % RING_BUFFER_SIZE;
             const uint32_t ring_usage_parity = (cta_k_blk_counter / RING_BUFFER_SIZE) % 2u;
 
-            if (is_producer_wg()) {
+            if constexpr (IS_PRODUCER) {
                 if (ring_idx != cta_k_blk_counter) {
                     mbar_wait(shared.tile_read_mbar[ring_idx], !ring_usage_parity);
                 }
@@ -404,22 +408,23 @@ struct TiledMultiplier
                 }
             }
 
-            if (!is_producer_wg()) {
+            if constexpr (!IS_PRODUCER) {
                 mbar_wait(shared.tile_fill_mbar[ring_idx], ring_usage_parity);
                 const uint32_t wg_m_offset = get_wg_m_idx() * WG_M;
                 const uint32_t wg_n_offset = get_wg_n_idx() * WG_N;
+
                 for (uint32_t wg_k_idx = 0; wg_k_idx < SMEM_K / WG_K; ++wg_k_idx) {
                     const uint32_t wg_k_offset = wg_k_idx * WG_K;
                     wg_accum_tile(accum, shared.aliased_input_ring_buffer[ring_idx],
                                   wg_m_offset, wg_n_offset, wg_k_offset, first_time);
                     first_time = false;
                 }
+
                 mbar_arrive(shared.tile_read_mbar[ring_idx]);
             }
         }
 
-
-        if (!is_producer_wg()) {
+        if constexpr (!IS_PRODUCER) {
             // All-to-all consumer warpgroups sync + wait for wgmma async MMA to finish.
             mbar_arrive(shared.all_consumers_mbar);
             mbar_wait(shared.all_consumers_mbar, 0);
@@ -495,10 +500,18 @@ struct TiledMultiplier
         DEVICE_ASSERT(cta_m_idx < cta_rows);
         DEVICE_ASSERT(cta_n_idx < cta_cols);
 
-        extern __shared__ char smem[];
-        cta_first_time_init(reinterpret_cast<Shared&>(*smem));
+        extern __shared__ char raw_smem[];
+        Shared& smem = *reinterpret_cast<Shared*>(raw_smem);
+        const auto cta_m_offset = cta_m_idx * SMEM_M, cta_n_offset = cta_n_idx * SMEM_N;
+
+        cta_first_time_init(smem);
         __syncthreads();
-        cta_main_loop(cta_m_idx * SMEM_M, cta_n_idx * SMEM_N, cta_k_offset, reinterpret_cast<Shared&>(*smem));
+        if (is_producer_wg()) {
+            cta_main_loop<true>(cta_m_offset, cta_n_offset, cta_k_offset, smem);
+        }
+        else {
+            cta_main_loop<false>(cta_m_offset, cta_n_offset, cta_k_offset, smem);
+        }
     }
 
     static void init_tensorMap(CUtensorMap* tensorMap, const float* globalAddress, uint32_t rows, uint32_t cols,
