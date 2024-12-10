@@ -30,11 +30,11 @@ static void example_mma_tile(float C_tile[], const float A_tile[], const float B
                 raise ValueError(f"{srcinfo}: {n} must be constant decimal")
             size *= int(n)
         return f"{prim_type} {new_name}[{size}];  // Example: placeholder accelerator memory. Real accelerators would likely need custom load/store instructions as well"
-    
+
     @classmethod
     def free(cls, new_name, prim_type, shape, srcinfo):
         return ""
-    
+
     @classmethod
     def window(cls, basetype, baseptr, indices, strides, srcinfo):
         for n in indices:
@@ -74,18 +74,20 @@ def schedule_gemm(proc, new_name, use_cuda):
     proc = divide_loop(proc, "k", k_tile, ("ko", "ki"), perfect = True)
     proc = reorder_loops(proc, "mi no")
     c_accum_alloc = proc.find("accum : f32")
-    c_accum_zero = proc.find("accum = 0")
-    c_accum_reduce = proc.find("accum += _")
-    c_accum_export = proc.find("_ = accum")
+
     proc = expand_dim(proc, c_accum_alloc, n_tile, 'ni')
     proc = expand_dim(proc, c_accum_alloc, m_tile, 'mi')
     proc = lift_alloc(proc, c_accum_alloc, n_lifts = 2)
+
+    c_accum_zero = proc.find("accum = 0")
+    c_accum_export = proc.find("_ = accum")
     proc = fission(proc, c_accum_zero.after(), n_lifts = 2)
     proc = fission(proc, c_accum_export.before(), n_lifts = 2)
+
     proc = reorder_loops(proc, "ni ko")
     proc = reorder_loops(proc, "mi ko")
 
-    c_tile_reduce = proc.forward(c_accum_reduce).parent().parent().parent()
+    c_tile_reduce = proc.find("accum += _").parent().parent().parent()
     proc = stage_mem(proc, c_tile_reduce, f"A[mo*{m_tile}:(mo+1)*{m_tile}, ko*{k_tile}:(ko+1)*{k_tile}]", "A_tile")
     proc = stage_mem(proc, c_tile_reduce, f"B[ko*{k_tile}:(ko+1)*{k_tile}, no*{n_tile}:(no+1)*{n_tile}]", "B_tile")
     proc = simplify(proc)
@@ -94,7 +96,7 @@ def schedule_gemm(proc, new_name, use_cuda):
         proc = set_memory(proc, c_accum_alloc, CudaRegisters)
         proc = set_memory(proc, "A_tile", CudaShared)
         proc = set_memory(proc, "B_tile", CudaShared)
-        
+
         proc = set_loop_mode(proc, "mo", exo.loop_modes.CudaBlocks(m_tile * n_tile))
         proc = set_loop_mode(proc, "no", exo.loop_modes.CudaBlocks())
         proc = set_loop_mode(proc, "i0 #0", exo.loop_modes.cuda_threads)
@@ -107,7 +109,7 @@ def schedule_gemm(proc, new_name, use_cuda):
         proc = set_loop_mode(proc, "ni #0", exo.loop_modes.cuda_threads)
         proc = set_loop_mode(proc, "ni #1", exo.loop_modes.cuda_threads)
         proc = set_loop_mode(proc, "ni #2", exo.loop_modes.cuda_threads)
-        
+
         proc = insert_fence(proc, c_tile_reduce.before(), exo.sync_types.cuda_syncthreads)
         proc = insert_fence(proc, c_tile_reduce.after(), exo.sync_types.cuda_syncthreads)
     else:
@@ -120,5 +122,3 @@ def schedule_gemm(proc, new_name, use_cuda):
 
 exo_cpu_gemm = schedule_gemm(original_gemm, "exo_cpu_gemm", False)
 exo_cuda_gemm = schedule_gemm(original_gemm, "exo_cuda_gemm", True)
-
-
