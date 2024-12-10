@@ -93,11 +93,13 @@ def schedule_gemm(p, new_name, use_cuda):
                   f"B[ko*{k_tile}:(ko+1)*{k_tile}, no*{n_tile}:(no+1)*{n_tile}]", "B_tile")
     p = simplify(p)
 
+    print(p)
     if use_cuda:
         p = set_memory(p, c_accum_alloc, CudaRegisters)
         p = set_memory(p, "A_tile", CudaShared)
         p = set_memory(p, "B_tile", CudaShared)
 
+        # "x #n" means n-th loop with x as iteration variable
         p = set_loop_mode(p, "mo", exo.loop_modes.CudaBlocks(m_tile * n_tile))
         p = set_loop_mode(p, "no", exo.loop_modes.CudaBlocks())
         p = set_loop_mode(p, "i0 #0", exo.loop_modes.cuda_threads)

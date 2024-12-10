@@ -20,16 +20,16 @@ Rewrite with proc$\to$proc scheduling functions
   \item Example: loop division (into inner/outer loops)
   \item \myKey{Goal:} rewrite rules for CUDA parallelism
 \end{itemize}
-Custom accelerator instructions defined by the user (or stdlib)
-\begin{itemize}
-  \item Behavior declared as Python AST (\texttt{@instr})
-  \item \texttt{replace} rewrite rule substitutes matching code blocks with custom instr.
-  \item \myKey{Goal:} expand feature to express special CUDA instructions (async copies, wgmma)
-\end{itemize}
 Safety Checking
 \begin{itemize}
   \item Exo checks that \textit{each} rewrite preserves program behavior.
   \item \myKey{Goal:} check parallelized program matches original intended sequential program's behavior (synchronization check)
+\end{itemize}
+Custom accelerator instructions and memory types defined by the user (or stdlib)
+\begin{itemize}
+  \item Behavior declared as Python AST (\texttt{@instr})
+  \item \texttt{replace} rewrite rule substitutes matching code blocks with custom instr.
+  \item \myKey{Goal:} expand feature to express special CUDA instructions (async copies, wgmma)
 \end{itemize}
 \end{minipage} %
 \hfill
@@ -675,11 +675,302 @@ def schedule_gemm(p, new_name):
 A real accelerator would likely also need custom load and store instructions for \texttt{ExampleAcceleratorTile}, but we skip this for the example.
 \end{minipage}
 \newpage
-\myTitle{Intro to CUDA}
-% Intro to CUDA
+\myTitle{Basic CUDA Features}
 
-% CUDA gemm pseudocode
+\begin{minipage}[t]{0.5\textwidth}\fixminipage
 
+Core ``unit of parallelism'': cooperative thread array
+\begin{itemize}
+  \item a.k.a. CTA or ``block''
+  \item \texttt{blockDim}-many threads (dynamic value)
+  \item Think of a block as a ``lane'' consisting of sub-lanes that can split and coalesce at will
+  \item ``lane units'' (my vocabulary)
+  \begin{itemize}
+      \item block: \texttt{blockDim} threads
+      \item warpgroup: 128 threads (new in H100)
+      \item warp: 32 threads
+      \item thread: 1 thread
+  \end{itemize}
+  \item Different operations require different lane units (i.e. must synchronize threads of 1 lane unit)
+  \item \myKeyB{Frequent} communication \myKeyB{within} blocks
+\end{itemize}
+
+CPU launches ``grid'' of \texttt{gridDim}-many blocks
+\begin{itemize}
+  \item \texttt{gridDim} also dynamically specified
+  \item \myKey{Minimal} communication \myKey{between} blocks
+  \item Limited cooperation with atomics possible
+  \item Also clusters, cooperative grid (not discussed)
+\end{itemize}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.5\textwidth}\fixminipage
+\myKey{GMEM} (Global Memory): \myKey{``slow''}
+\begin{itemize}
+  \item any thread in grid may access
+\end{itemize}
+\myKeyB{SMEM} (Shared Memory)
+\begin{itemize}
+  \item per-CTA memory (L1 cache carveout)
+  \item \myKeyB{``fast''}, but still $\approx$10$\times$ slower than math
+\end{itemize}
+RMEM (Register ``Memory'') -- 255 per thread
+% TODO diagram
+\end{minipage}
+
+\newpage
+\myTitle{Basic Exo Features for GPU}
+
+\begin{minipage}[t]{0.5\textwidth}\fixminipage
+\mySub{Parallel Loop}
+
+Current loop \texttt{for iter in seq(lo, hi)} means ``schedule loop iteration lo ... hi-1 through time''.
+
+Parallel loop: \texttt{for iter in cuda\_\emphtt{lane}(lo, hi)} means ``schedule each loop iteration on a different \emphtt{lane}''
+\begin{itemize}
+  \item \emphtt{lane} = \texttt{threads}, \texttt{warps}, \texttt{warpgroups}, \texttt{blocks}
+  \item May be multidimensional (distribute N-dimensional work along linear list of threads/warps/warpgroups/blocks)
+  \item Opens a ``\emphtt{lane} scope''; child statements executed by 1 \emphtt{lane}
+\end{itemize}
+Vast majority of statements can only appear at thread scope; main exceptions:
+\begin{itemize}
+  \item Synchronization statements
+  \item Accelerator instructions
+\end{itemize}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.5\textwidth}\fixminipage
+\mySub{Fence Synchronization}
+
+Fence is my generalized terminology (not cuda).
+
+\texttt{Fence(\_,\_)} statement at \emphtt{lane} scope means ``all threads in the executing \emphtt{lane} wait for all other threads in the executing \emphtt{lane} to arrive''.
+
+\vspace{6mm}
+{\tiny
+\begin{verbatim}
+for io in cuda_blocks(..., blockDim = 256):
+    Fence(...)  # All threads in block wait for each other
+    for ii in cuda_warps(0, 8):
+        Fence(...)  # Only threads within a single warp wait for each other
+        
+\end{verbatim}
+}
+\end{minipage}
+\newpage
+\myTitle{Exo CUDA GEMM}
+
+\begin{minipage}[t]{0.5\textwidth}\codeminipage
+(Adapting previous CPU gemm example, prior to substituting memory types and custom instruction)
+\vspace{6mm}
+\tiny
+\begin{verbatim}
+def exo_cuda_gemm(M: size, N: size, K: size, A: f32[M, K] @ DRAM,
+                  B: f32[K, N] @ DRAM, C: f32[M, N] @ DRAM):
+    assert M % 16 == 0
+    assert N % 16 == 0
+    assert K % 8 == 0
+\end{verbatim}
+\begin{mdframed}[style=MyFrame, backgroundcolor=redBoxBg]
+\color{redBoxFg}
+\begin{verbatim}
+    for mo in cuda_blocks(0, M / 16, blockDim=256):
+        for no in cuda_blocks(0, N / 16, blockDim=None):
+\end{verbatim}
+\end{mdframed}
+\begin{mdframed}[style=MyFrame, backgroundcolor=yellowBoxBg]
+\color{yellowBoxFg}
+\begin{verbatim}
+            accum: f32[16, 16] @ CudaRegisters              # <<< c_accum_alloc
+\end{verbatim}
+\end{mdframed}
+\begin{mdframed}[style=MyFrame, backgroundcolor=blueBoxBg]
+\color{blueBoxFg}
+\begin{verbatim}
+            for mi in cuda_threads(0, 16):
+                for ni in cuda_threads(0, 16):
+\end{verbatim}
+\end{mdframed}
+\begin{verbatim}
+                    accum[mi, ni] = 0
+            for ko in seq(0, K / 8):
+\end{verbatim}
+\begin{mdframed}[style=MyFrame, backgroundcolor=yellowBoxBg]
+\color{yellowBoxFg}
+\begin{verbatim}
+                A_tile: f32[16, 8] @ CudaShared
+\end{verbatim}
+\end{mdframed}
+\begin{mdframed}[style=MyFrame, backgroundcolor=blueBoxBg]
+\color{blueBoxFg}
+\begin{verbatim}
+                for i0 in cuda_threads(0, 16):
+                    for i1 in cuda_threads(0, 8):
+\end{verbatim}
+\end{mdframed}
+\begin{verbatim}
+                        A_tile[i0, i1] = A[i0 + 16 * mo, i1 + 8 * ko]
+\end{verbatim}
+\begin{mdframed}[style=MyFrame, backgroundcolor=yellowBoxBg]
+\color{yellowBoxFg}
+\begin{verbatim}
+                B_tile: f32[8, 16] @ CudaShared
+\end{verbatim}
+\end{mdframed}
+\begin{mdframed}[style=MyFrame, backgroundcolor=blueBoxBg]
+\color{blueBoxFg}
+\begin{verbatim}
+                for i0 in cuda_threads(0, 8):
+                    for i1 in cuda_threads(0, 16):
+\end{verbatim}
+\end{mdframed}
+\begin{verbatim}
+                        B_tile[i0, i1] = B[i0 + 8 * ko, i1 + 16 * no]
+\end{verbatim}
+\begin{mdframed}[style=MyFrame, backgroundcolor=greenBoxBg]
+\color{greenBoxFg}
+\begin{verbatim}
+                # Ignore weird syntax for now!
+                Fence(cuda_sync, cuda_generic)
+\end{verbatim}
+\end{mdframed}
+\begin{mdframed}[style=MyFrame, backgroundcolor=blueBoxBg]
+\color{blueBoxFg}
+\begin{verbatim}
+                for mi in cuda_threads(0, 16):              # <<< c_tile_reduce
+                    for ni in cuda_threads(0, 16):
+\end{verbatim}
+\end{mdframed}
+\begin{verbatim}
+                        for ki in seq(0, 8):
+                            accum[mi, ni] += A_tile[mi, ki] * B_tile[ki, ni]
+\end{verbatim}
+\begin{mdframed}[style=MyFrame, backgroundcolor=greenBoxBg]
+\color{greenBoxFg}
+\begin{verbatim}
+                Fence(cuda_sync, cuda_generic)
+\end{verbatim}
+\end{mdframed}
+\begin{mdframed}[style=MyFrame, backgroundcolor=blueBoxBg]
+\color{blueBoxFg}
+\begin{verbatim}
+            for mi in cuda_threads(0, 16):
+                for ni in cuda_threads(0, 16):
+\end{verbatim}
+\end{mdframed}
+\begin{mdframed}[style=MyFrame, backgroundcolor=redBoxBg]
+\color{redBoxFg}
+\begin{verbatim}
+                    # Embarassing parallelism over output tiles
+\end{verbatim}
+\end{mdframed}
+\begin{verbatim}
+                    C[mi + 16 * mo, ni + 16 * no] = accum[mi, ni]
+\end{verbatim}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.5\textwidth}\codeminipage
+\begin{itemize}
+  \item Each \redBox{block} assigned one output tile of \texttt{C}
+  \item Arithmetic instructions executed with lane unit \blueBox{cuda\_thread}
+  \item \greenBox{Fence} (syncthreads) outside \blueBox{cuda\_threads} loops, executed with lane unit \redBox{cuda\_block}
+\end{itemize}
+\vspace{6mm}
+{\tiny
+\begin{verbatim}
+    # ...
+    c_accum_alloc = p.find("accum : f32")  # Cursor
+    # ...
+    c_tile_reduce = p.find("accum += _").parent().parent().parent()
+\end{verbatim}
+\begin{verbatim}
+    # ...
+
+\end{verbatim}
+\begin{mdframed}[style=MyFrame, backgroundcolor=yellowBoxBg]
+\color{yellowBoxFg}
+\begin{verbatim}
+    p = set_memory(p, c_accum_alloc, CudaRegisters)
+    p = set_memory(p, "A_tile", CudaShared)
+    p = set_memory(p, "B_tile", CudaShared)
+\end{verbatim}
+\end{mdframed}
+\begin{verbatim}
+
+    # "x #n" means n-th loop with x as iteration variable ... can be improved
+\end{verbatim}
+\begin{mdframed}[style=MyFrame, backgroundcolor=redBoxBg]
+\color{redBoxFg}
+\begin{verbatim}
+    p = set_loop_mode(p, "mo", exo.loop_modes.CudaBlocks(m_tile * n_tile))
+    p = set_loop_mode(p, "no", exo.loop_modes.CudaBlocks())
+\end{verbatim}
+\end{mdframed}
+\begin{mdframed}[style=MyFrame, backgroundcolor=blueBoxBg]
+\color{blueBoxFg}
+\begin{verbatim}
+    p = set_loop_mode(p, "i0 #0", exo.loop_modes.cuda_threads)
+    p = set_loop_mode(p, "i1 #0", exo.loop_modes.cuda_threads)
+    p = set_loop_mode(p, "i0 #1", exo.loop_modes.cuda_threads)
+    p = set_loop_mode(p, "i1 #1", exo.loop_modes.cuda_threads)
+    p = set_loop_mode(p, "mi #0", exo.loop_modes.cuda_threads)
+    p = set_loop_mode(p, "mi #1", exo.loop_modes.cuda_threads)
+    p = set_loop_mode(p, "mi #2", exo.loop_modes.cuda_threads)
+    p = set_loop_mode(p, "ni #0", exo.loop_modes.cuda_threads)
+    p = set_loop_mode(p, "ni #1", exo.loop_modes.cuda_threads)
+    p = set_loop_mode(p, "ni #2", exo.loop_modes.cuda_threads)
+\end{verbatim}
+\end{mdframed}
+\begin{verbatim}
+
+\end{verbatim}
+\begin{mdframed}[style=MyFrame, backgroundcolor=greenBoxBg]
+\color{greenBoxFg}
+\begin{verbatim}
+    p = insert_fence(p, c_tile_reduce.before(), exo.sync_types.cuda_syncthreads)
+    p = insert_fence(p, c_tile_reduce.after(), exo.sync_types.cuda_syncthreads)
+\end{verbatim}
+\end{mdframed}
+}
+\vspace{6mm}
+Disclaimer: This example is really not that efficient.
+We can get better performance by assigning more than 1 value to compute per thread.
+\end{minipage}
+
+\newpage
+\myTitle{Contrast with prior work: Triton}
+
+\begin{minipage}[t]{0.7\textwidth}\fixminipage
+Triton is another Python AST $\to$ CUDA language
+
+In my terminology, the ``lane unit'' for a Triton function is a block.
+\begin{itemize}
+  \item One block executes one ``call'' of a Triton function.
+\end{itemize}
+
+Triton's responsibility: \textbf{automatically} distribute the work \myKeyB{within} one block to sub-block lanes (mostly threads) and automatically synchronize.
+\begin{itemize}
+  \item Recall: synchronization within a block is \myKeyB{frequent}
+  \item Minimal control over memory movement, register/SMEM allocation
+  \item Honestly, not a bad model though
+\end{itemize}
+
+User responsibility: manually distribute work \myKey{between} blocks.
+\begin{itemize}
+  \item Recall: synchronization between blocks is \myKey{minimal}
+  \item Often one output tile assigned per block
+\end{itemize}
+
+With Exo, we're trying to build something much more \textbf{imperative}
+\begin{itemize}
+  \item Control (and predict!) memory and register pressure
+  \item Fine grained control over each level of CUDA thread hierarchy
+  \item Explicit use of accelerator instructions
+\end{itemize}
+\end{minipage}
+
+\vspace{6mm}
+\hfill(Also, Triton generates IR and Exo GPU will generate C and CUDA C++)
 % Exo parallelism: loop mode, fence
 
 % Exo Example: gemm with CUDA
