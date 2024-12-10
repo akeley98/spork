@@ -9,7 +9,7 @@ compile_commands.json
 *.log
 *.out
 *.aux
-docs/spork.pdf
+docs/spork_2024.pdf
 gemm/gemm
 attn
 libattn.so

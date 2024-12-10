@@ -1,0 +1,703 @@
+\input{slides_common.tex}
+
+\begin{document}
+
+{\hfill \LARGE \textbf{\textsf{Project Spork: EXO GPU}}}
+
+\includegraphics[width=\linewidth]{usda_spork.jpg}
+
+\newpage
+
+\myTitle{Project Goals}
+
+\begin{minipage}[t]{0.5\textwidth}\fixminipage
+\myKey{Exo Today:} Python-embedded USL with ``imperative'' rewrite-based scheduling
+
+\texttt{@proc} decorator captures annotated Python AST; procs translated (almost) 1:1 to CPU C code
+
+Rewrite with proc$\to$proc scheduling functions
+\begin{itemize}
+  \item Example: loop division (into inner/outer loops)
+  \item \myKey{Goal:} rewrite rules for CUDA parallelism
+\end{itemize}
+Custom accelerator instructions defined by the user (or stdlib)
+\begin{itemize}
+  \item Behavior declared as Python AST (\texttt{@instr})
+  \item \texttt{replace} rewrite rule substitutes matching code blocks with custom instr.
+  \item \myKey{Goal:} expand feature to express special CUDA instructions (async copies, wgmma)
+\end{itemize}
+Safety Checking
+\begin{itemize}
+  \item Exo checks that \textit{each} rewrite preserves program behavior.
+  \item \myKey{Goal:} check parallelized program matches original intended sequential program's behavior (synchronization check)
+\end{itemize}
+\end{minipage} %
+\hfill
+\begin{minipage}[t]{0.5\textwidth}\fixminipage
+\mySub{Unscheduled Example Program: Naïve Code}
+\vspace{3mm}
+{
+\tiny
+\begin{verbatim}
+@proc
+def original_gemm(M: size, N: size, K: size, A: f32[M, K] @ DRAM,
+                  B: f32[K, N] @ DRAM, C: f32[M, N] @ DRAM):
+    assert M % 16 == 0
+    assert N % 16 == 0
+    assert K % 8 == 0
+    for m in seq(0, M):
+        for n in seq(0, N):
+            accum: f32 @ DRAM
+            accum = 0
+            for k in seq(0, K):
+                accum += A[m, k] * B[k, n]
+            C[m, n] = accum
+\end{verbatim}
+}
+\vspace{1cm}
+\mySub{Compiled C Code}
+\vspace{3mm}
+{
+\tiny
+\begin{verbatim}
+void original_gemm(void *ctxt, int_fast32_t M, int_fast32_t N, int_fast32_t K,
+                   const float* A, const float* B, float* C ) {
+EXO_ASSUME(M % 16 == 0);
+EXO_ASSUME(N % 16 == 0);
+EXO_ASSUME(K % 8 == 0);
+for (int_fast32_t m = 0; m < M; m++) {
+  for (int_fast32_t n = 0; n < N; n++) {
+    float accum;
+    accum = 0.0f;
+    for (int_fast32_t k = 0; k < K; k++) {
+      accum += A[m * K + k] * B[k * N + n];
+    }
+    C[m * N + n] = accum;
+  }
+}
+\end{verbatim}
+}
+\end{minipage} %
+\vfill
+% Intro to Exo
+\newpage
+\myTitle{Exo CPU GEMM Example: Original Code}
+
+\begin{minipage}[t]{0.5\textwidth}\codeminipage
+Imagine we want to reschedule this matrix multiply function to target a hypothetical CPU matrix tile accelerator that operates on $16 \times 16 \times 8$ tiles ($M \times N \times K$):
+\vspace{6mm}
+\tiny
+\begin{verbatim}
+@proc
+def original_gemm(M: size, N: size, K: size, A: f32[M,K], B: f32[K,N], C: f32[M,N]):
+    # Avoid requiring predication
+    assert M % m_tile == 0
+    assert N % n_tile == 0
+    assert K % k_tile == 0
+
+    for m in seq(0, M):
+        for n in seq(0, N):
+            accum : f32
+            accum = 0
+            for k in seq(0, K):
+                accum += A[m,k] * B[k,n]
+            C[m,n] = accum
+\end{verbatim}
+\end{minipage}
+\begin{minipage}[t]{0.5\textwidth}\fixminipage
+\vspace{3cm}
+We specify the custom instruction's behavior and start writing a \texttt{proc}$\to$\texttt{proc} scheduling function \texttt{schedule\_gemm}.
+\vspace{6mm}
+\tiny
+\begin{verbatim}
+@instr("example_mma_tile({C_tile_data}, {A_tile_data}, {B_tile_data});")
+def example_mma_tile(C_tile: [f32][m_tile,n_tile] @ ExampleAcceleratorTile,
+                     A_tile: [f32][m_tile,k_tile] @ ExampleAcceleratorTile,
+                     B_tile: [f32][k_tile,n_tile] @ ExampleAcceleratorTile):
+    for m in seq(0, m_tile):
+        for n in seq(0, n_tile):
+            for k in seq(0, k_tile):
+                C_tile[m,n] += A_tile[m,k] * B_tile[k,n]
+
+
+def schedule_gemm(p, new_name):
+    p = rename(p, new_name)
+    return p  # TODO
+
+exo_cpu_gemm = schedule_gemm(original_gemm, "exo_gpu_gemm")
+\end{verbatim}
+\end{minipage}
+\newpage
+\myTitle{Exo CPU GEMM Example: Divide and Reorder Loops}
+
+\begin{minipage}[t]{0.5\textwidth}\codeminipage
+\tiny
+\begin{verbatim}
+def exo_cpu_gemm(M: size, N: size, K: size, A: f32[M, K] @ DRAM,
+                 B: f32[K, N] @ DRAM, C: f32[M, N] @ DRAM):
+    assert M % 16 == 0
+    assert N % 16 == 0
+    assert K % 8 == 0
+\end{verbatim}
+\begin{mdframed}[style=MyFrame, backgroundcolor=yellowBoxBg]
+\color{yellowBoxFg}
+\begin{verbatim}
+    for mo in seq(0, M / 16):
+        for mi in seq(0, 16):
+\end{verbatim}
+\end{mdframed}
+\begin{mdframed}[style=MyFrame, backgroundcolor=greenBoxBg]
+\color{greenBoxFg}
+\begin{verbatim}
+            for no in seq(0, N / 16):
+                for ni in seq(0, 16):
+\end{verbatim}
+\end{mdframed}
+\begin{verbatim}
+                    accum: f32 @ DRAM
+                    accum = 0
+\end{verbatim}
+\begin{mdframed}[style=MyFrame, backgroundcolor=violetBoxBg]
+\color{violetBoxFg}
+\begin{verbatim}
+                    for ko in seq(0, K / 8):
+                        for ki in seq(0, 8):
+\end{verbatim}
+\end{mdframed}
+\begin{verbatim}
+                            accum += A[16 * mo + mi, 8 * ko +
+                                       ki] * B[8 * ko + ki, 16 * no + ni]
+                    C[16 * mo + mi, 16 * no + ni] = accum
+\end{verbatim}
+\vspace{5mm}
+\begin{verbatim}
+def exo_cpu_gemm(M: size, N: size, K: size, A: f32[M, K] @ DRAM,
+                 B: f32[K, N] @ DRAM, C: f32[M, N] @ DRAM):
+    assert M % 16 == 0
+    assert N % 16 == 0
+    assert K % 8 == 0
+    for mo in seq(0, M / 16):
+\end{verbatim}
+\begin{mdframed}[style=MyFrame, backgroundcolor=blueBoxBg]
+\color{blueBoxFg}
+\begin{verbatim}
+        for no in seq(0, N / 16):
+            for mi in seq(0, 16):
+\end{verbatim}
+\end{mdframed}
+\begin{verbatim}
+                for ni in seq(0, 16):
+                    accum: f32 @ DRAM
+                    accum = 0
+                    for ko in seq(0, K / 8):
+                        for ki in seq(0, 8):
+                            accum += A[16 * mo + mi, 8 * ko +
+                                       ki] * B[8 * ko + ki, 16 * no + ni]
+                    C[16 * mo + mi, 16 * no + ni] = accum
+\end{verbatim}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.5\textwidth}\codeminipage
+The rescheduling divides the $M$, $N$, and $K$ loops into outer and inner loops, with the inner loops matching the custom instruction's tile dimensions.
+We then move the \texttt{no} (n-outer) loop outwards.
+Eventually the \texttt{ko} (k-outer) loop should move too, but we can't do that yet.
+\vspace{1cm}
+\tiny
+\begin{verbatim}
+def schedule_gemm(p, new_name):
+\end{verbatim}
+\begin{mdframed}[style=MyFrame, backgroundcolor=yellowBoxBg]
+\color{yellowBoxFg}
+\begin{verbatim}
+    p = divide_loop(p, "m", m_tile, ("mo", "mi"), perfect = True)
+\end{verbatim}
+\end{mdframed}
+\begin{mdframed}[style=MyFrame, backgroundcolor=greenBoxBg]
+\color{greenBoxFg}
+\begin{verbatim}
+    p = divide_loop(p, "n", n_tile, ("no", "ni"), perfect = True)
+\end{verbatim}
+\end{mdframed}
+\begin{mdframed}[style=MyFrame, backgroundcolor=violetBoxBg]
+\color{violetBoxFg}
+\begin{verbatim}
+    p = divide_loop(p, "k", k_tile, ("ko", "ki"), perfect = True)
+\end{verbatim}
+\end{mdframed}
+\begin{mdframed}[style=MyFrame, backgroundcolor=blueBoxBg]
+\color{blueBoxFg}
+\begin{verbatim}
+    p = reorder_loops(p, "mi no")
+\end{verbatim}
+\end{mdframed}
+\begin{verbatim}
+    # ...
+\end{verbatim}
+\end{minipage}
+\newpage
+\myTitle{Exo CPU GEMM Example: Expand and Lift Accumulator}
+
+\begin{minipage}[t]{0.6\textwidth}\codeminipage
+\tiny
+\begin{verbatim}
+def exo_cpu_gemm(M: size, N: size, K: size, A: f32[M, K] @ DRAM,
+                 B: f32[K, N] @ DRAM, C: f32[M, N] @ DRAM):
+    assert M % 16 == 0
+    assert N % 16 == 0
+    assert K % 8 == 0
+    for mo in seq(0, M / 16):
+        for no in seq(0, N / 16):
+            for mi in seq(0, 16):
+                for ni in seq(0, 16):
+\end{verbatim}
+\begin{mdframed}[style=MyFrame, backgroundcolor=yellowBoxBg]
+\color{yellowBoxFg}
+\begin{verbatim}
+                    accum: f32[16, 16] @ DRAM   # <<< c_accum_alloc
+                    accum[mi, ni] = 0
+\end{verbatim}
+\end{mdframed}
+\begin{verbatim}
+                    for ko in seq(0, K / 8):
+                        for ki in seq(0, 8):
+\end{verbatim}
+\begin{mdframed}[style=MyFrame, backgroundcolor=yellowBoxBg]
+\color{yellowBoxFg}
+\begin{verbatim}
+                            accum[mi, ni] += \
+\end{verbatim}
+\end{mdframed}
+\begin{verbatim}
+                                A[16 * mo + mi, 8 * ko + ki] * B[8 * ko + ki, 16 * no + ni]
+                    C[16 * mo + mi, 16 * no + ni] = \
+\end{verbatim}
+\begin{mdframed}[style=MyFrame, backgroundcolor=yellowBoxBg]
+\color{yellowBoxFg}
+\begin{verbatim}
+                        accum[mi, ni]
+\end{verbatim}
+\end{mdframed}
+\vspace{5mm}
+\begin{verbatim}
+def exo_cpu_gemm(M: size, N: size, K: size, A: f32[M, K] @ DRAM,
+                 B: f32[K, N] @ DRAM, C: f32[M, N] @ DRAM):
+    assert M % 16 == 0
+    assert N % 16 == 0
+    assert K % 8 == 0
+    for mo in seq(0, M / 16):
+        for no in seq(0, N / 16):
+\end{verbatim}
+\begin{mdframed}[style=MyFrame, backgroundcolor=blueBoxBg]
+\color{blueBoxFg}
+\begin{verbatim}
+            accum: f32[16, 16] @ DRAM  # <<< c_accum_alloc
+            for mi in seq(0, 16):
+                for ni in seq(0, 16):
+\end{verbatim}
+\end{mdframed}
+\begin{verbatim}
+                    accum[mi, ni] = 0
+\end{verbatim}
+
+\begin{mdframed}[style=MyFrame, backgroundcolor=violetBoxBg]
+\color{violetBoxFg}
+\begin{verbatim}
+                    for ko in seq(0, K / 8):  # Still in the wrong place
+\end{verbatim}
+\end{mdframed}
+\begin{verbatim}
+                        for ki in seq(0, 8):
+                            accum[mi, ni] += \
+                                A[16 * mo + mi, 8 * ko + ki] * B[8 * ko + ki, 16 * no + ni]
+                    C[16 * mo + mi, 16 * no + ni] = \
+                        accum[mi, ni]
+\end{verbatim}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.4\textwidth}\codeminipage
+We now need to expand \texttt{accum} into a $16 \times 16$ tile, indexed by \texttt{mi,ni}.
+This prepares the accumulator to be used as the destination operand of the hardware accelerator.
+\vspace{6mm}
+{
+\tiny
+\begin{verbatim}
+def schedule_gemm(p, new_name):
+    # ...
+    c_accum_alloc = p.find("accum : f32")  # Cursor
+\end{verbatim}
+\begin{mdframed}[style=MyFrame, backgroundcolor=yellowBoxBg]
+\color{yellowBoxFg}
+\begin{verbatim}
+    p = expand_dim(p, c_accum_alloc, n_tile, 'ni')
+    p = expand_dim(p, c_accum_alloc, m_tile, 'mi')
+\end{verbatim}
+\end{mdframed}
+\begin{mdframed}[style=MyFrame, backgroundcolor=blueBoxBg]
+\color{blueBoxFg}
+\begin{verbatim}
+    p = lift_alloc(p, c_accum_alloc, n_lifts = 2)
+\end{verbatim}
+\end{mdframed}
+\begin{verbatim}
+    # ...
+\end{verbatim}
+}
+\vspace{6mm}
+We further hoist \texttt{accum}'s allocation out of the inner loops.
+This will be needed later when we fix the \violetBox{\texttt{ko}} loop being in the wrong place.
+\end{minipage}
+
+\newpage
+\myTitle{Exo CPU GEMM Example: Loop Fission}
+
+\begin{minipage}[t]{0.5\textwidth}\codeminipage
+\tiny
+\begin{verbatim}
+def exo_cpu_gemm(M: size, N: size, K: size, A: f32[M, K] @ DRAM,
+                 B: f32[K, N] @ DRAM, C: f32[M, N] @ DRAM):
+    assert M % 16 == 0
+    assert N % 16 == 0
+    assert K % 8 == 0
+    for mo in seq(0, M / 16):
+        for no in seq(0, N / 16):
+            accum: f32[16, 16] @ DRAM
+\end{verbatim}
+\begin{mdframed}[style=MyFrame, backgroundcolor=yellowBoxBg]
+\color{yellowBoxFg}
+\begin{verbatim}
+            for mi in seq(0, 16):
+                for ni in seq(0, 16):
+                    accum[mi, ni] = 0
+                    # (gap cursor) c_accum_zero.after()
+\end{verbatim}
+\end{mdframed}
+\begin{mdframed}[style=MyFrame, backgroundcolor=violetBoxBg]
+\color{violetBoxFg}
+\begin{verbatim}
+            for ko in seq(0, K / 8):
+\end{verbatim}
+\end{mdframed}
+\begin{mdframed}[style=MyFrame, backgroundcolor=blueBoxBg]
+\color{blueBoxFg}
+\begin{verbatim}
+                for mi in seq(0, 16):
+                    for ni in seq(0, 16):
+                        for ki in seq(0, 8):
+                            accum[mi,
+                                  ni] += A[16 * mo + mi, 8 * ko +
+                                           ki] * B[8 * ko + ki, 16 * no + ni]
+\end{verbatim}
+\end{mdframed}
+\begin{mdframed}[style=MyFrame, backgroundcolor=greenBoxBg]
+\color{greenBoxFg}
+\begin{verbatim}
+            for mi in seq(0, 16):
+                for ni in seq(0, 16):
+                    # (gap cursor) c_accum_export.before()
+                    C[16 * mo + mi, 16 * no + ni] = accum[mi, ni]
+\end{verbatim}
+\end{mdframed}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.5\textwidth}\codeminipage
+We now fission the inner loops (\texttt{mi,ni}) before and after the \texttt{+=} operation.
+This factors out the \blueBox{loop nest (blue)} for later targetting with the custom MMA instruction.
+
+\vspace{6mm}
+{\tiny
+\begin{verbatim}
+def schedule_gemm(p, new_name):
+    # ...
+    c_accum_zero = p.find("accum = 0")
+    c_accum_export = p.find("_ = accum")
+\end{verbatim}
+\begin{mdframed}[style=MyFrame, backgroundcolor=yellowBoxBg]
+\color{yellowBoxFg}
+\begin{verbatim}
+    p = fission(p, c_accum_zero.after(), n_lifts = 2)
+\end{verbatim}
+\end{mdframed}
+\begin{mdframed}[style=MyFrame, backgroundcolor=greenBoxBg]
+\color{greenBoxFg}
+\begin{verbatim}
+    p = fission(p, c_accum_export.before(), n_lifts = 2)
+\end{verbatim}
+\end{mdframed}
+\begin{mdframed}[style=MyFrame, backgroundcolor=violetBoxBg]
+\color{violetBoxFg}
+\begin{verbatim}
+    p = reorder_loops(p, "ni ko")
+    p = reorder_loops(p, "mi ko")
+\end{verbatim}
+\end{mdframed}
+\begin{verbatim}
+    # ...
+\end{verbatim}
+}
+\vspace{6mm}
+We now also move out the \violetBox{\texttt{ko}} loop to its proper place outside the \texttt{mi},\texttt{ni} loops.
+\end{minipage}
+\newpage
+\myTitle{Exo CPU GEMM Example: Stage Memory}
+
+\begin{minipage}[t]{0.4\textwidth}\codeminipage
+\tiny
+\begin{verbatim}
+def exo_cpu_gemm(M: size, N: size, K: size, A: f32[M, K] @ DRAM,
+                 B: f32[K, N] @ DRAM, C: f32[M, N] @ DRAM):
+    assert M % 16 == 0
+    assert N % 16 == 0
+    assert K % 8 == 0
+    for mo in seq(0, M / 16):
+        for no in seq(0, N / 16):
+            accum: f32[16, 16] @ DRAM
+            for mi in seq(0, 16):
+                for ni in seq(0, 16):
+                    accum[mi, ni] = 0
+            for ko in seq(0, K / 8):
+\end{verbatim}
+\begin{mdframed}[style=MyFrame, backgroundcolor=yellowBoxBg]
+\color{yellowBoxFg}
+\begin{verbatim}
+                A_tile: f32[16, 8] @ DRAM
+                for i0 in seq(0, 16):
+                    for i1 in seq(0, 8):
+                        A_tile[i0, i1] = A[i0 + 16 * mo, i1 + 8 * ko]
+\end{verbatim}
+\end{mdframed}
+\begin{mdframed}[style=MyFrame, backgroundcolor=greenBoxBg]
+\color{greenBoxFg}
+\begin{verbatim}
+                B_tile: f32[8, 16] @ DRAM
+                for i0 in seq(0, 8):
+                    for i1 in seq(0, 16):
+                        B_tile[i0, i1] = B[i0 + 8 * ko, i1 + 16 * no]
+\end{verbatim}
+\end{mdframed}
+\begin{mdframed}[style=MyFrame, backgroundcolor=blueBoxBg]
+\color{blueBoxFg}
+\begin{verbatim}
+                for mi in seq(0, 16):         # <<< c_tile_reduce
+\end{verbatim}
+\end{mdframed}
+\begin{verbatim}
+                    for ni in seq(0, 16):     # <<< parent().parent()
+                        for ki in seq(0, 8):  # <<< parent()
+\end{verbatim}
+\begin{mdframed}[style=MyFrame, backgroundcolor=yellowBoxBg]
+\color{yellowBoxFg}
+\begin{verbatim}
+                            accum[mi, ni] += A_tile[mi, ki] \
+\end{verbatim}
+\end{mdframed}
+\begin{mdframed}[style=MyFrame, backgroundcolor=greenBoxBg]
+\color{greenBoxFg}
+\begin{verbatim}
+                                             * B_tile[ki, ni]
+\end{verbatim}
+\end{mdframed}
+\begin{verbatim}
+            for mi in seq(0, 16):
+                for ni in seq(0, 16):
+                    C[mi + 16 * mo, ni + 16 * no] = accum[mi, ni]
+\end{verbatim}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.6\textwidth}\codeminipage
+We now construct a \blueBox{``cursor''} to the root of the future location for the matrix tile instruction,
+and ask Exo to stage $16 \times 16$ tiles of the input matrices (\texttt{A\_tile}, \texttt{B\_tile}).
+This
+\begin{itemize}
+  \item Causes \texttt{A\_tile} and \texttt{B\_tile} to be prepared outside the scope pointed-to by the cursor.
+  \item Causes \texttt{A\_tile} and \texttt{B\_tile} to be substituted (with updated indexing) for uses of \texttt{A} and \texttt{B} inside the scope of the cursor.
+\end{itemize}
+\vspace{6mm}
+{\tiny
+\begin{verbatim}
+def schedule_gemm(p, new_name):
+    # ...
+\end{verbatim}
+\begin{mdframed}[style=MyFrame, backgroundcolor=blueBoxBg]
+\color{blueBoxFg}
+\begin{verbatim}
+    c_tile_reduce = p.find("accum += _").parent().parent().parent()
+\end{verbatim}
+\end{mdframed}
+\begin{mdframed}[style=MyFrame, backgroundcolor=yellowBoxBg]
+\color{yellowBoxFg}
+\begin{verbatim}
+    p = stage_mem(p, c_tile_reduce,
+                  f"A[mo*{m_tile}:(mo+1)*{m_tile}, ko*{k_tile}:(ko+1)*{k_tile}]", "A_tile")
+\end{verbatim}
+\end{mdframed}
+\begin{mdframed}[style=MyFrame, backgroundcolor=greenBoxBg]
+\color{greenBoxFg}
+\begin{verbatim}
+    p = stage_mem(p, c_tile_reduce,
+                  f"B[ko*{k_tile}:(ko+1)*{k_tile}, no*{n_tile}:(no+1)*{n_tile}]", "B_tile")
+\end{verbatim}
+\end{mdframed}
+\begin{verbatim}
+    p = simplify(p)
+    # ...
+\end{verbatim}
+}
+\end{minipage}
+\newpage
+\myTitle{Exo CPU GEMM Example: Custom Accelerator}
+
+\begin{minipage}[t]{0.5\textwidth}\codeminipage
+\tiny
+\begin{verbatim}
+def exo_cpu_gemm(M: size, N: size, K: size, A: f32[M, K] @ DRAM,
+                 B: f32[K, N] @ DRAM, C: f32[M, N] @ DRAM):
+    assert M % 16 == 0
+    assert N % 16 == 0
+    assert K % 8 == 0
+    for mo in seq(0, M / 16):
+        for no in seq(0, N / 16):
+\end{verbatim}
+\begin{mdframed}[style=MyFrame, backgroundcolor=violetBoxBg]
+\color{violetBoxFg}
+\begin{verbatim}
+            accum: f32[16, 16] @ ExampleAcceleratorTile
+\end{verbatim}
+\end{mdframed}
+\begin{verbatim}
+            for mi in seq(0, 16):
+                for ni in seq(0, 16):
+                    accum[mi, ni] = 0
+            for ko in seq(0, K / 8):
+\end{verbatim}
+\begin{mdframed}[style=MyFrame, backgroundcolor=yellowBoxBg]
+\color{yellowBoxFg}
+\begin{verbatim}
+                A_tile: f32[16, 8] @ ExampleAcceleratorTile
+\end{verbatim}
+\end{mdframed}
+\begin{verbatim}
+                for i0 in seq(0, 16):
+                    for i1 in seq(0, 8):
+                        A_tile[i0, i1] = A[i0 + 16 * mo, i1 + 8 * ko]
+\end{verbatim}
+\begin{mdframed}[style=MyFrame, backgroundcolor=greenBoxBg]
+\color{greenBoxFg}
+\begin{verbatim}
+                B_tile: f32[8, 16] @ ExampleAcceleratorTile
+\end{verbatim}
+\end{mdframed}
+\begin{verbatim}
+                for i0 in seq(0, 8):
+                    for i1 in seq(0, 16):
+                        B_tile[i0, i1] = B[i0 + 8 * ko, i1 + 16 * no]
+\end{verbatim}
+\begin{mdframed}[style=MyFrame, backgroundcolor=blueBoxBg]
+\color{blueBoxFg}
+\begin{verbatim}
+                example_mma_tile(accum[0:16, 0:16], A_tile[0:16, 0:8],
+                                 B_tile[0:8, 0:16])
+\end{verbatim}
+\end{mdframed}
+\begin{verbatim}
+            for mi in seq(0, 16):
+                for ni in seq(0, 16):
+                    C[mi + 16 * mo, ni + 16 * no] = accum[mi, ni]
+\end{verbatim}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.5\textwidth}\codeminipage
+Finally, we update the memory types for the tiles.
+This makes it possible to substitute the custom instruction for the \texttt{mi}, \texttt{ni}, \texttt{ki} loop nest.
+\vspace{6mm}
+{\tiny
+\begin{verbatim}
+@instr("example_mma_tile({C_tile_data}, {A_tile_data}, {B_tile_data});")
+def example_mma_tile(
+\end{verbatim}
+\begin{mdframed}[style=MyFrame, backgroundcolor=violetBoxBg]
+\color{violetBoxFg}
+\begin{verbatim}
+                     C_tile: [f32][m_tile,n_tile] @ ExampleAcceleratorTile,
+\end{verbatim}
+\end{mdframed}
+\begin{mdframed}[style=MyFrame, backgroundcolor=yellowBoxBg]
+\color{yellowBoxFg}
+\begin{verbatim}
+                     A_tile: [f32][m_tile,k_tile] @ ExampleAcceleratorTile,
+\end{verbatim}
+\end{mdframed}
+\begin{mdframed}[style=MyFrame, backgroundcolor=greenBoxBg]
+\color{greenBoxFg}
+\begin{verbatim}
+                     B_tile: [f32][k_tile,n_tile] @ ExampleAcceleratorTile):
+\end{verbatim}
+\end{mdframed}
+\begin{verbatim}
+    for m in seq(0, m_tile):
+        for n in seq(0, n_tile):
+            for k in seq(0, k_tile):
+                C_tile[m,n] += A_tile[m,k] * B_tile[k,n]
+
+def schedule_gemm(p, new_name):
+    # ...
+    c_accum_alloc = p.find("accum : f32")  # Cursor
+    # ...
+\end{verbatim}
+\begin{mdframed}[style=MyFrame, backgroundcolor=violetBoxBg]
+\color{violetBoxFg}
+\begin{verbatim}
+    p = set_memory(p, c_accum_alloc, ExampleAcceleratorTile)
+\end{verbatim}
+\end{mdframed}
+\begin{mdframed}[style=MyFrame, backgroundcolor=yellowBoxBg]
+\color{yellowBoxFg}
+\begin{verbatim}
+    p = set_memory(p, "A_tile", ExampleAcceleratorTile)
+\end{verbatim}
+\end{mdframed}
+\begin{mdframed}[style=MyFrame, backgroundcolor=greenBoxBg]
+\color{greenBoxFg}
+\begin{verbatim}
+    p = set_memory(p, "B_tile", ExampleAcceleratorTile)
+\end{verbatim}
+\end{mdframed}
+\begin{mdframed}[style=MyFrame, backgroundcolor=blueBoxBg]
+\color{blueBoxFg}
+\begin{verbatim}
+    p = replace(p, c_tile_reduce, example_mma_tile)
+\end{verbatim}
+\end{mdframed}
+\begin{verbatim}
+    return p
+\end{verbatim}
+}
+\vspace{6mm}
+A real accelerator would likely also need custom load and store instructions for \texttt{ExampleAcceleratorTile}, but we skip this for the example.
+\end{minipage}
+\newpage
+\myTitle{Intro to CUDA}
+% Intro to CUDA
+
+% CUDA gemm pseudocode
+
+% Exo parallelism: loop mode, fence
+
+% Exo Example: gemm with CUDA
+
+% Correctness Model: Sychronization Environment
+
+% GPU gemm correctness example
+
+% CUDA Async Instructions
+
+% CUDA Advanced Synchronization
+
+% TMA
+
+% wgmma
+
+% Actor Kind
+
+% Actor Signature
+
+\end{document}

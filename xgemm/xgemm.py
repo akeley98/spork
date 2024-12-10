@@ -67,58 +67,59 @@ def original_gemm(M: size, N: size, K: size, A: f32[M,K], B: f32[K,N], C: f32[M,
             C[m,n] = accum
 
 
-def schedule_gemm(proc, new_name, use_cuda):
-    proc = rename(proc, new_name)
-    proc = divide_loop(proc, "m", m_tile, ("mo", "mi"), perfect = True)
-    proc = divide_loop(proc, "n", n_tile, ("no", "ni"), perfect = True)
-    proc = divide_loop(proc, "k", k_tile, ("ko", "ki"), perfect = True)
-    proc = reorder_loops(proc, "mi no")
-    c_accum_alloc = proc.find("accum : f32")
+def schedule_gemm(p, new_name, use_cuda):
+    p = rename(p, new_name)
+    p = divide_loop(p, "m", m_tile, ("mo", "mi"), perfect = True)
+    p = divide_loop(p, "n", n_tile, ("no", "ni"), perfect = True)
+    p = divide_loop(p, "k", k_tile, ("ko", "ki"), perfect = True)
+    p = reorder_loops(p, "mi no")
 
-    proc = expand_dim(proc, c_accum_alloc, n_tile, 'ni')
-    proc = expand_dim(proc, c_accum_alloc, m_tile, 'mi')
-    proc = lift_alloc(proc, c_accum_alloc, n_lifts = 2)
+    c_accum_alloc = p.find("accum : f32")  # Cursor
+    p = expand_dim(p, c_accum_alloc, n_tile, 'ni')
+    p = expand_dim(p, c_accum_alloc, m_tile, 'mi')
+    p = lift_alloc(p, c_accum_alloc, n_lifts = 2)
 
-    c_accum_zero = proc.find("accum = 0")
-    c_accum_export = proc.find("_ = accum")
-    proc = fission(proc, c_accum_zero.after(), n_lifts = 2)
-    proc = fission(proc, c_accum_export.before(), n_lifts = 2)
+    c_accum_zero = p.find("accum = 0")
+    c_accum_export = p.find("_ = accum")
+    p = fission(p, c_accum_zero.after(), n_lifts = 2)
+    p = fission(p, c_accum_export.before(), n_lifts = 2)
+    p = reorder_loops(p, "ni ko")
+    p = reorder_loops(p, "mi ko")
 
-    proc = reorder_loops(proc, "ni ko")
-    proc = reorder_loops(proc, "mi ko")
-
-    c_tile_reduce = proc.find("accum += _").parent().parent().parent()
-    proc = stage_mem(proc, c_tile_reduce, f"A[mo*{m_tile}:(mo+1)*{m_tile}, ko*{k_tile}:(ko+1)*{k_tile}]", "A_tile")
-    proc = stage_mem(proc, c_tile_reduce, f"B[ko*{k_tile}:(ko+1)*{k_tile}, no*{n_tile}:(no+1)*{n_tile}]", "B_tile")
-    proc = simplify(proc)
+    c_tile_reduce = p.find("accum += _").parent().parent().parent()
+    p = stage_mem(p, c_tile_reduce,
+                  f"A[mo*{m_tile}:(mo+1)*{m_tile}, ko*{k_tile}:(ko+1)*{k_tile}]", "A_tile")
+    p = stage_mem(p, c_tile_reduce,
+                  f"B[ko*{k_tile}:(ko+1)*{k_tile}, no*{n_tile}:(no+1)*{n_tile}]", "B_tile")
+    p = simplify(p)
 
     if use_cuda:
-        proc = set_memory(proc, c_accum_alloc, CudaRegisters)
-        proc = set_memory(proc, "A_tile", CudaShared)
-        proc = set_memory(proc, "B_tile", CudaShared)
+        p = set_memory(p, c_accum_alloc, CudaRegisters)
+        p = set_memory(p, "A_tile", CudaShared)
+        p = set_memory(p, "B_tile", CudaShared)
 
-        proc = set_loop_mode(proc, "mo", exo.loop_modes.CudaBlocks(m_tile * n_tile))
-        proc = set_loop_mode(proc, "no", exo.loop_modes.CudaBlocks())
-        proc = set_loop_mode(proc, "i0 #0", exo.loop_modes.cuda_threads)
-        proc = set_loop_mode(proc, "i1 #0", exo.loop_modes.cuda_threads)
-        proc = set_loop_mode(proc, "i0 #1", exo.loop_modes.cuda_threads)
-        proc = set_loop_mode(proc, "i1 #1", exo.loop_modes.cuda_threads)
-        proc = set_loop_mode(proc, "mi #0", exo.loop_modes.cuda_threads)
-        proc = set_loop_mode(proc, "mi #1", exo.loop_modes.cuda_threads)
-        proc = set_loop_mode(proc, "mi #2", exo.loop_modes.cuda_threads)
-        proc = set_loop_mode(proc, "ni #0", exo.loop_modes.cuda_threads)
-        proc = set_loop_mode(proc, "ni #1", exo.loop_modes.cuda_threads)
-        proc = set_loop_mode(proc, "ni #2", exo.loop_modes.cuda_threads)
+        p = set_loop_mode(p, "mo", exo.loop_modes.CudaBlocks(m_tile * n_tile))
+        p = set_loop_mode(p, "no", exo.loop_modes.CudaBlocks())
+        p = set_loop_mode(p, "i0 #0", exo.loop_modes.cuda_threads)
+        p = set_loop_mode(p, "i1 #0", exo.loop_modes.cuda_threads)
+        p = set_loop_mode(p, "i0 #1", exo.loop_modes.cuda_threads)
+        p = set_loop_mode(p, "i1 #1", exo.loop_modes.cuda_threads)
+        p = set_loop_mode(p, "mi #0", exo.loop_modes.cuda_threads)
+        p = set_loop_mode(p, "mi #1", exo.loop_modes.cuda_threads)
+        p = set_loop_mode(p, "mi #2", exo.loop_modes.cuda_threads)
+        p = set_loop_mode(p, "ni #0", exo.loop_modes.cuda_threads)
+        p = set_loop_mode(p, "ni #1", exo.loop_modes.cuda_threads)
+        p = set_loop_mode(p, "ni #2", exo.loop_modes.cuda_threads)
 
-        proc = insert_fence(proc, c_tile_reduce.before(), exo.sync_types.cuda_syncthreads)
-        proc = insert_fence(proc, c_tile_reduce.after(), exo.sync_types.cuda_syncthreads)
+        p = insert_fence(p, c_tile_reduce.before(), exo.sync_types.cuda_syncthreads)
+        p = insert_fence(p, c_tile_reduce.after(), exo.sync_types.cuda_syncthreads)
     else:
-        proc = set_memory(proc, c_accum_alloc, ExampleAcceleratorTile)
-        proc = set_memory(proc, "A_tile", ExampleAcceleratorTile)
-        proc = set_memory(proc, "B_tile", ExampleAcceleratorTile)
-        proc = replace(proc, c_tile_reduce, example_mma_tile)
-    proc = simplify(proc)
-    return proc
+        p = set_memory(p, c_accum_alloc, ExampleAcceleratorTile)
+        p = set_memory(p, "A_tile", ExampleAcceleratorTile)
+        p = set_memory(p, "B_tile", ExampleAcceleratorTile)
+        p = replace(p, c_tile_reduce, example_mma_tile)
+    print(p)
+    return p
 
 exo_cpu_gemm = schedule_gemm(original_gemm, "exo_cpu_gemm", False)
 exo_cuda_gemm = schedule_gemm(original_gemm, "exo_cuda_gemm", True)
