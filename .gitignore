@@ -16,3 +16,4 @@ libattn.so
 ninja
 /gemm_sm90.*
 /cute_gemm.*
+xgemm/xgemm

@@ -7,6 +7,7 @@
 #include "cute_gemm.h"
 #include "gemm_sm80.h"
 #include "gemm_sm90.h"
+#include "xgemm.h"
 
 namespace {
 
@@ -203,14 +204,6 @@ void gemm_test(TestParams params, cudaStream_t stream)
         matmul_sm80(t, stream);
     }
 
-    // Initialize SM90 data
-    {
-        GPU_Tensors t{params.M, params.N, params.K, d_a, d_bT, d_c_sm90_warmup, 0, 1, 0};
-        fill_garbage(t.c);
-        matmul_sm90(t, stream);
-    }
-    launch_device_compare_tensor(params, d_c_sm80, d_c_sm90_warmup, params.M, params.N, d_bitfield, stream);
-
 #if 0
     // cute test (need to do A,B swap trick to deal with Fortran-inherited column majorness)
     {
@@ -222,6 +215,23 @@ void gemm_test(TestParams params, cudaStream_t stream)
     }
     launch_device_compare_tensor(params, d_c_sm80, d_c16, params.M, params.N, d_bitfield, stream);
 #endif
+
+#if 1
+    // Exo test
+    {
+        assert(stream == 0);
+        exo_cuda_gemm(nullptr, int(params.M), int(params.N), int(params.K), d_a, d_b, d_c_sm90_warmup);
+    }
+    launch_device_compare_tensor(params, d_c_sm80, d_c_sm90_warmup, params.M, params.N, d_bitfield, stream);
+#endif
+
+    // Initialize SM90 data
+    {
+        GPU_Tensors t{params.M, params.N, params.K, d_a, d_bT, d_c_sm90_warmup, 0, 1, 0};
+        fill_garbage(t.c);
+        matmul_sm90(t, stream);
+    }
+    launch_device_compare_tensor(params, d_c_sm80, d_c_sm90_warmup, params.M, params.N, d_bitfield, stream);
 
     // Test loop
     constexpr uint32_t test_count = 15;
