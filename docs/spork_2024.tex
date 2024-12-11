@@ -1443,7 +1443,60 @@ Extremely OP Feature!
 \begin{minipage}[t]{0.5\textwidth}\fixminipage
 \mySub{Application: Split-$k$}
 
+With TMA, we can parallelize a gemm on $k$ by assigning multiple thread blocks to each output tile,
+assigning different $k$ ranges to each block, and using TMA to reduce into the output tile.
+
 \mySub{Application: Backwards Pass}
+
+The backwards pass reverses the direction of information flow.
+Each original ``input'' tile $A_i,B_j$ receives gradient contributions from multiple ``output'' tiles $C_{i,j}$.
+Parallelizing blocks on $C$ tiles requires reductions between thread blocks.
+
+\begin{tikzpicture}[node distance=2mm]
+\node(b0) [smallnode] {$B_0$};
+\node(b1) [smallnode, right=of b0] {$B_1$};
+\node(b2) [smallnode, right=of b1, fill=blueBoxBg] {$B_2$};
+\node(bN) [smallnode, right=of b2, xshift=4mm] {$B_{no-1}$};
+\draw [dotted] (b2) -- (bN);
+\node(c00) [smallnode, below=of b0, yshift=-4mm] {$C_{0,0}$};
+\node(c01) [smallnode, below=of b1, yshift=-4mm] {$C_{0,1}$};
+\node(c02) [smallnode, below=of b2, yshift=-4mm, fill=blueBoxBg] {$C_{0,2}$};
+\node(c0N) [smallnode, below=of bN, yshift=-4mm] {$C_{0,no-1}$};
+
+\node(a0) [smallnode, left=of c00, xshift=-4mm] {$A_0$};
+\node(a1) [smallnode, below=of a0, fill=redBoxBg] {$A_1$};
+\node(aM) [smallnode, below=of a1, yshift=-4mm] {$A_{mo-1}$};
+\draw [dotted] (a1) -- (aM);
+
+\node(c10) [smallnode, below=of c00, fill=redBoxBg] {$C_{1,0}$};
+\node(c11) [smallnode, below=of c01, fill=redBoxBg] {$C_{1,1}$};
+\node(c12) [smallnode, below=of c02, fill=violetBoxBg] {$C_{1,2}$};
+\node(c1N) [smallnode, below=of c0N, fill=redBoxBg] {$C_{1,no-1}$};
+
+\node(cM0) [smallnode, below=of c10, yshift=-4mm] {$C_{mo-1,0}$};
+\node(cM1) [smallnode, below=of c11, yshift=-4mm] {$C_{mo-1,1}$};
+\node(cM2) [smallnode, below=of c12, yshift=-4mm, fill=blueBoxBg] {$C_{mo-1,2}$};
+\node(cMN) [smallnode, below=of c1N, yshift=-4mm] {$C_{...}$};
+
+\draw [arrow] (c00) -- (a0);
+\draw [arrow] (c10) -- (a1);
+\draw [arrow] (cM0) -- (aM);
+
+\draw [dotted] (c10) -- (cM0);
+\draw [dotted] (c11) -- (cM1);
+\draw [dotted] (c12) -- (cM2);
+\draw [dotted] (c1N) -- (cMN);
+
+\draw [dotted] (c02) -- (c0N);
+\draw [dotted] (c12) -- (c1N);
+\draw [dotted] (cM2) -- (cMN);
+\draw [dotted] (c12) -- (cMN);
+
+\draw [arrow] (c00) -- (b0);
+\draw [arrow] (c01) -- (b1);
+\draw [arrow] (c02) -- (b2);
+\draw [arrow] (c0N) -- (bN);
+\end{tikzpicture}
 \end{minipage}
 
 \newpage
@@ -1512,7 +1565,7 @@ This is used to categorize accelerator instructions,
 and to parameterize \texttt{Fence(before, after)} statements.
 e.g. \texttt{\_\_syncthreads()} is equivalent to\\
 \texttt{\ \ \ \ \# At CUDA block scope} \\
-\texttt{\ \ \ \ Fence(\myKey{cuda\_sync}, \myKeyB{cuda\_generic})} \\
+\texttt{\ \ \ \ Fence(\myKey{cuda\_sync}, \myKeyB{cuda\_sync})} \\
 Because the sync only waits for synchronous instructions \myKey{before} the barrier, but any instruction in the generic proxy \myKeyB{after} the barrier can safely read the protected values.
 
 Note the user specifies synchronization \textit{declaratively}, to simplify analysis.
@@ -1528,7 +1581,7 @@ Then, the threads executing the $n^{th}$ \texttt{Await} for a barrier wait for t
 
 \texttt{Arrive} is parameterized with a \myKey{before} actor kind, \texttt{Await} with an \myKeyB{after} actor kind.
 
-For example, the mbarrier for TMA GMEM$\to$SMEM is \texttt{Arrive(\myKey{tma\_to\_shared}, <barrier>)},\\\texttt{Await(\myKeyB{cuda\_generic}, <barrier>)}.
+For example, the mbarrier for TMA GMEM$\to$SMEM is \texttt{Arrive(\myKey{tma\_to\_shared}, <barrier>)},\\\texttt{Await(\myKeyB{cuda\_all}, <barrier>)}.
 
 Implement only supported arrive/await patterns.
 
@@ -1578,7 +1631,7 @@ Invariant: $V_S \subseteq V_A$
 \begin{minipage}[t]{0.5\textwidth}\fixminipage
 \mySub{Read/Write checking}
 
-We now define that read/write is \myKeyB{visible-to} sigthread $(t, a)$ if the $(t,a) \in V_S$ ($V_S$ being the sync visibility set of the read/write visibility record).
+We now define that read/write is \myKeyB{visible-to} sigthread $(t, a)$ if $(t,a) \in V_S$ ($V_S$ being the sync visibility set of the read/write visibility record).
 
 \mySub{Synchronization Statements}
 
