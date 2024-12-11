@@ -728,27 +728,28 @@ CPU launches ``grid'' of \texttt{gridDim}-many blocks
   \item per-CTA memory (L1 cache carveout)
   \item \myKeyB{``fast''}, but still $\approx$10$\times$ slower than math
 \end{itemize}
-RMEM (Register ``Memory'') -- 255 per thread
+\textbf{RMEM} (Register ``Memory'') -- 255 per thread
 
 \begin{tikzpicture}[node distance=5mm]
 \node (grid) [normalnode] {grid};
 \node (gmem) [gmemnode, right=of grid, xshift=4mm] {\myKey{GMEM}};
 \draw[line] (grid) -- (gmem);
 
-\node (block0) [smallnode, below=of grid, xshift=-1cm, yshift=-16mm] {block};
+\node (block0) [smallnode, fill=violetBoxBg, below=of grid, xshift=-1cm, yshift=-16mm] {block};
 \node (block1) [smallnode, right=of block0, xshift=0.6cm] {block};
 \node (block2) [smallnode, right=of block1, xshift=2cm] {block};
 \draw[arrow] (grid.south) to[out=270,in=0] (block0.east);
 \draw[arrow] (grid.south) to[out=300,in=180] (block1.west);
 \draw[arrow] (grid.south) to[out=330,in=180] ($(block2.west)+(0,0.2)$);
-\draw[dotted] (block1.east) to node[]{gridDim} (block2.west);
+\draw[dotted] ($(block0.east) - (0, 0.3)$) to ($(block1.west) - (0, 0.3)$);
+\draw[dotted] ($(block1.east) - (0, 0.3)$) to node[]{gridDim} ($(block2.west) - (0, 0.3)$);
 
-\node (thread0) [smallnode, below=of block0, yshift=-4mm] {thread};
-\node (thread1) [smallnode, right=of thread0] {thread};
-\node (thread2) [smallnode, right=of thread1, xshift=2cm] {thread};
-\node (rmem0) [smallnode, below=of thread0] {RMEM};
-\node (rmem1) [smallnode, below=of thread1] {RMEM};
-\node (rmem2) [smallnode, below=of thread2] {RMEM};
+\node (thread0) [smallnode, fill=violetBoxBg, below=of block0, yshift=-4mm] {thread};
+\node (thread1) [smallnode, fill=violetBoxBg, right=of thread0] {thread};
+\node (thread2) [smallnode, fill=violetBoxBg, right=of thread1, xshift=2cm] {thread};
+\node (rmem0) [smallnode, below=of thread0] {\textbf{RMEM}};
+\node (rmem1) [smallnode, below=of thread1] {\textbf{RMEM}};
+\node (rmem2) [smallnode, below=of thread2] {\textbf{RMEM}};
 \draw[line] (thread0) -- (rmem0);
 \draw[line] (thread1) -- (rmem1);
 \draw[line] (thread2) -- (rmem2);
@@ -763,7 +764,8 @@ RMEM (Register ``Memory'') -- 255 per thread
 \draw[arrow] (block0.south) to [out=270,in=90] (thread0.north);
 \draw[arrow] (block0.south) to [out=300,in=110] (thread1.north);
 \draw[arrow] (block0.south) to [out=330,in=130] (thread2.north);
-\draw[dotted] (thread1.east) to node[]{blockDim} (thread2.west);
+\draw[dotted] ($(thread0.east) - (0, 0.3)$) to ($(thread1.west) - (0, 0.3)$);
+\draw[dotted] ($(thread1.east) - (0, 0.3)$) to node[]{blockDim} ($(thread2.west) - (0, 0.3)$);
 \end{tikzpicture}
 \end{minipage}
 
