@@ -719,11 +719,11 @@ CPU launches ``grid'' of \texttt{gridDim}-many blocks
 \end{minipage}
 \hfill
 \begin{minipage}[t]{0.5\textwidth}\fixminipage
-\myKey{GMEM} (Global Memory): \myKey{``slow''}
+\myKey{GMEM} (Global Memory): \myKey{``slow''}, 10s of GB
 \begin{itemize}
   \item any thread in grid may access
 \end{itemize}
-\myKeyB{SMEM} (Shared Memory)
+\myKeyB{SMEM} (Shared Memory): 100s of KiB
 \begin{itemize}
   \item per-CTA memory (L1 cache carveout)
   \item \myKeyB{``fast''}, but still $\approx$10$\times$ slower than math
@@ -821,7 +821,7 @@ for io in cuda_blocks(..., blockDim = 256):
 Sometimes storage for a single logical tile needs to be split among multiple lanes, e.g.
 \begin{itemize}
   \item Distributed between threads' registers\\(see next gemm example)
-  \item Fromats for warp / warpgroup matrix accelerator (matrix ``fragments'' distributed between 32/128 threads)
+  \item Formats for warp / warpgroup matrix accelerator (matrix ``fragments'' distributed between 32/128 threads)
   \item Cluster-distributed shared memory
 \end{itemize}
 
@@ -1178,7 +1178,7 @@ It's more complicated than that.
 \hfill
 \begin{minipage}[t]{0.7\textwidth}\fixminipage
 \vspace{6mm}
-\textit{Deeper side note, not for live presentation: \myKey{WAR} checking is a ``conjunction of disjunctions''; with the disjunction being how each read visibility set $R$ gets independently augmented by synchronization ($R \leftarrow R \cup V_2$), and the conjunction being $\forall R, T \in R$.
+\textit{Deeper side note, not for live presentation: \myKey{WAR} checking is a ``conjunction of disjunctions''; with the disjunction being how each read visibility set $R$ gets independently augmented by synchronization ($R \leftarrow R \cup V_2$), and the conjunction being $\forall R, t \in R$.
 This is not really simplifiable to a single ``allowed to write'' set.}
 \end{minipage}
 
@@ -1319,20 +1319,20 @@ Typically, this is not needed for the opposite direction; synchronization that w
 \end{minipage}
 
 \newpage
-\myTitle{wgmma: warpgroup matrix multiply accumulate}
+\myTitle{wgmma: Warpgroup Matrix Multiply-accumulate Async}
 
 \begin{minipage}[t]{0.5\textwidth}\fixminipage
 Conceptually, this is really simple.
-Each \texttt{wgmma.mma\_async} instruction is executed by a warpgroup (128 aligned threads), and computes matrix tiles
+Each \texttt{wgmma.mma\_async} instruction is issued by a warpgroup (128 aligned threads), and computes matrix tiles
 \begin{itemize}
   \item $D \leftarrow AB$ or
   \item $D \leftarrow AB + D$
 \end{itemize}
-Where $D$ (accumulator) is stored distributed in the 128 threads' registers, $B$ is stored in shared memory, and $A$ may be in either format.
+Where $D$ (accumulator) is stored distributed in the 128 threads' \textbf{registers}, $B$ is stored in \myKeyB{shared memory}, and $A$ may be in either format.
 
 The complexity for this feature comes from
 \begin{itemize}
-  \item Input/output format details \textbf{(huuuge mess)}
+  \item Input/output format details \myKey{(huuuge mess)}
   \item Synchronization
 \end{itemize}
 I'll just address the latter for now.
@@ -1342,9 +1342,9 @@ Although Exo will eventually have to figure out how to model the full set of mat
 \begin{minipage}[t]{0.5\textwidth}\fixminipage
 \mySub{Synchronization generic $\to$ wgmma}
 
-For registers, we need to issue \texttt{wgmma.fence} for wgmma to see register values written by threads.
+For \textbf{registers}, we need to issue \texttt{wgmma.fence} for wgmma to see register values written by threads.
 
-For shared memory, we need to issue an async proxy fence, unless the memory was written by TMA (which is already in the async proxy).
+For \myKeyB{shared memory}, we need to issue an async proxy fence, unless the memory was written by TMA (which is already in the async proxy).
 
 Note: as this asynchronous instruction modifies registers $D$ directly (and optionally reads $A$ from registers), it's possible to have a race condition on a thread's registers!
 
@@ -1358,7 +1358,7 @@ This is all only done within one warpgroup; a warpgroup cannot (directly) wait f
 \end{minipage}
 
 \newpage
-\myTitle{TMA: tensor memory accelerator}
+\myTitle{TMA: Tensor Memory Accelerator}
 
 \begin{minipage}[t]{0.5\textwidth}\fixminipage
 Handled with \texttt{cp.async.bulk.tensor} instructions.
@@ -1565,7 +1565,7 @@ This is used to categorize accelerator instructions,
 and to parameterize \texttt{Fence(before, after)} statements.
 e.g. \texttt{\_\_syncthreads()} is equivalent to\\
 \texttt{\ \ \ \ \# At CUDA block scope} \\
-\texttt{\ \ \ \ Fence(\myKey{cuda\_sync}, \myKeyB{cuda\_sync})} \\
+\texttt{\ \ \ \ Fence(\myKey{cuda\_sync}, \myKeyB{cuda\_generic})} \\
 Because the sync only waits for synchronous instructions \myKey{before} the barrier, but any instruction in the generic proxy \myKeyB{after} the barrier can safely read the protected values.
 
 Note the user specifies synchronization \textit{declaratively}, to simplify analysis.
