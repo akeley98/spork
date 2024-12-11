@@ -739,10 +739,11 @@ CPU launches ``grid'' of \texttt{gridDim}-many blocks
 \node (block1) [smallnode, right=of block0, xshift=0.6cm] {block};
 \node (block2) [smallnode, right=of block1, xshift=2cm] {block};
 \draw[arrow] (grid.south) to[out=270,in=0] (block0.east);
-\draw[arrow] (grid.south) to[out=300,in=180] (block1.west);
+\draw[arrow] (grid.south) to[out=290,in=180] (block1.west);
 \draw[arrow] (grid.south) to[out=330,in=180] ($(block2.west)+(0,0.2)$);
 \draw[dotted] ($(block0.east) - (0, 0.3)$) to ($(block1.west) - (0, 0.3)$);
-\draw[dotted] ($(block1.east) - (0, 0.3)$) to node[]{gridDim} ($(block2.west) - (0, 0.3)$);
+\draw[dotted] ($(block1.east) - (0, 0.3)$) to node(gridDim)[]{gridDim} ($(block2.west) - (0, 0.3)$);
+\draw[arrow,dotted] (grid.south) to [out=310,in=145] (gridDim);
 
 \node (thread0) [smallnode, fill=violetBoxBg, below=of block0, yshift=-4mm] {thread};
 \node (thread1) [smallnode, fill=violetBoxBg, right=of thread0] {thread};
@@ -762,10 +763,11 @@ CPU launches ``grid'' of \texttt{gridDim}-many blocks
 \draw[line] (block2) -- (smem2);
 
 \draw[arrow] (block0.south) to [out=270,in=90] (thread0.north);
-\draw[arrow] (block0.south) to [out=300,in=110] (thread1.north);
+\draw[arrow] (block0.south) to [out=290,in=110] (thread1.north);
 \draw[arrow] (block0.south) to [out=330,in=130] (thread2.north);
 \draw[dotted] ($(thread0.east) - (0, 0.3)$) to ($(thread1.west) - (0, 0.3)$);
-\draw[dotted] ($(thread1.east) - (0, 0.3)$) to node[]{blockDim} ($(thread2.west) - (0, 0.3)$);
+\draw[dotted] ($(thread1.east) - (0, 0.3)$) to node(blockDim)[]{blockDim} ($(thread2.west) - (0, 0.3)$);
+\draw[arrow,dotted] (block0.south) to [out=310,in=130] (blockDim.north);
 \end{tikzpicture}
 \end{minipage}
 
@@ -1084,7 +1086,7 @@ What do we do?
 \begin{itemize}
   \item Ignore parallelism: interpret all parallel loops as sequential
   \item Ignore synchronization
-  \item Does it work? We already proved it does, since the rewrites assume single-threaded semantics!
+  \item Does it work? We already proved it does, since the rewrites assume S-semantics!
 \end{itemize}
 We prove that a parallelized Exo proc interpreted with M-semantics is \myKey{equivalent to \textit{itself}} interpreted with S-semantics.
 \begin{itemize}
@@ -1093,9 +1095,10 @@ We prove that a parallelized Exo proc interpreted with M-semantics is \myKey{equ
 \end{itemize}
 \end{minipage}
 \newpage
-\myTitle{Synchronization Environment}
-
 \begin{minipage}[t]{0.5\textwidth}\fixminipage
+\myTitle{Synchronization Environment}  % moved into minipage to fit
+
+\vspace{6mm}
 Usually when interpreting a single-threaded program, we track the values of each variable in the environment $\Sigma$
 
 For our purposes, we need a ``synchronization environment'' $\Sigma^S$ parallel to $\Sigma$
@@ -1117,22 +1120,22 @@ This will get \myKey{more complicated} later to model not-yet-described CUDA fea
 \end{minipage}
 \hfill
 \begin{minipage}[t]{0.5\textwidth}\fixminipage
-\textbf{With $T$ being the executing thread ID:}
+\textbf{With $t$ being the executing thread ID:}
 
 \mySub{Behavior on Read} (checking to be described)
 
-Add a new read visibility set $\{T\}$.
+Add a new read visibility set $\{t\}$.
 Note, a ``read'' is not read-only on $\Sigma^S$, unlike $\Sigma$.
 
 \mySub{Behavior on Write}
 
-Discard all visibility sets (read and write) and set the current write visibility set to $\{T\}$
+Discard all visibility sets (read and write) and set the current write visibility set to $\{t\}$
 
 \mySub{Behavior on Synchronization}
 
 Only way that visibility sets grow
 
-Each synchronization statement defines a ``first visibility set'' $V_1$ and ``second visibility set'' $V_2$;
+Each synchronization statement defines a \myKey{``first visibility set''} $V_1$ and \myKey{``second visibility set''} $V_2$;
 informally, the set of threads that ``signal'' (arrive), and the set of threads that await.
 \begin{itemize}
   \item For fences, $V_1 = V_2$
@@ -1141,36 +1144,40 @@ informally, the set of threads that ``signal'' (arrive), and the set of threads 
 
 For each visibility set $Q$ of all variables in $\Sigma^S$
 \begin{itemize}
-  \item Check if $Q \cap V_1$ is nonempty
+  \item $Q$ \myKeyB{synchronizes-with} the fence if $Q \cap V_1$ is nonempty
   \item If so, $Q \leftarrow Q \cup V_2$
 \end{itemize}
 \end{minipage}
 
 \newpage
-\myTitle{Synchronization Checking}
+\myTitle{Synchronization Checking -- Simplified}
 
 \begin{minipage}[t]{0.7\textwidth}\fixminipage
-With $T$ being the executing thread ID, and all visibility sets $W$, $R$ being for the variable being read/written:
+With $t$ being the executing thread ID, and all visibility sets $R$, $W$ being for the variable being read/written:
 
 \mySub{Checking on Read}
 
-\myKey{RAW} check: $T \in W$, where $W$ is the write visibility set.
+\myKey{RAW} check: $t \in W$, where $W$ is the write visibility set.\\
+We say that the write recorded by $W$ is \myKeyB{visible-to} $t$.
 
 \mySub{Checking on Write}
 
 Prior to overwriting the visibility sets, perform checks.
 
-\myKey{WAW} check: $T \in W$, where $W$ is the write visibility set.
+\myKey{WAW} check: $t \in W$, where $W$ is the write visibility set.
 
-\myKey{WAR} check: For each read visibility set $R$, check $T \in R$.
+\myKey{WAR} check: For each read visibility set $R$, check $t \in R$.\\
+We say that the read recorded by $R$ is \myKeyB{visible-to} $t$.
 
 \vspace{10mm}
 
 \mySub{\textbf{IMPORTANT:}} $R$ and $W$ are \textbf{NOT} ``allowed to read'' and ``allowed to write'' sets.
 It's more complicated than that.
+\end{minipage}
 
-\vspace{10mm}
-
+\hfill
+\begin{minipage}[t]{0.7\textwidth}\fixminipage
+\vspace{6mm}
 \textit{Deeper side note, not for live presentation: \myKey{WAR} checking is a ``conjunction of disjunctions''; with the disjunction being how each read visibility set $R$ gets independently augmented by synchronization ($R \leftarrow R \cup V_2$), and the conjunction being $\forall R, T \in R$.
 This is not really simplifiable to a single ``allowed to write'' set.}
 \end{minipage}
@@ -1244,13 +1251,13 @@ def exo_cuda_gemm(M: size, N: size, K: size, A: f32[M, K] @ DRAM,
 \end{minipage}
 \hfill
 \begin{minipage}[t]{0.6\textwidth}\codeminipage
-Example: track status of $A\_tile[0,0]$, assigned to thread $T = 0$ (assuming we are investigating block 0, assigned to $mo = 0, no = 0$)
+Example: track status of $A\_tile[0,0]$, assigned to thread $t = 0$ (assuming we are investigating block 0, assigned to $mo = 0, no = 0$)
 
 \makebox[\textwidth][c]{
 \begin{tabular}{l l}
 \rowcolor{yellowBoxBg} $\Sigma_{ko}$ & $0$ \\
 \rowcolor{yellowBoxBg} $\Sigma_{A\_tile[0,0]}$ & $A[0,0]$ \\
-\rowcolor{yellowBoxBg} $T$ & $0$ \\
+\rowcolor{yellowBoxBg} $t$ & $0$ \\
 \rowcolor{yellowBoxBg} $\Sigma^S_{A\_tile[0,0]}$ & $W = \{0\}$\\
 \rowcolor{greenBoxBg} $\Sigma_{ko}$ & $0$ \\
 \rowcolor{greenBoxBg} $\Sigma_{A\_tile[0,0]}$ & $A[0,0]$ \\
@@ -1258,14 +1265,14 @@ Example: track status of $A\_tile[0,0]$, assigned to thread $T = 0$ (assuming we
 \rowcolor{greenBoxBg} $\Sigma^S_{A\_tile[0,0]}$ & $W = \{0, 1, 2, ... , 255\}$\\
 \rowcolor{violetBoxBg} $\Sigma_{ko}$ & $0$ \\
 \rowcolor{violetBoxBg} $\Sigma_{A\_tile[0,0]}$ & $A[0,0]$ \\
-\rowcolor{violetBoxBg} $T$ & $0, 16, 32, ... , 240$  // All threads with \texttt{mi = 0}\\
-\rowcolor{blueBoxBg} \color{blueBoxFg} checking: & \color{blueBoxFg} $T \in W$ OK, $0, 16, 32, ... \in \{ 0, 1, ..., 255 \}$ \\
+\rowcolor{violetBoxBg} $t$ & $0, 16, 32, ... , 240$  // All threads with \texttt{mi = 0}\\
+\rowcolor{blueBoxBg} \color{blueBoxFg} checking: & \color{blueBoxFg} $t \in W$ OK, $0, 16, 32, ... \in \{ 0, 1, ..., 255 \}$ \\
 \rowcolor{violetBoxBg} $\Sigma^S_{A\_tile[0,0]}$ & $W = \{0, 1, 2, ... , 255\}$\\
 \rowcolor{violetBoxBg} & $R_0 = \{0\}, R_1 = \{16\}, R_2 = \{32\} ... R_{15} = \{240\}$ \\
 \rowcolor{yellowBoxBg} $\Sigma_{ko}$ & $1$ \\
 \rowcolor{yellowBoxBg} $\Sigma_{A\_tile[0,0]}$ & $A[0,8]$ \\
-\rowcolor{yellowBoxBg} $T$ & $0$ \\
-\rowcolor{redBoxBg} \color{redBoxFg} checking: & \color{redBoxFg} $\forall R_i, T \in R_i$ FAIL, $0 \notin \{16\}, 0 \notin \{32\}, ...$
+\rowcolor{yellowBoxBg} $t$ & $0$ \\
+\rowcolor{redBoxBg} \color{redBoxFg} checking: & \color{redBoxFg} $\forall R_i, t \in R_i$ FAIL, $0 \notin \{16\}, 0 \notin \{32\}, ...$
 \end{tabular}
 }
 \end{minipage}
@@ -1275,7 +1282,7 @@ Example: track status of $A\_tile[0,0]$, assigned to thread $T = 0$ (assuming we
 
 \begin{minipage}[t]{0.5\textwidth}\fixminipage
 New accelerator instructions with the NVIDIA H100 (Hopper) are asynchronous.
-They are issued by CUDA threads or warpgroups, but don't operate in the normal timeline:
+They are issued by CUDA threads or warpgroups, but execution continues without waiting.
 \begin{itemize}
   \item TMA: copy tensor tiles GMEM$\leftrightarrow$SMEM
   \item wgmma: tiled matrix multiply-accumulate
@@ -1295,7 +1302,7 @@ Two async instructions issued by the same thread/warpgroup don't even complete i
 \hfill
 \begin{minipage}[t]{0.5\textwidth}\fixminipage
 These also ignore all ``ordinary'' synchronization.
-So our previous formalization won't work for these.
+So our previous formalization \myKey{won't work} for these.
 
 Special-purpose synchronization statements must be used for these instructions.
 
@@ -1343,7 +1350,7 @@ Note: as this asynchronous instruction modifies registers $D$ directly (and opti
 
 \mySub{Synchronization wgmma $\to$ generic}
 
-The completion mechanism is ``commit group''.
+The completion mechanism is \myKey{``commit group''}.
 
 A \texttt{wgmma.commit\_group} instruction commits all prior uncommitted \texttt{wgmma.mma\_async} instructions to a commit group, then \texttt{wgmma.wait\_group N} waits for the MMAs of the $N^{th}$ prior commit group to complete (pipelining).
 
@@ -1357,6 +1364,7 @@ This is all only done within one warpgroup; a warpgroup cannot (directly) wait f
 Handled with \texttt{cp.async.bulk.tensor} instructions.
 
 A \texttt{CUtensorMap} describes how to interpret some memory as a 1D-5D tensor (strides, etc.), and a box size (copied tile size).
+16 byte alignment is needed.
 
 The \texttt{cp.async.bulk.tensor} issues a copy between a densely-packed tile in shared memory and a strided tile in global memory
 (both directions supported)
@@ -1373,6 +1381,8 @@ The tiles are C-style arrays
 \draw [arrow] ($(smem.east)-(0,0.2)$) -- ($(gmem.west)-(0,0.2)$);
 \draw [arrow] ($(gmem.west)+(0,0.2)$) -- ($(smem.east)+(0,0.2)$);
 \end{tikzpicture}
+
+Note: TMA can also be used without a \texttt{CUtensorMap} for literal array to array copies.
 \end{minipage}
 \hfill
 \begin{minipage}[t]{0.5\textwidth}\fixminipage
@@ -1382,9 +1392,9 @@ Async proxy fence required to see memory written by generic instructions.
 
 \mySub{Synchronization TMA $\to$ generic}
 
-If the TMA copies SMEM to GMEM, the completion mechanism is commit\_group.
+If the TMA copies SMEM to GMEM, the completion mechanism is \myKey{commit\_group}.
 
-If the TMA copies GMEM to SMEM, the completion mechanism is mbarrier (split barrier)
+If the TMA copies GMEM to SMEM, the completion mechanism is \myKey{mbarrier} (split barrier)
 
 Vastly simplified explanation:
 \begin{itemize}
@@ -1393,6 +1403,8 @@ Vastly simplified explanation:
     (This split barrier is usable separate from TMA)
   \item Can additionally specify \texttt{tx\_count}: wait for \textit{upcoming} TMA GMEM$\to$SMEM copies of total size \texttt{tx\_count} bytes.
 \end{itemize}
+Usually, we nominate only \myKey{1 thread} to issue the TMA instruction.
+Hence, we use a 1-to-many mbarrier to synchronize.
 
 \end{minipage}
 \newpage
@@ -1403,31 +1415,185 @@ TMA has an additional ``reduce'' functionality when copying shared memory to glo
 
 When enabled, the SMEM tile to GMEM tile ``copy'' becomes a reduction into GMEM instead (for our purposes, we care about the \texttt{+=} reduce operator).
 
-This reduction is \textit{atomic} (\texttt{relaxed.gpu} memory model) per tensor element.
+\begin{verbatim}
+def tma_reduce(gmem, smem, boxDim1...boxDimN,
+               coord1...coordN):
+    for i1 in seq(0, boxDim1):
+        ... # N=1,2,3,4,5
+        for iN in seq(0, boxDimN):
+            gmem[i1 + coord1...
+                iN + coordN] += smem[i1...iN]
+\end{verbatim}
+
+This reduction is \myKey{atomic} (\texttt{relaxed.gpu} memory model) per tensor element.
 
 Extremely OP Feature!
 
 \begin{tikzpicture}[node distance=5mm]
 \node (smem) [smemnode] {\myKeyB{SMEM tile}};
-\node (op) [normalnode, below=of smem] {AtomicOp};
+\node (op) [normalnode, right=of smem] {AtomicOp};
 \draw [arrow] (smem) -- (op);
 \node (gmembig) [bignode, below=of op] {};
 \node (gmem) [gmemnode, below=of op, yshift=-6mm] {\myKey{GMEM tile}};
 \draw [arrow] (gmem.east) to[out=0,in=0] (op.east);
-\draw [arrow] (op.south) to (gmem.north);
+\draw [arrow] (op.south) to[out=250,in=110] (gmem.north);
 \end{tikzpicture}
 \end{minipage}
 \hfill
 \begin{minipage}[t]{0.5\textwidth}\fixminipage
+\mySub{Application: Split-$k$}
+
+\mySub{Application: Backwards Pass}
 \end{minipage}
-% CUDA Advanced Synchronization
 
-% TMA
+\newpage
+\myTitle{Abstraction: Actor Signature}
 
-% wgmma
+\begin{minipage}[t]{0.5\textwidth}\fixminipage
+Conceptually, the earlier sychronization checking model was based on analyzing a \textit{sequential} trace of the program, where each \myKey{action} is annotated by the \myKey{``actor''} (thread index) of ``who'' executed the action.
 
-% Actor Kind
+We can extend this annotation to capture ``how'' this thread performed the action.
+This is the \myKey{actor signature}.
 
-% Actor Signature
+A single accelerator instruction may perform actions with multiple actor signatures, e.g. for wgmma
+\begin{itemize}
+  \item \texttt{sig\_wgmma\_mem}: shared memory access
+  \item \texttt{sig\_wgmma\_reg\_a}: register access to $A$
+  \item \texttt{sig\_wgmma\_reg\_d}: register access to $D$ (accumulator)
+\end{itemize}
+Different actor signature $\Rightarrow$ different synchronization rules
+(which is the case for this wgmma example)
 
+\myKey{Sigthread:} (thread index, actor signature) pair,\\
+used to annotate each action in a trace.
+
+We will use \texttt{sig\_cuda\_sync} for ``normal'' (synchronous) CUDA instructions.
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.5\textwidth}\fixminipage
+\begin{verbatim}
+    if (threadIdx.x == 0)
+        // Pseudo-PTX, thread 0 does TMA
+        cp.async.bulk SMEM[0:N] <- GMEM[c:c+N]
+    ...
+    if (threadIdx.x < N)
+        A[threadIdx.x] = SMEM[threadIdx.x]
+\end{verbatim}
+
+\begin{align*}
+    & \textit{[[ thread 0 kicks off TMA ]]} \\
+    \text{SMEM[$0$]} & \xleftarrow{\text{(0, sig\_tma\_to\_shared)}} \text{GMEM[$c+0$]} \\
+    \text{SMEM[$1$]} & \xleftarrow{\text{(0, sig\_tma\_to\_shared)}} \text{GMEM[$c+1$]} \\
+    & ... \\
+    \text{SMEM[$N-1$]} & \xleftarrow{\text{(0, sig\_tma\_to\_shared)}} \text{GMEM[$c+N-1$]} \\
+    & \textit{[[ thread $x$ reads SMEM[$x$] ]]} \\
+    \text{A[$0$]} & \xleftarrow{\text{(0, sig\_cuda\_sync)}} \text{SMEM[$0$]} \\
+    \text{A[$1$]} & \xleftarrow{\text{(1, sig\_cuda\_sync)}} \text{SMEM[$1$]} \\
+    & ... \\
+    \text{A[$N-1$]} & \xleftarrow{\text{(N-1, sig\_cuda\_sync)}} \text{SMEM[$N-1$]} \\
+\end{align*}
+\end{minipage}
+
+\newpage
+\myTitle{Exo Features for Async CUDA}
+
+\begin{minipage}[t]{0.5\textwidth}\fixminipage
+(Handwavey -- see spork.pdf for details)
+
+\mySub{Actor Kind}
+
+A set of actor signatures, examples:
+\begin{itemize}
+  \item \emphtt{wgmma\_async}: \{\texttt{sig\_wgmma\_mem, sig\_wgmma\_reg\_a, sig\_wgmma\_reg\_d}\}
+  \item \emphtt{cuda\_sync}: \{\texttt{sig\_cuda\_sync}\}
+  \item \emphtt{cuda\_generic}: Both sync and async instructions in the generic proxy, i.e. not needing a proxy fence.
+\end{itemize}
+This is used to categorize accelerator instructions,
+and to parameterize \texttt{Fence(before, after)} statements.
+e.g. \texttt{\_\_syncthreads()} is equivalent to\\
+\texttt{\ \ \ \ \# At CUDA block scope} \\
+\texttt{\ \ \ \ Fence(\myKey{cuda\_sync}, \myKeyB{cuda\_generic})} \\
+Because the sync only waits for synchronous instructions \myKey{before} the barrier, but any instruction in the generic proxy \myKeyB{after} the barrier can safely read the protected values.
+
+Note the user specifies synchronization \textit{declaratively}, to simplify analysis.
+The compiler will lower to the correct synchronization primitives.
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.5\textwidth}\fixminipage
+\mySub{Arrive/Await}
+
+Abstraction for mbarrier and commit\_group.
+Requires an abstract \texttt{barrier} variable.
+Then, the threads executing the $n^{th}$ \texttt{Await} for a barrier wait for the threads executing the $n^{th}$ \texttt{Arrive}.
+
+\texttt{Arrive} is parameterized with a \myKey{before} actor kind, \texttt{Await} with an \myKeyB{after} actor kind.
+
+For example, the mbarrier for TMA GMEM$\to$SMEM is \texttt{Arrive(\myKey{tma\_to\_shared}, <barrier>)},\\\texttt{Await(\myKeyB{cuda\_generic}, <barrier>)}.
+
+Implement only supported arrive/await patterns.
+
+\mySub{Lane Specialization}
+
+For warp specialization; directive to schedule the parallel loops to a specific subset of threads.
+Example: map the $8 \times 16$ $(i,j)$ iteration space to threads $128,...,255$:
+\begin{verbatim}
+    if cuda_thread in (128, 256):
+        for i in cuda_threads(0, 8):
+            for j in cuda_threads(0, 16):
+\end{verbatim}
+\myKey{S-semantics:} treat like \texttt{if True:}
+\end{minipage}
+
+\newpage
+\myTitle{Synchronization Checking -- Fuller Story}
+
+Sketch of changes to the model needed -- again, see spork.pdf for details.
+
+\begin{minipage}[t]{0.5\textwidth}\fixminipage
+
+\mySub{Sigthreads (thread index, actor signature)}
+
+Sigthreads replace thread indices in visibility sets.
+
+Each action is performed by an \myKey{accessor set} $T \times \{A_O\}$,
+$A_O$ being the \myKey{actor signature} of the access and $T$ being the
+set of thread indices (could be more than 1 for warp/warpgroup instructions).
+
+\mySub{Visibility Record}
+
+The read/write visibility sets (per variable in the synchronization environment) are replaced with read/write \myKey{visibility records}, consisting of
+\begin{itemize}
+  \item $V_A$: async visibility set
+  \item $V_S$: sync visibility set
+  \item (names subject to change)
+\end{itemize}
+When we record a new read/write with accessor set $Q$, initialize the new read/write visibility record:
+\begin{itemize}
+  \item $V_A, V_S \leftarrow Q$ for synchronous instructions
+  \item $V_A \leftarrow Q, V_S \leftarrow \{\}$ for async instructions
+\end{itemize}
+Invariant: $V_S \subseteq V_A$
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.5\textwidth}\fixminipage
+\mySub{Read/Write checking}
+
+We now define that read/write is \myKeyB{visible-to} sigthread $(t, a)$ if the $(t,a) \in V_S$ ($V_S$ being the sync visibility set of the read/write visibility record).
+
+\mySub{Synchronization Statements}
+
+For \texttt{Fence($A_1$, $A_2$)},$$V_1 = T \times A_1, V_2 = T \times A_2$$
+$T$: executing thread indices, $A_1,A_2$: actor kinds
+
+We define that a read/write visibility record \myKeyB{synchronizes-with} an executed fence if $V_A \cap V_1$ is non-empty.
+If so,
+\begin{itemize}
+  \item $V_A \leftarrow V_A \cup V_2$
+  \item $V_S \leftarrow V_S \cup V_2$
+\end{itemize}
+In this way, sigthreads can ``graduate'' from the async visibility set $V_A$ to the sync visibility set $V_S$.
+
+See spork.pdf for transitivity, split barriers.
+TODO, figure out atomics (needed for TMA's reduce functionality).
+\end{minipage}
 \end{document}
