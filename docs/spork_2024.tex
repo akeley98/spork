@@ -2,6 +2,15 @@
 
 \begin{document}
 
+\tikzstyle{smallnode} = [rectangle, minimum width=1.25cm, minimum height=1cm, text centered, text width=1.25cm, draw=black, fill=white]
+\tikzstyle{normalnode} = [rectangle, minimum width=3cm, minimum height=1cm, text centered, text width=3cm, draw=black, fill=white]
+\tikzstyle{bignode} = [rectangle, minimum width=5cm, minimum height=2cm, text centered, text width=3cm, draw=black, fill=white]
+\tikzstyle{smemnode} = [rectangle, minimum width=3cm, minimum height=1cm, text centered, text width=3cm, draw=keyColorB, fill=white]
+\tikzstyle{gmemnode} = [rectangle, minimum width=3cm, minimum height=1cm, text centered, text width=3cm, draw=keyColor, fill=white]
+\tikzstyle{smallsmemnode} = [rectangle, minimum width=1.25cm, minimum height=1cm, text centered, text width=1.25cm, draw=keyColorB, fill=white]
+\tikzstyle{arrow} = [thick,->,>=stealth]
+\tikzstyle{line} = [thick]
+
 {\hfill \LARGE \textbf{\textsf{Project Spork: EXO GPU}}}
 
 \includegraphics[width=\linewidth]{usda_spork.jpg}
@@ -110,6 +119,10 @@ We specify the custom instruction's behavior and start writing a \texttt{proc}$\
 \vspace{6mm}
 \tiny
 \begin{verbatim}
+m_tile = 16
+n_tile = 16
+k_tile = 8
+
 @instr("example_mma_tile({C_tile_data}, {A_tile_data}, {B_tile_data});")
 def example_mma_tile(C_tile: [f32][m_tile,n_tile] @ ExampleAcceleratorTile,
                      A_tile: [f32][m_tile,k_tile] @ ExampleAcceleratorTile,
@@ -205,6 +218,7 @@ Eventually the \texttt{ko} (k-outer) loop should move too, but we can't do that 
 \tiny
 \begin{verbatim}
 def schedule_gemm(p, new_name):
+    # ...
 \end{verbatim}
 \begin{mdframed}[style=MyFrame, backgroundcolor=yellowBoxBg]
 \color{yellowBoxFg}
@@ -715,7 +729,42 @@ CPU launches ``grid'' of \texttt{gridDim}-many blocks
   \item \myKeyB{``fast''}, but still $\approx$10$\times$ slower than math
 \end{itemize}
 RMEM (Register ``Memory'') -- 255 per thread
-% TODO diagram
+
+\begin{tikzpicture}[node distance=5mm]
+\node (grid) [normalnode] {grid};
+\node (gmem) [gmemnode, right=of grid, xshift=4mm] {\myKey{GMEM}};
+\draw[line] (grid) -- (gmem);
+
+\node (block0) [smallnode, below=of grid, xshift=-1cm, yshift=-16mm] {block};
+\node (block1) [smallnode, right=of block0, xshift=0.6cm] {block};
+\node (block2) [smallnode, right=of block1, xshift=2cm] {block};
+\draw[arrow] (grid.south) to[out=270,in=0] (block0.east);
+\draw[arrow] (grid.south) to[out=300,in=180] (block1.west);
+\draw[arrow] (grid.south) to[out=330,in=180] ($(block2.west)+(0,0.2)$);
+\draw[dotted] (block1.east) to node[]{gridDim} (block2.west);
+
+\node (thread0) [smallnode, below=of block0, yshift=-4mm] {thread};
+\node (thread1) [smallnode, right=of thread0] {thread};
+\node (thread2) [smallnode, right=of thread1, xshift=2cm] {thread};
+\node (rmem0) [smallnode, below=of thread0] {RMEM};
+\node (rmem1) [smallnode, below=of thread1] {RMEM};
+\node (rmem2) [smallnode, below=of thread2] {RMEM};
+\draw[line] (thread0) -- (rmem0);
+\draw[line] (thread1) -- (rmem1);
+\draw[line] (thread2) -- (rmem2);
+
+\node (smem0) [smallsmemnode, above=of block0] {\myKeyB{SMEM}};
+\node (smem1) [smallsmemnode, above=of block1] {\myKeyB{SMEM}};
+\node (smem2) [smallsmemnode, above=of block2] {\myKeyB{SMEM}};
+\draw[line] (block0) -- (smem0);
+\draw[line] (block1) -- (smem1);
+\draw[line] (block2) -- (smem2);
+
+\draw[arrow] (block0.south) to [out=270,in=90] (thread0.north);
+\draw[arrow] (block0.south) to [out=300,in=110] (thread1.north);
+\draw[arrow] (block0.south) to [out=330,in=130] (thread2.north);
+\draw[dotted] (thread1.east) to node[]{blockDim} (thread2.west);
+\end{tikzpicture}
 \end{minipage}
 
 \newpage
@@ -1197,21 +1246,21 @@ Example: track status of $A\_tile[0,0]$, assigned to thread $T = 0$ (assuming we
 
 \makebox[\textwidth][c]{
 \begin{tabular}{l l}
-\rowcolor{yellowBoxBg} $\Sigma_{ko}$ & 0 \\
+\rowcolor{yellowBoxBg} $\Sigma_{ko}$ & $0$ \\
 \rowcolor{yellowBoxBg} $\Sigma_{A\_tile[0,0]}$ & $A[0,0]$ \\
 \rowcolor{yellowBoxBg} $T$ & $0$ \\
 \rowcolor{yellowBoxBg} $\Sigma^S_{A\_tile[0,0]}$ & $W = \{0\}$\\
-\rowcolor{greenBoxBg} $\Sigma_{ko}$ & 0 \\
+\rowcolor{greenBoxBg} $\Sigma_{ko}$ & $0$ \\
 \rowcolor{greenBoxBg} $\Sigma_{A\_tile[0,0]}$ & $A[0,0]$ \\
 \rowcolor{greenBoxBg} $V_1 = V_2 =$ & $\{0, 1, 2, ... , 255\}$ \\
 \rowcolor{greenBoxBg} $\Sigma^S_{A\_tile[0,0]}$ & $W = \{0, 1, 2, ... , 255\}$\\
-\rowcolor{violetBoxBg} $\Sigma_{ko}$ & 0 \\
+\rowcolor{violetBoxBg} $\Sigma_{ko}$ & $0$ \\
 \rowcolor{violetBoxBg} $\Sigma_{A\_tile[0,0]}$ & $A[0,0]$ \\
 \rowcolor{violetBoxBg} $T$ & $0, 16, 32, ... , 240$  // All threads with \texttt{mi = 0}\\
 \rowcolor{blueBoxBg} \color{blueBoxFg} checking: & \color{blueBoxFg} $T \in W$ OK, $0, 16, 32, ... \in \{ 0, 1, ..., 255 \}$ \\
 \rowcolor{violetBoxBg} $\Sigma^S_{A\_tile[0,0]}$ & $W = \{0, 1, 2, ... , 255\}$\\
 \rowcolor{violetBoxBg} & $R_0 = \{0\}, R_1 = \{16\}, R_2 = \{32\} ... R_{15} = \{240\}$ \\
-\rowcolor{yellowBoxBg} $\Sigma_{ko}$ & 1 \\
+\rowcolor{yellowBoxBg} $\Sigma_{ko}$ & $1$ \\
 \rowcolor{yellowBoxBg} $\Sigma_{A\_tile[0,0]}$ & $A[0,8]$ \\
 \rowcolor{yellowBoxBg} $T$ & $0$ \\
 \rowcolor{redBoxBg} \color{redBoxFg} checking: & \color{redBoxFg} $\forall R_i, T \in R_i$ FAIL, $0 \notin \{16\}, 0 \notin \{32\}, ...$
@@ -1219,8 +1268,156 @@ Example: track status of $A\_tile[0,0]$, assigned to thread $T = 0$ (assuming we
 }
 \end{minipage}
 
-% CUDA Async Instructions
+\newpage
+\myTitle{CUDA Async Instructions}
 
+\begin{minipage}[t]{0.5\textwidth}\fixminipage
+New accelerator instructions with the NVIDIA H100 (Hopper) are asynchronous.
+They are issued by CUDA threads or warpgroups, but don't operate in the normal timeline:
+\begin{itemize}
+  \item TMA: copy tensor tiles GMEM$\leftrightarrow$SMEM
+  \item wgmma: tiled matrix multiply-accumulate
+\end{itemize}
+This means the following won't work if the highlighted statements are async:
+\begin{enumerate}
+  \item \redBox{$A \leftarrow X$}
+  \item \redBox{$B \leftarrow Y$}
+  \item $C \leftarrow C + AB$ (incorrectly assumes $A,B$ written to)
+\end{enumerate}
+Two async instructions issued by the same thread/warpgroup don't even complete in the same order relative to each other, e.g., the following is a data race:
+\begin{enumerate}
+  \item \redBox{$A \leftarrow X$}
+  \item \redBox{$A \leftarrow Y$}
+\end{enumerate}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.5\textwidth}\fixminipage
+These also ignore all ``ordinary'' synchronization.
+So our previous formalization won't work for these.
+
+Special-purpose synchronization statements must be used for these instructions.
+
+Note: the effects of async instructions are also made visible by the ``stop the world'' barriers between grid launches on the same stream.
+
+\mySub{Async Proxy}
+
+In CUDA terminology, TMA and wgmma are considered to operate in the ``async proxy''.
+Almost everything else is in the ``generic proxy'' (I'm ignoring the tensorMap proxy).
+
+A ``proxy fence'' is needed to communicate from the generic proxy to the async proxy.
+
+Typically, this is not needed for the opposite direction; synchronization that waits for a TMA or wgmma instruction generally documents it includes a proxy fence.
+\end{minipage}
+
+\newpage
+\myTitle{wgmma: warpgroup matrix multiply accumulate}
+
+\begin{minipage}[t]{0.5\textwidth}\fixminipage
+Conceptually, this is really simple.
+Each \texttt{wgmma.mma\_async} instruction is executed by a warpgroup (128 aligned threads), and computes matrix tiles
+\begin{itemize}
+  \item $D \leftarrow AB$ or
+  \item $D \leftarrow AB + D$
+\end{itemize}
+Where $D$ (accumulator) is stored distributed in the 128 threads' registers, $B$ is stored in shared memory, and $A$ may be in either format.
+
+The complexity for this feature comes from
+\begin{itemize}
+  \item Input/output format details \textbf{(huuuge mess)}
+  \item Synchronization
+\end{itemize}
+I'll just address the latter for now.
+Although Exo will eventually have to figure out how to model the full set of matrix formats.
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.5\textwidth}\fixminipage
+\mySub{Synchronization generic $\to$ wgmma}
+
+For registers, we need to issue \texttt{wgmma.fence} for wgmma to see register values written by threads.
+
+For shared memory, we need to issue an async proxy fence, unless the memory was written by TMA (which is already in the async proxy).
+
+Note: as this asynchronous instruction modifies registers $D$ directly (and optionally reads $A$ from registers), it's possible to have a race condition on a thread's registers!
+
+\mySub{Synchronization wgmma $\to$ generic}
+
+The completion mechanism is ``commit group''.
+
+A \texttt{wgmma.commit\_group} instruction commits all prior uncommitted \texttt{wgmma.mma\_async} instructions to a commit group, then \texttt{wgmma.wait\_group N} waits for the MMAs of the $N^{th}$ prior commit group to complete (pipelining).
+
+This is all only done within one warpgroup; a warpgroup cannot (directly) wait for another warpgroup's \texttt{wgmma.mma\_async} instructions to complete.
+\end{minipage}
+
+\newpage
+\myTitle{TMA: tensor memory accelerator}
+
+\begin{minipage}[t]{0.5\textwidth}\fixminipage
+Handled with \texttt{cp.async.bulk.tensor} instructions.
+
+A \texttt{CUtensorMap} describes how to interpret some memory as a 1D-5D tensor (strides, etc.), and a box size (copied tile size).
+
+The \texttt{cp.async.bulk.tensor} issues a copy between a densely-packed tile in shared memory and a strided tile in global memory
+(both directions supported)
+
+The tiles are C-style arrays
+\begin{itemize}
+  \item Whether this means ``row major'' or ``column major'' depends on how the programmar views the tensor, but regardless the tensor is in ``array of arrays'' layout.
+  \item Transpose is not supported
+\end{itemize}
+\begin{tikzpicture}[node distance=5mm]
+\node (smem) [smemnode] {\myKeyB{SMEM tile}};
+\node (gmembig) [bignode, right=of smem, yshift=-3mm] {};
+\node (gmem) [gmemnode, right=of smem, xshift=6mm] {\myKey{GMEM tile}};
+\draw [arrow] ($(smem.east)-(0,0.2)$) -- ($(gmem.west)-(0,0.2)$);
+\draw [arrow] ($(gmem.west)+(0,0.2)$) -- ($(smem.east)+(0,0.2)$);
+\end{tikzpicture}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.5\textwidth}\fixminipage
+\mySub{Synchronization generic $\to$ TMA}
+
+Async proxy fence required to see memory written by generic instructions.
+
+\mySub{Synchronization TMA $\to$ generic}
+
+If the TMA copies SMEM to GMEM, the completion mechanism is commit\_group.
+
+If the TMA copies GMEM to SMEM, the completion mechanism is mbarrier (split barrier)
+
+Vastly simplified explanation:
+\begin{itemize}
+  \item mbarrier constructed in shared memory, configured with ``arrive count'' $A$
+  \item Allows any number of CUDA threads to wait for $A$-many other CUDA threads in the same block.
+    (This split barrier is usable separate from TMA)
+  \item Can additionally specify \texttt{tx\_count}: wait for \textit{upcoming} TMA GMEM$\to$SMEM copies of total size \texttt{tx\_count} bytes.
+\end{itemize}
+
+\end{minipage}
+\newpage
+\myTitle{TMA Reduction}
+
+\begin{minipage}[t]{0.5\textwidth}\fixminipage
+TMA has an additional ``reduce'' functionality when copying shared memory to global memory.
+
+When enabled, the SMEM tile to GMEM tile ``copy'' becomes a reduction into GMEM instead (for our purposes, we care about the \texttt{+=} reduce operator).
+
+This reduction is \textit{atomic} (\texttt{relaxed.gpu} memory model) per tensor element.
+
+Extremely OP Feature!
+
+\begin{tikzpicture}[node distance=5mm]
+\node (smem) [smemnode] {\myKeyB{SMEM tile}};
+\node (op) [normalnode, below=of smem] {AtomicOp};
+\draw [arrow] (smem) -- (op);
+\node (gmembig) [bignode, below=of op] {};
+\node (gmem) [gmemnode, below=of op, yshift=-6mm] {\myKey{GMEM tile}};
+\draw [arrow] (gmem.east) to[out=0,in=0] (op.east);
+\draw [arrow] (op.south) to (gmem.north);
+\end{tikzpicture}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.5\textwidth}\fixminipage
+\end{minipage}
 % CUDA Advanced Synchronization
 
 % TMA
