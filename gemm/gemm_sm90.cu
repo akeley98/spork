@@ -394,10 +394,6 @@ struct TiledMultiplier
         std::conditional_t<IS_PRODUCER, int, WG_Accum> accum;
         bool first_time = true;
 
-        if constexpr (!IS_PRODUCER) {
-            asm volatile("wgmma.fence.sync.aligned;  // GMMA");
-        }
-
         for (uint32_t cta_k_blk_counter = 0; cta_k_blk_counter < k_iters; ++cta_k_blk_counter, cta_k_offset += SMEM_K) {
             const uint32_t ring_idx = cta_k_blk_counter % RING_BUFFER_SIZE;
             const uint32_t ring_usage_parity = (cta_k_blk_counter / RING_BUFFER_SIZE) % 2u;
@@ -414,6 +410,7 @@ struct TiledMultiplier
 
             if constexpr (!IS_PRODUCER) {
                 mbar_wait(shared.tile_fill_mbar[ring_idx], ring_usage_parity);
+                asm volatile("wgmma.fence.sync.aligned;  // GMMA");
                 const uint32_t wg_m_offset = get_wg_m_idx() * WG_M;
                 const uint32_t wg_n_offset = get_wg_n_idx() * WG_N;
 
@@ -423,17 +420,22 @@ struct TiledMultiplier
                                   wg_m_offset, wg_n_offset, wg_k_offset, first_time);
                     first_time = false;
                 }
+                asm volatile("wgmma.commit_group.sync.aligned;  // GMMA");
 
-                mbar_arrive(shared.tile_read_mbar[ring_idx]);
+                // Wait for previous iteration's wgmma to retire, then signal that the tiles read from
+                // the previous iteration may be overwritten.
+                if (cta_k_blk_counter >= 1) {
+                    asm volatile("wgmma.wait_group.sync.aligned 1;  // GMMA");
+                    mbar_arrive(shared.tile_read_mbar[(cta_k_blk_counter - 1) % RING_BUFFER_SIZE]);
+                    static_assert(RING_BUFFER_SIZE >= 2);
+                }
             }
         }
 
         if constexpr (!IS_PRODUCER) {
-            // Wait for wgmma to finish fully.
-            asm volatile("wgmma.commit_group.sync.aligned;  // GMMA");
+            // Wait for all wgmma to finish, then issue all-to-all consumer warpgroups sync,
+            // indicating that SMEM is ready to be repurposed.
             asm volatile("wgmma.wait_group.sync.aligned 0;  // GMMA");
-
-            // All-to-all consumer warpgroups sync.
             mbar_arrive(shared.all_consumers_mbar);
             mbar_wait(shared.all_consumers_mbar, 0);
 
@@ -594,7 +596,7 @@ void matmul_sm90(GPU_Tensors t, cudaStream_t stream)
     constexpr uint32_t smem_k = 32;
     constexpr uint32_t cta_k_max_tiles = 128;
     constexpr uint32_t cta_modulus = 4;
-    constexpr uint32_t ring_buffer_size = 1;
+    constexpr uint32_t ring_buffer_size = 2;
 
     const uint32_t size_m = t.M;
     const uint32_t size_n = t.N;
