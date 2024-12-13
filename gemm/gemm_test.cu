@@ -55,7 +55,22 @@ __global__ void device_init_test_data(T* d_tensor, uint32_t rows, uint32_t cols,
                 break;
               case TestDataCode::random:
               default:
-                value = T((pcg3d(x, y, 19980724) % 1'000'000) * 1e-6f);
+                {
+                    const auto randbits = pcg3d(x, y, 20010106);
+                    if (randbits % 100'000u == 0) {
+                        // 1 in 100'000 chance of a "big" value (1000).
+                        // This greatly reduces the chance that a genuine bug is mistaken for fp error.
+                        value = T(1000);
+                    }
+                    else if (randbits % 4u != 0u) {
+                        value = T(0);  // 75% chance of a 0
+                    }
+                    else {
+                        // 25% chance of random value [0, 1], biased towards small numbers.
+                        value = T((pcg3d(x, y, 19980724) % 1'000'000) * 1e-6f);
+                        value = (value * value) * (value * value);
+                    }
+                }
                 break;
             }
             d_tensor[r * cols + c] = value;
