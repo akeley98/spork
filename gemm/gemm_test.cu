@@ -219,26 +219,22 @@ void gemm_test(TestParams params, cudaStream_t stream)
         matmul_sm80(t, stream);
     }
 
-#if 0
     // cute test (need to do A,B swap trick to deal with Fortran-inherited column majorness)
-    {
+    if (0) {
         const int ldA = int(params.K);
         const int ldB = int(params.K);
         const int ldC = int(params.N);
         cute_gemm::f16('T', 'N', int(params.N), int(params.M), int(params.K),
                        d_bT16, ldB, d_a16, ldA, d_c16, ldC, stream);
+        launch_device_compare_tensor(params, d_c_sm80, d_c16, params.M, params.N, d_bitfield, stream);
     }
-    launch_device_compare_tensor(params, d_c_sm80, d_c16, params.M, params.N, d_bitfield, stream);
-#endif
 
-#if 1
     // Exo test
-    {
+    if (0) {
         assert(stream == 0);
         exo_cuda_gemm(nullptr, int(params.M), int(params.N), int(params.K), d_a, d_b, d_c_sm90_warmup);
+        launch_device_compare_tensor(params, d_c_sm80, d_c_sm90_warmup, params.M, params.N, d_bitfield, stream);
     }
-    launch_device_compare_tensor(params, d_c_sm80, d_c_sm90_warmup, params.M, params.N, d_bitfield, stream);
-#endif
 
     // Initialize SM90 data
     {
