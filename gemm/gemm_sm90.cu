@@ -717,7 +717,7 @@ void matmul_sm90(GPU_Tensors t, cudaStream_t stream)
     constexpr uint32_t wg_m = 64;
     constexpr uint32_t wg_n = 96;
     constexpr uint32_t wg_k = 8;
-    constexpr uint32_t cta_k_max_tiles = 128;
+    constexpr uint32_t cta_k_max_tiles = 8192u / smem_k;
     constexpr uint32_t cta_modulus = 4;
     constexpr uint32_t ring_buffer_size = 2;
     constexpr bool dedicated_producer = false;

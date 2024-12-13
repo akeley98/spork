@@ -41,6 +41,7 @@ int main()
     sized_tests(7680, 7680, 3 * 128, false);
     sized_tests(3 * 4096, 3 * 1024, 3 * 2048, true);
     sized_tests(3 * 4096, 3 * 8192, 3 * 512, true);
+    sized_tests(3 * 2048, 3 * 2048, 3 * 16384, true);
     sized_tests(1536, 3 * 512, 3 * 40960, true);
     sized_tests(1536, 3 * 512, 3 * 40960, true);
     sized_tests(768, 3 * 256, 3 * 40960, true);
