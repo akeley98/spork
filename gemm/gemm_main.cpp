@@ -39,11 +39,11 @@ int main()
     sized_tests(768, 7680, 3 * 128, false);
     sized_tests(7680, 768, 3 * 128, false);
     sized_tests(7680, 7680, 3 * 128, false);
-    sized_tests(3 * 4096, 2560, 3 * 2048, true);
-    sized_tests(3 * 4096, 25600, 3 * 512, true);
-    sized_tests(1536, 2048, 3 * 40960, true);
-    sized_tests(1536, 1024, 3 * 40960, true);
-    sized_tests(768, 512, 3 * 40960, true);
+    sized_tests(3 * 4096, 3 * 1024, 3 * 2048, true);
+    sized_tests(3 * 4096, 3 * 8192, 3 * 512, true);
+    sized_tests(1536, 3 * 512, 3 * 40960, true);
+    sized_tests(1536, 3 * 512, 3 * 40960, true);
+    sized_tests(768, 3 * 256, 3 * 40960, true);
 
     cudaDeviceSynchronize();
 }

@@ -35,7 +35,9 @@ tiled_multiplier_kernel(uint32_t size_m, uint32_t size_n, uint32_t size_k,
     multiplier.kernel_main();
 }
 
-template <uint32_t SMEM_M, uint32_t SMEM_N, uint32_t SMEM_K, uint32_t K_MAX_TILES, uint32_t CTA_MODULUS, uint32_t RING_BUFFER_SIZE>
+template <uint32_t SMEM_M, uint32_t SMEM_N, uint32_t SMEM_K,
+          uint32_t WG_M, uint32_t WG_N, uint32_t WG_K,
+          uint32_t K_MAX_TILES, uint32_t CTA_MODULUS, uint32_t RING_BUFFER_SIZE, bool DEDICATED_PRODUCER_WG>
 struct TiledMultiplier
 {
     uint32_t size_m, size_n, size_k;
@@ -44,9 +46,8 @@ struct TiledMultiplier
     const CUtensorMap* tensorMap_bT;  // Transposed; column major
     const CUtensorMap* tensorMap_c;
 
-    static constexpr uint32_t WG_M = 64;
-    static constexpr uint32_t WG_N = 128;
-    static constexpr uint32_t WG_K = 8;
+    static_assert(WG_M == 64);
+    static_assert(WG_K == 8);
     static constexpr CUtensorMapSwizzle swizzle = CU_TENSOR_MAP_SWIZZLE_NONE;
 
     // wgmma core matrix dimensions.
@@ -116,10 +117,14 @@ struct TiledMultiplier
     }
 
     // Static assignment of consumer warpgroups within CTA to per-warpgroup output tiles (WG_M, WG_N) within
-    // per-CTA output tile (SMEM_M, SMEM_N), plus one extra warpgroup for producing A/B tiles.
+    // per-CTA output tile (SMEM_M, SMEM_N); one warpgroup is the producer (load tiles w/ TMA) warpgroup.
+    //
+    //
+    // * if DEDICATED_PRODUCER_WG, one extra warpgroup is the producer
+    // * if !DEDICATED_PRODUCER_WG, the 0th consumer is also the producer.
     DEVICE_INLINE bool is_producer_wg() const
     {
-        return (threadIdx.x / 128u) == consumer_wg_count();
+        return (threadIdx.x / 128u) == (DEDICATED_PRODUCER_WG ? consumer_wg_count() : 0u);
     }
 
     DEVICE_INLINE uint32_t get_wg_m_idx() const
@@ -137,8 +142,8 @@ struct TiledMultiplier
 
     __host__ DEVICE_INLINE static constexpr uint32_t cta_size()
     {
-        // 1 extra warpgroup for memory.
-        return (1 + consumer_wg_count()) * 128;
+        // Optional 1 extra warpgroup for producer.
+        return (DEDICATED_PRODUCER_WG + consumer_wg_count()) * 128;
     }
 
     // If output matrix is cut into (SMEM_M, SMEM_N) blocks, one CTA k-group handles one matrix block.
@@ -196,11 +201,30 @@ struct TiledMultiplier
     };
 
 
-    // Per-warpgroup accumulator, holding one (WG_M, WG_N) tile.
-    struct WG_Accum
-    {
-        static constexpr uint32_t regcount = WG_M * WG_N / 128u;
+    static constexpr uint32_t wgmma_regcount = WG_M * WG_N / 128u;
 
+    struct WG_Accum_m64n64
+    {
+        // wgmma register tile
+        float d0, d1, d2, d3, d4, d5, d6, d7;
+        float d8, d9, d10, d11, d12, d13, d14, d15;
+        float d16, d17, d18, d19, d20, d21, d22, d23;
+        float d24, d25, d26, d27, d28, d29, d30, d31;
+    };
+
+    struct WG_Accum_m64n96
+    {
+        // wgmma register tile
+        float d0, d1, d2, d3, d4, d5, d6, d7;
+        float d8, d9, d10, d11, d12, d13, d14, d15;
+        float d16, d17, d18, d19, d20, d21, d22, d23;
+        float d24, d25, d26, d27, d28, d29, d30, d31;
+        float d32, d33, d34, d35, d36, d37, d38, d39;
+        float d40, d41, d42, d43, d44, d45, d46, d47;
+    };
+
+    struct WG_Accum_m64n128
+    {
         // wgmma register tile
         float d0, d1, d2, d3, d4, d5, d6, d7;
         float d8, d9, d10, d11, d12, d13, d14, d15;
@@ -210,8 +234,12 @@ struct TiledMultiplier
         float d40, d41, d42, d43, d44, d45, d46, d47;
         float d48, d49, d50, d51, d52, d53, d54, d55;
         float d56, d57, d58, d59, d60, d61, d62, d63;
-        static_assert(regcount == 64);
     };
+
+    // Per-warpgroup accumulator, holding one (WG_M, WG_N) tile.
+    using WG_Accum = std::conditional_t<WG_N == 64, WG_Accum_m64n64, std::conditional_t<WG_N == 96, WG_Accum_m64n96, WG_Accum_m64n128>>;
+    static_assert(WG_N == 64 || WG_N == 96 || WG_N == 128);
+    static_assert(wgmma_regcount == sizeof(WG_Accum) / 4u);
 
     static DEVICE_INLINE uint64_t matrix_descriptor_encode(uint32_t val)
     {
@@ -245,44 +273,108 @@ struct TiledMultiplier
         auto desc_b = matrix_descriptor_mn_k_stride(buffers.bT_tile_nk_offset(wg_n_offset, wg_k_offset),
                                                     core_matrix_mn_stride, core_matrix_bT_k_stride);
         static_assert(WG_M == 64);
-        static_assert(WG_N == 128);
         static_assert(WG_K == 8);
-        asm volatile(
-        "{  // GMMA \n"
-          ".reg .pred p;\n"
-          "setp.ne.b32 p, %66, 0;\n"
-          "wgmma.mma_async.sync.aligned.m64n128k8.f32.tf32.tf32 "
-          "{%0,   %1,   %2,   %3,   %4,   %5,   %6,   %7,   "
-          " %8,   %9,   %10,  %11,  %12,  %13,  %14,  %15,  "
-          " %16,  %17,  %18,  %19,  %20,  %21,  %22,  %23,  "
-          " %24,  %25,  %26,  %27,  %28,  %29,  %30,  %31,  "
-          " %32,  %33,  %34,  %35,  %36,  %37,  %38,  %39,  "
-          " %40,  %41,  %42,  %43,  %44,  %45,  %46,  %47,  "
-          " %48,  %49,  %50,  %51,  %52,  %53,  %54,  %55,  "
-          " %56,  %57,  %58,  %59,  %60,  %61,  %62,  %63},"
-          " %64,"
-          " %65,"
-          " p,    1,  1;\n"
-        "}\n"
-          : "+f"(d.d0), "+f"(d.d1), "+f"(d.d2), "+f"(d.d3),
-            "+f"(d.d4), "+f"(d.d5), "+f"(d.d6), "+f"(d.d7),
-            "+f"(d.d8), "+f"(d.d9), "+f"(d.d10), "+f"(d.d11),
-            "+f"(d.d12), "+f"(d.d13), "+f"(d.d14), "+f"(d.d15),
-            "+f"(d.d16), "+f"(d.d17), "+f"(d.d18), "+f"(d.d19),
-            "+f"(d.d20), "+f"(d.d21), "+f"(d.d22), "+f"(d.d23),
-            "+f"(d.d24), "+f"(d.d25), "+f"(d.d26), "+f"(d.d27),
-            "+f"(d.d28), "+f"(d.d29), "+f"(d.d30), "+f"(d.d31),
-            "+f"(d.d32), "+f"(d.d33), "+f"(d.d34), "+f"(d.d35),
-            "+f"(d.d36), "+f"(d.d37), "+f"(d.d38), "+f"(d.d39),
-            "+f"(d.d40), "+f"(d.d41), "+f"(d.d42), "+f"(d.d43),
-            "+f"(d.d44), "+f"(d.d45), "+f"(d.d46), "+f"(d.d47),
-            "+f"(d.d48), "+f"(d.d49), "+f"(d.d50), "+f"(d.d51),
-            "+f"(d.d52), "+f"(d.d53), "+f"(d.d54), "+f"(d.d55),
-            "+f"(d.d56), "+f"(d.d57), "+f"(d.d58), "+f"(d.d59),
-            "+f"(d.d60), "+f"(d.d61), "+f"(d.d62), "+f"(d.d63)
-          :  "l"(desc_a),
-             "l"(desc_b),
-             "r"(int32_t(!zero_output)));
+
+        if constexpr (WG_N == 64) {
+            asm volatile(
+            "{  // GMMA \n"
+              ".reg .pred p;\n"
+              "setp.ne.b32 p, %34, 0;\n"
+              "wgmma.mma_async.sync.aligned.m64n64k8.f32.tf32.tf32 "
+              "{%0,   %1,   %2,   %3,   %4,   %5,   %6,   %7,   "
+              " %8,   %9,   %10,  %11,  %12,  %13,  %14,  %15,  "
+              " %16,  %17,  %18,  %19,  %20,  %21,  %22,  %23,  "
+              " %24,  %25,  %26,  %27,  %28,  %29,  %30,  %31},  "
+              " %32,"
+              " %33,"
+              " p,    1,  1;\n"
+            "}\n"
+              : "+f"(d.d0), "+f"(d.d1), "+f"(d.d2), "+f"(d.d3),
+                "+f"(d.d4), "+f"(d.d5), "+f"(d.d6), "+f"(d.d7),
+                "+f"(d.d8), "+f"(d.d9), "+f"(d.d10), "+f"(d.d11),
+                "+f"(d.d12), "+f"(d.d13), "+f"(d.d14), "+f"(d.d15),
+                "+f"(d.d16), "+f"(d.d17), "+f"(d.d18), "+f"(d.d19),
+                "+f"(d.d20), "+f"(d.d21), "+f"(d.d22), "+f"(d.d23),
+                "+f"(d.d24), "+f"(d.d25), "+f"(d.d26), "+f"(d.d27),
+                "+f"(d.d28), "+f"(d.d29), "+f"(d.d30), "+f"(d.d31)
+              :  "l"(desc_a),
+                 "l"(desc_b),
+                 "r"(int32_t(!zero_output)));
+
+        }
+        else if constexpr (WG_N == 96) {
+            asm volatile(
+            "{  // GMMA \n"
+              ".reg .pred p;\n"
+              "setp.ne.b32 p, %50, 0;\n"
+              "wgmma.mma_async.sync.aligned.m64n96k8.f32.tf32.tf32 "
+              "{%0,   %1,   %2,   %3,   %4,   %5,   %6,   %7,   "
+              " %8,   %9,   %10,  %11,  %12,  %13,  %14,  %15,  "
+              " %16,  %17,  %18,  %19,  %20,  %21,  %22,  %23,  "
+              " %24,  %25,  %26,  %27,  %28,  %29,  %30,  %31,  "
+              " %32,  %33,  %34,  %35,  %36,  %37,  %38,  %39,  "
+              " %40,  %41,  %42,  %43,  %44,  %45,  %46,  %47}, "
+              " %48,"
+              " %49,"
+              " p,    1,  1;\n"
+            "}\n"
+              : "+f"(d.d0), "+f"(d.d1), "+f"(d.d2), "+f"(d.d3),
+                "+f"(d.d4), "+f"(d.d5), "+f"(d.d6), "+f"(d.d7),
+                "+f"(d.d8), "+f"(d.d9), "+f"(d.d10), "+f"(d.d11),
+                "+f"(d.d12), "+f"(d.d13), "+f"(d.d14), "+f"(d.d15),
+                "+f"(d.d16), "+f"(d.d17), "+f"(d.d18), "+f"(d.d19),
+                "+f"(d.d20), "+f"(d.d21), "+f"(d.d22), "+f"(d.d23),
+                "+f"(d.d24), "+f"(d.d25), "+f"(d.d26), "+f"(d.d27),
+                "+f"(d.d28), "+f"(d.d29), "+f"(d.d30), "+f"(d.d31),
+                "+f"(d.d32), "+f"(d.d33), "+f"(d.d34), "+f"(d.d35),
+                "+f"(d.d36), "+f"(d.d37), "+f"(d.d38), "+f"(d.d39),
+                "+f"(d.d40), "+f"(d.d41), "+f"(d.d42), "+f"(d.d43),
+                "+f"(d.d44), "+f"(d.d45), "+f"(d.d46), "+f"(d.d47)
+              :  "l"(desc_a),
+                 "l"(desc_b),
+                 "r"(int32_t(!zero_output)));
+        }
+        else if constexpr (WG_N == 128) {
+            asm volatile(
+            "{  // GMMA \n"
+              ".reg .pred p;\n"
+              "setp.ne.b32 p, %66, 0;\n"
+              "wgmma.mma_async.sync.aligned.m64n128k8.f32.tf32.tf32 "
+              "{%0,   %1,   %2,   %3,   %4,   %5,   %6,   %7,   "
+              " %8,   %9,   %10,  %11,  %12,  %13,  %14,  %15,  "
+              " %16,  %17,  %18,  %19,  %20,  %21,  %22,  %23,  "
+              " %24,  %25,  %26,  %27,  %28,  %29,  %30,  %31,  "
+              " %32,  %33,  %34,  %35,  %36,  %37,  %38,  %39,  "
+              " %40,  %41,  %42,  %43,  %44,  %45,  %46,  %47,  "
+              " %48,  %49,  %50,  %51,  %52,  %53,  %54,  %55,  "
+              " %56,  %57,  %58,  %59,  %60,  %61,  %62,  %63},"
+              " %64,"
+              " %65,"
+              " p,    1,  1;\n"
+            "}\n"
+              : "+f"(d.d0), "+f"(d.d1), "+f"(d.d2), "+f"(d.d3),
+                "+f"(d.d4), "+f"(d.d5), "+f"(d.d6), "+f"(d.d7),
+                "+f"(d.d8), "+f"(d.d9), "+f"(d.d10), "+f"(d.d11),
+                "+f"(d.d12), "+f"(d.d13), "+f"(d.d14), "+f"(d.d15),
+                "+f"(d.d16), "+f"(d.d17), "+f"(d.d18), "+f"(d.d19),
+                "+f"(d.d20), "+f"(d.d21), "+f"(d.d22), "+f"(d.d23),
+                "+f"(d.d24), "+f"(d.d25), "+f"(d.d26), "+f"(d.d27),
+                "+f"(d.d28), "+f"(d.d29), "+f"(d.d30), "+f"(d.d31),
+                "+f"(d.d32), "+f"(d.d33), "+f"(d.d34), "+f"(d.d35),
+                "+f"(d.d36), "+f"(d.d37), "+f"(d.d38), "+f"(d.d39),
+                "+f"(d.d40), "+f"(d.d41), "+f"(d.d42), "+f"(d.d43),
+                "+f"(d.d44), "+f"(d.d45), "+f"(d.d46), "+f"(d.d47),
+                "+f"(d.d48), "+f"(d.d49), "+f"(d.d50), "+f"(d.d51),
+                "+f"(d.d52), "+f"(d.d53), "+f"(d.d54), "+f"(d.d55),
+                "+f"(d.d56), "+f"(d.d57), "+f"(d.d58), "+f"(d.d59),
+                "+f"(d.d60), "+f"(d.d61), "+f"(d.d62), "+f"(d.d63)
+              :  "l"(desc_a),
+                 "l"(desc_b),
+                 "r"(int32_t(!zero_output)));
+        }
+        else {
+            static_assert(WG_N != WG_N, "Add code for wgmma of this size");
+        }
     }
 
     // Warpgroup-convergent code
@@ -291,7 +383,6 @@ struct TiledMultiplier
     {
         const uint32_t tid = threadIdx.x % 128u;
 
-        static_assert(WG_Accum::regcount == 64);
         #define X(REG_INDEX) { \
             const uint32_t r = (tid / 32u) * 16u + (tid % 32u) / 4u + ((REG_INDEX % 4u) / 2u) * 8u; \
             const uint32_t c = (tid % 4u) * 2u + (REG_INDEX / 4u) * 8 + (REG_INDEX % 2u); \
@@ -300,10 +391,15 @@ struct TiledMultiplier
         X(8) X(9) X(10) X(11) X(12) X(13) X(14) X(15)
         X(16) X(17) X(18) X(19) X(20) X(21) X(22) X(23)
         X(24) X(25) X(26) X(27) X(28) X(29) X(30) X(31)
-        X(32) X(33) X(34) X(35) X(36) X(37) X(38) X(39)
-        X(40) X(41) X(42) X(43) X(44) X(45) X(46) X(47)
-        X(48) X(49) X(50) X(51) X(52) X(53) X(54) X(55)
-        X(56) X(57) X(58) X(59) X(60) X(61) X(62) X(63)
+        if constexpr (WG_N >= 96) {
+            X(32) X(33) X(34) X(35) X(36) X(37) X(38) X(39)
+            X(40) X(41) X(42) X(43) X(44) X(45) X(46) X(47)
+        }
+        if constexpr (WG_N >= 128) {
+            X(48) X(49) X(50) X(51) X(52) X(53) X(54) X(55)
+            X(56) X(57) X(58) X(59) X(60) X(61) X(62) X(63)
+        }
+        static_assert(WG_N == 64 || WG_N == 96 || WG_N == 128, "Add code for wgmma of this size");
         #undef X
     }
 
@@ -379,36 +475,53 @@ struct TiledMultiplier
     // (cta_m_offset, cta_n_offset); we process up to K_MAX_TILES input blocks on the K dimension starting
     // at cta_k_offset.
     // Requires smem-allocated ring buffer.
-    template <bool IS_PRODUCER>
-    DEVICE_INLINE void cta_main_loop(uint32_t cta_m_offset, uint32_t cta_n_offset, uint32_t cta_k_offset,
+    template <bool ENABLE_PRODUCER_BRANCH, bool IS_CONSUMER>
+    DEVICE_INLINE void cta_main_loop(uint32_t cta_m_offset, uint32_t cta_n_offset, const uint32_t cta_k_initial_offset,
                                      Shared& shared) const
     {
         DEVICE_ASSERT(cta_m_offset % SMEM_M == 0);
         DEVICE_ASSERT(cta_n_offset % SMEM_N == 0);
-        DEVICE_ASSERT(cta_k_offset % (SMEM_K * K_MAX_TILES) == 0);
+        DEVICE_ASSERT(cta_k_initial_offset % (SMEM_K * K_MAX_TILES) == 0);
         DEVICE_ASSERT(size_k % SMEM_K == 0);
-        DEVICE_ASSERT(IS_PRODUCER == is_producer_wg());
+        DEVICE_ASSERT(ENABLE_PRODUCER_BRANCH || !is_producer_wg());
+        DEVICE_ASSERT(IS_CONSUMER || is_producer_wg());
 
-        const uint32_t k_iters = min((size_k - cta_k_offset) / SMEM_K, K_MAX_TILES);
+        const uint32_t k_num_iters = min((size_k - cta_k_initial_offset) / SMEM_K, K_MAX_TILES);
 
-        std::conditional_t<IS_PRODUCER, int, WG_Accum> accum;
-        bool first_time = true;
+        std::conditional_t<IS_CONSUMER, WG_Accum, char> accum;
+        bool zero_accum = true;
 
-        for (uint32_t cta_k_blk_counter = 0; cta_k_blk_counter < k_iters; ++cta_k_blk_counter, cta_k_offset += SMEM_K) {
-            const uint32_t ring_idx = cta_k_blk_counter % RING_BUFFER_SIZE;
-            const uint32_t ring_usage_parity = (cta_k_blk_counter / RING_BUFFER_SIZE) % 2u;
-
-            if constexpr (IS_PRODUCER) {
-                if (ring_idx != cta_k_blk_counter) {
-                    mbar_wait(shared.tile_read_mbar[ring_idx], !ring_usage_parity);
-                }
-                if (threadIdx.x % 128u < 32u) {
-                    warp_async_load_block(shared.aliased_input_ring_buffer[ring_idx], shared.tile_fill_mbar[ring_idx],
-                                          cta_m_offset, cta_n_offset, cta_k_offset);
+        auto producer_on_k_iter = [&] (uint32_t k_iter)
+        {
+            if constexpr (ENABLE_PRODUCER_BRANCH) {
+                const uint32_t ring_idx = k_iter % RING_BUFFER_SIZE;
+                if (is_producer_wg() && k_iter < k_num_iters) {
+                    const uint32_t tma_k_offset = cta_k_initial_offset + SMEM_K * k_iter;
+                    if (k_iter >= RING_BUFFER_SIZE) {
+                        // After initial fill of ring buffer, we need to wait for the producers to signal
+                        // they are done reading the tile before overwriting it.
+                        const uint32_t ring_usage_parity = ((k_iter - RING_BUFFER_SIZE) / RING_BUFFER_SIZE) % 2u;
+                        mbar_wait(shared.tile_read_mbar[ring_idx], ring_usage_parity);
+                    }
+                    if (threadIdx.x % 128u < 32u) {
+                        warp_async_load_block(shared.aliased_input_ring_buffer[ring_idx],
+                                              shared.tile_fill_mbar[ring_idx],
+                                              cta_m_offset, cta_n_offset, tma_k_offset);
+                    }
                 }
             }
+        };
 
-            if constexpr (!IS_PRODUCER) {
+        // Producer kicks of loads to fill the ring buffer except the last .
+        for (uint32_t k_iter = 0; k_iter < k_num_iters && k_iter < RING_BUFFER_SIZE - 1; ++k_iter) {
+            producer_on_k_iter(k_iter);
+        }
+
+        for (uint32_t k_iter = 0; k_iter < k_num_iters; ++k_iter) {
+            const uint32_t ring_idx = k_iter % RING_BUFFER_SIZE;
+            const uint32_t ring_usage_parity = (k_iter / RING_BUFFER_SIZE) % 2u;
+
+            if constexpr (IS_CONSUMER) {
                 mbar_wait(shared.tile_fill_mbar[ring_idx], ring_usage_parity);
                 asm volatile("wgmma.fence.sync.aligned;  // GMMA");
                 const uint32_t wg_m_offset = get_wg_m_idx() * WG_M;
@@ -417,22 +530,25 @@ struct TiledMultiplier
                 for (uint32_t wg_k_idx = 0; wg_k_idx < SMEM_K / WG_K; ++wg_k_idx) {
                     const uint32_t wg_k_offset = wg_k_idx * WG_K;
                     wg_accum_tile(accum, shared.aliased_input_ring_buffer[ring_idx],
-                                  wg_m_offset, wg_n_offset, wg_k_offset, first_time);
-                    first_time = false;
+                                  wg_m_offset, wg_n_offset, wg_k_offset, zero_accum);
+                    zero_accum = false;
                 }
                 asm volatile("wgmma.commit_group.sync.aligned;  // GMMA");
 
                 // Wait for previous iteration's wgmma to retire, then signal that the tiles read from
                 // the previous iteration may be overwritten.
-                if (cta_k_blk_counter >= 1) {
+                if (k_iter >= 1) {
                     asm volatile("wgmma.wait_group.sync.aligned 1;  // GMMA");
-                    mbar_arrive(shared.tile_read_mbar[(cta_k_blk_counter - 1) % RING_BUFFER_SIZE]);
+                    mbar_arrive(shared.tile_read_mbar[(k_iter - 1) % RING_BUFFER_SIZE]);
                     static_assert(RING_BUFFER_SIZE >= 2);
                 }
             }
+
+            // Keep pipelining producer (fill tile for RING_BUFFER_SIZE-1 iterations ahead).
+            producer_on_k_iter(k_iter + RING_BUFFER_SIZE - 1);
         }
 
-        if constexpr (!IS_PRODUCER) {
+        if constexpr (IS_CONSUMER) {
             // Wait for all wgmma to finish, then issue all-to-all consumer warpgroups sync,
             // indicating that SMEM is ready to be repurposed.
             asm volatile("wgmma.wait_group.sync.aligned 0;  // GMMA");
@@ -514,11 +630,15 @@ struct TiledMultiplier
 
         cta_first_time_init(smem);
         __syncthreads();
-        if (is_producer_wg()) {
-            cta_main_loop<true>(cta_m_offset, cta_n_offset, cta_k_offset, smem);
+
+        if constexpr (!DEDICATED_PRODUCER_WG) {
+            cta_main_loop<true, true>(cta_m_offset, cta_n_offset, cta_k_offset, smem);
+        }
+        else if (is_producer_wg()) {
+            cta_main_loop<true, false>(cta_m_offset, cta_n_offset, cta_k_offset, smem);
         }
         else {
-            cta_main_loop<false>(cta_m_offset, cta_n_offset, cta_k_offset, smem);
+            cta_main_loop<false, true>(cta_m_offset, cta_n_offset, cta_k_offset, smem);
         }
     }
 
@@ -591,12 +711,16 @@ struct TiledMultiplier
 
 void matmul_sm90(GPU_Tensors t, cudaStream_t stream)
 {
-    constexpr uint32_t smem_m = 128;
-    constexpr uint32_t smem_n = 256;
-    constexpr uint32_t smem_k = 32;
+    constexpr uint32_t smem_m = 192;
+    constexpr uint32_t smem_n = 192;
+    constexpr uint32_t smem_k = 48;
+    constexpr uint32_t wg_m = 64;
+    constexpr uint32_t wg_n = 96;
+    constexpr uint32_t wg_k = 8;
     constexpr uint32_t cta_k_max_tiles = 128;
     constexpr uint32_t cta_modulus = 4;
     constexpr uint32_t ring_buffer_size = 2;
+    constexpr bool dedicated_producer = false;
 
     const uint32_t size_m = t.M;
     const uint32_t size_n = t.N;
@@ -607,7 +731,8 @@ void matmul_sm90(GPU_Tensors t, cudaStream_t stream)
     assert(!t.c_col_major);
 
     if (size_m % smem_m == 0 && size_n % smem_n == 0 && size_k % smem_k == 0) {
-        TiledMultiplier<smem_m, smem_n, smem_k, cta_k_max_tiles, cta_modulus, ring_buffer_size>::launch(
+        TiledMultiplier<smem_m, smem_n, smem_k, wg_m, wg_n, wg_k,
+                        cta_k_max_tiles, cta_modulus, ring_buffer_size, dedicated_producer>::launch(
                 stream, size_m, size_n, size_k, t.a, t.b, t.c);
     }
     else {
