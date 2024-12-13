@@ -44,7 +44,7 @@ int main()
     sized_tests(3 * 2048, 3 * 2048, 3 * 16384, true);
     sized_tests(1536, 3 * 512, 3 * 40960, true);
     sized_tests(1536, 3 * 512, 3 * 40960, true);
-    sized_tests(768, 3 * 256, 3 * 40960, true);
+    sized_tests(768, 3 * 256, 3 * 40960, false);
 
     cudaDeviceSynchronize();
 }
