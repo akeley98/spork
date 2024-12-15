@@ -352,7 +352,7 @@ void gemm_test(TestParams params, cudaStream_t stream)
 #if CUBLAS_TEST_ENABLED
     run_tests(AlgorithmCode::cublas);
 #endif
-    // run_tests(AlgorithmCode::cutlass);
+    run_tests(AlgorithmCode::cutlass);
 
     cudaFreeAsync(d_a, stream);
     cudaFreeAsync(d_a16, stream);
