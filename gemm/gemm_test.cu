@@ -194,6 +194,8 @@ inline const char* algorithm_name(AlgorithmCode code)
 
 void gemm_test(TestParams params, cudaStream_t stream)
 {
+    StreamWorkspace stream_ws{stream};
+
 #if CUBLAS_TEST_ENABLED
     cublasHandle_t cublasH;
     CUBLAS_CHECK(cublasCreate(&cublasH));
@@ -325,7 +327,7 @@ void gemm_test(TestParams params, cudaStream_t stream)
                     matmul_sm90(t, stream);
                 }
                 else if (algo == AlgorithmCode::cutlass) {
-                    matmul_cutlass(t, stream);
+                    matmul_cutlass(t, stream_ws);
                 }
                 else {
                     assert(0);

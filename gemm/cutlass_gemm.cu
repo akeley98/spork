@@ -91,7 +91,7 @@ using StrideD = typename Gemm::GemmKernel::StrideD;
 
 using RasterOrderOptions = typename cutlass::gemm::kernel::detail::PersistentTileSchedulerSm90Params::RasterOrderOptions;
 
-void matmul(GPU_Tensors t, cudaStream_t stream)
+void matmul(GPU_Tensors t, StreamWorkspace& stream_ws)
 {
     assert(!t.a_col_major);
     assert(t.b_col_major);
@@ -108,11 +108,12 @@ void matmul(GPU_Tensors t, cudaStream_t stream)
       {t.b, stride_original_b, t.a, stride_original_a},
       {{1.0f, 0.0f}, t.c, stride_original_c, t.c, stride_original_c}};
     args.scheduler.raster_order = RasterOrderOptions::Heuristic;
-    args.scheduler.max_swizzle_size = 1;
+    args.scheduler.max_swizzle_size = 8;
 
     Gemm gemm;
-    gemm.initialize(args);  // TODO workspace
-    const auto status = gemm.run(stream);
+    const auto ws_size = gemm.get_workspace_size(args);
+    gemm.initialize(args, stream_ws.alloc_at_least(ws_size));
+    const auto status = gemm.run(stream_ws);
 
     if (status != cutlass::Status::kSuccess) {
         fprintf(stderr, "%s:%i: %i\n", __FILE__, __LINE__, (int)status);
@@ -121,7 +122,7 @@ void matmul(GPU_Tensors t, cudaStream_t stream)
 
 }  // end namespace
 
-void matmul_cutlass(GPU_Tensors t, cudaStream_t stream)
+void matmul_cutlass(GPU_Tensors t, StreamWorkspace& stream_ws)
 {
-    cutlass_h100_gemm::matmul(t, stream);
+    cutlass_h100_gemm::matmul(t, stream_ws);
 }
