@@ -5,9 +5,18 @@
 #include <stdio.h>
 
 #include "cute_gemm.h"
+#include "cutlass_gemm.h"
 #include "gemm_sm80.h"
 #include "gemm_sm90.h"
 #include "xgemm.h"
+
+#ifndef CUBLAS_TEST_ENABLED
+#define CUBLAS_TEST_ENABLED 1
+#endif
+
+#if CUBLAS_TEST_ENABLED
+#include <cublas_v2.h>
+#endif
 
 namespace {
 
@@ -159,17 +168,46 @@ void launch_device_compare_tensor(TestParams test_params,
     device_compare_tensor_test_print<<<1, 1, 0, stream>>>(test_params, d_a, d_b, rows, cols, d_bitfield);
 }
 
+enum class AlgorithmCode
+{
+    mine = 0,
+    cublas = 1,
+    cutlass = 2,
+};
+
+inline const char* algorithm_name(AlgorithmCode code)
+{
+    switch (code) {
+      case AlgorithmCode::mine:
+        return "mine";
+      case AlgorithmCode::cublas:
+        return "cublas";
+      case AlgorithmCode::cutlass:
+        return "cutlass";
+    }
+    return "unknown";
+}
+
 }  // end namespace
+
+#define CUBLAS_CHECK(x) if (auto _cublas_status = x; _cublas_status != CUBLAS_STATUS_SUCCESS) { fprintf(stderr, "%s:%i cublas status %i\n", __FILE__, __LINE__, (int)_cublas_status); }
 
 void gemm_test(TestParams params, cudaStream_t stream)
 {
+#if CUBLAS_TEST_ENABLED
+    cublasHandle_t cublasH;
+    CUBLAS_CHECK(cublasCreate(&cublasH));
+    CUBLAS_CHECK(cublasSetStream(cublasH, stream));
+    CUBLAS_CHECK(cublasSetMathMode(cublasH, CUBLAS_TF32_TENSOR_OP_MATH));
+#endif
+
     unsigned long long* d_bitfield = nullptr;
     float* d_a = nullptr;
     float* d_b = nullptr;
     float* d_bT = nullptr;
-    float* d_c_sm80 = nullptr;
-    float* d_c_sm90_warmup = nullptr;
-    float* d_c_sm90_tested = nullptr;
+    float* d_c_baseline = nullptr;
+    float* d_c_warmup = nullptr;
+    float* d_c_tested = nullptr;
     using cute::half_t;
     half_t* d_a16 = nullptr;
     half_t* d_bT16 = nullptr;
@@ -184,12 +222,12 @@ void gemm_test(TestParams params, cudaStream_t stream)
     cudaMallocAsync(&d_bT,   params.N * params.K * sizeof(float), stream);
     cudaMallocAsync(&d_bT16, params.N * params.K * sizeof(half_t), stream);
 
-    cudaMallocAsync(&d_c_sm80,          params.M * params.N * sizeof(float), stream);
-    cudaMallocAsync(&d_c_sm90_warmup,   params.M * params.N * sizeof(float), stream);
-    cudaMallocAsync(&d_c_sm90_tested,   params.M * params.N * sizeof(float), stream);
-    cudaMallocAsync(&d_c16,             params.M * params.N * sizeof(half_t), stream);
+    cudaMallocAsync(&d_c_baseline, params.M * params.N * sizeof(float), stream);
+    cudaMallocAsync(&d_c_warmup,   params.M * params.N * sizeof(float), stream);
+    cudaMallocAsync(&d_c_tested,   params.M * params.N * sizeof(float), stream);
+    cudaMallocAsync(&d_c16,        params.M * params.N * sizeof(half_t), stream);
 
-    if (!d_bitfield || !d_a || !d_b || !d_c_sm80 || !d_c_sm90_warmup || !d_c_sm90_tested) {
+    if (!d_bitfield || !d_a || !d_b || !d_c_baseline || !d_c_warmup || !d_c_tested) {
         const cudaError_t err = cudaGetLastError();
         fprintf(stderr, "Error on cudaMallocAsync: %i (%s)\n", (int)err, cudaGetErrorString(err));
         exit(1);
@@ -212,9 +250,23 @@ void gemm_test(TestParams params, cudaStream_t stream)
         cudaMemsetAsync(d_c, 0xDD, sizeof(*d_c) * params.M * params.N, stream);
     };
 
-    // Initialize SM80 data
+    auto run_cublas = [&] (float* d_c)
     {
-        GPU_Tensors t{params.M, params.N, params.K, d_a, d_b, d_c_sm80, 0, 0, 0};
+        assert(CUBLAS_TEST_ENABLED);
+#if CUBLAS_TEST_ENABLED
+        // Need to do A,B swap trick to deal with Fortran-inherited column majorness
+        cublasOperation_t transa = CUBLAS_OP_T;
+        cublasOperation_t transb = CUBLAS_OP_N;
+        const float alpha = 1.0f;
+        const float beta = 0.0f;
+        CUBLAS_CHECK(cublasSgemm(cublasH, transa, transb, int(params.N), int(params.M), int(params.K),
+                                 &alpha, d_bT, int(params.K), d_a, int(params.K), &beta, d_c, int(params.N)));
+#endif
+    };
+
+    // Initialize baseline data
+    {
+        GPU_Tensors t{params.M, params.N, params.K, d_a, d_b, d_c_baseline, 0, 0, 0};
         fill_garbage(t.c);
         matmul_sm80(t, stream);
     }
@@ -226,70 +278,90 @@ void gemm_test(TestParams params, cudaStream_t stream)
         const int ldC = int(params.N);
         cute_gemm::f16('T', 'N', int(params.N), int(params.M), int(params.K),
                        d_bT16, ldB, d_a16, ldA, d_c16, ldC, stream);
-        launch_device_compare_tensor(params, d_c_sm80, d_c16, params.M, params.N, d_bitfield, stream);
+        launch_device_compare_tensor(params, d_c_baseline, d_c16, params.M, params.N, d_bitfield, stream);
     }
 
     // Exo test
     if (0) {
         assert(stream == 0);
-        exo_cuda_gemm(nullptr, int(params.M), int(params.N), int(params.K), d_a, d_b, d_c_sm90_warmup);
-        launch_device_compare_tensor(params, d_c_sm80, d_c_sm90_warmup, params.M, params.N, d_bitfield, stream);
+        exo_cuda_gemm(nullptr, int(params.M), int(params.N), int(params.K), d_a, d_b, d_c_warmup);
+        launch_device_compare_tensor(params, d_c_baseline, d_c_warmup, params.M, params.N, d_bitfield, stream);
     }
 
     // Initialize SM90 data
     {
-        GPU_Tensors t{params.M, params.N, params.K, d_a, d_bT, d_c_sm90_warmup, 0, 1, 0};
+        GPU_Tensors t{params.M, params.N, params.K, d_a, d_bT, d_c_warmup, 0, 1, 0};
         fill_garbage(t.c);
         matmul_sm90(t, stream);
     }
-    launch_device_compare_tensor(params, d_c_sm80, d_c_sm90_warmup, params.M, params.N, d_bitfield, stream);
+    launch_device_compare_tensor(params, d_c_baseline, d_c_warmup, params.M, params.N, d_bitfield, stream);
 
     // Test loop
-    constexpr uint32_t test_count = 15;
-    float test_times[test_count] = {};
-    cudaEvent_t test_events[test_count + 1];
-    auto new_event = [stream]
+    auto run_tests = [&] (AlgorithmCode algo)
     {
-        cudaEvent_t event{};
-        if (const cudaError_t err = cudaEventCreate(&event)) {
-            fprintf(stderr, "cudaError_t %i: %s\n", (int)err, cudaGetErrorString(err));
-            exit(1);
+        constexpr uint32_t test_count = 15;
+        float test_times[test_count] = {};
+        cudaEvent_t test_events[test_count + 1];
+        auto new_event = [stream]
+        {
+            cudaEvent_t event{};
+            if (const cudaError_t err = cudaEventCreate(&event)) {
+                fprintf(stderr, "cudaError_t %i: %s\n", (int)err, cudaGetErrorString(err));
+                exit(1);
+            }
+            cudaEventRecord(event, stream);
+            return event;
+        };
+        for (uint32_t test_i = 0; test_i < test_count; ++test_i) {
+            if (test_i == 0) {
+                test_events[0] = new_event();
+            }
+            if (algo == AlgorithmCode::cublas) {
+                run_cublas(d_c_tested);
+            }
+            else {
+                GPU_Tensors t{params.M, params.N, params.K, d_a, d_bT, d_c_tested, 0, 1, 0};
+                if (algo == AlgorithmCode::mine) {
+                    matmul_sm90(t, stream);
+                }
+                else if (algo == AlgorithmCode::cutlass) {
+                    matmul_cutlass(t, stream);
+                }
+                else {
+                    assert(0);
+                }
+            }
+            test_events[test_i + 1] = new_event();
         }
-        cudaEventRecord(event, stream);
-        return event;
+        cudaStreamSynchronize(stream);
+        for (uint32_t test_i = 0; test_i < test_count; ++test_i) {
+            cudaEventElapsedTime(&test_times[test_i], test_events[test_i], test_events[test_i + 1]);
+            cudaEventDestroy(test_events[test_i]);
+        }
+        cudaEventDestroy(test_events[test_count]);
+        std::sort(&test_times[0], &test_times[test_count]);
+        const double percentile_25_ms = test_times[test_count / 4];
+        const double flops = double(params.M) * params.N * params.K * 2.0 * 1000.0 / percentile_25_ms;
+        const bool bold = double(params.M) * params.N * params.K >= 1e11;
+        printf("TestParams{%u,%u,%u, %i,%i} %.3g ms %.3g %sTFLOPS\x1b[0m (%s)\n", params.M, params.N, params.K,
+               static_cast<int>(params.test_data_code_A), static_cast<int>(params.test_data_code_B),
+               percentile_25_ms, flops * 1e-12, (bold ? "\x1b[1m\x1b[32m" : ""), algorithm_name(algo));
+        launch_device_compare_tensor(params, d_c_baseline, d_c_tested, params.M, params.N, d_bitfield, stream);
     };
-    for (uint32_t test_i = 0; test_i < test_count; ++test_i) {
-        if (test_i == 0) {
-            test_events[0] = new_event();
-        }
-        GPU_Tensors t{params.M, params.N, params.K, d_a, d_bT, d_c_sm90_tested, 0, 1, 0};
-        matmul_sm90(t, stream);
-        test_events[test_i + 1] = new_event();
-    }
-    cudaStreamSynchronize(stream);
-    for (uint32_t test_i = 0; test_i < test_count; ++test_i) {
-        cudaEventElapsedTime(&test_times[test_i], test_events[test_i], test_events[test_i + 1]);
-        cudaEventDestroy(test_events[test_i]);
-    }
-    cudaEventDestroy(test_events[test_count]);
-    std::sort(&test_times[0], &test_times[test_count]);
-    const double percentile_25_ms = test_times[test_count / 4];
-    const double flops = double(params.M) * params.N * params.K * 2.0 * 1000.0 / percentile_25_ms;
-    const bool bold = double(params.M) * params.N * params.K >= 1e11;
-    printf("TestParams{%u,%u,%u, %i,%i} %.3g ms %.3g %sTFLOPS\x1b[0m\n", params.M, params.N, params.K,
-           static_cast<int>(params.test_data_code_A), static_cast<int>(params.test_data_code_B),
-           percentile_25_ms, flops * 1e-12, (bold ? "\x1b[1m\x1b[32m" : ""));
-
-    launch_device_compare_tensor(params, d_c_sm80, d_c_sm90_tested, params.M, params.N, d_bitfield, stream);
+    run_tests(AlgorithmCode::mine);
+#if CUBLAS_TEST_ENABLED
+    run_tests(AlgorithmCode::cublas);
+#endif
+    // run_tests(AlgorithmCode::cutlass);
 
     cudaFreeAsync(d_a, stream);
     cudaFreeAsync(d_a16, stream);
     cudaFreeAsync(d_b, stream);
     cudaFreeAsync(d_bT, stream);
     cudaFreeAsync(d_bT16, stream);
-    cudaFreeAsync(d_c_sm80, stream);
-    cudaFreeAsync(d_c_sm90_warmup, stream);
-    cudaFreeAsync(d_c_sm90_tested, stream);
+    cudaFreeAsync(d_c_baseline, stream);
+    cudaFreeAsync(d_c_warmup, stream);
+    cudaFreeAsync(d_c_tested, stream);
     cudaFreeAsync(d_c16, stream);
 
     cudaStreamSynchronize(stream);
@@ -297,4 +369,8 @@ void gemm_test(TestParams params, cudaStream_t stream)
         fprintf(stderr, "cudaError_t %i: %s\n", (int)err, cudaGetErrorString(err));
         exit(1);
     }
+
+#if CUBLAS_TEST_ENABLED
+    cublasDestroy(cublasH);
+#endif
 }

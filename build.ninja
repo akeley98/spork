@@ -11,10 +11,10 @@ rule cxx
   depfile = $out.d
 
 rule link
-  command = nvcc -ccbin g++-12 $in -o $out -lcuda
+  command = nvcc -ccbin g++-12 $in -o $out -lcuda -lcublas
 
 rule link_lib
-  command = nvcc -ccbin g++-12 $in -o $out -shared -lcuda
+  command = nvcc -ccbin g++-12 $in -o $out -shared -lcuda -lcublas
 
 build all: phony attn libattn.so
 build bin/tk_4090_fwd.o : nvcc tk_4090_fwd.cu
@@ -25,9 +25,10 @@ build attn : link bin/tk_4090_fwd.o bin/baseline.o bin/attn_main.o bin/matrix_ut
 build libattn.so : link_lib bin/tk_4090_fwd.o bin/matrix_util.o
 
 build bin/gemm/cute_gemm.o : nvcc_sm90 gemm/cute_gemm.cu
+build bin/gemm/cutlass_gemm.o : nvcc_sm90 gemm/cutlass_gemm.cu
 build bin/gemm/gemm_sm90.o : nvcc_sm90 gemm/gemm_sm90.cu
 build bin/gemm/gemm_sm80.o : nvcc gemm/gemm_sm80.cu
 build bin/gemm/xgemm.o : nvcc gemm/xgemm.cu
 build bin/gemm/gemm_test.o : nvcc gemm/gemm_test.cu
 build bin/gemm/gemm_main.o : nvcc gemm/gemm_main.cpp
-build gemm/gemm: link bin/gemm/cute_gemm.o bin/gemm/gemm_sm90.o bin/gemm/gemm_sm80.o bin/gemm/xgemm.o bin/gemm/gemm_test.o bin/gemm/gemm_main.o
+build gemm/gemm: link bin/gemm/cutlass_gemm.o bin/gemm/cute_gemm.o bin/gemm/gemm_sm90.o bin/gemm/gemm_sm80.o bin/gemm/xgemm.o bin/gemm/gemm_test.o bin/gemm/gemm_main.o
