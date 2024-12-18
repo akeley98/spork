@@ -14,13 +14,42 @@
 // #define DEVICE_ASSERT(x) assert(x)
 #define DEVICE_ASSERT(x)
 
-namespace {
+namespace gemm_sm90 {
 
 using mbarrier_t = long long;
 
 DEVICE_INLINE uint32_t smem_ptr_u32(const void* smem_ptr)
 {
     return static_cast<uint32_t>(__cvta_generic_to_shared(smem_ptr));
+}
+
+// cute::elect_one_sync
+DEVICE_INLINE uint32_t elect_one_sync()
+{
+    uint32_t pred = 0;
+    uint32_t laneid = 0;
+    asm volatile(
+      "{\n"
+      ".reg .b32 %%rx;\n"
+      ".reg .pred %%px;\n"
+      "     elect.sync %%rx|%%px, %2;\n"
+      "@%%px mov.s32 %1, 1;\n"
+      "     mov.s32 %0, %%rx;\n"
+      "}\n"
+      : "+r"(laneid), "+r"(pred)
+      : "r"(0xFFFFFFFF));
+    return pred;
+}
+
+// cutlass::canonical_warp_idx_sync
+DEVICE_INLINE int canonical_warp_idx_sync()
+{
+    return __shfl_sync(0xffffffff, threadIdx.x / 32u, 0);
+}
+
+DEVICE_INLINE void prefetch_tensormap(const CUtensorMap* tensorMap)
+{
+    asm volatile("prefetch.tensormap [%0];" :: "l"(reinterpret_cast<uint64_t>(tensorMap)) : "memory");
 }
 
 template <typename Multiplier>
@@ -469,6 +498,12 @@ struct TiledMultiplier
             init_mbar<consumer_thread_count>(shared.all_consumers_mbar);
         }
         asm volatile("fence.proxy.async;");
+
+        if (canonical_warp_idx_sync() == 0 && elect_one_sync()) {
+            prefetch_tensormap(tensorMap_a);
+            prefetch_tensormap(tensorMap_bT);
+            prefetch_tensormap(tensorMap_c);
+        }
     }
 
     // CTA cooperates to fill or add to the output matrix block of size (SMEM_M, SMEM_N) starting at
@@ -711,6 +746,8 @@ struct TiledMultiplier
 
 void matmul_sm90(GPU_Tensors t, cudaStream_t stream)
 {
+    using namespace gemm_sm90;
+
     constexpr uint32_t smem_m = 192;
     constexpr uint32_t smem_n = 192;
     constexpr uint32_t smem_k = 48;
