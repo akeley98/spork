@@ -58,9 +58,10 @@ __launch_bounds__(Multiplier::cta_size())
 tiled_multiplier_kernel(uint32_t size_m, uint32_t size_n, uint32_t size_k,
                         __grid_constant__ const CUtensorMap tensorMap_a,
                         __grid_constant__ const CUtensorMap tensorMap_bT,
-                        __grid_constant__ const CUtensorMap tensorMap_c)
+                        __grid_constant__ const CUtensorMap tensorMap_c,
+                        float* c)
 {
-    Multiplier multiplier{size_m, size_n, size_k, &tensorMap_a, &tensorMap_bT, &tensorMap_c};
+    Multiplier multiplier{size_m, size_n, size_k, &tensorMap_a, &tensorMap_bT, &tensorMap_c, c};
     multiplier.kernel_main();
 }
 
@@ -74,6 +75,7 @@ struct TiledMultiplier
     const CUtensorMap* tensorMap_a;
     const CUtensorMap* tensorMap_bT;  // Transposed; column major
     const CUtensorMap* tensorMap_c;
+    float* c;
 
     static_assert(WG_M == 64);
     static_assert(WG_K == 8);
@@ -221,7 +223,7 @@ struct TiledMultiplier
     {
         union {
             Buffers aliased_input_ring_buffer[RING_BUFFER_SIZE];
-            float aliased_per_wg_c_tile[consumer_wg_count()][WG_M][WG_N];
+            float aliased_per_wg_c_tile[consumer_wg_count()][WG_M * WG_N];
         };
         mbarrier_t tile_fill_mbar[RING_BUFFER_SIZE];
         mbarrier_t tile_read_mbar[RING_BUFFER_SIZE];
@@ -406,16 +408,14 @@ struct TiledMultiplier
         }
     }
 
-    // Warpgroup-convergent code
-    // Write the (WG_M, WG_N) tile to shared.aliased_per_wg_c_tile, at the entry reserved for this warpgroup.
-    DEVICE_INLINE void wg_accum_to_shared(Shared& shared, const WG_Accum& d) const
+    DEVICE_INLINE void wg_accum_store_to_tile(float* tile, uint32_t row_stride, const WG_Accum& d) const
     {
         const uint32_t tid = threadIdx.x % 128u;
 
         #define X(REG_INDEX) { \
             const uint32_t r = (tid / 32u) * 16u + (tid % 32u) / 4u + ((REG_INDEX % 4u) / 2u) * 8u; \
             const uint32_t c = (tid % 4u) * 2u + (REG_INDEX / 4u) * 8 + (REG_INDEX % 2u); \
-            shared.aliased_per_wg_c_tile[consumer_wg_index()][r][c] = d.d##REG_INDEX; }
+            tile[r * row_stride + c] = d.d##REG_INDEX; }
         X(0) X(1) X(2) X(3) X(4) X(5) X(6) X(7)
         X(8) X(9) X(10) X(11) X(12) X(13) X(14) X(15)
         X(16) X(17) X(18) X(19) X(20) X(21) X(22) X(23)
@@ -430,6 +430,13 @@ struct TiledMultiplier
         }
         static_assert(WG_N == 64 || WG_N == 96 || WG_N == 128, "Add code for wgmma of this size");
         #undef X
+    }
+
+    // Warpgroup-convergent code
+    // Write the (WG_M, WG_N) tile to shared.aliased_per_wg_c_tile, at the entry reserved for this warpgroup.
+    DEVICE_INLINE void wg_accum_to_shared(Shared& shared, const WG_Accum& d) const
+    {
+        wg_accum_store_to_tile(shared.aliased_per_wg_c_tile[consumer_wg_index()], WG_N, d);
     }
 
     // Fill shared memory A tile with SMEM_M×SMEM_K block starting at (cta_m_offset, cta_k_offset)
@@ -584,26 +591,28 @@ struct TiledMultiplier
         }
 
         if constexpr (IS_CONSUMER) {
-            // Wait for all wgmma to finish, then issue all-to-all consumer warpgroups sync,
-            // indicating that SMEM is ready to be repurposed.
+            // Wait for all wgmma to finish
             asm volatile("wgmma.wait_group.sync.aligned 0;  // GMMA");
-            mbar_arrive(shared.all_consumers_mbar);
-            mbar_wait(shared.all_consumers_mbar, 0);
-
-            // Now copy wgmma registers to shared memory C tile.
             const uint32_t wg_m_offset = get_wg_m_idx() * WG_M;
             const uint32_t wg_n_offset = get_wg_n_idx() * WG_N;
-            wg_accum_to_shared(shared, accum);
 
-            // 0th thread per consumer warpgroup waits for its own warpgroup and
-            // issues TMA copy from shared tile to global.
-            static_assert(WG_M == tensorMap_c_box_m);
-            static_assert(WG_N == tensorMap_c_box_n);
-            asm volatile("fence.proxy.async;");
-            mbar_arrive(shared.per_consumer_wg_mbar[consumer_wg_index()]);
-            if (threadIdx.x % 128u == 0) {
-                mbar_wait(shared.per_consumer_wg_mbar[consumer_wg_index()], 0);
-                if (using_cp_reduce(size_k)) {
+            if (using_cp_reduce(size_k)) {
+                // After wgmma finished, issue all-to-all consumer warpgroups sync,
+                // indicating that SMEM is ready to be repurposed.
+                mbar_arrive(shared.all_consumers_mbar);
+                mbar_wait(shared.all_consumers_mbar, 0);
+
+                // Now copy wgmma registers to shared memory C tile.
+                wg_accum_to_shared(shared, accum);
+
+                // 0th thread per consumer warpgroup waits for its own warpgroup and
+                // issues TMA copy from shared tile to global.
+                static_assert(WG_M == tensorMap_c_box_m);
+                static_assert(WG_N == tensorMap_c_box_n);
+                asm volatile("fence.proxy.async;");
+                mbar_arrive(shared.per_consumer_wg_mbar[consumer_wg_index()]);
+                if (threadIdx.x % 128u == 0) {
+                    mbar_wait(shared.per_consumer_wg_mbar[consumer_wg_index()], 0);
                     asm volatile(
                     "cp.reduce.async.bulk.tensor.2d.global.shared::cta.add.tile.bulk_group"
                     " [%0, {%1, %2}], [%3];"
@@ -611,18 +620,14 @@ struct TiledMultiplier
                     : "l"(tensorMap_c),
                       "r"(cta_n_offset + wg_n_offset), "r"(cta_m_offset + wg_m_offset),
                       "r"(smem_ptr_u32(&shared.aliased_per_wg_c_tile[consumer_wg_index()])));
+                    asm volatile("cp.async.bulk.commit_group;");
+                    asm volatile("cp.async.bulk.wait_group 0;");
                 }
-                else {
-                    asm volatile(
-                    "cp.async.bulk.tensor.2d.global.shared::cta.tile.bulk_group"
-                    " [%0, {%1, %2}], [%3];"
-                    :
-                    : "l"(tensorMap_c),
-                      "r"(cta_n_offset + wg_n_offset), "r"(cta_m_offset + wg_m_offset),
-                      "r"(smem_ptr_u32(&shared.aliased_per_wg_c_tile[consumer_wg_index()])));
-                }
-                asm volatile("cp.async.bulk.commit_group;");
-                asm volatile("cp.async.bulk.wait_group 0;");
+            }
+            else {
+                // Store tile directly to output memory, bypassing TMA and shared memory.
+                wg_accum_store_to_tile(c + (cta_m_offset + wg_m_offset) * size_n + (cta_n_offset + wg_n_offset),
+                                       size_n, accum);
             }
         }
     }
@@ -738,7 +743,7 @@ struct TiledMultiplier
                 fprintf(stderr, "numRegs: %i\n", attr.numRegs);
             }
         });
-        kernel<<<grid, block, smem, stream>>>(size_m, size_n, size_k, tensorMap_a, tensorMap_bT, tensorMap_c);
+        kernel<<<grid, block, smem, stream>>>(size_m, size_n, size_k, tensorMap_a, tensorMap_bT, tensorMap_c, c);
     }
 };
 
