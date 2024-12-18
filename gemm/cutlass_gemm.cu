@@ -51,7 +51,7 @@ using ElementAccumulator  = float;                                          // E
 using ArchTag             = cutlass::arch::Sm90;                            // Tag indicating the minimum SM that supports the intended feature
 using OperatorClass       = cutlass::arch::OpClassTensorOp;                 // Operator class tag
 using TileShape           = Shape<_128,_128,_32>;                           // Threadblock-level tile size
-using ClusterShape        = Shape<_1,_2,_1>;                                // Shape of the threadblocks in a cluster
+using ClusterShape        = Shape<_1,_1,_1>;  // XXX _1, _2, _1                               // Shape of the threadblocks in a cluster
 using StageCountType = cutlass::gemm::collective::StageCountAuto;           // Stage count maximized based on the tile size
 using KernelSchedule = cutlass::gemm::collective::KernelScheduleAuto;       // Kernel to launch based on the default setting in the Collective Builder
 
@@ -108,7 +108,7 @@ void matmul(GPU_Tensors t, StreamWorkspace& stream_ws)
       {t.b, stride_original_b, t.a, stride_original_a},
       {{1.0f, 0.0f}, t.c, stride_original_c, t.c, stride_original_c}};
     args.scheduler.raster_order = RasterOrderOptions::Heuristic;
-    args.scheduler.max_swizzle_size = 8;
+    args.scheduler.max_swizzle_size = 1;  // XXX
 
     Gemm gemm;
     const auto ws_size = gemm.get_workspace_size(args);

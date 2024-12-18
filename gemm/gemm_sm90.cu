@@ -675,9 +675,11 @@ struct TiledMultiplier
             cta_main_loop<true, true>(cta_m_offset, cta_n_offset, cta_k_offset, smem);
         }
         else if (is_producer_wg()) {
+            asm("setmaxnreg.dec.sync.aligned.u32 40;");  // XXX
             cta_main_loop<true, false>(cta_m_offset, cta_n_offset, cta_k_offset, smem);
         }
         else {
+            asm("setmaxnreg.inc.sync.aligned.u32 232;");  // XXX
             cta_main_loop<false, true>(cta_m_offset, cta_n_offset, cta_k_offset, smem);
         }
     }
@@ -753,16 +755,16 @@ void matmul_sm90(GPU_Tensors t, cudaStream_t stream)
 {
     using namespace gemm_sm90;
 
-    constexpr uint32_t smem_m = 192;
-    constexpr uint32_t smem_n = 192;
-    constexpr uint32_t smem_k = 48;
+    constexpr uint32_t smem_m = 128;
+    constexpr uint32_t smem_n = 128;
+    constexpr uint32_t smem_k = 32;
     constexpr uint32_t wg_m = 64;
-    constexpr uint32_t wg_n = 96;
+    constexpr uint32_t wg_n = 128;
     constexpr uint32_t wg_k = 8;
     constexpr uint32_t cta_k_max_tiles = 8192u / smem_k;
     constexpr uint32_t cta_modulus = 4;
-    constexpr uint32_t ring_buffer_size = 2;
-    constexpr bool dedicated_producer = false;
+    constexpr uint32_t ring_buffer_size = 7;
+    constexpr bool dedicated_producer = true;
 
     const uint32_t size_m = t.M;
     const uint32_t size_n = t.N;
