@@ -2,15 +2,7 @@
 
 int main()
 {
-    {
-        TestParams params{};
-        params.M = 768;
-        params.N = 768;
-        params.K = 3 * 128;
-        params.test_data_code_A = TestDataCode::tiled_numbers;
-        params.test_data_code_B = TestDataCode::identity;
-        gemm_test(params, {});
-    }
+    cutlass_synclog_setup();
 
     auto sized_tests = [] (uint32_t M, uint32_t N, uint32_t K, bool nontrivial_only)
     {
@@ -47,4 +39,5 @@ int main()
     sized_tests(768, 3 * 256, 3 * 40960, false);
 
     cudaDeviceSynchronize();
+    cutlass_synclog_print();
 }

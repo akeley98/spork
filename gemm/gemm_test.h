@@ -3,6 +3,9 @@
 #include <cuda_runtime.h>
 #include <stdint.h>
 
+void cutlass_synclog_setup();
+void cutlass_synclog_print();
+
 enum class TestDataCode
 {
     random = 0,

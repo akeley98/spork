@@ -3,12 +3,15 @@
 #include <algorithm>
 #include <stdlib.h>
 #include <stdio.h>
+#include <vector>
 
 #include "cute_gemm.h"
 #include "cutlass_gemm.h"
 #include "gemm_sm80.h"
 #include "gemm_sm90.h"
 #include "xgemm.h"
+
+#include "cutlass/arch/synclog.hpp"
 
 #ifndef CUBLAS_TEST_ENABLED
 #define CUBLAS_TEST_ENABLED 1
@@ -18,7 +21,7 @@
 #include <cublas_v2.h>
 #endif
 
-namespace {
+namespace gemm_test_impl {
 
 // Copied pseudo random number generation code.
 // http://www.jcgt.org/published/0009/03/02/
@@ -188,8 +191,6 @@ inline const char* algorithm_name(AlgorithmCode code)
     return "unknown";
 }
 
-}  // end namespace
-
 #define CUBLAS_CHECK(x) if (auto _cublas_status = x; _cublas_status != CUBLAS_STATUS_SUCCESS) { fprintf(stderr, "%s:%i cublas status %i\n", __FILE__, __LINE__, (int)_cublas_status); }
 
 void gemm_test(TestParams params, cudaStream_t stream)
@@ -299,11 +300,10 @@ void gemm_test(TestParams params, cudaStream_t stream)
     launch_device_compare_tensor(params, d_c_baseline, d_c_warmup, params.M, params.N, d_bitfield, stream);
 
     // Test loop
-    auto run_tests = [&] (AlgorithmCode algo)
+    auto run_tests = [&] (AlgorithmCode algo, uint32_t test_count)
     {
-        constexpr uint32_t test_count = 15;
-        float test_times[test_count] = {};
-        cudaEvent_t test_events[test_count + 1];
+        std::vector<float> test_times(test_count);
+        std::vector<cudaEvent_t> test_events(test_count + 1);
         auto new_event = [stream]
         {
             cudaEvent_t event{};
@@ -350,11 +350,11 @@ void gemm_test(TestParams params, cudaStream_t stream)
                percentile_25_ms, flops * 1e-12, (bold ? "\x1b[1m\x1b[32m" : ""), algorithm_name(algo));
         launch_device_compare_tensor(params, d_c_baseline, d_c_tested, params.M, params.N, d_bitfield, stream);
     };
-    run_tests(AlgorithmCode::mine);
+    run_tests(AlgorithmCode::mine, 15);
 #if CUBLAS_TEST_ENABLED
-    run_tests(AlgorithmCode::cublas);
+    run_tests(AlgorithmCode::cublas, 15);
 #endif
-    run_tests(AlgorithmCode::cutlass);
+    run_tests(AlgorithmCode::cutlass, 1);
 
     cudaFreeAsync(d_a, stream);
     cudaFreeAsync(d_a16, stream);
@@ -375,4 +375,27 @@ void gemm_test(TestParams params, cudaStream_t stream)
 #if CUBLAS_TEST_ENABLED
     cublasDestroy(cublasH);
 #endif
+}
+
+__global__ void device_synclog_print()
+{
+    cutlass::arch::synclog_print();
+}
+
+}  // end namespace
+
+void gemm_test(TestParams params, cudaStream_t stream)
+{
+    gemm_test_impl::gemm_test(params, stream);
+}
+
+void cutlass_synclog_setup()
+{
+    cutlass::arch::synclog_setup();
+}
+
+void cutlass_synclog_print()
+{
+    gemm_test_impl::device_synclog_print<<<1, 32, 0, cudaStreamLegacy>>>();
+    cudaStreamSynchronize(cudaStreamLegacy);
 }
