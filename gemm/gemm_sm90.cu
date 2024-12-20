@@ -155,7 +155,7 @@ struct TiledMultiplier
         return (SMEM_M / WG_M) * (SMEM_N / WG_N);
     }
 
-    DEVICE_INLINE uint32_t consumer_wg_index() const
+    DEVICE_INLINE static uint32_t consumer_wg_index()
     {
         DEVICE_ASSERT(threadIdx.x < 128u * consumer_wg_count());
         return threadIdx.x / 128u;
@@ -167,19 +167,19 @@ struct TiledMultiplier
     //
     // * if DEDICATED_PRODUCER_WG, one extra warpgroup is the producer
     // * if !DEDICATED_PRODUCER_WG, the 0th consumer is also the producer.
-    DEVICE_INLINE bool is_producer_wg() const
+    DEVICE_INLINE static bool is_producer_wg()
     {
         return (threadIdx.x / 128u) == (DEDICATED_PRODUCER_WG ? consumer_wg_count() : 0u);
     }
 
-    DEVICE_INLINE uint32_t get_wg_m_idx() const
+    DEVICE_INLINE static uint32_t get_wg_m_idx()
     {
         const uint32_t wg_index = threadIdx.x / 128u;
         DEVICE_ASSERT(wg_index < consumer_wg_count());
         return wg_index / (SMEM_N / WG_N);
     }
 
-    DEVICE_INLINE uint32_t get_wg_n_idx() const
+    DEVICE_INLINE static uint32_t get_wg_n_idx()
     {
         const uint32_t wg_index = threadIdx.x / 128u;
         return wg_index % (SMEM_N / WG_N);
@@ -223,14 +223,6 @@ struct TiledMultiplier
         asm volatile("mbarrier.arrive.shared::cta.b64 _, [%0];" :: "r"(smem_ptr_u32(&mbar)));
     }
 
-    static DEVICE_INLINE void mbar_wait(mbarrier_t& mbar, uint32_t parity)
-    {
-        asm volatile(
-                "{.reg.pred P1; BEFORE_WAIT: mbarrier.try_wait.parity.acquire.cta.shared::cta.b64 P1, [%0], %1; @P1 bra.uni WAIT_DONE; bra.uni BEFORE_WAIT; WAIT_DONE: }"
-        :
-        : "r"(smem_ptr_u32(&mbar)), "r"(parity));
-    }
-
     struct Shared
     {
         union {
@@ -241,6 +233,51 @@ struct TiledMultiplier
         mbarrier_t tile_read_mbar[RING_BUFFER_SIZE];
         mbarrier_t per_consumer_wg_mbar[consumer_wg_count()];
         mbarrier_t all_consumers_mbar;
+    };
+
+    // Helper to wait on an mbarrier while tracking the phase.
+    struct PhaseBits
+    {
+        unsigned tile_fill_bits : RING_BUFFER_SIZE = 0;
+        unsigned tile_read_bits : RING_BUFFER_SIZE = 0;
+        unsigned per_consumer_wg_bit : 1 = 0;
+        unsigned all_consumers_bit : 1 = 0;
+
+        DEVICE_INLINE void tile_fill_wait(uint32_t i, Shared& shared)
+        {
+            DEVICE_ASSERT(i < RING_BUFFER_SIZE);
+            mbar_wait(shared.tile_fill_mbar[i], (tile_fill_bits >> i) & 1u);
+            tile_fill_bits ^= 1u << i;
+        }
+
+        DEVICE_INLINE void tile_read_wait(uint32_t i, Shared& shared)
+        {
+            DEVICE_ASSERT(i < RING_BUFFER_SIZE);
+            mbar_wait(shared.tile_read_mbar[i], (tile_read_bits >> i) & 1u);
+            tile_read_bits ^= 1u << i;
+        }
+
+        DEVICE_INLINE void per_consumer_wg_wait(bool enable_wait, Shared& shared)
+        {
+            if (enable_wait) {
+                mbar_wait(shared.per_consumer_wg_mbar[consumer_wg_index()], per_consumer_wg_bit);
+            }
+            per_consumer_wg_bit ^= 1;
+        }
+
+        DEVICE_INLINE void all_consumers_wait(Shared& shared)
+        {
+            mbar_wait(shared.all_consumers_mbar, all_consumers_bit);
+            all_consumers_bit ^= 1;
+        }
+
+        static DEVICE_INLINE void mbar_wait(mbarrier_t& mbar, uint32_t parity)
+        {
+            asm volatile(
+                    "{.reg.pred P1; BEFORE_WAIT: mbarrier.try_wait.parity.acquire.cta.shared::cta.b64 P1, [%0], %1; @P1 bra.uni WAIT_DONE; bra.uni BEFORE_WAIT; WAIT_DONE: }"
+            :
+            : "r"(smem_ptr_u32(&mbar)), "r"(parity));
+        }
     };
 
 
@@ -536,7 +573,7 @@ struct TiledMultiplier
     // Requires smem-allocated ring buffer.
     template <bool ENABLE_PRODUCER_BRANCH, bool IS_CONSUMER>
     DEVICE_INLINE void cta_main_loop(uint32_t cta_m_offset, uint32_t cta_n_offset, const uint32_t cta_k_initial_offset,
-                                     Shared& shared) const
+                                     PhaseBits& phase_bits, Shared& shared) const
     {
         DEVICE_ASSERT(cta_m_offset % SMEM_M == 0);
         DEVICE_ASSERT(cta_n_offset % SMEM_N == 0);
@@ -559,8 +596,7 @@ struct TiledMultiplier
                     if (k_iter >= RING_BUFFER_SIZE) {
                         // After initial fill of ring buffer, we need to wait for the producers to signal
                         // they are done reading the tile before overwriting it.
-                        const uint32_t ring_usage_parity = ((k_iter - RING_BUFFER_SIZE) / RING_BUFFER_SIZE) % 2u;
-                        mbar_wait(shared.tile_read_mbar[ring_idx], ring_usage_parity);
+                        phase_bits.tile_read_wait(ring_idx, shared);
                     }
                     if (threadIdx.x % 128u < 32u) {
                         warp_async_load_block(shared.aliased_input_ring_buffer[ring_idx],
@@ -578,10 +614,9 @@ struct TiledMultiplier
 
         for (uint32_t k_iter = 0; k_iter < k_num_iters; ++k_iter) {
             const uint32_t ring_idx = k_iter % RING_BUFFER_SIZE;
-            const uint32_t ring_usage_parity = (k_iter / RING_BUFFER_SIZE) % 2u;
 
             if constexpr (IS_CONSUMER) {
-                mbar_wait(shared.tile_fill_mbar[ring_idx], ring_usage_parity);
+                phase_bits.tile_fill_wait(ring_idx, shared);
                 asm volatile("wgmma.fence.sync.aligned;  // GMMA");
                 const uint32_t wg_m_offset = get_wg_m_idx() * WG_M;
                 const uint32_t wg_n_offset = get_wg_n_idx() * WG_N;
@@ -620,7 +655,7 @@ struct TiledMultiplier
                 // After wgmma finished, issue all-to-all consumer warpgroups sync,
                 // indicating that SMEM is ready to be repurposed.
                 mbar_arrive(shared.all_consumers_mbar);
-                mbar_wait(shared.all_consumers_mbar, 0);
+                phase_bits.all_consumers_wait(shared);
 
                 // Now copy wgmma registers to shared memory C tile.
                 wg_accum_to_shared(shared, accum);
@@ -629,10 +664,12 @@ struct TiledMultiplier
                 // issues TMA copy from shared tile to global.
                 static_assert(WG_M == tensorMap_c_box_m);
                 static_assert(WG_N == tensorMap_c_box_n);
+
+                const bool elected = threadIdx.x % 128u < 32 && elect_one_sync();
                 asm volatile("fence.proxy.async;");
                 mbar_arrive(shared.per_consumer_wg_mbar[consumer_wg_index()]);
-                if (threadIdx.x % 128u == 0) {
-                    mbar_wait(shared.per_consumer_wg_mbar[consumer_wg_index()], 0);
+                phase_bits.per_consumer_wg_wait(elected, shared);
+                if (elected) {
                     asm volatile(
                     "cp.reduce.async.bulk.tensor.2d.global.shared::cta.add.tile.bulk_group"
                     " [%0, {%1, %2}], [%3];"
@@ -694,14 +731,15 @@ struct TiledMultiplier
         cta_first_time_init(smem);
         __syncthreads();
 
+        PhaseBits phase_bits{};
         if constexpr (!DEDICATED_PRODUCER_WG) {
-            cta_main_loop<true, true>(cta_m_offset, cta_n_offset, cta_k_offset, smem);
+            cta_main_loop<true, true>(cta_m_offset, cta_n_offset, cta_k_offset, phase_bits, smem);
         }
         else if (is_producer_wg()) {
-            cta_main_loop<true, false>(cta_m_offset, cta_n_offset, cta_k_offset, smem);
+            cta_main_loop<true, false>(cta_m_offset, cta_n_offset, cta_k_offset, phase_bits, smem);
         }
         else {
-            cta_main_loop<false, true>(cta_m_offset, cta_n_offset, cta_k_offset, smem);
+            cta_main_loop<false, true>(cta_m_offset, cta_n_offset, cta_k_offset, phase_bits, smem);
         }
     }
 
