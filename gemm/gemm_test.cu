@@ -346,8 +346,12 @@ void gemm_test(TestParams params, cudaStream_t stream)
         }
         cudaEventDestroy(test_events[test_count]);
         std::sort(&test_times[0], &test_times[test_count]);
-        const double percentile_25_ms = test_times[test_count / 4];
-        const double flops = double(params.M) * params.N * params.K * 2.0 * 1000.0 / percentile_25_ms;
+        double samples_ms = 0.0;
+        const int sample_count = (test_count + 1) / 2;
+        for (int i = 0; i < sample_count; ++i) {
+            samples_ms += test_times[test_count/4 + i];  // We time based on the IQR.
+        }
+        const double flops = sample_count * double(params.M) * params.N * params.K * 2.0 * 1000.0 / samples_ms;
         const bool bold = double(params.M) * params.N * params.K >= 1e11;
         int color_code = 0;
         if (bold) {
@@ -356,12 +360,12 @@ void gemm_test(TestParams params, cudaStream_t stream)
         printf("TestParams{%u,%u,%u, %i,%i} %.3g ms %.3g \x1b[%im\x1b[%imTFLOPS\x1b[0m (%s)\n",
                params.M, params.N, params.K,
                static_cast<int>(params.test_data_code_A), static_cast<int>(params.test_data_code_B),
-               percentile_25_ms, flops * 1e-12, bold, color_code, algorithm_name(algo));
+               samples_ms / sample_count, flops * 1e-12, bold, color_code, algorithm_name(algo));
         launch_device_compare_tensor(params, d_c_baseline, d_c_tested, params.M, params.N, d_bitfield, stream);
     };
-    run_tests(AlgorithmCode::mine, 15);
+    run_tests(AlgorithmCode::mine, 48);
 #if CUBLAS_TEST_ENABLED
-    run_tests(AlgorithmCode::cublas, 15);
+    run_tests(AlgorithmCode::cublas, 16);
 #endif
 #if CUTLASS_TEST_ENABLED
     run_tests(AlgorithmCode::cutlass, 1);

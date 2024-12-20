@@ -844,17 +844,6 @@ void matmul_sm90(GPU_Tensors t, cudaStream_t stream)
 {
     using namespace gemm_sm90;
 
-    constexpr uint32_t smem_m = 192;
-    constexpr uint32_t smem_n = 192;
-    constexpr uint32_t smem_k = 32;
-    constexpr uint32_t wg_m = 64;
-    constexpr uint32_t wg_n = 96;
-    constexpr uint32_t wg_k = 8;
-    constexpr uint32_t cta_k_max_tiles = 8192u / smem_k;
-    constexpr uint32_t cta_modulus = 4;
-    constexpr uint32_t ring_buffer_size = 4;
-    constexpr bool dedicated_producer = false;
-
     const uint32_t size_m = t.M;
     const uint32_t size_n = t.N;
     const uint32_t size_k = t.K;
@@ -867,6 +856,17 @@ void matmul_sm90(GPU_Tensors t, cudaStream_t stream)
     assert(uintptr_t(t.b) % 16 == 0);
     assert(uintptr_t(t.c) % 16 == 0);
     assert(t.K % 4 == 0);
+
+    constexpr uint32_t smem_m = 256;
+    constexpr uint32_t smem_n = 128;
+    constexpr uint32_t smem_k = 32;
+    constexpr uint32_t wg_m = 64;
+    constexpr uint32_t wg_n = 128;
+    constexpr uint32_t wg_k = 8;
+    constexpr uint32_t cta_k_max_tiles = 16384u / smem_k;
+    constexpr uint32_t cta_modulus = 4;
+    constexpr uint32_t ring_buffer_size = 4;
+    constexpr bool dedicated_producer = true;
 
     using Multiplier = TiledMultiplier<smem_m, smem_n, smem_k, wg_m, wg_n, wg_k,
                                        cta_k_max_tiles, cta_modulus, ring_buffer_size, dedicated_producer>;
