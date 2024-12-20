@@ -595,11 +595,14 @@ struct TiledMultiplier
                 asm volatile("wgmma.commit_group.sync.aligned;  // GMMA");
 
                 // Wait for previous iteration's wgmma to retire, then signal that the tiles read from
-                // the previous iteration may be overwritten.
+                // the previous iteration may be overwritten. We skip this signalling, however, if it's
+                // known that the tile will not be filled (due to reaching the iteration count).
                 if (k_iter >= 1) {
                     asm volatile("wgmma.wait_group.sync.aligned 1;  // GMMA");
-                    mbar_arrive(shared.tile_read_mbar[(k_iter - 1) % RING_BUFFER_SIZE]);
-                    static_assert(RING_BUFFER_SIZE >= 2);
+                    if (k_iter + RING_BUFFER_SIZE - 1 < k_num_iters) {
+                        mbar_arrive(shared.tile_read_mbar[(k_iter - 1) % RING_BUFFER_SIZE]);
+                        static_assert(RING_BUFFER_SIZE >= 2);
+                    }
                 }
             }
 
