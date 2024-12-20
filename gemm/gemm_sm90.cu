@@ -191,31 +191,74 @@ struct TiledMultiplier
         return (DEDICATED_PRODUCER_WG + consumer_wg_count()) * 128;
     }
 
-    // If output matrix is cut into (SMEM_M, SMEM_N) blocks, one CTA k-group handles one matrix block.
-    // One CTA k-group cooperates to fill the block using split-k strategy (reduce into output memory),
-    // except if k_cta is 1.
-    static __host__ DEVICE_INLINE uint32_t m_cta(uint32_t size_m)
+    // If output matrix is cut into (SMEM_M, SMEM_N) blocks, one CTA work item handles one output matrix block,
+    // unless k_cta_items > 1; in that case, k_cta_items-many CTA items cooperate to fill the block using
+    // split-k strategy (reduce into output memory).
+    struct CtaWorkItem
+    {
+        uint32_t m_offset, n_offset, k_offset;
+    };
+
+    static __host__ DEVICE_INLINE uint32_t m_cta_items(uint32_t size_m)
     {
         return (size_m + SMEM_M - 1) / SMEM_M;
     }
 
-    static __host__ DEVICE_INLINE uint32_t n_cta(uint32_t size_n)
+    static __host__ DEVICE_INLINE uint32_t n_cta_items(uint32_t size_n)
     {
         return (size_n + SMEM_N - 1) / SMEM_N;
     }
 
-    static __host__ DEVICE_INLINE uint32_t k_cta(uint32_t size_k)  // size of CTA k-group
+    static __host__ DEVICE_INLINE uint32_t k_cta_items(uint32_t size_k)
     {
         constexpr uint32_t k_divisor = SMEM_K * K_MAX_TILES;
         return (size_k + k_divisor - 1) / k_divisor;
     }
 
+    static __host__ DEVICE_INLINE uint32_t num_cta_items(uint32_t size_m, uint32_t size_n, uint32_t size_k)
+    {
+        return m_cta_items(size_m) * n_cta_items(size_n) * k_cta_items(size_k);
+    }
+
+    // Linearized indexing of all CtaWorkItem
+    DEVICE_INLINE CtaWorkItem cta_get_item(uint32_t item_idx) const
+    {
+        DEVICE_ASSERT(item_idx < num_cta_items(size_m, size_n, size_k));
+        const uint32_t cta_rows = m_cta_items(size_m);
+        const uint32_t cta_cols = n_cta_items(size_n);
+        const uint32_t num_output_block_matrix = cta_rows * cta_cols;
+        const uint32_t cta_k_group = k_cta_items(size_k);
+        const uint32_t cta_col_remainder = cta_cols % CTA_MODULUS;
+        const uint32_t superblock_count = cta_cols / CTA_MODULUS;
+        const uint32_t superblock_cta_count = cta_rows * CTA_MODULUS;
+        const uint32_t superblock_idx = (item_idx % num_output_block_matrix) / superblock_cta_count;
+        const uint32_t cta_idx_in_superblock = (item_idx % num_output_block_matrix) % superblock_cta_count;
+        const uint32_t cta_k_idx = item_idx / num_output_block_matrix;
+        const uint32_t cta_k_offset = cta_k_idx * (SMEM_K * K_MAX_TILES);
+
+        uint32_t cta_m_idx, cta_n_idx;
+
+        if (superblock_idx < superblock_count) {
+            cta_m_idx = cta_idx_in_superblock / CTA_MODULUS;
+            cta_n_idx = cta_idx_in_superblock % CTA_MODULUS + CTA_MODULUS * superblock_idx;
+        }
+        else {
+            DEVICE_ASSERT(superblock_idx == superblock_count);
+            cta_m_idx = cta_idx_in_superblock / cta_col_remainder;
+            cta_n_idx = cta_idx_in_superblock % cta_col_remainder + CTA_MODULUS * superblock_idx;
+        }
+        DEVICE_ASSERT(cta_m_idx < cta_rows);
+        DEVICE_ASSERT(cta_n_idx < cta_cols);
+
+        return CtaWorkItem{cta_m_idx * SMEM_M, cta_n_idx * SMEM_N, cta_k_offset};
+    }
+
     static __host__ DEVICE_INLINE bool using_cp_reduce(uint32_t size_k)
     {
 #ifndef __CUDA_ARCH__
-        assert(k_cta(size_k) != 0);
+        assert(k_cta_items(size_k) != 0);
 #endif
-        return k_cta(size_k) != 1;
+        return k_cta_items(size_k) != 1;
     }
 
     static DEVICE_INLINE void mbar_arrive(mbarrier_t& mbar)
@@ -568,13 +611,18 @@ struct TiledMultiplier
     }
 
     // CTA cooperates to fill or add to the output matrix block of size (SMEM_M, SMEM_N) starting at
-    // (cta_m_offset, cta_n_offset); we process up to K_MAX_TILES input blocks on the K dimension starting
-    // at cta_k_initial_offset.
+    // (cta_item.m_offset, cta_item.n_offset); we process up to K_MAX_TILES input blocks on the K dimension starting
+    // at cta_item.k_offset.
     // Requires smem-allocated ring buffer.
+    //
+    // We assume that syncthreads is run between calls to this.
     template <bool ENABLE_PRODUCER_BRANCH, bool IS_CONSUMER>
-    DEVICE_INLINE void cta_main_loop(uint32_t cta_m_offset, uint32_t cta_n_offset, const uint32_t cta_k_initial_offset,
-                                     PhaseBits& phase_bits, Shared& shared) const
+    DEVICE_INLINE void cta_process_item(CtaWorkItem cta_item, PhaseBits& phase_bits, Shared& shared) const
     {
+        const uint32_t cta_m_offset = cta_item.m_offset;
+        const uint32_t cta_n_offset = cta_item.n_offset;
+        const uint32_t cta_k_initial_offset = cta_item.k_offset;
+
         DEVICE_ASSERT(cta_m_offset % SMEM_M == 0);
         DEVICE_ASSERT(cta_n_offset % SMEM_N == 0);
         DEVICE_ASSERT(cta_k_initial_offset % (SMEM_K * K_MAX_TILES) == 0);
@@ -692,54 +740,34 @@ struct TiledMultiplier
         }
     }
 
+    template <bool ENABLE_PRODUCER_BRANCH, bool IS_CONSUMER>
+    DEVICE_INLINE void cta_main_loop(PhaseBits& phase_bits, Shared& smem) const
+    {
+        const uint32_t num_items = num_cta_items(size_m, size_n, size_k);
+        for (uint32_t item_idx = blockIdx.x; item_idx < num_items; item_idx += gridDim.x) {
+            __syncthreads();
+            cta_process_item<ENABLE_PRODUCER_BRANCH, IS_CONSUMER>(cta_get_item(item_idx), phase_bits, smem);
+        }
+    }
+
     DEVICE_INLINE void kernel_main()
     {
         DEVICE_ASSERT(blockDim.x == cta_size());
 
-        const uint32_t cta_rows = m_cta(size_m);
-        const uint32_t cta_cols = n_cta(size_n);
-        const uint32_t num_output_block_matrix = cta_rows * cta_cols;
-        const uint32_t cta_k_group = k_cta(size_k);
-        const uint32_t cta_col_remainder = cta_cols % CTA_MODULUS;
-        const uint32_t superblock_count = cta_cols / CTA_MODULUS;
-        const uint32_t superblock_cta_count = cta_rows * CTA_MODULUS;
-        const uint32_t superblock_idx = (blockIdx.x % num_output_block_matrix) / superblock_cta_count;
-        const uint32_t cta_index_in_superblock = (blockIdx.x % num_output_block_matrix) % superblock_cta_count;
-        const uint32_t cta_k_idx = blockIdx.x / num_output_block_matrix;
-        const uint32_t cta_k_offset = cta_k_idx * (SMEM_K * K_MAX_TILES);
-
-        DEVICE_ASSERT(cta_k_group * num_output_block_matrix == gridDim.x);
-
-        uint32_t cta_m_idx, cta_n_idx;
-
-        if (superblock_idx < superblock_count) {
-            cta_m_idx = cta_index_in_superblock / CTA_MODULUS;
-            cta_n_idx = cta_index_in_superblock % CTA_MODULUS + CTA_MODULUS * superblock_idx;
-        }
-        else {
-            DEVICE_ASSERT(superblock_idx == superblock_count);
-            cta_m_idx = cta_index_in_superblock / cta_col_remainder;
-            cta_n_idx = cta_index_in_superblock % cta_col_remainder + CTA_MODULUS * superblock_idx;
-        }
-        DEVICE_ASSERT(cta_m_idx < cta_rows);
-        DEVICE_ASSERT(cta_n_idx < cta_cols);
-
         extern __shared__ char raw_smem[];
         Shared& smem = *reinterpret_cast<Shared*>(raw_smem);
-        const auto cta_m_offset = cta_m_idx * SMEM_M, cta_n_offset = cta_n_idx * SMEM_N;
+        PhaseBits phase_bits{};
 
         cta_first_time_init(smem);
-        __syncthreads();
 
-        PhaseBits phase_bits{};
         if constexpr (!DEDICATED_PRODUCER_WG) {
-            cta_main_loop<true, true>(cta_m_offset, cta_n_offset, cta_k_offset, phase_bits, smem);
+            cta_main_loop<true, true>(phase_bits, smem);
         }
         else if (is_producer_wg()) {
-            cta_main_loop<true, false>(cta_m_offset, cta_n_offset, cta_k_offset, phase_bits, smem);
+            cta_main_loop<true, false>(phase_bits, smem);
         }
         else {
-            cta_main_loop<false, true>(cta_m_offset, cta_n_offset, cta_k_offset, phase_bits, smem);
+            cta_main_loop<false, true>(phase_bits, smem);
         }
     }
 
@@ -787,7 +815,9 @@ struct TiledMultiplier
             cudaMemsetAsync(c, 0, size_m * size_n * sizeof(*c), stream);
         }
 
-        const uint32_t grid = m_cta(size_m) * n_cta(size_n) * k_cta(size_k);
+        const uint32_t max_grid = 132;
+        const uint32_t num_cta_items = m_cta_items(size_m) * n_cta_items(size_n) * k_cta_items(size_k);
+        const uint32_t grid = num_cta_items < max_grid ? num_cta_items : max_grid;
         const uint32_t block = cta_size();
         const uint32_t smem = smem_size();
 
