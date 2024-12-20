@@ -27,6 +27,7 @@ int main()
         }
     };
 
+    sized_tests(256, 512, 128, true);
     sized_tests(768, 768, 3 * 128, false);
     sized_tests(768, 7680, 3 * 128, false);
     sized_tests(7680, 768, 3 * 128, false);
