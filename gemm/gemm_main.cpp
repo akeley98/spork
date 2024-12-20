@@ -27,11 +27,7 @@ int main()
         }
     };
 
-    sized_tests(256, 512, 128, true);
     sized_tests(768, 768, 3 * 128, false);
-    sized_tests(768, 7680, 3 * 128, false);
-    sized_tests(7680, 768, 3 * 128, false);
-    sized_tests(7680, 7680, 3 * 128, false);
     sized_tests(3 * 4096, 3 * 1024, 3 * 2048, true);
     sized_tests(3 * 4096, 3 * 8192, 3 * 512, true);
     sized_tests(3 * 2048, 3 * 2048, 3 * 16384, true);

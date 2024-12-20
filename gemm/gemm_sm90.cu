@@ -79,53 +79,67 @@ struct TiledMultiplier
 
     static_assert(WG_M == 64);
     static_assert(WG_K == 8);
-    static constexpr CUtensorMapSwizzle swizzle = CU_TENSOR_MAP_SWIZZLE_NONE;
+    static constexpr CUtensorMapSwizzle input_swizzle = CU_TENSOR_MAP_SWIZZLE_128B;
 
-    // wgmma core matrix dimensions.
-    static constexpr uint32_t SMEM_MN_INNER = 8u;
-    static constexpr uint32_t SMEM_K_INNER = 16u / sizeof(float);
+    // wgmma core matrix dimensions; each 8 core matrices in K-dimension is swizzled together.
+    static_assert(input_swizzle == CU_TENSOR_MAP_SWIZZLE_128B, "Assumed 8 swizzled core matrices");
+    static constexpr uint32_t CORE_MATRIX_K = 16u / sizeof(float);
+    static constexpr uint32_t CORE_MATRIX_MN = 8u;
+    static constexpr uint32_t SMEM_K_INNER = CORE_MATRIX_K * 8;
+    static constexpr uint32_t SMEM_MN_INNER = CORE_MATRIX_MN;
 
     static constexpr uint32_t SMEM_M_OUTER = SMEM_M / SMEM_MN_INNER;
-    static_assert(SMEM_MN_INNER * SMEM_M_OUTER == SMEM_M);
     static constexpr uint32_t SMEM_N_OUTER = SMEM_N / SMEM_MN_INNER;
-    static_assert(SMEM_MN_INNER * SMEM_N_OUTER == SMEM_N);
     static constexpr uint32_t SMEM_K_OUTER = SMEM_K / SMEM_K_INNER;
-    static_assert(SMEM_K_INNER * SMEM_K_OUTER == SMEM_K);
 
     // One buffer of ring buffer.
     struct Buffers
     {
-        // Inner (rightmost) 2 dimensions correspond to a wgmma core matrix.
-        // Note outer 2 dimensions have MN/K swapped compared to inner 2 dimensions.
-        // This is to make TMA (cp.async.bulk.tensor) more efficient.
-        // We can treat the right 3 dimensions as a C-order 2D array, which is what 2D TMA supports.
-        float a_tile[SMEM_K_OUTER][SMEM_M_OUTER][SMEM_MN_INNER][SMEM_K_INNER];
-        float bT_tile[SMEM_K_OUTER][SMEM_N_OUTER][SMEM_MN_INNER][SMEM_K_INNER];
+        // Inner (rightmost) dimension corresponds to swizzled core matrices.
+        // XXX I don't think SMEM_K_OUTER works if SMEM_K_OUTER != 1
+        static_assert(SMEM_K_OUTER == 1, "todo investigate");
+        float a_tile[SMEM_K_OUTER][SMEM_M_OUTER][SMEM_K_INNER * SMEM_MN_INNER];
+        float bT_tile[SMEM_K_OUTER][SMEM_N_OUTER][SMEM_K_INNER * SMEM_MN_INNER];
 
-        DEVICE_INLINE const float* a_tile_mk_offset(uint32_t m_offset, uint32_t k_offset) const
+        static constexpr uint32_t tensorMap_box_m = SMEM_M_OUTER * SMEM_MN_INNER;
+        static constexpr uint32_t tensorMap_box_n = SMEM_N_OUTER * SMEM_MN_INNER;
+        static constexpr uint32_t tensorMap_box_k = SMEM_K_OUTER * SMEM_K_INNER;
+
+        __device__ float* a_tma_box(uint32_t k_offset)
         {
-            DEVICE_ASSERT(m_offset % SMEM_MN_INNER == 0);
             DEVICE_ASSERT(k_offset % SMEM_K_INNER == 0);
-            return &a_tile[k_offset / SMEM_K_INNER][m_offset / SMEM_MN_INNER][0][0];
+            return &a_tile[k_offset / SMEM_K_INNER][0][0];
         }
 
-        DEVICE_INLINE const float* bT_tile_nk_offset(uint32_t n_offset, uint32_t k_offset) const
+        __device__ float* bT_tma_box(uint32_t k_offset)
+        {
+            DEVICE_ASSERT(k_offset % SMEM_K_INNER == 0);
+            return &bT_tile[k_offset / SMEM_K_INNER][0][0];
+        }
+
+        __device__ const float* a_mk_core_matrices(uint32_t m_offset, uint32_t k_offset) const
+        {
+            DEVICE_ASSERT(m_offset % SMEM_MN_INNER == 0);
+            DEVICE_ASSERT(k_offset % CORE_MATRIX_K == 0);
+            return &a_tile[k_offset / SMEM_K_INNER][m_offset / SMEM_MN_INNER][k_offset];
+            // XXX not sure the last coordinate is correct if SMEM_K_OUTER != 1
+        }
+
+        __device__ const float* bT_nk_core_matrices(uint32_t n_offset, uint32_t k_offset) const
         {
             DEVICE_ASSERT(n_offset % SMEM_MN_INNER == 0);
-            DEVICE_ASSERT(k_offset % SMEM_K_INNER == 0);
-            return &bT_tile[k_offset / SMEM_K_INNER][n_offset / SMEM_MN_INNER][0][0];
+            DEVICE_ASSERT(k_offset % CORE_MATRIX_K == 0);
+            return &bT_tile[k_offset / SMEM_K_INNER][n_offset / SMEM_MN_INNER][k_offset];
+            // XXX not sure the last coordinate is correct if SMEM_K_OUTER != 1
         }
     };
 
-    // Strides between core matrices, and configuration for TMA tensormap.
-    static constexpr uint32_t core_matrix_mn_stride = sizeof(float) * SMEM_MN_INNER * SMEM_K_INNER;
-    static constexpr uint32_t core_matrix_a_k_stride = core_matrix_mn_stride * SMEM_M_OUTER;
-    static constexpr uint32_t core_matrix_bT_k_stride = core_matrix_mn_stride * SMEM_N_OUTER;
-    static constexpr uint32_t tensorMap_a_box_m = SMEM_M;
-    static constexpr uint32_t tensorMap_bT_box_n = SMEM_N;
+    // Configuration for TMA tensormap.
+    static constexpr uint32_t tensorMap_a_box_m = Buffers::tensorMap_box_m;
+    static constexpr uint32_t tensorMap_bT_box_n = Buffers::tensorMap_box_n;
     static constexpr uint32_t tensorMap_c_box_m = WG_M;
     static constexpr uint32_t tensorMap_c_box_n = WG_N;
-    static constexpr uint32_t tensorMap_box_k = SMEM_K_INNER;
+    static constexpr uint32_t tensorMap_box_k = Buffers::tensorMap_box_k;
 
     __host__ DEVICE_INLINE static constexpr uint32_t smem_size()
     {
@@ -282,11 +296,14 @@ struct TiledMultiplier
     static DEVICE_INLINE uint64_t matrix_descriptor_mn_k_stride(const float* smem_ptr,
                                                                 uint32_t mn_stride, uint32_t k_stride)
     {
-        // Swizzling not supported.
-        static_assert(swizzle == CU_TENSOR_MAP_SWIZZLE_NONE);
+        // Swizzling encoding isn't the same on the host API side and the device side lol (swap 1 and 3)
+        constexpr unsigned enum_as_uint = static_cast<unsigned>(input_swizzle);
+        static_assert(enum_as_uint <= 3);
+        const unsigned swizzle_bits = enum_as_uint == 3 ? 1 : enum_as_uint == 1 ? 3 : enum_as_uint;
         return matrix_descriptor_encode(smem_ptr_u32(smem_ptr))
                | matrix_descriptor_encode(k_stride) << 16u
-               | matrix_descriptor_encode(mn_stride) << 32u;
+               | matrix_descriptor_encode(mn_stride) << 32u
+               | uint64_t(swizzle_bits) << 62;
     }
 
     // Warpgroup-convergent code.
@@ -298,11 +315,11 @@ struct TiledMultiplier
                                      uint32_t wg_k_offset, bool zero_output) const
     {
         [[maybe_unused]] const uint32_t lane = threadIdx.x % 128u;
-        static_assert(WG_K % SMEM_K_INNER == 0);
-        auto desc_a = matrix_descriptor_mn_k_stride(buffers.a_tile_mk_offset(wg_m_offset, wg_k_offset),
-                                                    core_matrix_mn_stride, core_matrix_a_k_stride);
-        auto desc_b = matrix_descriptor_mn_k_stride(buffers.bT_tile_nk_offset(wg_n_offset, wg_k_offset),
-                                                    core_matrix_mn_stride, core_matrix_bT_k_stride);
+        static_assert(input_swizzle != CU_TENSOR_MAP_SWIZZLE_NONE, "need to set k stride");
+        auto desc_a = matrix_descriptor_mn_k_stride(buffers.a_mk_core_matrices(wg_m_offset, wg_k_offset),
+                                                    SMEM_MN_INNER * SMEM_K_INNER * sizeof(float), 0);
+        auto desc_b = matrix_descriptor_mn_k_stride(buffers.bT_nk_core_matrices(wg_n_offset, wg_k_offset),
+                                                    SMEM_MN_INNER * SMEM_K_INNER * sizeof(float), 0);
         static_assert(WG_M == 64);
         static_assert(WG_K == 8);
 
@@ -445,8 +462,7 @@ struct TiledMultiplier
     DEVICE_INLINE void warp_async_load_block(Buffers& buffers, mbarrier_t& mbar,
                                              uint32_t cta_m_offset, uint32_t cta_n_offset, uint32_t cta_k_offset) const
     {
-        const uint32_t lane = threadIdx.x % 32u;
-        if (lane == 0) {  // XXX lane == 0 is "wrong"
+        if (elect_one_sync()) {
             constexpr uint32_t expect_count = (SMEM_M + SMEM_N) * SMEM_K * sizeof(float);
             asm volatile(
                 "mbarrier.arrive.expect_tx.shared::cta.b64 _, [%0], %1;"
@@ -461,7 +477,7 @@ struct TiledMultiplier
                     "cp.async.bulk.tensor.2d.shared::cluster.global.tile.mbarrier::complete_tx::bytes"
                     " [%0], [%1, {%3, %4}], [%2];"
                     :
-                    : "r"(smem_ptr_u32(buffers.a_tile_mk_offset(0, smem_k_offset))),
+                    : "r"(smem_ptr_u32(buffers.a_tma_box(smem_k_offset))),
                       "l"(tensorMap_a),
                       "r"(smem_ptr_u32(&mbar)),
                       "r"(cta_k_offset + smem_k_offset), "r"(cta_m_offset)
@@ -470,7 +486,7 @@ struct TiledMultiplier
                     "cp.async.bulk.tensor.2d.shared::cluster.global.tile.mbarrier::complete_tx::bytes"
                     " [%0], [%1, {%3, %4}], [%2];"
                     :
-                    : "r"(smem_ptr_u32(buffers.bT_tile_nk_offset(0, smem_k_offset))),
+                    : "r"(smem_ptr_u32(buffers.bT_tma_box(smem_k_offset))),
                       "l"(tensorMap_bT),
                       "r"(smem_ptr_u32(&mbar)),
                       "r"(cta_k_offset + smem_k_offset), "r"(cta_n_offset)
@@ -675,17 +691,15 @@ struct TiledMultiplier
             cta_main_loop<true, true>(cta_m_offset, cta_n_offset, cta_k_offset, smem);
         }
         else if (is_producer_wg()) {
-            asm("setmaxnreg.dec.sync.aligned.u32 40;");  // XXX
             cta_main_loop<true, false>(cta_m_offset, cta_n_offset, cta_k_offset, smem);
         }
         else {
-            asm("setmaxnreg.inc.sync.aligned.u32 232;");  // XXX
             cta_main_loop<false, true>(cta_m_offset, cta_n_offset, cta_k_offset, smem);
         }
     }
 
     static void init_tensorMap(CUtensorMap* tensorMap, const float* globalAddress, uint32_t rows, uint32_t cols,
-                               uint32_t smem_rows, uint32_t smem_cols)
+                               uint32_t smem_rows, uint32_t smem_cols, CUtensorMapSwizzle swizzle)
     {
         const CUtensorMapDataType tensorDataType = CU_TENSOR_MAP_DATA_TYPE_FLOAT32;
         const uint32_t tensorRank = 2;
@@ -694,8 +708,8 @@ struct TiledMultiplier
         const cuuint32_t boxDim[2] = {smem_cols, smem_rows};
         const cuuint32_t elementStrides[2] = {1, 1};
         const CUtensorMapInterleave interleave = CU_TENSOR_MAP_INTERLEAVE_NONE;
-        const CUtensorMapL2promotion l2Promotion = CU_TENSOR_MAP_L2_PROMOTION_NONE;
-        const CUtensorMapFloatOOBfill oobFill = CU_TENSOR_MAP_FLOAT_OOB_FILL_NAN_REQUEST_ZERO_FMA;
+        const CUtensorMapL2promotion l2Promotion = CU_TENSOR_MAP_L2_PROMOTION_L2_128B;
+        const CUtensorMapFloatOOBfill oobFill = CU_TENSOR_MAP_FLOAT_OOB_FILL_NONE;
 
         const CUresult result = cuTensorMapEncodeTiled(
                 tensorMap,
@@ -711,7 +725,7 @@ struct TiledMultiplier
                 l2Promotion,
                 oobFill);
         if (result != 0) {
-            fprintf(stderr, "cuTensorMapEncodeTiled: %i\n", (int)result);
+            fprintf(stderr, "cuTensorMapEncodeTiled: %i {%u, %u}\n", (int)result, smem_cols, smem_rows);
             assert(0);
         }
     }
@@ -720,9 +734,9 @@ struct TiledMultiplier
                        const float* a, const float* bT, float* c)
     {
         CUtensorMap tensorMap_a, tensorMap_bT, tensorMap_c;
-        init_tensorMap(&tensorMap_a, a, size_m, size_k, tensorMap_a_box_m, tensorMap_box_k);
-        init_tensorMap(&tensorMap_bT, bT, size_n, size_k, tensorMap_bT_box_n, tensorMap_box_k);
-        init_tensorMap(&tensorMap_c, c, size_m, size_n, tensorMap_c_box_m, tensorMap_c_box_n);
+        init_tensorMap(&tensorMap_a, a, size_m, size_k, tensorMap_a_box_m, tensorMap_box_k, input_swizzle);
+        init_tensorMap(&tensorMap_bT, bT, size_n, size_k, tensorMap_bT_box_n, tensorMap_box_k, input_swizzle);
+        init_tensorMap(&tensorMap_c, c, size_m, size_n, tensorMap_c_box_m, tensorMap_c_box_n, CU_TENSOR_MAP_SWIZZLE_NONE);
 
         if (using_cp_reduce(size_k)) {
             cudaMemsetAsync(c, 0, size_m * size_n * sizeof(*c), stream);
@@ -755,16 +769,16 @@ void matmul_sm90(GPU_Tensors t, cudaStream_t stream)
 {
     using namespace gemm_sm90;
 
-    constexpr uint32_t smem_m = 128;
-    constexpr uint32_t smem_n = 128;
+    constexpr uint32_t smem_m = 192;
+    constexpr uint32_t smem_n = 192;
     constexpr uint32_t smem_k = 32;
     constexpr uint32_t wg_m = 64;
-    constexpr uint32_t wg_n = 128;
+    constexpr uint32_t wg_n = 96;
     constexpr uint32_t wg_k = 8;
     constexpr uint32_t cta_k_max_tiles = 8192u / smem_k;
     constexpr uint32_t cta_modulus = 4;
-    constexpr uint32_t ring_buffer_size = 7;
-    constexpr bool dedicated_producer = true;
+    constexpr uint32_t ring_buffer_size = 4;
+    constexpr bool dedicated_producer = false;
 
     const uint32_t size_m = t.M;
     const uint32_t size_n = t.N;

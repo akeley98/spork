@@ -21,6 +21,10 @@
 #include <cublas_v2.h>
 #endif
 
+#ifndef CUTLASS_TEST_ENABLED
+#define CUTLASS_TEST_ENABLED 1
+#endif
+
 namespace gemm_test_impl {
 
 // Copied pseudo random number generation code.
@@ -345,16 +349,23 @@ void gemm_test(TestParams params, cudaStream_t stream)
         const double percentile_25_ms = test_times[test_count / 4];
         const double flops = double(params.M) * params.N * params.K * 2.0 * 1000.0 / percentile_25_ms;
         const bool bold = double(params.M) * params.N * params.K >= 1e11;
-        printf("TestParams{%u,%u,%u, %i,%i} %.3g ms %.3g %sTFLOPS\x1b[0m (%s)\n", params.M, params.N, params.K,
+        int color_code = 0;
+        if (bold) {
+            color_code = 31 + int(algo);
+        }
+        printf("TestParams{%u,%u,%u, %i,%i} %.3g ms %.3g \x1b[%im\x1b[%imTFLOPS\x1b[0m (%s)\n",
+               params.M, params.N, params.K,
                static_cast<int>(params.test_data_code_A), static_cast<int>(params.test_data_code_B),
-               percentile_25_ms, flops * 1e-12, (bold ? "\x1b[1m\x1b[32m" : ""), algorithm_name(algo));
+               percentile_25_ms, flops * 1e-12, bold, color_code, algorithm_name(algo));
         launch_device_compare_tensor(params, d_c_baseline, d_c_tested, params.M, params.N, d_bitfield, stream);
     };
     run_tests(AlgorithmCode::mine, 15);
 #if CUBLAS_TEST_ENABLED
     run_tests(AlgorithmCode::cublas, 15);
 #endif
+#if CUTLASS_TEST_ENABLED
     run_tests(AlgorithmCode::cutlass, 1);
+#endif
 
     cudaFreeAsync(d_a, stream);
     cudaFreeAsync(d_a16, stream);
