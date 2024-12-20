@@ -193,7 +193,7 @@ struct TiledMultiplier
 
     // If output matrix is cut into (SMEM_M, SMEM_N) blocks, one CTA k-group handles one matrix block.
     // One CTA k-group cooperates to fill the block using split-k strategy (reduce into output memory),
-    // except if k_cta is 0.
+    // except if k_cta is 1.
     static __host__ DEVICE_INLINE uint32_t m_cta(uint32_t size_m)
     {
         return (size_m + SMEM_M - 1) / SMEM_M;
@@ -569,7 +569,7 @@ struct TiledMultiplier
 
     // CTA cooperates to fill or add to the output matrix block of size (SMEM_M, SMEM_N) starting at
     // (cta_m_offset, cta_n_offset); we process up to K_MAX_TILES input blocks on the K dimension starting
-    // at cta_k_offset.
+    // at cta_k_initial_offset.
     // Requires smem-allocated ring buffer.
     template <bool ENABLE_PRODUCER_BRANCH, bool IS_CONSUMER>
     DEVICE_INLINE void cta_main_loop(uint32_t cta_m_offset, uint32_t cta_n_offset, const uint32_t cta_k_initial_offset,
