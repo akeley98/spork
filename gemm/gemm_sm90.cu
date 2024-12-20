@@ -196,14 +196,12 @@ struct TiledMultiplier
     // except if k_cta is 0.
     static __host__ DEVICE_INLINE uint32_t m_cta(uint32_t size_m)
     {
-        DEVICE_ASSERT(size_m % SMEM_M == 0);
-        return size_m / SMEM_M;
+        return (size_m + SMEM_M - 1) / SMEM_M;
     }
 
     static __host__ DEVICE_INLINE uint32_t n_cta(uint32_t size_n)
     {
-        DEVICE_ASSERT(size_n % SMEM_N == 0);
-        return size_n / SMEM_N;
+        return (size_n + SMEM_N - 1) / SMEM_N;
     }
 
     static __host__ DEVICE_INLINE uint32_t k_cta(uint32_t size_k)  // size of CTA k-group
@@ -425,14 +423,17 @@ struct TiledMultiplier
         }
     }
 
-    DEVICE_INLINE void wg_accum_store_to_tile(float* tile, uint32_t row_stride, const WG_Accum& d) const
+    template <bool BoundsCheck>
+    DEVICE_INLINE void wg_accum_store_to_tile(float* tile, uint32_t row_stride, uint32_t r_guard, uint32_t c_guard,
+                                              const WG_Accum& d) const
     {
         const uint32_t tid = threadIdx.x % 128u;
 
         #define X(REG_INDEX) { \
             const uint32_t r = (tid / 32u) * 16u + (tid % 32u) / 4u + ((REG_INDEX % 4u) / 2u) * 8u; \
             const uint32_t c = (tid % 4u) * 2u + (REG_INDEX / 4u) * 8 + (REG_INDEX % 2u); \
-            tile[r * row_stride + c] = d.d##REG_INDEX; }
+            if (!BoundsCheck || (r < r_guard && c < c_guard)) tile[r * row_stride + c] = d.d##REG_INDEX; }
+
         X(0) X(1) X(2) X(3) X(4) X(5) X(6) X(7)
         X(8) X(9) X(10) X(11) X(12) X(13) X(14) X(15)
         X(16) X(17) X(18) X(19) X(20) X(21) X(22) X(23)
@@ -453,7 +454,7 @@ struct TiledMultiplier
     // Write the (WG_M, WG_N) tile to shared.aliased_per_wg_c_tile, at the entry reserved for this warpgroup.
     DEVICE_INLINE void wg_accum_to_shared(Shared& shared, const WG_Accum& d) const
     {
-        wg_accum_store_to_tile(shared.aliased_per_wg_c_tile[consumer_wg_index()], WG_N, d);
+        wg_accum_store_to_tile<false>(shared.aliased_per_wg_c_tile[consumer_wg_index()], WG_N, 0, 0, d);
     }
 
     // Fill shared memory A tile with SMEM_M×SMEM_K block starting at (cta_m_offset, cta_k_offset)
@@ -544,7 +545,7 @@ struct TiledMultiplier
         DEVICE_ASSERT(ENABLE_PRODUCER_BRANCH || !is_producer_wg());
         DEVICE_ASSERT(IS_CONSUMER || is_producer_wg());
 
-        const uint32_t k_num_iters = min((size_k - cta_k_initial_offset) / SMEM_K, K_MAX_TILES);
+        const uint32_t k_num_iters = min((size_k - cta_k_initial_offset + SMEM_K - 1u) / SMEM_K, K_MAX_TILES);
 
         std::conditional_t<IS_CONSUMER, WG_Accum, char> accum;
         bool zero_accum = true;
@@ -642,8 +643,11 @@ struct TiledMultiplier
             }
             else {
                 // Store tile directly to output memory, bypassing TMA and shared memory.
-                wg_accum_store_to_tile(c + (cta_m_offset + wg_m_offset) * size_n + (cta_n_offset + wg_n_offset),
-                                       size_n, accum);
+                // We need to bounds check as TMA is not being used.
+                const uint32_t arg_m_offset = cta_m_offset + wg_m_offset;
+                const uint32_t arg_n_offset = cta_n_offset + wg_n_offset;
+                wg_accum_store_to_tile<true>(c + arg_m_offset * size_n + arg_n_offset,
+                                             size_n, size_m - arg_m_offset, size_n - arg_n_offset, accum);
             }
         }
     }
@@ -788,12 +792,12 @@ void matmul_sm90(GPU_Tensors t, cudaStream_t stream)
     assert(t.b_col_major);
     assert(!t.c_col_major);
 
-    if (size_m % smem_m == 0 && size_n % smem_n == 0 && size_k % smem_k == 0) {
-        TiledMultiplier<smem_m, smem_n, smem_k, wg_m, wg_n, wg_k,
-                        cta_k_max_tiles, cta_modulus, ring_buffer_size, dedicated_producer>::launch(
-                stream, size_m, size_n, size_k, t.a, t.b, t.c);
-    }
-    else {
-        assert(0);
-    }
+    assert(uintptr_t(t.a) % 16 == 0);
+    assert(uintptr_t(t.b) % 16 == 0);
+    assert(uintptr_t(t.c) % 16 == 0);
+    assert(t.K % 4 == 0);
+
+    using Multiplier = TiledMultiplier<smem_m, smem_n, smem_k, wg_m, wg_n, wg_k,
+                                       cta_k_max_tiles, cta_modulus, ring_buffer_size, dedicated_producer>;
+    Multiplier::launch(stream, size_m, size_n, size_k, t.a, t.b, t.c);
 }
