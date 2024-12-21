@@ -1,12 +1,16 @@
 archcode = -arch compute_90a -code sm_90a
-nvcc_args = -rdc=true -DNDEBUG=1 --ptxas-options=-O3 -lineinfo -Xcompiler -Wno-abi -ccbin g++-12 -O2 -Xcompiler -Wall -Xcompiler -fPIC -g -std=c++20 -I cutlass/include/ -I cutlass/tools/util/include/ -I ../ThunderKittens/include/ -c $archcode --expt-extended-lambda --expt-relaxed-constexpr
+nvcc_args = -DNDEBUG=1 -rdc=true -Xcompiler -Wno-abi -ccbin g++-12 -O2 -Xcompiler -Wall -Xcompiler -fPIC -g -std=c++20 -I cutlass/include/ -I cutlass/tools/util/include/ -I ../ThunderKittens/include/ -c $archcode --expt-extended-lambda --expt-relaxed-constexpr
 
 rule nvcc
-  command = /usr/local/cuda-12.3/bin/nvcc $nvcc_args $in -o $out -MD -MF $out.d
+  command = /usr/local/cuda-12.3/bin/nvcc --ptxas-options=-O3 -lineinfo $nvcc_args $in -o $out -MD -MF $out.d
   depfile = $out.d
 
 rule nvcc_keep
-  command = /usr/local/cuda-12.3/bin/nvcc $nvcc_args $in -o $out -MD -MF $out.d -keep
+  command = /usr/local/cuda-12.3/bin/nvcc --ptxas-options=-O3 -lineinfo $nvcc_args $in -o $out -MD -MF $out.d -keep
+  depfile = $out.d
+
+rule nvcc_keep_G
+  command = /usr/local/cuda-12.3/bin/nvcc -G $nvcc_args $in -o $out -MD -MF $out.d -keep
   depfile = $out.d
 
 rule dlink
