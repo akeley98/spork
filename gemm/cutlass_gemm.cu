@@ -52,9 +52,8 @@ constexpr int AlignmentC  = 128 / cutlass::sizeof_bits<ElementC>::value;    // M
 using ElementAccumulator  = element_t;                                      // Element type for internal accumulation
 using ArchTag             = cutlass::arch::Sm90;                            // Tag indicating the minimum SM that supports the intended feature
 using OperatorClass       = cutlass::arch::OpClassTensorOp;                 // Operator class tag
-using TileShape           = Shape<_128,_128,_32>;                           // Threadblock-level tile size
-// using TileShape           = Shape<_256,_256,_32>;                           // Threadblock-level tile size
-using ClusterShape        = Shape<_1,_1,_1>;  // XXX _1, _2, _1                               // Shape of the threadblocks in a cluster
+using TileShape           = Shape<_256,_128,_32>;                           // Threadblock-level tile size
+using ClusterShape        = Shape<_1,_2,_1>;                                // Shape of the threadblocks in a cluster
 using StageCountType = cutlass::gemm::collective::StageCountAuto;           // Stage count maximized based on the tile size
 using KernelSchedule = cutlass::gemm::collective::KernelScheduleAuto;       // Kernel to launch based on the default setting in the Collective Builder
 
