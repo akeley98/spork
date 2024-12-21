@@ -347,8 +347,7 @@ struct TiledMultiplier
             Buffers aliased_input_ring_buffer[RING_BUFFER_SIZE];
             float aliased_per_wg_c_tile[consumer_wg_count()][WG_M * WG_N];
         };
-        mbarrier_t a_tile_fill_mbar[RING_BUFFER_SIZE];
-        mbarrier_t bT_tile_fill_mbar[RING_BUFFER_SIZE];
+        mbarrier_t tile_fill_mbar[RING_BUFFER_SIZE];
         mbarrier_t tile_read_mbar[RING_BUFFER_SIZE];
         mbarrier_t per_consumer_wg_mbar[consumer_wg_count()];
         mbarrier_t cta_all_consumers_mbar;
@@ -357,24 +356,16 @@ struct TiledMultiplier
     // Helper to wait on an mbarrier while tracking the phase.
     struct PhaseBits
     {
-        unsigned a_tile_fill_bits : RING_BUFFER_SIZE = 0;
-        unsigned bT_tile_fill_bits : RING_BUFFER_SIZE = 0;
+        unsigned tile_fill_bits : RING_BUFFER_SIZE = 0;
         unsigned tile_read_bits : RING_BUFFER_SIZE = 0;
         unsigned per_consumer_wg_bit : 1 = 0;
         unsigned all_consumers_bit : 1 = 0;
 
-        DEVICE_INLINE void a_tile_fill_wait(uint32_t i, Shared& shared)
+        DEVICE_INLINE void tile_fill_wait(uint32_t i, Shared& shared)
         {
             DEVICE_ASSERT(i < RING_BUFFER_SIZE);
-            mbar_wait(shared.a_tile_fill_mbar[i], (a_tile_fill_bits >> i) & 1u);
-            a_tile_fill_bits ^= 1u << i;
-        }
-
-        DEVICE_INLINE void bT_tile_fill_wait(uint32_t i, Shared& shared)
-        {
-            DEVICE_ASSERT(i < RING_BUFFER_SIZE);
-            mbar_wait(shared.bT_tile_fill_mbar[i], (bT_tile_fill_bits >> i) & 1u);
-            bT_tile_fill_bits ^= 1u << i;
+            mbar_wait(shared.tile_fill_mbar[i], (tile_fill_bits >> i) & 1u);
+            tile_fill_bits ^= 1u << i;
         }
 
         DEVICE_INLINE void tile_read_wait(uint32_t i, Shared& shared)
@@ -621,51 +612,62 @@ struct TiledMultiplier
         wg_accum_store_to_tile<false>(shared.aliased_per_wg_c_tile[consumer_wg_index()], WG_N, 0, 0, d);
     }
 
+    template <uint32_t MulticastCtaCount>
+    DEVICE_INLINE void tma_maybe_multicast(float* dst, const CUtensorMap* tensorMap, mbarrier_t& mbar,
+                                           uint32_t k_coord, uint32_t mn_coord, uint16_t cta_mask) const
+    {
+        DEVICE_ASSERT(__popc(cta_mask) == MulticastCtaCount);
+        if constexpr (MulticastCtaCount == 1) {
+            asm volatile(
+                    "cp.async.bulk.tensor.2d.shared::cluster.global.tile.mbarrier::complete_tx::bytes"
+                    " [%0], [%1, {%2, %3}], [%4];"
+                    :
+                    : "r"(smem_ptr_u32(dst)),
+                      "l"(tensorMap), "r"(k_coord), "r"(mn_coord),
+                      "r"(smem_ptr_u32(&mbar))
+                    : "memory");
+        }
+        else {
+            asm volatile(
+                    "cp.async.bulk.tensor.2d.shared::cluster.global.tile.mbarrier::complete_tx::bytes.multicast::cluster"
+                    " [%0], [%1, {%2, %3}], [%4], %5;"
+                    :
+                    : "r"(smem_ptr_u32(dst)),
+                      "l"(tensorMap), "r"(k_coord), "r"(mn_coord),
+                      "r"(smem_ptr_u32(&mbar)), "h"(cta_mask)
+                    : "memory");
+        }
+    }
+
     // Fill shared memory A tile with SMEM_M×SMEM_K block starting at (cta_m_offset, cta_k_offset)
     // Fill shared memory B^T tile with SMEM_N×SMEM_K block starting at (cta_n_offset, cta_k_offset)
     //
     // Due to the tiling of shared memory, this is done as SMEM_K / SMEM_K_INNER separate copies.
     //
     // Furthermore, if the cluster size is not 1, we assume all blocks in the cluster call this function, and we
-    // distribute+multicast the copies. We signal the a_mbar/bT_mbar of all CTAs of the cluster that received
+    // distribute+multicast the copies. We signal the mbar of all CTAs of the cluster that received
     // the same a/bT tile.
     DEVICE_INLINE void warp_async_load_block_clustered(
-            Buffers& buffers, mbarrier_t& a_mbar, mbarrier_t& bT_mbar,
+            Buffers& buffers, mbarrier_t& mbar,
             uint32_t cta_m_offset, uint32_t cta_n_offset, uint32_t cta_k_offset) const
     {
         if (elect_one_sync()) {
             constexpr uint32_t Tsz = sizeof(float);
             asm volatile("mbarrier.arrive.expect_tx.shared::cta.b64 _, [%0], %1;" ::
-                         "r"(smem_ptr_u32(&a_mbar)), "n"(SMEM_M * SMEM_K * Tsz));
-            asm volatile("mbarrier.arrive.expect_tx.shared::cta.b64 _, [%0], %1;" ::
-                         "r"(smem_ptr_u32(&bT_mbar)), "n"(SMEM_N * SMEM_K * Tsz));
+                         "r"(smem_ptr_u32(&mbar)), "n"((SMEM_M + SMEM_N) * SMEM_K * Tsz));
 
             for (uint32_t smem_k_offset = 0; smem_k_offset < SMEM_K; smem_k_offset += SMEM_K_INNER) {
                 static_assert(tensorMap_a_box_m == SMEM_M_OUTER * SMEM_MN_INNER / Buffers::a_tile_cta_count);
                 static_assert(tensorMap_bT_box_n == SMEM_N_OUTER * SMEM_MN_INNER / Buffers::bT_tile_cta_count);
                 static_assert(tensorMap_box_k == SMEM_K_INNER);
-                asm volatile(
-                    "cp.async.bulk.tensor.2d.shared::cluster.global.tile.mbarrier::complete_tx::bytes.multicast::cluster"
-                    " [%0], [%1, {%3, %4}], [%2], %5;"
-                    :
-                    : "r"(smem_ptr_u32(buffers.a_tma_box(smem_k_offset))),
-                      "l"(tensorMap_a),
-                      "r"(smem_ptr_u32(&a_mbar)),
-                      "r"(cta_k_offset + smem_k_offset), "r"(cta_m_offset + Buffers::cta_smem_m_offset()),
-                      "h"(cta_shared_m_mask())
-                    : "memory");
-                DEVICE_ASSERT(__popc(cta_shared_m_mask()) == Buffers::a_tile_cta_count);
-                asm volatile(
-                    "cp.async.bulk.tensor.2d.shared::cluster.global.tile.mbarrier::complete_tx::bytes.multicast::cluster"
-                    " [%0], [%1, {%3, %4}], [%2], %5;"
-                    :
-                    : "r"(smem_ptr_u32(buffers.bT_tma_box(smem_k_offset))),
-                      "l"(tensorMap_bT),
-                      "r"(smem_ptr_u32(&bT_mbar)),
-                      "r"(cta_k_offset + smem_k_offset), "r"(cta_n_offset + Buffers::cta_smem_n_offset()),
-                      "h"(cta_shared_n_mask())
-                    : "memory");
-                DEVICE_ASSERT(__popc(cta_shared_n_mask()) == Buffers::bT_tile_cta_count);
+
+                tma_maybe_multicast<Buffers::a_tile_cta_count>(
+                    buffers.a_tma_box(smem_k_offset), tensorMap_a, mbar,
+                    cta_k_offset + smem_k_offset, cta_m_offset + Buffers::cta_smem_m_offset(), cta_shared_m_mask());
+
+                tma_maybe_multicast<Buffers::bT_tile_cta_count>(
+                    buffers.bT_tma_box(smem_k_offset), tensorMap_bT, mbar,
+                    cta_k_offset + smem_k_offset, cta_n_offset + Buffers::cta_smem_n_offset(), cta_shared_n_mask());
             }
         }
     }
@@ -690,8 +692,7 @@ struct TiledMultiplier
         constexpr unsigned cta_consumer_thread_count = consumer_wg_count() * 128u;
         constexpr unsigned cluster_consumer_thread_count = consumer_wg_count() * 128u * CLUSTER_NUM_CTA;
 
-        cta_init_mbar_array<1>(shared.a_tile_fill_mbar);
-        cta_init_mbar_array<1>(shared.bT_tile_fill_mbar);
+        cta_init_mbar_array<1>(shared.tile_fill_mbar);
         cta_init_mbar_array<cluster_consumer_thread_count>(shared.tile_read_mbar);
         cta_init_mbar_array<128>(shared.per_consumer_wg_mbar);
         if (threadIdx.x == 0) {
@@ -755,8 +756,7 @@ struct TiledMultiplier
                     if (threadIdx.x % 128u < 32u) {
                         warp_async_load_block_clustered(
                                 shared.aliased_input_ring_buffer[ring_idx],
-                                shared.a_tile_fill_mbar[ring_idx],
-                                shared.bT_tile_fill_mbar[ring_idx],
+                                shared.tile_fill_mbar[ring_idx],
                                 cta_m_offset, cta_n_offset, tma_k_offset);
                     }
                 }
@@ -772,8 +772,7 @@ struct TiledMultiplier
             const uint32_t ring_idx = k_iter % RING_BUFFER_SIZE;
 
             if constexpr (IS_CONSUMER) {
-                phase_bits.a_tile_fill_wait(ring_idx, shared);
-                phase_bits.bT_tile_fill_wait(ring_idx, shared);
+                phase_bits.tile_fill_wait(ring_idx, shared);
                 asm volatile("wgmma.fence.sync.aligned;  // GMMA");
                 const uint32_t wg_m_offset = get_wg_m_idx() * WG_M;
                 const uint32_t wg_n_offset = get_wg_n_idx() * WG_N;
