@@ -627,24 +627,25 @@ struct TiledMultiplier
                                            uint32_t k_coord, uint32_t mn_coord, uint16_t cta_mask) const
     {
         DEVICE_ASSERT(__popc(cta_mask) == MulticastCtaCount);
+        constexpr uint64_t cache_hint = 1152921504606846976;  // ??? no idea what this does, copied from cutlass PTX
         if constexpr (MulticastCtaCount == 1) {
             asm volatile(
-                    "cp.async.bulk.tensor.2d.shared::cluster.global.tile.mbarrier::complete_tx::bytes"
-                    " [%0], [%1, {%2, %3}], [%4];"
-                    :
-                    : "r"(smem_ptr_u32(dst)),
-                      "l"(tensorMap), "r"(k_coord), "r"(mn_coord),
-                      "r"(smem_ptr_u32(&mbar))
-                    : "memory");
-        }
-        else {
-            asm volatile(
-                    "cp.async.bulk.tensor.2d.shared::cluster.global.tile.mbarrier::complete_tx::bytes.multicast::cluster"
+                    "cp.async.bulk.tensor.2d.shared::cluster.global.tile.mbarrier::complete_tx::bytes.L2::cache_hint"
                     " [%0], [%1, {%2, %3}], [%4], %5;"
                     :
                     : "r"(smem_ptr_u32(dst)),
                       "l"(tensorMap), "r"(k_coord), "r"(mn_coord),
-                      "r"(smem_ptr_u32(&mbar)), "h"(cta_mask)
+                      "r"(smem_ptr_u32(&mbar)), "n"(cache_hint)
+                    : "memory");
+        }
+        else {
+            asm volatile(
+                    "cp.async.bulk.tensor.2d.shared::cluster.global.tile.mbarrier::complete_tx::bytes.multicast::cluster.L2::cache_hint"
+                    " [%0], [%1, {%2, %3}], [%4], %5, %6;"
+                    :
+                    : "r"(smem_ptr_u32(dst)),
+                      "l"(tensorMap), "r"(k_coord), "r"(mn_coord),
+                      "r"(smem_ptr_u32(&mbar)), "h"(cta_mask), "n"(cache_hint)
                     : "memory");
         }
     }
