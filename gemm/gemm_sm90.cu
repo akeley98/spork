@@ -51,17 +51,21 @@ DEVICE_INLINE void prefetch_tensormap(const CUtensorMap* tensorMap)
     asm volatile("prefetch.tensormap [%0];" :: "l"(reinterpret_cast<uint64_t>(tensorMap)) : "memory");
 }
 
+struct TiledMultiplierArgs
+{
+    uint32_t size_m, size_n, size_k;
+    CUtensorMap tensorMap_a, tensorMap_bT, tensorMap_c;
+    float* c;
+};
+
 template <typename Multiplier>
 __global__ void
-__cluster_dims__(Multiplier::CLUSTER_NUM_CTA, 1, 1)
 __launch_bounds__(Multiplier::cta_size())
-tiled_multiplier_kernel(uint32_t size_m, uint32_t size_n, uint32_t size_k,
-                        __grid_constant__ const CUtensorMap tensorMap_a,
-                        __grid_constant__ const CUtensorMap tensorMap_bT,
-                        __grid_constant__ const CUtensorMap tensorMap_c,
-                        float* c)
+tiled_multiplier_kernel(__grid_constant__ const TiledMultiplierArgs args)
 {
-    Multiplier multiplier{size_m, size_n, size_k, &tensorMap_a, &tensorMap_bT, &tensorMap_c, c};
+    Multiplier multiplier{args.size_m, args.size_n, args.size_k,
+                          &args.tensorMap_a, &args.tensorMap_bT, &args.tensorMap_c,
+                          args.c};
     multiplier.kernel_main();
 }
 
@@ -251,10 +255,16 @@ struct TiledMultiplier
     // Assignment of CTAs in cluster tile into indexed sub-tiles, of size (SMEM_M, SMEM_N).
     static DEVICE_INLINE uint32_t cta_m_idx_cluster()
     {
+        if constexpr (CLUSTER_M_NUM_CTA == 1) {
+            return 0;
+        }
         return (blockIdx.x % CLUSTER_NUM_CTA) / CLUSTER_N_NUM_CTA;
     }
     static DEVICE_INLINE uint32_t cta_n_idx_cluster()
     {
+        if constexpr (CLUSTER_N_NUM_CTA == 1) {
+            return 0;
+        }
         return (blockIdx.x % CLUSTER_NUM_CTA) % CLUSTER_N_NUM_CTA;
     }
 
@@ -949,7 +959,25 @@ struct TiledMultiplier
                 fprintf(stderr, "numRegs: %i\n", attr.numRegs);
             }
         });
-        kernel<<<grid, block, smem, stream>>>(size_m, size_n, size_k, tensorMap_a, tensorMap_bT, tensorMap_c, c);
+
+        TiledMultiplierArgs args{size_m, size_n, size_k, tensorMap_a, tensorMap_bT, tensorMap_c, c};
+
+        cudaLaunchConfig_t config = {0};
+        config.gridDim = dim3{grid, 1, 1};
+        config.blockDim = dim3{block, 1, 1};
+        config.dynamicSmemBytes = smem;
+        config.stream = stream;
+        cudaLaunchAttribute attribute[1];
+        attribute[0].id = cudaLaunchAttributeClusterDimension;
+        attribute[0].val.clusterDim.x = CLUSTER_NUM_CTA;
+        attribute[0].val.clusterDim.y = 1;
+        attribute[0].val.clusterDim.z = 1;
+        if (CLUSTER_NUM_CTA != 1) {
+            // For some reason setting a cluster size of (1, 1, 1) tanks performance even though it should do nothing!
+            config.attrs = attribute;
+            config.numAttrs = 1;
+        }
+        cudaLaunchKernelEx(&config, kernel, args);
     }
 };
 
@@ -973,7 +1001,7 @@ void matmul_sm90(GPU_Tensors t, cudaStream_t stream)
     assert(t.K % 4 == 0);
 
     constexpr uint32_t cluster_m = 256;
-    constexpr uint32_t cluster_n = 128;
+    constexpr uint32_t cluster_n = 256;
     constexpr uint32_t smem_m = 256;
     constexpr uint32_t smem_n = 128;
     constexpr uint32_t smem_k = 32;
@@ -981,7 +1009,7 @@ void matmul_sm90(GPU_Tensors t, cudaStream_t stream)
     constexpr uint32_t wg_n = 128;
     constexpr uint32_t wg_k = 8;
     constexpr uint32_t cta_k_max_tiles = 16384u / smem_k;
-    constexpr uint32_t cluster_modulus = 1024u / smem_m;
+    constexpr uint32_t cluster_modulus = 1024u / cluster_m;
     constexpr uint32_t ring_buffer_size = 4;
     constexpr bool dedicated_producer = true;
 
