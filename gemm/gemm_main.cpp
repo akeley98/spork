@@ -28,12 +28,13 @@ int main()
     };
 
     sized_tests(160, 480, 816, false);
-    sized_tests(3 * 4096, 3 * 1024, 3 * 2048, true);
-    sized_tests(3 * 4096, 3 * 8192, 3 * 512, true);
-    sized_tests(3 * 2048, 3 * 2048, 3 * 16384, true);
-    sized_tests(1536, 3 * 512, 3 * 40960 + 16, true);
-    sized_tests(1536, 3 * 512, 3 * 40960 + 16, true);
-    sized_tests(768, 3 * 256, 3 * 40960 + 16, false);
+    sized_tests(10240, 3072, 6144, true);
+    sized_tests(10240, 3072, 1536, true);
+    sized_tests(12288, 24576, 1536, true);
+    sized_tests(6144, 6144, 49152, true);
+    sized_tests(6144, 6144, 122896, true);
+    sized_tests(1536, 1536, 122896, true);
+    sized_tests(768, 768, 122896, false);
 
     cudaDeviceSynchronize();
     cutlass_synclog_print();
