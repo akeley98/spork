@@ -96,14 +96,13 @@ struct TiledMultiplier
     struct Buffers
     {
         // Inner (rightmost) dimension corresponds to swizzled core matrices.
-        // XXX I don't think SMEM_K_OUTER works if SMEM_K_OUTER != 1
-        static_assert(SMEM_K_OUTER == 1, "todo investigate");
+        // Right 2 dimensions correspond to a TMA box.
         float a_tile[SMEM_K_OUTER][SMEM_M_OUTER][SMEM_K_INNER * SMEM_MN_INNER];
         float bT_tile[SMEM_K_OUTER][SMEM_N_OUTER][SMEM_K_INNER * SMEM_MN_INNER];
 
         static constexpr uint32_t tensorMap_box_m = SMEM_M_OUTER * SMEM_MN_INNER;
         static constexpr uint32_t tensorMap_box_n = SMEM_N_OUTER * SMEM_MN_INNER;
-        static constexpr uint32_t tensorMap_box_k = SMEM_K_OUTER * SMEM_K_INNER;
+        static constexpr uint32_t tensorMap_box_k = SMEM_K_INNER;
 
         __device__ float* a_tma_box(uint32_t k_offset)
         {
@@ -121,16 +120,14 @@ struct TiledMultiplier
         {
             DEVICE_ASSERT(m_offset % SMEM_MN_INNER == 0);
             DEVICE_ASSERT(k_offset % CORE_MATRIX_K == 0);
-            return &a_tile[k_offset / SMEM_K_INNER][m_offset / SMEM_MN_INNER][k_offset];
-            // XXX not sure the last coordinate is correct if SMEM_K_OUTER != 1
+            return &a_tile[k_offset / SMEM_K_INNER][m_offset / SMEM_MN_INNER][k_offset % SMEM_K_INNER];
         }
 
         __device__ const float* bT_nk_core_matrices(uint32_t n_offset, uint32_t k_offset) const
         {
             DEVICE_ASSERT(n_offset % SMEM_MN_INNER == 0);
             DEVICE_ASSERT(k_offset % CORE_MATRIX_K == 0);
-            return &bT_tile[k_offset / SMEM_K_INNER][n_offset / SMEM_MN_INNER][k_offset];
-            // XXX not sure the last coordinate is correct if SMEM_K_OUTER != 1
+            return &bT_tile[k_offset / SMEM_K_INNER][n_offset / SMEM_MN_INNER][k_offset % SMEM_K_INNER];
         }
     };
 
@@ -864,7 +861,7 @@ void matmul_sm90(GPU_Tensors t, cudaStream_t stream)
     constexpr uint32_t wg_n = 128;
     constexpr uint32_t wg_k = 8;
     constexpr uint32_t cta_k_max_tiles = 16384u / smem_k;
-    constexpr uint32_t cta_modulus = 4;
+    constexpr uint32_t cta_modulus = 1024u / smem_m;
     constexpr uint32_t ring_buffer_size = 4;
     constexpr bool dedicated_producer = true;
 
