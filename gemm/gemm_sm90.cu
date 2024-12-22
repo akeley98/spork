@@ -855,8 +855,10 @@ struct TiledMultiplier
                 // We need to bounds check as TMA is not being used.
                 const uint32_t arg_m_offset = cta_m_offset + wg_m_offset;
                 const uint32_t arg_n_offset = cta_n_offset + wg_n_offset;
-                wg_accum_store_to_tile<true>(c + arg_m_offset * size_n + arg_n_offset,
-                                             size_n, size_m - arg_m_offset, size_n - arg_n_offset, accum);
+                if (arg_m_offset < size_m && arg_n_offset < size_n) {
+                    wg_accum_store_to_tile<true>(c + arg_m_offset * size_n + arg_n_offset,
+                                                 size_n, size_m - arg_m_offset, size_n - arg_n_offset, accum);
+                }
             }
         }
     }
