@@ -28,12 +28,11 @@ int main()
     };
 
     sized_tests(160, 480, 816, false);
-    sized_tests(10240, 3072, 6144, true);
-    sized_tests(10240, 3072, 1536, true);
+    sized_tests(32768, 40016, 816, false);
+    sized_tests(40016, 32768, 6400, true);
     sized_tests(12288, 24576, 1536, true);
     sized_tests(6144, 6144, 49152, true);
-    sized_tests(6144, 6144, 122896, true);
-    sized_tests(1536, 1536, 122896, true);
+    sized_tests(1616, 1616, 122896, true);
     sized_tests(768, 768, 122896, false);
 
     cudaDeviceSynchronize();

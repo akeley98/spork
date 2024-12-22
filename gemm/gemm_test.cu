@@ -352,7 +352,9 @@ void gemm_test(TestParams params, cudaStream_t stream)
             samples_ms += test_times[test_count/4 + i];  // We time based on the IQR.
         }
         const double flops = sample_count * double(params.M) * params.N * params.K * 2.0 * 1000.0 / samples_ms;
-        const bool bold = double(params.M) * params.N * params.K >= 1e11;
+        const bool bold = double(params.M) * params.N * params.K >= 1e11
+                            && params.test_data_code_A == TestDataCode::random
+                            && params.test_data_code_B == TestDataCode::random;
         int color_code = 0;
         if (bold) {
             color_code = 31 + int(algo);
