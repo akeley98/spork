@@ -222,17 +222,17 @@ void gemm_test(TestParams params, cudaStream_t stream)
 
     cudaMallocAsync(&d_bitfield, sizeof(unsigned long long), stream);
 
-    cudaMallocAsync(&d_a,    params.M * params.K * sizeof(float), stream);
-    cudaMallocAsync(&d_a16,  params.M * params.K * sizeof(float), stream);
+    cudaMallocAsync(&d_a,    sizeof(float) * params.M * params.K, stream);
+    cudaMallocAsync(&d_a16,  sizeof(float) * params.M * params.K, stream);
 
-    cudaMallocAsync(&d_b,    params.N * params.K * sizeof(float), stream);
-    cudaMallocAsync(&d_bT,   params.N * params.K * sizeof(float), stream);
-    cudaMallocAsync(&d_bT16, params.N * params.K * sizeof(half_t), stream);
+    cudaMallocAsync(&d_b,    sizeof(float) * params.N * params.K, stream);
+    cudaMallocAsync(&d_bT,   sizeof(float) * params.N * params.K, stream);
+    cudaMallocAsync(&d_bT16, sizeof(half_t) * params.N * params.K, stream);
 
-    cudaMallocAsync(&d_c_baseline, params.M * params.N * sizeof(float), stream);
-    cudaMallocAsync(&d_c_warmup,   params.M * params.N * sizeof(float), stream);
-    cudaMallocAsync(&d_c_tested,   params.M * params.N * sizeof(float), stream);
-    cudaMallocAsync(&d_c16,        params.M * params.N * sizeof(half_t), stream);
+    cudaMallocAsync(&d_c_baseline, sizeof(float) * params.M * params.N, stream);
+    cudaMallocAsync(&d_c_warmup,   sizeof(float) * params.M * params.N, stream);
+    cudaMallocAsync(&d_c_tested,   sizeof(float) * params.M * params.N, stream);
+    cudaMallocAsync(&d_c16,        sizeof(half_t) * params.M * params.N, stream);
 
     if (!d_bitfield || !d_a || !d_b || !d_c_baseline || !d_c_warmup || !d_c_tested) {
         const cudaError_t err = cudaGetLastError();
