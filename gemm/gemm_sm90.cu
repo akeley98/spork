@@ -360,26 +360,32 @@ struct TiledMultiplier
         mbarrier_t tile_fill_mbar[RING_BUFFER_SIZE];
         mbarrier_t tile_read_mbar[RING_BUFFER_SIZE];
         mbarrier_t per_consumer_wg_mbar[consumer_wg_count()];
-        mbarrier_t cta_all_consumers_mbar;
+        mbarrier_t cluster_mbar;
     };
 
-    // Helper to wait on an mbarrier while tracking the phase.
-    struct PhaseBits
+    // Helper for ring buffering and for waiting on an mbarrier while tracking the phase.
+    struct RingState
     {
+        // Phase bit tracking
         unsigned tile_fill_bits : RING_BUFFER_SIZE = 0;
         unsigned tile_read_bits : RING_BUFFER_SIZE = 0;
         unsigned per_consumer_wg_bit : 1 = 0;
-        unsigned all_consumers_bit : 1 = 0;
 
-        DEVICE_INLINE void tile_fill_wait(uint32_t i, Shared& shared)
+        unsigned not_first_work_item : 1 = 0;
+        unsigned ring_buffer_idx : 5 = 0;
+        static_assert(RING_BUFFER_SIZE < 32);
+
+        DEVICE_INLINE void tile_fill_wait_ring(Shared& shared)
         {
+            const uint32_t i = ring_buffer_idx;
             DEVICE_ASSERT(i < RING_BUFFER_SIZE);
             mbar_wait(shared.tile_fill_mbar[i], (tile_fill_bits >> i) & 1u);
             tile_fill_bits ^= 1u << i;
         }
 
-        DEVICE_INLINE void tile_read_wait(uint32_t i, Shared& shared)
+        DEVICE_INLINE void tile_read_wait_ring(Shared& shared)
         {
+            const uint32_t i = ring_buffer_idx;
             DEVICE_ASSERT(i < RING_BUFFER_SIZE);
             mbar_wait(shared.tile_read_mbar[i], (tile_read_bits >> i) & 1u);
             tile_read_bits ^= 1u << i;
@@ -393,18 +399,18 @@ struct TiledMultiplier
             per_consumer_wg_bit ^= 1;
         }
 
-        DEVICE_INLINE void cta_all_consumers_wait(Shared& shared)
-        {
-            mbar_wait(shared.cta_all_consumers_mbar, all_consumers_bit);
-            all_consumers_bit ^= 1;
-        }
-
         static DEVICE_INLINE void mbar_wait(mbarrier_t& mbar, uint32_t parity)
         {
             asm volatile(
                     "{.reg.pred P1; BEFORE_WAIT: mbarrier.try_wait.parity.acquire.cta.shared::cta.b64 P1, [%0], %1; @P1 bra.uni WAIT_DONE; bra.uni BEFORE_WAIT; WAIT_DONE: }"
             :
             : "r"(smem_ptr_u32(&mbar)), "r"(parity));
+        }
+
+        DEVICE_INLINE void advance_ring_buffer_idx()
+        {
+            const unsigned tmp = ring_buffer_idx;
+            ring_buffer_idx = tmp == RING_BUFFER_SIZE - 1u ? 0u : tmp + 1u;
         }
     };
 
@@ -707,7 +713,7 @@ struct TiledMultiplier
         cta_init_mbar_array<cluster_consumer_thread_count>(shared.tile_read_mbar);
         cta_init_mbar_array<128>(shared.per_consumer_wg_mbar);
         if (threadIdx.x == 0) {
-            init_mbar<cta_consumer_thread_count>(shared.cta_all_consumers_mbar);
+            init_mbar<CLUSTER_NUM_CTA * cta_size()>(shared.cluster_mbar);
         }
         asm volatile("fence.proxy.async;");
 
@@ -729,14 +735,15 @@ struct TiledMultiplier
     }
 
     // Cluster cooperates to fill or add to the output matrix block of size (CLUSTER_M, CLUSTER_N) starting at
-    // (cta_item.m_offset, cta_item.n_offset); we process up to K_MAX_TILES input blocks on the K dimension starting
-    // at cta_item.k_offset.
+    // (cluster_item.m_offset, cluster_item.n_offset); we process up to K_MAX_TILES input blocks on the K dimension
+    // starting at cluster_item.k_offset.
     // Requires smem-allocated ring buffer.
     //
-    // We assume that cluster_sync is run between calls to this. We also require a cluster sync before kernel exit
-    // if a non-1 cluster size is used, to prevent unexpected dead shared memory.
+    // Each work item consists of k_tiles iterations of accumulating on the k-axis.
+    // We process the work item in `k_iter = k_tiles + RING_BUFFER_SIZE` iterations.
+    // Producer skips the last RING_BUFFER_SIZE iterations; consumer skips the first RING_BUFFER_SIZE iterations.
     template <bool ENABLE_PRODUCER_BRANCH, bool IS_CONSUMER>
-    DEVICE_INLINE void cluster_process_item(ClusterWorkItem cluster_item, PhaseBits& phase_bits, Shared& shared) const
+    DEVICE_INLINE void cluster_process_item(ClusterWorkItem cluster_item, RingState& state, Shared& shared) const
     {
         const uint32_t cta_m_offset = cluster_item.m_offset + cta_m_idx_cluster() * SMEM_M;
         const uint32_t cta_n_offset = cluster_item.n_offset + cta_n_idx_cluster() * SMEM_N;
@@ -748,83 +755,86 @@ struct TiledMultiplier
         DEVICE_ASSERT(ENABLE_PRODUCER_BRANCH || !is_producer_wg());
         DEVICE_ASSERT(IS_CONSUMER || is_producer_wg());
 
-        const uint32_t k_num_iters = min((size_k - cta_k_initial_offset + SMEM_K - 1u) / SMEM_K, K_MAX_TILES);
-
-        std::conditional_t<IS_CONSUMER, WG_Accum, char> accum;
-        bool zero_accum = true;
+        const uint32_t k_tiles = min((size_k - cta_k_initial_offset + SMEM_K - 1u) / SMEM_K, K_MAX_TILES);
+        const uint32_t k_num_iters = k_tiles + RING_BUFFER_SIZE;
 
         auto producer_on_k_iter = [&] (uint32_t k_iter)
         {
             if constexpr (ENABLE_PRODUCER_BRANCH) {
-                const uint32_t ring_idx = k_iter % RING_BUFFER_SIZE;
-                if (is_producer_wg() && k_iter < k_num_iters) {
+                if (is_producer_wg() && k_iter < k_tiles) {
                     const uint32_t tma_k_offset = cta_k_initial_offset + SMEM_K * k_iter;
-                    if (k_iter >= RING_BUFFER_SIZE) {
-                        // After initial fill of ring buffer, we need to wait for the producers to signal
-                        // they are done reading the tile before overwriting it.
-                        phase_bits.tile_read_wait(ring_idx, shared);
+                    if (state.not_first_work_item || k_iter >= RING_BUFFER_SIZE) {
+                        // Special exception to synchronization: on the first time cluster_process_item is called
+                        // after CTA startup, for the first RING_BUFFER_SIZE iterations, we don't wait for the
+                        // tiles to be read since there is no prior work.
+                        state.tile_read_wait_ring(shared);
                     }
                     if (threadIdx.x % 128u < 32u) {
                         warp_async_load_block_clustered(
-                                shared.aliased_input_ring_buffer[ring_idx],
-                                shared.tile_fill_mbar[ring_idx],
+                                shared.aliased_input_ring_buffer[state.ring_buffer_idx],
+                                shared.tile_fill_mbar[state.ring_buffer_idx],
                                 cta_m_offset, cta_n_offset, tma_k_offset);
                     }
                 }
             }
         };
 
-        // Producer kicks of loads to fill the ring buffer except the last .
-        for (uint32_t k_iter = 0; k_iter < k_num_iters && k_iter < RING_BUFFER_SIZE - 1; ++k_iter) {
+        for (uint32_t k_iter = 0; k_iter < RING_BUFFER_SIZE; ++k_iter, state.advance_ring_buffer_idx()) {
             producer_on_k_iter(k_iter);
         }
 
-        for (uint32_t k_iter = 0; k_iter < k_num_iters; ++k_iter) {
-            const uint32_t ring_idx = k_iter % RING_BUFFER_SIZE;
+        std::conditional_t<IS_CONSUMER, WG_Accum, char> accum;
+        bool zero_accum = true;
+
+        for (uint32_t k_iter = RING_BUFFER_SIZE; k_iter < k_num_iters; ++k_iter, state.advance_ring_buffer_idx()) {
+            producer_on_k_iter(k_iter);
 
             if constexpr (IS_CONSUMER) {
-                phase_bits.tile_fill_wait(ring_idx, shared);
+                state.tile_fill_wait_ring(shared);
+
                 asm volatile("wgmma.fence.sync.aligned;  // GMMA");
                 const uint32_t wg_m_offset = get_wg_m_idx() * WG_M;
                 const uint32_t wg_n_offset = get_wg_n_idx() * WG_N;
 
                 for (uint32_t wg_k_idx = 0; wg_k_idx < SMEM_K / WG_K; ++wg_k_idx) {
                     const uint32_t wg_k_offset = wg_k_idx * WG_K;
-                    wg_accum_tile(accum, shared.aliased_input_ring_buffer[ring_idx],
+                    wg_accum_tile(accum, shared.aliased_input_ring_buffer[state.ring_buffer_idx],
                                   wg_m_offset, wg_n_offset, wg_k_offset, zero_accum);
                     zero_accum = false;
                 }
                 asm volatile("wgmma.commit_group.sync.aligned;  // GMMA");
 
                 // Wait for previous iteration's wgmma to retire, then signal that the tiles read from
-                // the previous iteration may be overwritten by the full cluster. We skip this signalling, however,
-                // if it's known that the tile will not be filled (due to reaching the iteration count).
-                if (k_iter >= 1) {
+                // the previous iteration may be overwritten by the full cluster.
+                if (k_iter >= RING_BUFFER_SIZE + 1) {
+                    static_assert(RING_BUFFER_SIZE >= 2);
                     asm volatile("wgmma.wait_group.sync.aligned 1;  // GMMA");
-                    if (k_iter + RING_BUFFER_SIZE - 1 < k_num_iters) {
-                        mbar_arrive_cluster_broadcast(shared.tile_read_mbar[(k_iter - 1) % RING_BUFFER_SIZE]);
-                        static_assert(RING_BUFFER_SIZE >= 2);
-                    }
+                    const unsigned prev_ring_idx = state.ring_buffer_idx == 0
+                                                     ? RING_BUFFER_SIZE - 1 : state.ring_buffer_idx - 1u;
+                    mbar_arrive_cluster_broadcast(shared.tile_read_mbar[prev_ring_idx]);
+                }
+                // On last iteration, wait for all wgmma to retire, and signal again.
+                if (k_iter == k_num_iters - 1u) {
+                    asm volatile("wgmma.wait_group.sync.aligned 0;  // GMMA");
+                    mbar_arrive_cluster_broadcast(shared.tile_read_mbar[state.ring_buffer_idx]);
                 }
             }
-
-            // Keep pipelining producer (fill tile for RING_BUFFER_SIZE-1 iterations ahead).
-            producer_on_k_iter(k_iter + RING_BUFFER_SIZE - 1);
         }
 
-        if constexpr (IS_CONSUMER) {
-            // Wait for all wgmma to finish
-            asm volatile("wgmma.wait_group.sync.aligned 0;  // GMMA");
-            const uint32_t wg_m_offset = get_wg_m_idx() * WG_M;
-            const uint32_t wg_n_offset = get_wg_n_idx() * WG_N;
+        if (using_cp_reduce(size_k)) {
+            // If we are using TMA to write the output tiles, we need to do a full sync of the cluster before and after
+            // using TMA, since we need to re-use shared memory to stage the tile.
+            // The sync should have the needed effect as at this point all outstanding producer TMA commands have been
+            // waited for by consumers (and no new ones will be issued until after the second sync).
+            // NOTE, this defeats the pipelining across cluster work items.
 
-            if (using_cp_reduce(size_k)) {
-                // After wgmma finished, issue all-to-all consumer warpgroups sync (inside CTA),
-                // indicating that SMEM is ready to be repurposed.
-                mbar_arrive_cta(shared.cta_all_consumers_mbar);
-                phase_bits.cta_all_consumers_wait(shared);
+            mbar_arrive_cluster_broadcast(shared.cluster_mbar);
+            RingState::mbar_wait(shared.cluster_mbar, 0);
 
+            if constexpr (IS_CONSUMER) {
                 // Now copy wgmma registers to shared memory C tile.
+                const uint32_t wg_m_offset = get_wg_m_idx() * WG_M;
+                const uint32_t wg_n_offset = get_wg_n_idx() * WG_N;
                 wg_accum_to_shared(shared, accum);
 
                 // 0th thread per consumer warpgroup waits for its own warpgroup and
@@ -835,7 +845,7 @@ struct TiledMultiplier
                 const bool elected = threadIdx.x % 128u < 32 && elect_one_sync();
                 asm volatile("fence.proxy.async;");
                 mbar_arrive_cta(shared.per_consumer_wg_mbar[consumer_wg_index()]);
-                phase_bits.per_consumer_wg_wait(elected, shared);
+                state.per_consumer_wg_wait(elected, shared);
                 if (elected) {
                     asm volatile(
                     "cp.reduce.async.bulk.tensor.2d.global.shared::cta.add.tile.bulk_group"
@@ -846,16 +856,23 @@ struct TiledMultiplier
                       "r"(smem_ptr_u32(&shared.aliased_per_wg_c_tile[consumer_wg_index()])));
                     asm volatile("cp.async.bulk.commit_group;");
                     asm volatile("cp.async.bulk.wait_group 0;");
-                    // We must wait for the TMA to complete before exiting this function, otherwise the
-                    // shared memory might get stomped on before the TMA finishing reading from it.
+                    // We must wait for the TMA to complete before the cta_mbar, otherwise the
+                    // shared memory might get stomped on before the TMA finishes reading from it.
                 }
             }
-            else {
-                // Store tile directly to output memory, bypassing TMA and shared memory.
-                // We need to bounds check as TMA is not being used.
+
+            mbar_arrive_cluster_broadcast(shared.cluster_mbar);
+            RingState::mbar_wait(shared.cluster_mbar, 1);
+        }
+        else {
+            // Store tile directly to output memory, bypassing TMA and shared memory.
+            if constexpr (IS_CONSUMER) {
+                const uint32_t wg_m_offset = get_wg_m_idx() * WG_M;
+                const uint32_t wg_n_offset = get_wg_n_idx() * WG_N;
                 const uint32_t arg_m_offset = cta_m_offset + wg_m_offset;
                 const uint32_t arg_n_offset = cta_n_offset + wg_n_offset;
                 if (arg_m_offset < size_m && arg_n_offset < size_n) {
+                    // We need to bounds check as TMA is not being used.
                     wg_accum_store_to_tile<true>(c + arg_m_offset * size_n + arg_n_offset,
                                                  size_n, size_m - arg_m_offset, size_n - arg_n_offset, accum);
                 }
@@ -864,13 +881,13 @@ struct TiledMultiplier
     }
 
     template <bool ENABLE_PRODUCER_BRANCH, bool IS_CONSUMER>
-    DEVICE_INLINE void cluster_main_loop(PhaseBits& phase_bits, Shared& smem) const
+    DEVICE_INLINE void cluster_main_loop(RingState& state, Shared& smem) const
     {
         const uint32_t num_items = num_cluster_items(size_m, size_n, size_k);
         const uint32_t item_stride = gridDim.x / CLUSTER_NUM_CTA;
         for (uint32_t item_idx = blockIdx.x / CLUSTER_NUM_CTA; item_idx < num_items; item_idx += item_stride) {
-            cluster_sync();
-            cluster_process_item<ENABLE_PRODUCER_BRANCH, IS_CONSUMER>(cluster_get_item(item_idx), phase_bits, smem);
+            cluster_process_item<ENABLE_PRODUCER_BRANCH, IS_CONSUMER>(cluster_get_item(item_idx), state, smem);
+            state.not_first_work_item = 1;
         }
     }
 
@@ -880,18 +897,19 @@ struct TiledMultiplier
 
         extern __shared__ char raw_smem[];
         Shared& smem = *reinterpret_cast<Shared*>(raw_smem);
-        PhaseBits phase_bits{};
+        RingState state{};
 
         cta_first_time_init(smem);
+        cluster_sync();
 
         if constexpr (!DEDICATED_PRODUCER_WG) {
-            cluster_main_loop<true, true>(phase_bits, smem);
+            cluster_main_loop<true, true>(state, smem);
         }
         else if (is_producer_wg()) {
-            cluster_main_loop<true, false>(phase_bits, smem);
+            cluster_main_loop<true, false>(state, smem);
         }
         else {
-            cluster_main_loop<false, true>(phase_bits, smem);
+            cluster_main_loop<false, true>(state, smem);
         }
 
         if constexpr (CLUSTER_NUM_CTA != 1) {
