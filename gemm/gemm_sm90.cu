@@ -87,7 +87,6 @@ struct TiledMultiplier
     static_assert(CLUSTER_M_NUM_CTA * SMEM_M == CLUSTER_M);
     static_assert(CLUSTER_N_NUM_CTA * SMEM_N == CLUSTER_N);
 
-    static_assert(WG_M == 64);
     static_assert(WG_K == 8);
     static constexpr CUtensorMapSwizzle input_swizzle = CU_TENSOR_MAP_SWIZZLE_128B;  // Not trivial to change.
 
@@ -428,9 +427,9 @@ struct TiledMultiplier
     };
 
 
-    static constexpr uint32_t wgmma_regcount = WG_M * WG_N / 128u;
+    static constexpr uint32_t MMA_M = 64;
 
-    struct WG_Accum_m64n64
+    struct WGMMA_D_m64n64
     {
         // wgmma register tile
         float d0, d1, d2, d3, d4, d5, d6, d7;
@@ -439,7 +438,7 @@ struct TiledMultiplier
         float d24, d25, d26, d27, d28, d29, d30, d31;
     };
 
-    struct WG_Accum_m64n96
+    struct WGMMA_D_m64n96
     {
         // wgmma register tile
         float d0, d1, d2, d3, d4, d5, d6, d7;
@@ -450,7 +449,7 @@ struct TiledMultiplier
         float d40, d41, d42, d43, d44, d45, d46, d47;
     };
 
-    struct WG_Accum_m64n128
+    struct WGMMA_D_m64n128
     {
         // wgmma register tile
         float d0, d1, d2, d3, d4, d5, d6, d7;
@@ -463,10 +462,17 @@ struct TiledMultiplier
         float d56, d57, d58, d59, d60, d61, d62, d63;
     };
 
+    using WGMMA_D = std::conditional_t<WG_N == 64, WGMMA_D_m64n64, std::conditional_t<WG_N == 96, WGMMA_D_m64n96, WGMMA_D_m64n128>>;
+
     // Per-warpgroup accumulator, holding one (WG_M, WG_N) tile.
-    using WG_Accum = std::conditional_t<WG_N == 64, WG_Accum_m64n64, std::conditional_t<WG_N == 96, WG_Accum_m64n96, WG_Accum_m64n128>>;
-    static_assert(WG_N == 64 || WG_N == 96 || WG_N == 128);
-    static_assert(wgmma_regcount == sizeof(WG_Accum) / 4u);
+    struct WG_Accum
+    {
+        static_assert(WG_N == 64 || WG_N == 96 || WG_N == 128);
+
+        static_assert(WG_M % MMA_M == 0);
+        static constexpr uint32_t num_m_tiles = WG_M / MMA_M;
+        WGMMA_D m_tiles[num_m_tiles];
+    };
 
     static DEVICE_INLINE uint64_t matrix_descriptor_encode(uint32_t val)
     {
@@ -493,152 +499,163 @@ struct TiledMultiplier
     //   a_tile[wg_m_offset : wg_m_offset + WG_M, wg_k_offset : wg_k_offset + WG_K]
     //   bT_tile[wg_n_offset : wg_n_offset + WG_N, wg_k_offset : wg_k_offset + WG_K]
     // and add to the (WG_M, WG_N) tile held in WG_Accum.
-    DEVICE_INLINE void wg_accum_tile(WG_Accum& d, const Buffers& buffers, uint32_t wg_m_offset, uint32_t wg_n_offset,
-                                     uint32_t wg_k_offset, bool zero_output) const
+    DEVICE_INLINE void wg_accum_tile(WG_Accum& accum, const Buffers& buffers,
+                                     uint32_t wg_m_offset, uint32_t wg_n_offset, uint32_t wg_k_offset,
+                                     bool zero_output) const
     {
-        [[maybe_unused]] const uint32_t lane = threadIdx.x % 128u;
         static_assert(input_swizzle != CU_TENSOR_MAP_SWIZZLE_NONE, "need to set k stride");
-        auto desc_a = matrix_descriptor_mn_k_stride(buffers.a_mk_core_matrices(wg_m_offset, wg_k_offset),
-                                                    SMEM_MN_INNER * SMEM_K_INNER * sizeof(float), 0);
         auto desc_b = matrix_descriptor_mn_k_stride(buffers.bT_nk_core_matrices(wg_n_offset, wg_k_offset),
                                                     SMEM_MN_INNER * SMEM_K_INNER * sizeof(float), 0);
-        static_assert(WG_M == 64);
+        static_assert(MMA_M == 64);
         static_assert(WG_K == 8);
 
-        if constexpr (WG_N == 64) {
-            asm volatile(
-            "{  // GMMA \n"
-              ".reg .pred p;\n"
-              "setp.ne.b32 p, %34, 0;\n"
-              "wgmma.mma_async.sync.aligned.m64n64k8.f32.tf32.tf32 "
-              "{%0,   %1,   %2,   %3,   %4,   %5,   %6,   %7,   "
-              " %8,   %9,   %10,  %11,  %12,  %13,  %14,  %15,  "
-              " %16,  %17,  %18,  %19,  %20,  %21,  %22,  %23,  "
-              " %24,  %25,  %26,  %27,  %28,  %29,  %30,  %31},  "
-              " %32,"
-              " %33,"
-              " p,    1,  1;\n"
-            "}\n"
-              : "+f"(d.d0), "+f"(d.d1), "+f"(d.d2), "+f"(d.d3),
-                "+f"(d.d4), "+f"(d.d5), "+f"(d.d6), "+f"(d.d7),
-                "+f"(d.d8), "+f"(d.d9), "+f"(d.d10), "+f"(d.d11),
-                "+f"(d.d12), "+f"(d.d13), "+f"(d.d14), "+f"(d.d15),
-                "+f"(d.d16), "+f"(d.d17), "+f"(d.d18), "+f"(d.d19),
-                "+f"(d.d20), "+f"(d.d21), "+f"(d.d22), "+f"(d.d23),
-                "+f"(d.d24), "+f"(d.d25), "+f"(d.d26), "+f"(d.d27),
-                "+f"(d.d28), "+f"(d.d29), "+f"(d.d30), "+f"(d.d31)
-              :  "l"(desc_a),
-                 "l"(desc_b),
-                 "r"(int32_t(!zero_output)));
+        #pragma unroll WG_Accum::num_m_tiles
+        for (uint32_t i = 0; i < WG_Accum::num_m_tiles; ++i) {
+            auto desc_a = matrix_descriptor_mn_k_stride(buffers.a_mk_core_matrices(wg_m_offset + i * MMA_M,
+                                                                                   wg_k_offset),
+                                                        SMEM_MN_INNER * SMEM_K_INNER * sizeof(float), 0);
+            WGMMA_D& d = accum.m_tiles[i];
+            if constexpr (WG_N == 64) {
+                asm volatile(
+                "{  // GMMA \n"
+                  ".reg .pred p;\n"
+                  "setp.ne.b32 p, %34, 0;\n"
+                  "wgmma.mma_async.sync.aligned.m64n64k8.f32.tf32.tf32 "
+                  "{%0,   %1,   %2,   %3,   %4,   %5,   %6,   %7,   "
+                  " %8,   %9,   %10,  %11,  %12,  %13,  %14,  %15,  "
+                  " %16,  %17,  %18,  %19,  %20,  %21,  %22,  %23,  "
+                  " %24,  %25,  %26,  %27,  %28,  %29,  %30,  %31},  "
+                  " %32,"
+                  " %33,"
+                  " p,    1,  1;\n"
+                "}\n"
+                  : "+f"(d.d0), "+f"(d.d1), "+f"(d.d2), "+f"(d.d3),
+                    "+f"(d.d4), "+f"(d.d5), "+f"(d.d6), "+f"(d.d7),
+                    "+f"(d.d8), "+f"(d.d9), "+f"(d.d10), "+f"(d.d11),
+                    "+f"(d.d12), "+f"(d.d13), "+f"(d.d14), "+f"(d.d15),
+                    "+f"(d.d16), "+f"(d.d17), "+f"(d.d18), "+f"(d.d19),
+                    "+f"(d.d20), "+f"(d.d21), "+f"(d.d22), "+f"(d.d23),
+                    "+f"(d.d24), "+f"(d.d25), "+f"(d.d26), "+f"(d.d27),
+                    "+f"(d.d28), "+f"(d.d29), "+f"(d.d30), "+f"(d.d31)
+                  :  "l"(desc_a),
+                     "l"(desc_b),
+                     "r"(int32_t(!zero_output)));
 
-        }
-        else if constexpr (WG_N == 96) {
-            asm volatile(
-            "{  // GMMA \n"
-              ".reg .pred p;\n"
-              "setp.ne.b32 p, %50, 0;\n"
-              "wgmma.mma_async.sync.aligned.m64n96k8.f32.tf32.tf32 "
-              "{%0,   %1,   %2,   %3,   %4,   %5,   %6,   %7,   "
-              " %8,   %9,   %10,  %11,  %12,  %13,  %14,  %15,  "
-              " %16,  %17,  %18,  %19,  %20,  %21,  %22,  %23,  "
-              " %24,  %25,  %26,  %27,  %28,  %29,  %30,  %31,  "
-              " %32,  %33,  %34,  %35,  %36,  %37,  %38,  %39,  "
-              " %40,  %41,  %42,  %43,  %44,  %45,  %46,  %47}, "
-              " %48,"
-              " %49,"
-              " p,    1,  1;\n"
-            "}\n"
-              : "+f"(d.d0), "+f"(d.d1), "+f"(d.d2), "+f"(d.d3),
-                "+f"(d.d4), "+f"(d.d5), "+f"(d.d6), "+f"(d.d7),
-                "+f"(d.d8), "+f"(d.d9), "+f"(d.d10), "+f"(d.d11),
-                "+f"(d.d12), "+f"(d.d13), "+f"(d.d14), "+f"(d.d15),
-                "+f"(d.d16), "+f"(d.d17), "+f"(d.d18), "+f"(d.d19),
-                "+f"(d.d20), "+f"(d.d21), "+f"(d.d22), "+f"(d.d23),
-                "+f"(d.d24), "+f"(d.d25), "+f"(d.d26), "+f"(d.d27),
-                "+f"(d.d28), "+f"(d.d29), "+f"(d.d30), "+f"(d.d31),
-                "+f"(d.d32), "+f"(d.d33), "+f"(d.d34), "+f"(d.d35),
-                "+f"(d.d36), "+f"(d.d37), "+f"(d.d38), "+f"(d.d39),
-                "+f"(d.d40), "+f"(d.d41), "+f"(d.d42), "+f"(d.d43),
-                "+f"(d.d44), "+f"(d.d45), "+f"(d.d46), "+f"(d.d47)
-              :  "l"(desc_a),
-                 "l"(desc_b),
-                 "r"(int32_t(!zero_output)));
-        }
-        else if constexpr (WG_N == 128) {
-            asm volatile(
-            "{  // GMMA \n"
-              ".reg .pred p;\n"
-              "setp.ne.b32 p, %66, 0;\n"
-              "wgmma.mma_async.sync.aligned.m64n128k8.f32.tf32.tf32 "
-              "{%0,   %1,   %2,   %3,   %4,   %5,   %6,   %7,   "
-              " %8,   %9,   %10,  %11,  %12,  %13,  %14,  %15,  "
-              " %16,  %17,  %18,  %19,  %20,  %21,  %22,  %23,  "
-              " %24,  %25,  %26,  %27,  %28,  %29,  %30,  %31,  "
-              " %32,  %33,  %34,  %35,  %36,  %37,  %38,  %39,  "
-              " %40,  %41,  %42,  %43,  %44,  %45,  %46,  %47,  "
-              " %48,  %49,  %50,  %51,  %52,  %53,  %54,  %55,  "
-              " %56,  %57,  %58,  %59,  %60,  %61,  %62,  %63},"
-              " %64,"
-              " %65,"
-              " p,    1,  1;\n"
-            "}\n"
-              : "+f"(d.d0), "+f"(d.d1), "+f"(d.d2), "+f"(d.d3),
-                "+f"(d.d4), "+f"(d.d5), "+f"(d.d6), "+f"(d.d7),
-                "+f"(d.d8), "+f"(d.d9), "+f"(d.d10), "+f"(d.d11),
-                "+f"(d.d12), "+f"(d.d13), "+f"(d.d14), "+f"(d.d15),
-                "+f"(d.d16), "+f"(d.d17), "+f"(d.d18), "+f"(d.d19),
-                "+f"(d.d20), "+f"(d.d21), "+f"(d.d22), "+f"(d.d23),
-                "+f"(d.d24), "+f"(d.d25), "+f"(d.d26), "+f"(d.d27),
-                "+f"(d.d28), "+f"(d.d29), "+f"(d.d30), "+f"(d.d31),
-                "+f"(d.d32), "+f"(d.d33), "+f"(d.d34), "+f"(d.d35),
-                "+f"(d.d36), "+f"(d.d37), "+f"(d.d38), "+f"(d.d39),
-                "+f"(d.d40), "+f"(d.d41), "+f"(d.d42), "+f"(d.d43),
-                "+f"(d.d44), "+f"(d.d45), "+f"(d.d46), "+f"(d.d47),
-                "+f"(d.d48), "+f"(d.d49), "+f"(d.d50), "+f"(d.d51),
-                "+f"(d.d52), "+f"(d.d53), "+f"(d.d54), "+f"(d.d55),
-                "+f"(d.d56), "+f"(d.d57), "+f"(d.d58), "+f"(d.d59),
-                "+f"(d.d60), "+f"(d.d61), "+f"(d.d62), "+f"(d.d63)
-              :  "l"(desc_a),
-                 "l"(desc_b),
-                 "r"(int32_t(!zero_output)));
-        }
-        else {
-            static_assert(WG_N != WG_N, "Add code for wgmma of this size");
+            }
+            else if constexpr (WG_N == 96) {
+                asm volatile(
+                "{  // GMMA \n"
+                  ".reg .pred p;\n"
+                  "setp.ne.b32 p, %50, 0;\n"
+                  "wgmma.mma_async.sync.aligned.m64n96k8.f32.tf32.tf32 "
+                  "{%0,   %1,   %2,   %3,   %4,   %5,   %6,   %7,   "
+                  " %8,   %9,   %10,  %11,  %12,  %13,  %14,  %15,  "
+                  " %16,  %17,  %18,  %19,  %20,  %21,  %22,  %23,  "
+                  " %24,  %25,  %26,  %27,  %28,  %29,  %30,  %31,  "
+                  " %32,  %33,  %34,  %35,  %36,  %37,  %38,  %39,  "
+                  " %40,  %41,  %42,  %43,  %44,  %45,  %46,  %47}, "
+                  " %48,"
+                  " %49,"
+                  " p,    1,  1;\n"
+                "}\n"
+                  : "+f"(d.d0), "+f"(d.d1), "+f"(d.d2), "+f"(d.d3),
+                    "+f"(d.d4), "+f"(d.d5), "+f"(d.d6), "+f"(d.d7),
+                    "+f"(d.d8), "+f"(d.d9), "+f"(d.d10), "+f"(d.d11),
+                    "+f"(d.d12), "+f"(d.d13), "+f"(d.d14), "+f"(d.d15),
+                    "+f"(d.d16), "+f"(d.d17), "+f"(d.d18), "+f"(d.d19),
+                    "+f"(d.d20), "+f"(d.d21), "+f"(d.d22), "+f"(d.d23),
+                    "+f"(d.d24), "+f"(d.d25), "+f"(d.d26), "+f"(d.d27),
+                    "+f"(d.d28), "+f"(d.d29), "+f"(d.d30), "+f"(d.d31),
+                    "+f"(d.d32), "+f"(d.d33), "+f"(d.d34), "+f"(d.d35),
+                    "+f"(d.d36), "+f"(d.d37), "+f"(d.d38), "+f"(d.d39),
+                    "+f"(d.d40), "+f"(d.d41), "+f"(d.d42), "+f"(d.d43),
+                    "+f"(d.d44), "+f"(d.d45), "+f"(d.d46), "+f"(d.d47)
+                  :  "l"(desc_a),
+                     "l"(desc_b),
+                     "r"(int32_t(!zero_output)));
+            }
+            else if constexpr (WG_N == 128) {
+                asm volatile(
+                "{  // GMMA \n"
+                  ".reg .pred p;\n"
+                  "setp.ne.b32 p, %66, 0;\n"
+                  "wgmma.mma_async.sync.aligned.m64n128k8.f32.tf32.tf32 "
+                  "{%0,   %1,   %2,   %3,   %4,   %5,   %6,   %7,   "
+                  " %8,   %9,   %10,  %11,  %12,  %13,  %14,  %15,  "
+                  " %16,  %17,  %18,  %19,  %20,  %21,  %22,  %23,  "
+                  " %24,  %25,  %26,  %27,  %28,  %29,  %30,  %31,  "
+                  " %32,  %33,  %34,  %35,  %36,  %37,  %38,  %39,  "
+                  " %40,  %41,  %42,  %43,  %44,  %45,  %46,  %47,  "
+                  " %48,  %49,  %50,  %51,  %52,  %53,  %54,  %55,  "
+                  " %56,  %57,  %58,  %59,  %60,  %61,  %62,  %63},"
+                  " %64,"
+                  " %65,"
+                  " p,    1,  1;\n"
+                "}\n"
+                  : "+f"(d.d0), "+f"(d.d1), "+f"(d.d2), "+f"(d.d3),
+                    "+f"(d.d4), "+f"(d.d5), "+f"(d.d6), "+f"(d.d7),
+                    "+f"(d.d8), "+f"(d.d9), "+f"(d.d10), "+f"(d.d11),
+                    "+f"(d.d12), "+f"(d.d13), "+f"(d.d14), "+f"(d.d15),
+                    "+f"(d.d16), "+f"(d.d17), "+f"(d.d18), "+f"(d.d19),
+                    "+f"(d.d20), "+f"(d.d21), "+f"(d.d22), "+f"(d.d23),
+                    "+f"(d.d24), "+f"(d.d25), "+f"(d.d26), "+f"(d.d27),
+                    "+f"(d.d28), "+f"(d.d29), "+f"(d.d30), "+f"(d.d31),
+                    "+f"(d.d32), "+f"(d.d33), "+f"(d.d34), "+f"(d.d35),
+                    "+f"(d.d36), "+f"(d.d37), "+f"(d.d38), "+f"(d.d39),
+                    "+f"(d.d40), "+f"(d.d41), "+f"(d.d42), "+f"(d.d43),
+                    "+f"(d.d44), "+f"(d.d45), "+f"(d.d46), "+f"(d.d47),
+                    "+f"(d.d48), "+f"(d.d49), "+f"(d.d50), "+f"(d.d51),
+                    "+f"(d.d52), "+f"(d.d53), "+f"(d.d54), "+f"(d.d55),
+                    "+f"(d.d56), "+f"(d.d57), "+f"(d.d58), "+f"(d.d59),
+                    "+f"(d.d60), "+f"(d.d61), "+f"(d.d62), "+f"(d.d63)
+                  :  "l"(desc_a),
+                     "l"(desc_b),
+                     "r"(int32_t(!zero_output)));
+            }
+            else {
+                static_assert(WG_N != WG_N, "Add code for wgmma of this size");
+            }
         }
     }
 
     template <bool BoundsCheck>
     DEVICE_INLINE void wg_accum_store_to_tile(float* tile, uint32_t row_stride, uint32_t r_guard, uint32_t c_guard,
-                                              const WG_Accum& d) const
+                                              const WG_Accum& accum) const
     {
-        const uint32_t tid = threadIdx.x % 128u;
+        #pragma unroll WG_Accum::num_m_tiles
+        for (uint32_t i = 0; i < WG_Accum::num_m_tiles; ++i) {
+            const WGMMA_D& d = accum.m_tiles[i];
+            const uint32_t tid = threadIdx.x % 128u;
+            const uint32_t r_base = (tid / 32u) * 16u + (tid % 32u) / 4u + i * MMA_M;
+            const uint32_t c_base = (tid % 4u) * 2u;
 
-        #define X(REG_INDEX) { \
-            const uint32_t r = (tid / 32u) * 16u + (tid % 32u) / 4u + ((REG_INDEX % 4u) / 2u) * 8u; \
-            const uint32_t c = (tid % 4u) * 2u + (REG_INDEX / 4u) * 8 + (REG_INDEX % 2u); \
-            if (!BoundsCheck || (r < r_guard && c < c_guard)) tile[r * row_stride + c] = d.d##REG_INDEX; }
+            #define X(REG_INDEX) { \
+                const uint32_t r = r_base + ((REG_INDEX % 4u) / 2u) * 8u; \
+                const uint32_t c = c_base + (REG_INDEX / 4u) * 8 + (REG_INDEX % 2u); \
+                if (!BoundsCheck || (r < r_guard && c < c_guard)) tile[r * row_stride + c] = d.d##REG_INDEX; }
 
-        X(0) X(1) X(2) X(3) X(4) X(5) X(6) X(7)
-        X(8) X(9) X(10) X(11) X(12) X(13) X(14) X(15)
-        X(16) X(17) X(18) X(19) X(20) X(21) X(22) X(23)
-        X(24) X(25) X(26) X(27) X(28) X(29) X(30) X(31)
-        if constexpr (WG_N >= 96) {
-            X(32) X(33) X(34) X(35) X(36) X(37) X(38) X(39)
-            X(40) X(41) X(42) X(43) X(44) X(45) X(46) X(47)
+            X(0) X(1) X(2) X(3) X(4) X(5) X(6) X(7)
+            X(8) X(9) X(10) X(11) X(12) X(13) X(14) X(15)
+            X(16) X(17) X(18) X(19) X(20) X(21) X(22) X(23)
+            X(24) X(25) X(26) X(27) X(28) X(29) X(30) X(31)
+            if constexpr (WG_N >= 96) {
+                X(32) X(33) X(34) X(35) X(36) X(37) X(38) X(39)
+                X(40) X(41) X(42) X(43) X(44) X(45) X(46) X(47)
+            }
+            if constexpr (WG_N >= 128) {
+                X(48) X(49) X(50) X(51) X(52) X(53) X(54) X(55)
+                X(56) X(57) X(58) X(59) X(60) X(61) X(62) X(63)
+            }
+            static_assert(WG_N == 64 || WG_N == 96 || WG_N == 128, "Add code for wgmma of this size");
+            #undef X
         }
-        if constexpr (WG_N >= 128) {
-            X(48) X(49) X(50) X(51) X(52) X(53) X(54) X(55)
-            X(56) X(57) X(58) X(59) X(60) X(61) X(62) X(63)
-        }
-        static_assert(WG_N == 64 || WG_N == 96 || WG_N == 128, "Add code for wgmma of this size");
-        #undef X
     }
 
     // Warpgroup-convergent code
     // Write the (WG_M, WG_N) tile to shared.aliased_per_wg_c_tile, at the entry reserved for this warpgroup.
-    DEVICE_INLINE void wg_accum_to_shared(Shared& shared, const WG_Accum& d) const
+    DEVICE_INLINE void wg_accum_to_shared(Shared& shared, const WG_Accum& accum) const
     {
-        wg_accum_store_to_tile<false>(shared.aliased_per_wg_c_tile[consumer_wg_index()], WG_N, 0, 0, d);
+        wg_accum_store_to_tile<false>(shared.aliased_per_wg_c_tile[consumer_wg_index()], WG_N, 0, 0, accum);
     }
 
     template <uint32_t MulticastCtaCount>
@@ -839,7 +856,9 @@ struct TiledMultiplier
             producer_on_k_iter(k_iter);
         }
 
-        if (using_cp_reduce(size_k)) {
+        constexpr bool always_use_tma = false;
+
+        if (using_cp_reduce(size_k) || always_use_tma) {
             // If we are using TMA to write the output tiles, we need to do a full sync of the cluster before and after
             // using TMA, since we need to re-use shared memory to stage the tile.
             // The sync should have the needed effect as at this point all outstanding producer TMA commands have been
@@ -865,17 +884,29 @@ struct TiledMultiplier
                 mbar_arrive_cta(shared.per_consumer_wg_mbar[consumer_wg_index()]);
                 state.per_consumer_wg_wait(elected, shared);
                 if (elected) {
-                    asm volatile(
-                    "cp.reduce.async.bulk.tensor.2d.global.shared::cta.add.tile.bulk_group"
-                    " [%0, {%1, %2}], [%3];"
-                    :
-                    : "l"(tensorMap_c),
-                      "r"(cta_n_offset + wg_n_offset), "r"(cta_m_offset + wg_m_offset),
-                      "r"(smem_ptr_u32(&shared.aliased_per_wg_c_tile[consumer_wg_index()])));
-                    asm volatile("cp.async.bulk.commit_group;");
-                    asm volatile("cp.async.bulk.wait_group 0;");
+                    if (using_cp_reduce(size_k)) {
+                        asm volatile(
+                            "cp.reduce.async.bulk.tensor.2d.global.shared::cta.add.tile.bulk_group"
+                            " [%0, {%1, %2}], [%3];"
+                            :
+                            : "l"(tensorMap_c),
+                              "r"(cta_n_offset + wg_n_offset), "r"(cta_m_offset + wg_m_offset),
+                              "r"(smem_ptr_u32(&shared.aliased_per_wg_c_tile[consumer_wg_index()])));
+                    }
+                    else {
+                        asm volatile(
+                            "cp.async.bulk.tensor.2d.global.shared::cta.tile.bulk_group"
+                            " [%0, {%1, %2}], [%3];"
+                            :
+                            : "l"(tensorMap_c),
+                              "r"(cta_n_offset + wg_n_offset), "r"(cta_m_offset + wg_m_offset),
+                              "r"(smem_ptr_u32(&shared.aliased_per_wg_c_tile[consumer_wg_index()])));
+                    }
+
                     // We must wait for the TMA to complete before the cta_mbar, otherwise the
                     // shared memory might get stomped on before the TMA finishes reading from it.
+                    asm volatile("cp.async.bulk.commit_group;");
+                    asm volatile("cp.async.bulk.wait_group 0;");
                 }
             }
 
@@ -899,12 +930,18 @@ struct TiledMultiplier
     }
 
     template <bool ENABLE_PRODUCER_BRANCH, bool IS_CONSUMER>
-    DEVICE_INLINE void cluster_main_loop(RingState& state, Shared& smem) const
+    DEVICE_INLINE void cluster_main_loop(RingState& state, Shared& shared) const
     {
         const uint32_t num_items = num_cluster_items(size_m, size_n, size_k);
         const uint32_t item_stride = gridDim.x / CLUSTER_NUM_CTA;
         for (uint32_t item_idx = blockIdx.x / CLUSTER_NUM_CTA; item_idx < num_items; item_idx += item_stride) {
-            cluster_process_item<ENABLE_PRODUCER_BRANCH, IS_CONSUMER>(cluster_get_item(item_idx), state, smem);
+            cluster_process_item<ENABLE_PRODUCER_BRANCH, IS_CONSUMER>(cluster_get_item(item_idx), state, shared);
+        }
+
+        if constexpr (CLUSTER_NUM_CTA != 1) {
+            // Required for distributed shared memory safety, I think?
+            mbar_arrive_cluster_broadcast(shared.cluster_mbar);
+            RingState::mbar_wait(shared.cluster_mbar, 0);
         }
     }
 
@@ -923,14 +960,16 @@ struct TiledMultiplier
             cluster_main_loop<true, true>(state, smem);
         }
         else if (is_producer_wg()) {
+            if constexpr (cta_size() == 384) {
+                asm("setmaxnreg.dec.sync.aligned.u32 40;");
+            }
             cluster_main_loop<true, false>(state, smem);
         }
         else {
+            if constexpr (cta_size() == 384) {
+                asm("setmaxnreg.inc.sync.aligned.u32 232;");
+            }
             cluster_main_loop<false, true>(state, smem);
-        }
-
-        if constexpr (CLUSTER_NUM_CTA != 1) {
-            cluster_sync();  // Required for distributed shared memory safety, I think?
         }
     }
 
@@ -1043,7 +1082,7 @@ void matmul_sm90(GPU_Tensors t, cudaStream_t stream)
     constexpr uint32_t smem_m = 256;
     constexpr uint32_t smem_n = 128;
     constexpr uint32_t smem_k = 32;
-    constexpr uint32_t wg_m = 64;
+    constexpr uint32_t wg_m = 128;
     constexpr uint32_t wg_n = 128;
     constexpr uint32_t wg_k = 8;
     constexpr uint32_t cta_k_max_tiles = 16384u / smem_k;
