@@ -11,6 +11,7 @@ compile_commands.json
 *.out
 *.aux
 docs/spork_2024.pdf
+docs/spork_dev.pdf
 gemm/gemm
 attn
 libattn.so

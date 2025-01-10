@@ -1,0 +1,401 @@
+\input{slides_common.tex}
+
+\begin{document}
+
+\tikzstyle{smallnode} = [rectangle, minimum width=1.25cm, minimum height=1cm, text centered, text width=1.25cm, draw=black, fill=white]
+\tikzstyle{smallishnode} = [rectangle, minimum width=2cm, minimum height=1cm, text centered, text width=2cm, draw=black, fill=white]
+\tikzstyle{normalnode} = [rectangle, minimum width=3cm, minimum height=1cm, text centered, text width=3cm, draw=black, fill=white]
+\tikzstyle{bignode} = [rectangle, minimum width=3.5cm, minimum height=2cm, text centered, text width=3cm, draw=black, fill=white]
+\tikzstyle{smemnode} = [rectangle, minimum width=3cm, minimum height=1cm, text centered, text width=3cm, draw=keyColorB, fill=white]
+\tikzstyle{gmemnode} = [rectangle, minimum width=3cm, minimum height=1cm, text centered, text width=3cm, draw=keyColor, fill=white]
+\tikzstyle{smallsmemnode} = [rectangle, minimum width=1.25cm, minimum height=1cm, text centered, text width=1.25cm, draw=keyColorB, fill=white]
+\tikzstyle{arrow} = [thick,->,>=stealth]
+\tikzstyle{line} = [thick]
+
+{ \LARGE Exo Dev 2025-01-15 \hfill \textbf{\textsf{Project Spork: EXO GPU}}}
+
+\includegraphics[width=\linewidth]{usda_spork.jpg}
+
+\newpage
+
+\begin{minipage}[t]{0.48\textwidth}\fixminipage
+\myTitle{Project Goals}  % Moved into minipage due to lack of space
+
+\begin{itemize}
+\item Support generating mixed CPU and CUDA code from Exo
+\item ``Minimal change'' to the core Exo language; avoid huge changes to analysis and rewrite
+\item Support basic synchronization, e.g. \texttt{\_\_syncthreads} (all threads in a CTA wait for all other threads in a CTA).
+\begin{itemize}
+  \item Fork/join
+\end{itemize}
+\item ... but also support split barriers: set of threads waiting for an event triggered by a different set of threads or different program location
+\begin{itemize}
+  \item Move beyond fork/join model
+\end{itemize}
+\item Support asynchronous CUDA accelerator instructions (async copy, async tensor core matrix multiply-accumulate)
+\end{itemize}
+\end{minipage} %
+\hfill
+\begin{minipage}[t]{0.5\textwidth}\fixminipage
+\mySub{Elevator Pitch, Programming Model:}
+\begin{itemize}
+  \item \texttt{with} = open device (CUDA) code block
+  \begin{itemize}
+    \item Kenneth: we need to discuss overloading
+  \end{itemize}
+  \item \texttt{for i in cuda\_\{thread/warp/etc.\}(lo,hi)}\\ = distribute work across threads/warps/etc.
+  \item Add new \texttt{Fence}, \texttt{Arrive}, \texttt{Await} statements and \texttt{barrier} type for synchronization.
+  \item Need to extend \texttt{Memory} and \texttt{@instr} to handle new CUDA memory types and async instructions.
+\end{itemize}
+
+\mySub{Elevator Pitch, Rewrites \& Safety:}
+
+Key idea: most of Exo will still treat the code \textit{as if it were not parallelized}
+
+\begin{itemize}
+  \item \texttt{with} = \texttt{if True:}
+  \item \texttt{for i in cuda\_\{thread/warp/etc.\}(lo,hi)}\\ = sequential for loop
+  \item \texttt{Fence}, \texttt{Arrive}, \texttt{Await} = nothing
+  \item Async \texttt{instr} = sync \texttt{instr}
+\end{itemize}
+
+Parallelism checks are part of the code lowering process.
+
+\end{minipage} %
+\newpage
+
+\myTitle{Basic CUDA Features}
+
+\begin{minipage}[t]{0.5\textwidth}\fixminipage
+
+CPU code launches ``grid'': hierarchy of threads
+\begin{itemize}
+  \item warp: 32 threads
+  \item warpgroup: 128 threads (new in H100)
+  \item CTA (block): \texttt{blockDim} threads (user-set size)
+  \item cluster: 1-16 cooperating blocks (user-set)
+  \item grid: \texttt{gridDim} blocks (user-set size)
+\end{itemize}
+I call these \myKey{``collective units''} (includes base case, one thread), abusing Cutlass vocabulary
+
+Core ``unit of parallelism'': CTA
+\begin{itemize}
+  \item Easy to synchronize within CTAs; hard between CTAs (Exo won't model this)
+  \item Sub-collectives (thread, warp, warpgroup) within CTA can split and coalesce easily
+  \item Different collective unit needed for different operations; programmer handles manually!
+  \item \myKeyB{Frequent} communication \myKeyB{within} blocks
+  \item \myKey{Minimal} communication \myKey{between} blocks
+  \item Limited cross-block cooperation with atomics
+\end{itemize}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.48\textwidth}\fixminipage
+\myKey{GMEM} (Global Memory): \myKey{``slow''}, 10s of GB
+\begin{itemize}
+  \item any thread in grid may access
+\end{itemize}
+\myKeyB{SMEM} (Shared Memory): 100s of KiB
+\begin{itemize}
+  \item per-CTA memory (L1 cache carveout)
+  \item \myKeyB{``fast''}, but still $\approx$10$\times$ slower than math
+\end{itemize}
+\textbf{RMEM} (Register ``Memory'') -- 255 per thread
+
+\begin{tikzpicture}[node distance=5mm]
+\node (grid) [normalnode] {grid};
+\node (gmem) [gmemnode, right=of grid, xshift=4mm] {\myKey{GMEM}};
+\draw[line] (grid) -- (gmem);
+
+\node (block0) [smallnode, fill=violetBoxBg, below=of grid, xshift=-1cm, yshift=-16mm] {block};
+\node (block1) [smallnode, right=of block0, xshift=0.6cm] {block};
+\node (block2) [smallnode, right=of block1, xshift=2cm] {block};
+\draw[arrow] (grid.south) to[out=270,in=0] (block0.east);
+\draw[arrow] (grid.south) to[out=290,in=180] (block1.west);
+\draw[arrow] (grid.south) to[out=330,in=180] ($(block2.west)+(0,0.2)$);
+\draw[dotted] ($(block0.east) - (0, 0.3)$) to ($(block1.west) - (0, 0.3)$);
+\draw[dotted] ($(block1.east) - (0, 0.3)$) to node(gridDim)[]{gridDim} ($(block2.west) - (0, 0.3)$);
+\draw[arrow,dotted] (grid.south) to [out=310,in=145] (gridDim);
+
+\node (thread0) [smallnode, fill=violetBoxBg, below=of block0, yshift=-4mm] {thread};
+\node (thread1) [smallnode, fill=violetBoxBg, right=of thread0] {thread};
+\node (thread2) [smallnode, fill=violetBoxBg, right=of thread1, xshift=2cm] {thread};
+\node (rmem0) [smallnode, below=of thread0] {\textbf{RMEM}};
+\node (rmem1) [smallnode, below=of thread1] {\textbf{RMEM}};
+\node (rmem2) [smallnode, below=of thread2] {\textbf{RMEM}};
+\draw[line] (thread0) -- (rmem0);
+\draw[line] (thread1) -- (rmem1);
+\draw[line] (thread2) -- (rmem2);
+
+\node (smem0) [smallsmemnode, above=of block0] {\myKeyB{SMEM}};
+\node (smem1) [smallsmemnode, above=of block1] {\myKeyB{SMEM}};
+\node (smem2) [smallsmemnode, above=of block2] {\myKeyB{SMEM}};
+\draw[line] (block0) -- (smem0);
+\draw[line] (block1) -- (smem1);
+\draw[line] (block2) -- (smem2);
+
+\draw[arrow] (block0.south) to [out=270,in=90] (thread0.north);
+\draw[arrow] (block0.south) to [out=290,in=110] (thread1.north);
+\draw[arrow] (block0.south) to [out=330,in=130] (thread2.north);
+\draw[dotted] ($(thread0.east) - (0, 0.3)$) to ($(thread1.west) - (0, 0.3)$);
+\draw[dotted] ($(thread1.east) - (0, 0.3)$) to node(blockDim)[]{blockDim} ($(thread2.west) - (0, 0.3)$);
+\draw[arrow,dotted] (block0.south) to [out=310,in=130] (blockDim.north);
+\end{tikzpicture}
+\end{minipage}
+
+\newpage
+\myTitle{CUDA Async Instructions}
+
+\begin{minipage}[t]{0.48\textwidth}\fixminipage
+New accelerator instructions with the NVIDIA H100 (Hopper) are asynchronous.
+They are issued by CUDA threads or warpgroups, but execution continues without waiting.
+\begin{itemize}
+  \item TMA: copy tensor tiles GMEM$\leftrightarrow$SMEM
+  \item wgmma: tiled matrix multiply-accumulate
+\end{itemize}
+This means the following won't work if the highlighted statements are async:
+\begin{enumerate}
+  \item \redBox{$A \leftarrow X$}
+  \item \redBox{$B \leftarrow Y$}
+  \item $C \leftarrow C + AB$ (incorrectly assumes $A,B$ written to)
+\end{enumerate}
+Two async instructions issued by the same thread/warpgroup don't even complete in the same order relative to each other, e.g., the following is a data race:
+\begin{enumerate}
+  \item \redBox{$A \leftarrow X$}
+  \item \redBox{$A \leftarrow Y$}
+\end{enumerate}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.48\textwidth}\fixminipage
+These also ignore all ``ordinary'' synchronization.
+
+Special-purpose synchronization statements must be used for these instructions.
+
+Note: the effects of async instructions are also made visible by the ``stop the world'' barriers between grid launches on the same stream.
+
+\mySub{Async Proxy}
+
+In CUDA terminology, TMA and wgmma are considered to operate in the ``async proxy''.
+Almost everything else is in the ``generic proxy'' (I'm ignoring the tensorMap proxy).
+
+A ``proxy fence'' is needed to communicate from the generic proxy to the async proxy.
+
+Typically, this is not needed for the opposite direction; synchronization that waits for a TMA or wgmma instruction generally documents it includes a proxy fence.
+\end{minipage}
+\newpage
+\myTitle{wgmma: Warpgroup Matrix Multiply-accumulate Async}
+
+\begin{minipage}[t]{0.48\textwidth}\fixminipage
+Conceptually, this is really simple.
+Each \texttt{wgmma.mma\_async} instruction is issued by a warpgroup (\myKey{128 aligned threads}), and computes
+\begin{itemize}
+  \item $D \leftarrow AB$ or \hfill (scale-d = 0)
+  \item $D \leftarrow AB + D$ \hfill (scale-d = 1)
+\end{itemize}
+where
+\begin{itemize}
+  \item $D$ matrix tile is in \textbf{registers (RMEM)}
+  \item $B$ matrix tile is in \myKeyB{shared memory (SMEM)}
+  \item $A$ matrix tile is stored in either format
+  \item Usually, scale-d = 0 only for the first iteration
+\end{itemize}
+
+The complexity for this feature comes from
+\begin{itemize}
+  \item Input/output format details \myKey{(huuuge mess)}
+  \item Synchronization
+\end{itemize}
+I'll just address the latter for now.
+Although Exo will eventually have to figure out how to model the full set of matrix formats.
+\end{minipage}%
+\hfill
+\begin{minipage}[t]{0.48\textwidth}\fixminipage
+\mySub{Synchronization generic $\to$ wgmma}
+
+For \textbf{registers}, issue \texttt{wgmma.fence}
+
+For \myKeyB{shared memory}, issue an async proxy fence (unless the memory was written by TMA, which is already in the async proxy).
+
+\mySub{Synchronization wgmma $\to$ generic}
+
+The completion mechanism is \myKey{``commit group''}.
+
+wgmma synchronization only occurs within a single warpgroup.
+
+\begin{itemize}
+\item \texttt{wgmma.fence} begins a ``pipeline stage''
+\item \texttt{wgmma.commit\_group} ends a pipeline stage
+\item \texttt{wgmma.mma} must appear within pipeline stage
+\item \texttt{wgmma.wait\_group N} waits for the MMAs of the $N^{th}$ prior pipeline stage (0-indexed)
+\end{itemize}
+
+\end{minipage}
+
+\begin{tikzpicture}[node distance=5mm]
+\node (fence0) [smallnode] {fence};
+\node (mma00) [smallishnode, right=of fence0, fill=violetBoxBg] {MMA\\scale-d=0};
+\node (mma01) [smallnode, right=of mma00, fill=violetBoxBg] {MMA};
+\node (commit0) [smallnode, right=of mma01, fill=violetBoxBg] {commit\\group};
+\node (fence1) [smallnode, right=of commit0] {fence};
+\node (mma10) [smallnode, right=of fence1] {MMA};
+\node (mma11) [smallnode, right=of mma10] {MMA};
+\node (commit1) [smallnode, right=of mma11] {commit\\group};
+\node (wait1) [smallishnode, right=of commit1, fill=violetBoxBg] {wait\_group \textbf{1}};
+\draw[arrow] (mma00.east) to (mma01.west);
+\draw[arrow] (mma01.east) to (commit0.west);
+\draw[arrow] (commit0.south) to[out=350,in=190] (wait1.south);
+\end{tikzpicture}
+
+\newpage
+\myTitle{TMA: Tensor Memory Accelerator}
+
+\begin{minipage}[t]{0.48\textwidth}\fixminipage
+Handled with \texttt{cp.async.bulk.tensor} instructions.
+
+\begin{itemize}
+\item Async 1D-5D tile copy \myKey{GMEM}$\leftrightarrow$\myKeyB{SMEM}
+\item \myKeyB{SMEM} tile: densely packed C-order matrix
+\item \myKey{GMEM} tile: tile from big C-order matrix
+\item 16 byte aligned, cannot stride innermost dim
+\item \myKey{GMEM predication:} reads get default value; writes discarded
+\end{itemize}
+
+\begin{tikzpicture}[node distance=5mm]
+\node (smem) [smemnode] {\myKeyB{SMEM tile}};
+\node (gmembig) [bignode, right=of smem, yshift=-3mm] {};
+\node (gmem) [gmemnode, right=of smem, xshift=9mm] {\myKey{GMEM tile}};
+\draw [arrow] ($(smem.east)-(0,0.2)$) -- ($(gmem.west)-(0,0.2)$);
+\draw [arrow] ($(gmem.west)+(0,0.2)$) -- ($(smem.east)+(0,0.2)$);
+\end{tikzpicture}
+
+Need to encode GMEM matrix as \texttt{CUtensorMap}
+\begin{itemize}
+  \item \myKey{``fat pointer''}, GMEM pointer + info
+  \item Encodes GMEM matrix size and strides
+  \item Encodes SMEM tile size (\& swizzle mode)
+  \item SMEM pointer NOT encoded
+  \item Used on device, but must be encoded on the host CPU (not 100\% true)
+\end{itemize}
+
+%Note: TMA can also be used without a \texttt{CUtensorMap} for literal array to array copies.
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.48\textwidth}\fixminipage
+\mySub{Synchronization generic $\to$ TMA}
+
+Async proxy fence required to see memory written by generic instructions.
+
+\mySub{Synchronization TMA $\to$ generic}
+
+If the TMA copies SMEM to GMEM, the completion mechanism is \myKey{commit\_group}.
+
+If the TMA copies GMEM to SMEM, the completion mechanism is \myKey{mbarrier} (split barrier)
+
+\begin{itemize}
+  \item Initialized in SMEM with arrive-count $A$
+  \item Any number of threads can wait until both of the following complete:
+  \begin{itemize}
+    \item $A$-many threads arrive
+    \item \texttt{tx-count}-many bytes copied by TMA
+  \end{itemize}
+  \item Re-usable (detail: requires parity tracking)
+\end{itemize}
+Usually, we nominate only \myKey{1 thread} to issue the TMA instruction.
+Hence, we use a 1-to-many mbarrier to synchronize ($A = 1$).
+
+NB mbarrier is usable without TMA (\texttt{tx-count=0})
+
+\end{minipage}
+\newpage
+\myTitle{TMA Reduction}
+
+\begin{minipage}[t]{0.5\textwidth}\fixminipage
+TMA has an additional ``reduce'' functionality when copying shared memory to global memory.
+
+When enabled, the SMEM tile to GMEM tile ``copy'' becomes a reduction into GMEM instead (for our purposes, we care about the \texttt{+=} reduce operator).
+
+\begin{verbatim}
+def tma_reduce(gmem, smem, boxDim1...boxDimN,
+               coord1...coordN):
+    for i1 in seq(0, boxDim1):
+        ... # N=1,2,3,4,5
+        for iN in seq(0, boxDimN):
+            gmem[i1 + coord1...
+                iN + coordN] += smem[i1...iN]
+\end{verbatim}
+
+This reduction is \myKey{atomic} (\texttt{relaxed.gpu} memory model) per tensor element.
+
+Extremely OP Feature!
+
+\begin{tikzpicture}[node distance=5mm]
+\node (smem) [smemnode] {\myKeyB{SMEM tile}};
+\node (op) [normalnode, right=of smem] {AtomicOp};
+\draw [arrow] (smem) -- (op);
+\node (gmembig) [bignode, below=of op] {};
+\node (gmem) [gmemnode, below=of op, yshift=-6mm] {\myKey{GMEM tile}};
+\draw [arrow] (gmem.east) to[out=0,in=0] (op.east);
+\draw [arrow] (op.south) to[out=250,in=110] (gmem.north);
+\end{tikzpicture}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.48\textwidth}\fixminipage
+\mySub{Application: Split-$k$}
+
+With TMA, we can parallelize a gemm on $k$ by assigning multiple thread blocks to each output tile,
+assigning different $k$ ranges to each block, and using TMA to reduce into the output tile.
+
+\mySub{Application: Backwards Pass}
+
+The backwards pass reverses the direction of information flow.
+Each original ``input'' tile $A_i,B_j$ receives gradient contributions from multiple ``output'' tiles $C_{i,j}$.
+Parallelizing blocks on $C$ tiles requires reductions between thread blocks.
+
+\begin{tikzpicture}[node distance=2mm]
+\node(b0) [smallnode] {$B_0$};
+\node(b1) [smallnode, right=of b0] {$B_1$};
+\node(b2) [smallnode, right=of b1, fill=blueBoxBg] {$B_2$};
+\node(bN) [smallnode, right=of b2, xshift=4mm] {$B_{no-1}$};
+\draw [dotted] (b2) -- (bN);
+\node(c00) [smallnode, below=of b0, yshift=-4mm] {$C_{0,0}$};
+\node(c01) [smallnode, below=of b1, yshift=-4mm] {$C_{0,1}$};
+\node(c02) [smallnode, below=of b2, yshift=-4mm, fill=blueBoxBg] {$C_{0,2}$};
+\node(c0N) [smallnode, below=of bN, yshift=-4mm] {$C_{0,no-1}$};
+
+\node(a0) [smallnode, left=of c00, xshift=-4mm] {$A_0$};
+\node(a1) [smallnode, below=of a0, fill=redBoxBg] {$A_1$};
+\node(aM) [smallnode, below=of a1, yshift=-4mm] {$A_{mo-1}$};
+\draw [dotted] (a1) -- (aM);
+
+\node(c10) [smallnode, below=of c00, fill=redBoxBg] {$C_{1,0}$};
+\node(c11) [smallnode, below=of c01, fill=redBoxBg] {$C_{1,1}$};
+\node(c12) [smallnode, below=of c02, fill=violetBoxBg] {$C_{1,2}$};
+\node(c1N) [smallnode, below=of c0N, fill=redBoxBg] {$C_{1,no-1}$};
+
+\node(cM0) [smallnode, below=of c10, yshift=-4mm] {$C_{mo-1,0}$};
+\node(cM1) [smallnode, below=of c11, yshift=-4mm] {$C_{mo-1,1}$};
+\node(cM2) [smallnode, below=of c12, yshift=-4mm, fill=blueBoxBg] {$C_{mo-1,2}$};
+\node(cMN) [smallnode, below=of c1N, yshift=-4mm] {$C_{...}$};
+
+\draw [arrow] (c00) -- (a0);
+\draw [arrow] (c10) -- (a1);
+\draw [arrow] (cM0) -- (aM);
+
+\draw [dotted] (c10) -- (cM0);
+\draw [dotted] (c11) -- (cM1);
+\draw [dotted] (c12) -- (cM2);
+\draw [dotted] (c1N) -- (cMN);
+
+\draw [dotted] (c02) -- (c0N);
+\draw [dotted] (c12) -- (c1N);
+\draw [dotted] (cM2) -- (cMN);
+\draw [dotted] (c12) -- (cMN);
+
+\draw [arrow] (c00) -- (b0);
+\draw [arrow] (c01) -- (b1);
+\draw [arrow] (c02) -- (b2);
+\draw [arrow] (c0N) -- (bN);
+\end{tikzpicture}
+\end{minipage}
+
+
+\end{document}
