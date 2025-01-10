@@ -95,12 +95,16 @@ def schedule_gemm(p, new_name, use_cuda):
 
     print(p)
     if use_cuda:
+        # Temporary syntax: wrap entire body as cuda device function
+        # with blockDim = m_tile * n_tile
+        p = tmp_add_with(p, p.body(), CudaDeviceFunction(blockDim = m_tile * n_tile))
+
         p = set_memory(p, c_accum_alloc, CudaRegisters)
         p = set_memory(p, "A_tile", CudaShared)
         p = set_memory(p, "B_tile", CudaShared)
 
         # "x #n" means n-th loop with x as iteration variable
-        p = set_loop_mode(p, "mo", exo.loop_modes.CudaBlocks(m_tile * n_tile))
+        p = set_loop_mode(p, "mo", exo.loop_modes.CudaBlocks())
         p = set_loop_mode(p, "no", exo.loop_modes.CudaBlocks())
         p = set_loop_mode(p, "i0 #0", exo.loop_modes.cuda_threads)
         p = set_loop_mode(p, "i1 #0", exo.loop_modes.cuda_threads)
