@@ -309,19 +309,10 @@ NB mbarrier is usable without TMA (\texttt{tx-count=0})
 \myTitle{TMA Reduction}
 
 \begin{minipage}[t]{0.5\textwidth}\fixminipage
-TMA has an additional ``reduce'' functionality when copying shared memory to global memory.
+TMA takes an optional ``reduce'' operand when copying \myKeyB{SMEM}$\to$\myKey{GMEM}
 
-When enabled, the SMEM tile to GMEM tile ``copy'' becomes a reduction into GMEM instead (for our purposes, we care about the \texttt{+=} reduce operator).
-
-\begin{verbatim}
-def tma_reduce(gmem, smem, boxDim1...boxDimN,
-               coord1...coordN):
-    for i1 in seq(0, boxDim1):
-        ... # N=1,2,3,4,5
-        for iN in seq(0, boxDimN):
-            gmem[i1 + coord1...
-                iN + coordN] += smem[i1...iN]
-\end{verbatim}
+Replaces \texttt{GMEM[\textit{slice}] = SMEM} with\\
+\texttt{GMEM[\textit{slice}] += SMEM}
 
 This reduction is \myKey{atomic} (\texttt{relaxed.gpu} memory model) per tensor element.
 
@@ -336,6 +327,15 @@ Extremely OP Feature!
 \draw [arrow] (gmem.east) to[out=0,in=0] (op.east);
 \draw [arrow] (op.south) to[out=250,in=110] (gmem.north);
 \end{tikzpicture}
+\begin{verbatim}
+def tma_reduce(gmem, smem, boxDim1...boxDimN,
+               coord1...coordN):
+    for i1 in seq(0, boxDim1):
+        ... # N=1,2,3,4,5
+        for iN in seq(0, boxDimN):
+            gmem[i1 + coord1...
+                iN + coordN] += smem[i1...iN]
+\end{verbatim}
 \end{minipage}
 \hfill
 \begin{minipage}[t]{0.48\textwidth}\fixminipage
