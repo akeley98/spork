@@ -226,7 +226,10 @@ The complexity for this feature comes from
 
 For \textbf{registers}, issue \texttt{wgmma.fence}
 
-For \myKeyB{shared memory}, issue an async proxy fence (unless the memory was written by TMA, which is already in the async proxy).
+For \myKeyB{shared memory}, issue an async proxy fence
+\begin{itemize}
+  \item Not needed if TMA filled SMEM
+\end{itemize}
 
 \mySub{Synchronization wgmma $\to$ generic}
 
@@ -236,8 +239,9 @@ wgmma synchronization only occurs within a single warpgroup, with MMAs pipelined
 
 \begin{itemize}
 \item \texttt{wgmma.fence} begins a ``pipeline stage''
-\item \texttt{wgmma.commit\_group} ends a pipeline stage
 \item \texttt{wgmma.mma} must appear within pipeline stage
+\item \texttt{wgmma.commit\_group} ends a pipeline stage
+\item ptxas f's you if it can't recognize the pattern
 \end{itemize}
 \texttt{wgmma.wait\_group N} waits for the MMAs of the $N^{th}$ prior pipeline stage (0-indexed)
 
@@ -269,9 +273,9 @@ Handled with \texttt{cp.async.bulk.tensor} instructions.
 \item \myKeyB{SMEM} tile: densely packed C-order matrix
 \item \myKey{GMEM} tile: tile from big C-order matrix
 \begin{itemize}
-  \item \myKey{Predicated}
+  \item \myKey{Predicated} and strided (16B aligned)
 \end{itemize}
-\item 16 byte aligned, cannot stride innermost dim
+\item 16 byte aligned; cannot stride innermost dim
 \end{itemize}
 
 \begin{tikzpicture}[node distance=5mm]
@@ -282,13 +286,16 @@ Handled with \texttt{cp.async.bulk.tensor} instructions.
 \draw [arrow] ($(gmem.west)+(0,0.2)$) -- ($(smem.east)+(0,0.2)$);
 \end{tikzpicture}
 
-Need to encode GMEM matrix as \texttt{CUtensorMap}
+Need to encode GMEM matrix as \myKey{\texttt{CUtensorMap}}
 \begin{itemize}
   \item \myKey{``fat pointer''}, GMEM pointer + info
   \item Encodes GMEM matrix size and strides
   \item Encodes SMEM tile size (\& swizzle mode)
   \item SMEM pointer NOT encoded
-  \item Used on device, but must be encoded on the host CPU\\(not 100\% true, look up tensorMap proxy if you want)
+  \item Used on device, but must be encoded on the host CPU
+  \begin{itemize}
+    \item not 100\% true, look up tensorMap proxy if you want
+  \end{itemize}
 \end{itemize}
 
 %Note: TMA can also be used without a \texttt{CUtensorMap} for literal array to array copies.
@@ -301,7 +308,7 @@ Async proxy fence required to see memory written by generic instructions.
 
 \mySub{Synchronization TMA $\to$ generic}
 
-If the TMA copies SMEM to GMEM, the completion mechanism is \myKey{commit\_group}.
+If the TMA copies SMEM to GMEM, the completion mechanism is \myKey{commit\_group}
 
 If the TMA copies GMEM to SMEM, the completion mechanism is \myKey{mbarrier} (split barrier)
 
@@ -327,15 +334,15 @@ NB mbarrier is usable without TMA (\texttt{tx-count=0})
 TMA takes an optional ``reduce'' operand when copying \myKeyB{SMEM}$\to$\myKey{GMEM}
 
 Replaces \texttt{GMEM[\textit{slice}] = SMEM}\\
-with \texttt{GMEM[\textit{slice}] += SMEM}
+with \texttt{GMEM[\textit{slice}] \violetBox{+=} SMEM} (or another reduce op)
 
-This reduction is \myKey{atomic} (\texttt{relaxed.gpu} memory model) per tensor element.
+This reduction is \myKey{atomic} (\texttt{relaxed.gpu}) per element
 
 Extremely OP Feature!
 
 \begin{tikzpicture}[node distance=5mm]
 \node (smem) [smemnode] {\myKeyB{SMEM tile}};
-\node (op) [normalnode, right=of smem] {AtomicOp};
+\node (op) [normalnode, right=of smem, fill=violetBoxBg] {AtomicOp};
 \draw [arrow] (smem) -- (op);
 \node (gmembig) [bignode, below=of op] {};
 \node (gmem) [gmemnode, below=of op, yshift=-6mm] {\myKey{GMEM tile}};
