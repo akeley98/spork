@@ -418,6 +418,316 @@ Parallelizing blocks on $C$ tiles requires reductions between thread blocks.
 \draw [arrow] (c0N) -- (bN);
 \end{tikzpicture}
 \end{minipage}
+\newpage
+\myTitle{Exo Syntax -- Async Block, Parallel For}
 
+\begin{minipage}[t]{0.48\textwidth}\fixminipage
+Open an ``async block'' to switch from compiling CPU code to accelerator code.
+\begin{itemize}
+  \item Syntax: \texttt{with \textit{async\_config}: \textit{body}}
+  \item Nomenclature?\\Idea is this block is ``asynchronous'' in some way relative to the parent code
+\end{itemize}
+\vspace{12mm}
+Top level (outside async block): CPU code
 
+Middle level: \myKey{synchronous} CUDA instructions
+\begin{itemize}
+  \item \texttt{with CudaDeviceFunction(blockDim,...):}
+  \item \myKey{Parallel for} allowed at this level
+\end{itemize}
+
+Bottom level: \myKey{async} CUDA instructions
+\begin{itemize}
+  \item \texttt{with CudaAsync(...):}
+  \item more detail later!
+\end{itemize}
+\vspace{12mm}
+Future work could build on this syntax to target non-CUDA accelerators.
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.48\textwidth}\fixminipage
+We define parallel for loops for each level of the CUDA thread hierarchy;
+\texttt{for \_ in cuda\_\{units\}:}
+\begin{itemize}
+  \item i.e. each \myKey{collective unit}
+  \item \texttt{\{units\}} = \texttt{clusters}, \texttt{blocks}, \texttt{warpgroups}, \texttt{warps}, \texttt{threads}
+\end{itemize}
+Must be \myKey{strictly nested}
+\begin{itemize}
+  \item levels except \texttt{blocks} may be skipped
+  \item exception: \myKey{multidimensional} iteration\\(defined by directly nested same-unit loops)
+\end{itemize}
+Each iteration executed by a \myKey{collective lane}
+
+Parallel for loops + hardware resources define \myKey{collective scope} (formerly parlane, parscope)
+
+\begin{verbatim}
+with CudaDeviceFunction(blockDim=256):
+    for b in cuda_blocks(...):
+        for y in cuda_threads(0, 16):
+            for x in cuda_threads(0, 16):
+                # 16 x 16 iteration space
+                # mapped to 256 threads
+
+                with CudaAsync(...):
+                    # Async instructions
+\end{verbatim}
+\end{minipage}
+\newpage
+\myTitle{Exo Syntax -- SpecializeCollective (warp specialization)}
+
+Parallel for loops map the work over all available hardware resources of the parent collective lane:
+\begin{verbatim}
+with CudaDeviceFunction(blockDim = 5 * 128):
+    for b in cuda_blocks(0, block_count):
+        # collective scope is block_count-many blocks
+        # collective lane is 1 block of blockDim = 5 * 128 threads
+
+        for wg in cuda_warpgroups(0, 5):
+            # 5 iterations mapped to 5 warpgroups available in block
+            # collective lane is now a warpgroup
+
+            for w in cuda_warps(0, 4):
+                # 4 iterations mapped to 4 warps available in warpgroup
+\end{verbatim}
+Nest inside \myKey{\texttt{with SpecializeCollective}} to override this; assign \myKey{different work} to \myKey{different warps}
+\begin{verbatim}
+with CudaDeviceFunction(blockDim = 5 * 128):
+    for b in cuda_blocks(0, block_count):
+        with SpecializeCollective(cuda_warpgroup, 0, 1):        # Overloaded with statement
+            for wg in cuda_warpgroups(0, 1):
+                # This code mapped to warpgroup 0
+        with SpecializeCollective(cuda_warpgroup, 1, 5):        # Overloaded with statement
+            for n_wg in cuda_warpgroup(0, 2):
+                for m_wg in cuda_warpgroup(0, 2):
+                    # 2 x 2 space mapped to warpgroups 1, 2, 3, 4
+\end{verbatim}
+
+\newpage
+\myTitle{Exo Syntax -- Synchronization 1/2}
+
+\begin{minipage}[t]{0.48\textwidth}\fixminipage
+The simplest category of barrier is what I term a \myKey{Fence}; this specifies that all threads in the executing \myKey{collective lane} wait for each other.
+
+\begin{verbatim}
+with CudaDeviceFunction(...):
+    for b in cuda_blocks(...):
+        # Executing collective lane is block
+
+        for t in cuda_threads(...):
+            do_something_A()
+
+        # __syncthreads()
+        Fence(cuda_sync, cuda_generic)
+
+        for w in cuda_warps(...):
+            for t in cuda_threads(0, 32):
+                do_something_B()
+            # Executing collective lane is warp
+            # so this Fence is __syncwarp()
+            Fence(cuda_sync, cuda_generic)
+            do_something_warp()
+
+        # __syncthreads()
+        Fence(cuda_sync, cuda_generic)
+\end{verbatim}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.48\textwidth}\fixminipage
+Ignore \texttt{cuda\_sync, cuda\_generic} for now (actor kinds, to be explained)
+
+In Exo, we are \myKey{explicit} about which operations are done by which \myKey{collective units} (e.g. block / coalesced warp), unlike in CUDA C++ where it is the \myKey{user's responsibility} to do this correctly, else get hangs or UB.
+
+This can cause one block of CUDA code to map to multiple blocks of Exo code, e.g. the code on the left is equivalent to CUDA code
+\begin{verbatim}
+__global__ void <function name>()
+{
+    do_something_A();   // unit =     thread
+    __syncthreads();    // unit = block
+    do_something_B();   // unit =     thread
+    __syncwarp();       // unit =   warp
+    do_something_warp();// unit =   warp
+    __syncthreads();    // unit = block
+}
+\end{verbatim}
+\end{minipage}
+
+\newpage
+\myTitle{Exo Syntax -- Synchronization 2/2, Actor Kind}
+
+\begin{minipage}[t]{0.48\textwidth}\fixminipage
+Conceptually, an async block instructs the compiler to lower to a \myKey{different category of instructions} with \myKey{different synchronization requirements}
+
+For now, informally, this categorization is the \myKey{actor kind}, which is one of the following:
+
+\vspace{12mm}
+
+Top level code:
+\begin{itemize}
+  \item \texttt{cpu}
+\end{itemize}
+
+\texttt{with CudaDeviceFunction(...):}
+\begin{itemize}
+  \item \texttt{cuda\_sync}
+  \begin{itemize}
+    \item Synchronous CUDA instructions
+  \end{itemize}
+\end{itemize}
+
+\texttt{with CudaAsync(\textit{actor\_kind}):}
+\begin{itemize}
+  \item \texttt{non\_bulk\_cp\_async}
+  \begin{itemize}
+    \item Ampere async copy\\(uses generic proxy; not discussed)
+  \end{itemize}
+  \item \texttt{tma\_gmem\_to\_smem\_async}
+  \item \texttt{tma\_smem\_to\_gmem\_async}
+  \item \texttt{wgmma\_async}
+\end{itemize}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.48\textwidth}\fixminipage
+\mySub{Fence}
+
+Parameterize with actor kind
+\begin{verbatim}
+  Fence(A1, A2)
+\end{verbatim}
+Within the executing collective lane, prior actions of actor kind \texttt{A1} happen before subsequent actions of actor kind \texttt{A2}
+
+\mySub{Split Barrier}
+
+Declare variable of \texttt{barrier} type
+\begin{verbatim}
+  <barrier var> : barrier
+  Arrive(A1, <barrier var>)
+  Await(<barrier var>, A2)
+\end{verbatim}
+
+Actions of actor kind \texttt{A1} prior to the $N^{th}$ arrive happen before actions of actor kind \texttt{A2} subsequent to the $N^{th}$ await.
+
+We use orthogonal syntax but \myKey{not all} collective unit + actor kind combinations supported.
+
+\mySub{Synthetic Actor Kind}
+
+Additional actor kinds only used to parameterize synchronization,
+e.g. \texttt{cuda\_all} (all CUDA instructions), \texttt{cuda\_generic} (generic proxy)
+
+\end{minipage}
+
+\newpage
+\myTitle{Exo Syntax -- CudaAsync Block}
+
+\begin{minipage}[t]{0.48\textwidth}\fixminipage
+As mentioned, nested within \texttt{CudaDeviceFunction} async block (actor kind \texttt{cuda\_sync})
+
+Syntax, \texttt{with CudaAsync(\textit{actor\_kind})}
+
+Often, there is \myKey{nontrivial interaction} between the async instructions and related synchronization
+\begin{itemize}
+\item Example: wgmma ``pipeline stage'' must appear in fixed pattern (that gets ptxas's vaunted stamp of approval)
+\item Example: TMA \texttt{expect-tx} needs to be set to the number of bytes copied
+\end{itemize}
+\vspace{12mm}
+For certain actor kinds, we \myKey{could} require
+\begin{itemize}
+\item \myKey{prologue synchronization}: first body stmt
+\item \myKey{epilogue synchronization}: last body stmt
+\end{itemize}
+which the backend will compile non-trivially with respect to the async block's contents.
+
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.48\textwidth}\fixminipage
+\mySub{wgmma pipeline stage}
+\begin{verbatim}
+with CudaAsync(wgmma_async):
+    # Prologue synchronization
+    # wgmma.fence
+    # NB wgmma_rmem is a synthetic actor kind
+    Fence(wgmma_rmem, wgmma_rmem_async)
+
+    # ... MMA instr ...
+
+    # Epilogue synchronization
+    # wgmma.commit_group
+    Arrive(wgmma_async, <barrier var>)
+\end{verbatim}
+\mySub{TMA GMEM$\to$SMEM}
+\begin{verbatim}
+with CudaAsync(tma_gmem_to_smem):
+    # ... TMA instr ...
+
+    # Epilogue synchronization
+    # Calculates expect-tx = bytes copied
+    # (futher surprise, in the generated
+    # CUDA C++, the Arrive is moved before
+    # the TMA instructions!!!)
+    Arrive(tma_gmem_to_smem, <barrier var>)
+\end{verbatim}
+\end{minipage}
+
+\newpage
+\myTitle{Syntax Example}
+\begin{verbatim}
+with CudaDeviceFunction(blockDim=384):
+    # blockDim 384 = 3 warpgroups
+
+    for yo in cuda_blocks(0, 24):
+        for xo in cuda_blocks(0, 36):
+        # Grid of 36 x 24 blocks (CTAs)
+
+        with SpecializeCollective(cuda_warpgroup, 1, 3):
+            for w in cuda_warpgroups(0, 2):
+                # Skipped warpgroup 0 (specialize); 2 iters mapped to warpgroups 1 and 2
+                bar: Barrier
+
+                for yi in cuda_threads(0, 16):
+                      for xi in cuda_threads(0, 8):
+                          # 8 x 16 iteration space, each iter mapped to 1 of 128 threads
+
+                with CudaAsync(wgmma_async):
+                    # Now targetting wgmma; this is at warpgroup scope
+                    # since wgmma requires coalesced warpgroups
+                    Fence(wgmma_rmem, wgmma_async_rmem)  # prologue synchronization
+                    for k in seq(0, 8):                  # ordinary sequential loop
+                        wgmma_mma(...)
+                    Arrive(bar, wgmma_async)             # epilogue synchronization
+\end{verbatim}
+
+\newpage
+\myTitle{Contrast with prior work: Triton}
+
+\begin{minipage}[t]{0.7\textwidth}\fixminipage
+Triton is another Python AST $\to$ CUDA language
+
+In my terminology, the ``collective unit'' for a Triton function is a block.
+\begin{itemize}
+  \item One block executes one ``call'' of a Triton function.
+\end{itemize}
+
+Triton's responsibility: \textbf{automatically} distribute the work \myKeyB{within} one block to sub-block units (mostly threads) and automatically synchronize.
+\begin{itemize}
+  \item Recall: synchronization within a block is \myKeyB{frequent}
+  \item Minimal control over memory movement, register/SMEM allocation
+  \item Honestly, not a bad model though
+\end{itemize}
+
+User responsibility: manually distribute work \myKey{between} blocks.
+\begin{itemize}
+  \item Recall: synchronization between blocks is \myKey{minimal}
+  \item Often one output tile assigned per block
+\end{itemize}
+
+With Exo, we're trying to build something much more \textbf{imperative}
+\begin{itemize}
+  \item Control (and predict!) memory and register pressure
+  \item Fine grained control over each level of CUDA thread hierarchy
+  \item Explicit use of accelerator instructions
+\end{itemize}
+\end{minipage}
+
+\vspace{6mm}
+\hfill(Also, Triton generates IR and Exo GPU will generate C and CUDA C++)
 \end{document}
