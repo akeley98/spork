@@ -656,7 +656,7 @@ with CudaAsync(wgmma_async):
 \end{verbatim}
 \mySub{TMA GMEM$\to$SMEM}
 \begin{verbatim}
-with CudaAsync(tma_gmem_to_smem):
+with CudaAsync(tma_gmem_to_smem_async):
     # ... TMA instr ...
 
     # Epilogue synchronization
@@ -664,7 +664,8 @@ with CudaAsync(tma_gmem_to_smem):
     # (futher surprise, in the generated
     # CUDA C++, the Arrive is moved before
     # the TMA instructions!!!)
-    Arrive(tma_gmem_to_smem, <barrier var>)
+    Arrive(tma_gmem_to_smem_async,
+           <barrier var>)
 \end{verbatim}
 \end{minipage}
 
