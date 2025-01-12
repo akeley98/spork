@@ -33,6 +33,7 @@
   \item Move beyond fork/join model
 \end{itemize}
 \item Support asynchronous CUDA accelerator instructions (async copy, async tensor core matrix multiply-accumulate)
+\item Not-too-conservative sync checking
 \end{itemize}
 \end{minipage} %
 \hfill
@@ -149,7 +150,7 @@ Core ``unit of parallelism'': CTA
 New accelerator instructions with the NVIDIA H100 (Hopper) are asynchronous.
 They are issued by CUDA threads or warpgroups, but execution continues without waiting.
 \begin{itemize}
-  \item TMA: copy tensor tiles GMEM$\leftrightarrow$SMEM
+  \item TMA: copy tensor tiles \myKey{GMEM}$\leftrightarrow$\myKeyB{SMEM}
   \item wgmma: tiled matrix multiply-accumulate
 \end{itemize}
 This means the following won't work if the highlighted statements are async:
@@ -167,19 +168,28 @@ Two async instructions issued by the same thread/warpgroup don't even complete i
 \hfill
 \begin{minipage}[t]{0.48\textwidth}\fixminipage
 These also ignore all ``ordinary'' synchronization.
-
-Special-purpose synchronization statements must be used for these instructions.
-
-Note: the effects of async instructions are also made visible by the ``stop the world'' barriers between grid launches on the same stream.
+\begin{itemize}
+\item Special barriers needed
+\item Exception: still protected by ``stop the world'' barriers between grid launches on the same stream (I think?)
+\end{itemize}
 
 \mySub{Async Proxy}
 
-In CUDA terminology, TMA and wgmma are considered to operate in the ``async proxy''.
-Almost everything else is in the ``generic proxy'' (I'm ignoring the tensorMap proxy).
+In CUDA terminology, TMA and wgmma are considered to operate in the \myKey{async proxy}
+\begin{itemize}
+  \item \myKey{generic proxy}: most other instructions
+  \item \myKey{tensorMap proxy}: we'll ignore this
+  \item Memory not visible by default across proxies
+\end{itemize}
+PTX docs has \textit{tomes} about this; boils down to
+\begin{itemize}
+  \item Need a \texttt{fence.proxy.async} for generic$\to$async proxy data flow
+  \item \textit{Nothing} needed for async$\to$generic
+  \begin{itemize}
+    \item (detail: the fence is required in both directions, but built in to the ``wait for async instruction'' machinery)
+  \end{itemize}
+\end{itemize}
 
-A ``proxy fence'' is needed to communicate from the generic proxy to the async proxy.
-
-Typically, this is not needed for the opposite direction; synchronization that waits for a TMA or wgmma instruction generally documents it includes a proxy fence.
 \end{minipage}
 \newpage
 \myTitle{wgmma: Warpgroup Matrix Multiply-accumulate Async}
@@ -194,6 +204,9 @@ Each \texttt{wgmma.mma\_async} instruction is issued by a warpgroup (\myKey{128 
 where
 \begin{itemize}
   \item $D$ matrix tile is in \textbf{registers (RMEM)}
+  \begin{itemize}
+    \item Note: $D$ is implicitly synchronized for consecutive wgmma.mma!
+  \end{itemize}
   \item $B$ matrix tile is in \myKeyB{shared memory (SMEM)}
   \item $A$ matrix tile is stored in either format
   \item Usually, scale-d = 0 only for the first iteration
@@ -204,8 +217,8 @@ The complexity for this feature comes from
   \item Input/output format details \myKey{(huuuge mess)}
   \item Synchronization
 \end{itemize}
-I'll just address the latter for now.
-Although Exo will eventually have to figure out how to model the full set of matrix formats.
+%I'll just address the latter for now.
+%Although Exo will eventually have to figure out how to model the full set of matrix formats.
 \end{minipage}%
 \hfill
 \begin{minipage}[t]{0.48\textwidth}\fixminipage
@@ -217,16 +230,16 @@ For \myKeyB{shared memory}, issue an async proxy fence (unless the memory was wr
 
 \mySub{Synchronization wgmma $\to$ generic}
 
-The completion mechanism is \myKey{``commit group''}.
+The completion mechanism is \myKey{``commit group''}
 
-wgmma synchronization only occurs within a single warpgroup.
+wgmma synchronization only occurs within a single warpgroup, with MMAs pipelined:
 
 \begin{itemize}
 \item \texttt{wgmma.fence} begins a ``pipeline stage''
 \item \texttt{wgmma.commit\_group} ends a pipeline stage
 \item \texttt{wgmma.mma} must appear within pipeline stage
-\item \texttt{wgmma.wait\_group N} waits for the MMAs of the $N^{th}$ prior pipeline stage (0-indexed)
 \end{itemize}
+\texttt{wgmma.wait\_group N} waits for the MMAs of the $N^{th}$ prior pipeline stage (0-indexed)
 
 \end{minipage}
 
@@ -255,8 +268,10 @@ Handled with \texttt{cp.async.bulk.tensor} instructions.
 \item Async 1D-5D tile copy \myKey{GMEM}$\leftrightarrow$\myKeyB{SMEM}
 \item \myKeyB{SMEM} tile: densely packed C-order matrix
 \item \myKey{GMEM} tile: tile from big C-order matrix
+\begin{itemize}
+  \item \myKey{Predicated}
+\end{itemize}
 \item 16 byte aligned, cannot stride innermost dim
-\item \myKey{GMEM predication:} reads get default value; writes discarded
 \end{itemize}
 
 \begin{tikzpicture}[node distance=5mm]
@@ -273,7 +288,7 @@ Need to encode GMEM matrix as \texttt{CUtensorMap}
   \item Encodes GMEM matrix size and strides
   \item Encodes SMEM tile size (\& swizzle mode)
   \item SMEM pointer NOT encoded
-  \item Used on device, but must be encoded on the host CPU (not 100\% true)
+  \item Used on device, but must be encoded on the host CPU\\(not 100\% true, look up tensorMap proxy if you want)
 \end{itemize}
 
 %Note: TMA can also be used without a \texttt{CUtensorMap} for literal array to array copies.
@@ -311,8 +326,8 @@ NB mbarrier is usable without TMA (\texttt{tx-count=0})
 \begin{minipage}[t]{0.5\textwidth}\fixminipage
 TMA takes an optional ``reduce'' operand when copying \myKeyB{SMEM}$\to$\myKey{GMEM}
 
-Replaces \texttt{GMEM[\textit{slice}] = SMEM} with\\
-\texttt{GMEM[\textit{slice}] += SMEM}
+Replaces \texttt{GMEM[\textit{slice}] = SMEM}\\
+with \texttt{GMEM[\textit{slice}] += SMEM}
 
 This reduction is \myKey{atomic} (\texttt{relaxed.gpu} memory model) per tensor element.
 
