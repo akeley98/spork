@@ -8,7 +8,7 @@
 \tikzstyle{bignode} = [rectangle, minimum width=3.5cm, minimum height=2cm, text centered, text width=3cm, draw=black, fill=white]
 \tikzstyle{smemnode} = [rectangle, minimum width=3cm, minimum height=1cm, text centered, text width=3cm, draw=keyColorB, fill=white]
 \tikzstyle{gmemnode} = [rectangle, minimum width=3cm, minimum height=1cm, text centered, text width=3cm, draw=keyColor, fill=white]
-\tikzstyle{smallsmemnode} = [rectangle, minimum width=1.25cm, minimum height=1cm, text centered, text width=1.25cm, draw=keyColorB, fill=white]
+\tikzstyle{smallishsmemnode} = [rectangle, minimum width=2cm, minimum height=1cm, text centered, text width=2cm, draw=keyColorB, fill=white]
 \tikzstyle{arrow} = [thick,->,>=stealth]
 \tikzstyle{line} = [thick]
 
@@ -102,41 +102,43 @@ Core ``unit of parallelism'': CTA
 \end{itemize}
 \textbf{RMEM} (Register ``Memory'') -- 255 per thread
 
-\begin{tikzpicture}[node distance=5mm]
+\begin{tikzpicture}[node distance=3.5mm]
 \node (grid) [normalnode] {grid};
 \node (gmem) [gmemnode, right=of grid, xshift=4mm] {\myKey{GMEM}};
 \draw[line] (grid) -- (gmem);
 
-\node (block0) [smallnode, fill=violetBoxBg, below=of grid, xshift=-1cm, yshift=-16mm] {block};
-\node (block1) [smallnode, right=of block0, xshift=0.6cm] {block};
-\node (block2) [smallnode, right=of block1, xshift=2cm] {block};
+\node (block0) [smallishnode, fill=violetBoxBg, below=of grid, xshift=-15mm, yshift=-16mm] {block};
+\node (block1) [smallishnode, right=of block0, xshift=0.6cm] {block};
+\node (block2) [smallishnode, right=of block1, xshift=1.6cm] {block};
+
+\node (smem0) [smallishsmemnode, above=of block0] {\myKeyB{SMEM}};
+\node (smem1) [smallishsmemnode, above=of block1] {\myKeyB{SMEM}};
+\node (smem2) [smallishsmemnode, above=of block2] {\myKeyB{SMEM}};
+
 \draw[arrow] (grid.south) to[out=270,in=0] (block0.east);
 \draw[arrow] (grid.south) to[out=290,in=180] (block1.west);
-\draw[arrow] (grid.south) to[out=330,in=180] ($(block2.west)+(0,0.2)$);
+\draw[arrow] (grid.south) to[out=330,in=100] ($(block2.west)+(0,0.6)$);
 \draw[dotted] ($(block0.east) - (0, 0.3)$) to ($(block1.west) - (0, 0.3)$);
 \draw[dotted] ($(block1.east) - (0, 0.3)$) to node(gridDim)[]{gridDim} ($(block2.west) - (0, 0.3)$);
-\draw[arrow,dotted] (grid.south) to [out=310,in=145] (gridDim);
+\draw[arrow,dotted] (grid.south) to [out=330,in=100] (gridDim.north);
 
-\node (thread0) [smallnode, fill=violetBoxBg, below=of block0, yshift=-4mm] {thread};
-\node (thread1) [smallnode, fill=violetBoxBg, right=of thread0] {thread};
-\node (thread2) [smallnode, fill=violetBoxBg, right=of thread1, xshift=2cm] {thread};
-\node (rmem0) [smallnode, below=of thread0] {\textbf{RMEM}};
-\node (rmem1) [smallnode, below=of thread1] {\textbf{RMEM}};
-\node (rmem2) [smallnode, below=of thread2] {\textbf{RMEM}};
+\node (thread0) [smallishnode, fill=violetBoxBg, below=of block0, yshift=-4mm] {thread};
+\node (thread1) [smallishnode, fill=violetBoxBg, right=of thread0] {thread};
+\node (thread2) [smallishnode, fill=violetBoxBg, right=of thread1, xshift=2cm] {thread};
+\node (rmem0) [smallishnode, below=of thread0] {\textbf{RMEM}};
+\node (rmem1) [smallishnode, below=of thread1] {\textbf{RMEM}};
+\node (rmem2) [smallishnode, below=of thread2] {\textbf{RMEM}};
 \draw[line] (thread0) -- (rmem0);
 \draw[line] (thread1) -- (rmem1);
 \draw[line] (thread2) -- (rmem2);
 
-\node (smem0) [smallsmemnode, above=of block0] {\myKeyB{SMEM}};
-\node (smem1) [smallsmemnode, above=of block1] {\myKeyB{SMEM}};
-\node (smem2) [smallsmemnode, above=of block2] {\myKeyB{SMEM}};
 \draw[line] (block0) -- (smem0);
 \draw[line] (block1) -- (smem1);
 \draw[line] (block2) -- (smem2);
 
 \draw[arrow] (block0.south) to [out=270,in=90] (thread0.north);
 \draw[arrow] (block0.south) to [out=290,in=110] (thread1.north);
-\draw[arrow] (block0.south) to [out=330,in=130] (thread2.north);
+\draw[arrow] (block0.south) to [out=330,in=150] (thread2.north);
 \draw[dotted] ($(thread0.east) - (0, 0.3)$) to ($(thread1.west) - (0, 0.3)$);
 \draw[dotted] ($(thread1.east) - (0, 0.3)$) to node(blockDim)[]{blockDim} ($(thread2.west) - (0, 0.3)$);
 \draw[arrow,dotted] (block0.south) to [out=310,in=130] (blockDim.north);
@@ -556,7 +558,7 @@ __global__ void <function name>()
 \myTitle{Exo Syntax -- Synchronization 2/2, Actor Kind}
 
 \begin{minipage}[t]{0.48\textwidth}\fixminipage
-Conceptually, an async block instructs the compiler to lower to a \myKey{different category of instructions} with \myKey{different synchronization requirements}
+Conceptually, an async block instructs the compiler to lower to a \myKey{different category} of instructions with \myKey{different synchronization} requirements
 
 For now, informally, this categorization is the \myKey{actor kind}, which is one of the following:
 
