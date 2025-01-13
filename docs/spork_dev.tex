@@ -860,6 +860,86 @@ for tid in cuda_threads(0, N):
     \text{Y[$N-1$]} & \xleftarrow{\text{(N-1, sig\_cuda\_sync)}} \text{SMEM[$N-1$]} \\
 \end{align*}
 \end{minipage}
+\newpage
+\myTitle{SyncEnv State}
+
+\begin{minipage}[t]{0.48\textwidth}\fixminipage
+The SyncEnv associates \myKey{visibility records} with variables, containing state
+\begin{itemize}
+  \item $V_S$: sync visibility set: set of \myKey{sigthreads}
+  \begin{itemize}
+    \item sigthreads that can ``see'' the read/write
+  \end{itemize}
+  \item $V_A$: async visibility set: set of \myKey{sigthreads}
+  \begin{itemize}
+    \item to model async instructions, later
+  \end{itemize}
+  \item $A_O$: original \myKey{actor signature}
+\end{itemize}
+
+One read/write visibility record added for \myKey{each} read/write of a variable
+
+With $(t: \mathsf{thread\_index}, a: \mathsf{actor\_signature})$ being the sigthread doing the access
+\begin{itemize}
+  \item $V_S$ = $\{(t,a)\}$ if the instruction is synchronous, otherwise $\{\}$
+  \item $V_A$ = $\{(t,a)\}$
+  \item $A_O$ = $a$
+\end{itemize}
+TODO
+\begin{itemize}
+  \item support for atomic reductions
+  \item deleting ``old'' visibility records
+\end{itemize}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.48\textwidth}\fixminipage
+\ \\ % formatting is screwed without this
+\begin{tikzpicture}[node distance=6mm]
+\node(SyncEnv) [normalnode] {$\Sigma^S$: SyncEnv};
+\node(vars) [normalnode, below=of SyncEnv] {variable};
+\node(reads) [normalnode, below=of vars, xshift=-25mm, minimum width=4cm, text width=4cm] {read visibility records};
+\node(writes) [normalnode, below=of vars, xshift=+25mm, minimum width=4cm, text width=4cm] {write visibility record};
+\node(record) [normalnode, below=of reads, xshift=+25mm] {visibility record};
+\node(VA) [smallnode, below=of record] {$V_A$};
+\node(VS) [smallnode, left=of VA] {$V_S$};
+\node(AO) [smallnode, right=of VA] {$A_O$};
+\node(sigthread) [normalnode, below=of VS] {sigthread};
+\node(tid) [normalnode, below=of sigthread] {thread index};
+\node(signature) [normalnode, right=of tid] {actor signature};
+
+\draw [arrow, draw=keyColorB] ($(SyncEnv.south)$) -- ($(vars.north)$);
+\draw [arrow, draw=keyColorB] ($(SyncEnv.south) - (0.2, 0)$) -- ($(vars.north) - (0.2, 0)$);
+\draw [arrow, draw=keyColorB] ($(SyncEnv.south) + (0.2, 0)$) -- ($(vars.north) + (0.2, 0)$);
+
+\draw [arrow] (vars) -- (reads);
+\draw [arrow] (vars) -- (writes);
+
+\draw [arrow, draw=keyColorB] ($(reads.south) - (0.4, 0)$) -- ($(record.north) - (1.2, 0)$);
+\draw [arrow, draw=keyColorB] ($(reads.south) + (0.4, 0)$) -- ($(record.north) - (0.4, 0)$);
+\draw [arrow, draw=keyColorB] ($(reads.south) + (1.2, 0)$) -- ($(record.north) + (0.4, 0)$);
+\draw [arrow] ($(writes.south) - (0.4, 0)$) -- ($(record.north) + (1.2, 0)$);
+
+\draw [arrow] (record) -- (VS);
+\draw [arrow] (record) -- (VA);
+\draw [arrow] (record) -- (AO);
+
+\draw [arrow, draw=keyColorB] ($(VS.south) - (0.2, 0)$) -- ($(sigthread.north) - (0.2, 0)$);
+\draw [arrow, draw=keyColorB] ($(VS.south)$) -- ($(sigthread.north)$);
+\draw [arrow, draw=keyColorB] ($(VS.south) + (0.2, 0)$) -- ($(sigthread.north) + (0.2, 0)$);
+
+\draw [arrow, draw=keyColorB] ($(VA.south) - (0.5, 0)$) -- ($(sigthread.north) - (0.5, 0)$);
+\draw [arrow, draw=keyColorB] ($(VA.south)$) -- ($(sigthread.north)$);
+\draw [arrow, draw=keyColorB] ($(VA.south) + (0.5, 0)$) -- ($(sigthread.north) + (0.5, 0)$);
+
+\draw [arrow] (sigthread) -- (tid);
+\draw [arrow] (sigthread.east) -- (signature);
+\draw [arrow] (AO) -- (signature);
+\end{tikzpicture}
+\end{minipage}
+\newpage
+\myTitle{SyncEnv Barrier Effects}
+\newpage
+\myTitle{SyncEnv Correctness Checking}
 %% \newpage
 %% \myTitle{Example GPU gemm}
 
