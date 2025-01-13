@@ -844,7 +844,7 @@ with CudaAsync(tma_to_smem_async):
         SMEM[0:N] = GMEM[c:c+N]
 # ...
 for tid in cuda_threads(0, N):
-    A[tid] = SMEM[tid]
+    Y[tid] = SMEM[tid]
 \end{verbatim}
 \vspace{-4mm}
 \begin{align*}
@@ -854,10 +854,10 @@ for tid in cuda_threads(0, N):
     & ... \\
     \text{SMEM[$N-1$]} & \xleftarrow{\text{(0, sig\_tma\_to\_smem)}} \text{GMEM[$c+N-1$]} \\
     & {\color{blueBoxFg}\textit{[[ thread $x$ reads SMEM[$x$] ]]}} \\
-    \text{A[$0$]} & \xleftarrow{\text{(0, sig\_cuda\_sync)}} \text{SMEM[$0$]} \\
-    \text{A[$1$]} & \xleftarrow{\text{(1, sig\_cuda\_sync)}} \text{SMEM[$1$]} \\
+    \text{Y[$0$]} & \xleftarrow{\text{(0, sig\_cuda\_sync)}} \text{SMEM[$0$]} \\
+    \text{Y[$1$]} & \xleftarrow{\text{(1, sig\_cuda\_sync)}} \text{SMEM[$1$]} \\
     & ... \\
-    \text{A[$N-1$]} & \xleftarrow{\text{(N-1, sig\_cuda\_sync)}} \text{SMEM[$N-1$]} \\
+    \text{Y[$N-1$]} & \xleftarrow{\text{(N-1, sig\_cuda\_sync)}} \text{SMEM[$N-1$]} \\
 \end{align*}
 \end{minipage}
 %% \newpage
@@ -940,5 +940,20 @@ for tid in cuda_threads(0, N):
 %% \end{verbatim}
 %% }
 
+
+%% Challenges
+%%
+%% * Kernel launch (fat pointer, CPU-to-GPU "grid constant" ... could grid constant be a memory property?)
+%%
+%% * Rewrite rule problems, treat 0 specially (zero-on-first use for wgmma, predication)
+%%
+%% * Memory Types (memory "properties", memory layout / swizzling)
+%%
+%% * Distributed Memory (collective assignment? cross-collective communication?)
+%%
+%% * collective assignment also for parallel for loops especially grid launch
+%%     * collective dimension, non-collective dimension
+%%     * ... also for parview concept, later
+%%     * "partial" parview also allowed?
 
 \end{document}
