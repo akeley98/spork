@@ -656,7 +656,7 @@ with CudaAsync(wgmma_async):
 \end{verbatim}
 \mySub{TMA GMEM$\to$SMEM}
 \begin{verbatim}
-with CudaAsync(tma_gmem_to_smem_async):
+with CudaAsync(tma_to_smem_async):
     # ... TMA instr ...
 
     # Epilogue synchronization
@@ -664,7 +664,7 @@ with CudaAsync(tma_gmem_to_smem_async):
     # (futher surprise, in the generated
     # CUDA C++, the Arrive is moved before
     # the TMA instructions!!!)
-    Arrive(tma_gmem_to_smem_async,
+    Arrive(tma_to_smem_async,
            <barrier var>)
 \end{verbatim}
 \end{minipage}
@@ -791,6 +791,73 @@ Prove that sufficient synchronization exists such that each read under \myKeyB{M
 \draw [line, draw=blueBoxFg] (spork) -- (cuda);
 \end{tikzpicture}
 
+\newpage
+% Title moved out of desperation
+\begin{minipage}[t]{0.48\textwidth}\fixminipage
+\vspace{-5mm}
+\myTitle{Actor Kind, Actor Signature}
+
+\vspace{4mm}
+Imagine a dynamic trace of an Exo-GPU proc
+\begin{itemize}
+  \item Sequential, since core Exo is sequential
+  \item ... but we need to annotate which thread would do each action in M-semantics
+  \item ... and if it's an async instruction?
+  \item ... to prove synchronization correctness
+\end{itemize}
+\myKey{Thread Index} = ``who'' did the access
+
+\myKey{Actor Signature} = ``how'' the access was done
+
+\myKey{Actor Kind}
+\begin{itemize}
+  \item Informal: categorization of instructions
+  \item Formal: \myKey{set} of allowed \myKey{actor signatures}
+  \item 1-to-many: a single accelerator can perform accesses with different sync requirements
+\end{itemize}
+
+Example: actor kind \texttt{wgmma\_async}
+\begin{itemize}
+  \item \texttt{sig\_wgmma\_smem}: \myKeyB{SMEM} ($B$, maybe $A$)
+  \item \texttt{sig\_wgmma\_rmem\_a}: \textbf{RMEM} $A$
+  \item \texttt{sig\_wgmma\_rmem\_d}: \textbf{RMEM} $D$
+  \begin{itemize}
+    \item Only $D$ (accumulator) implicitly sync'd
+  \end{itemize}
+\end{itemize}
+
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.48\textwidth}\fixminipage
+\myKey{sigthread} = (thread index, actor signature) pair
+\begin{itemize}
+  \item Conceptual sub-thread of each thread
+  \item ``signs'' each action done in a dynamic trace
+\end{itemize}
+\vspace{2mm}
+\begin{verbatim}
+with CudaAsync(tma_to_smem_async):
+    # Only thread 0 does TMA (pseudocode)
+    for tid in cuda_threads(0, 1):
+        SMEM[0:N] = GMEM[c:c+N]
+# ...
+for tid in cuda_threads(0, N):
+    A[tid] = SMEM[tid]
+\end{verbatim}
+\vspace{-4mm}
+\begin{align*}
+    & {\color{blueBoxFg}\textit{[[ thread 0 kicks off TMA ]]}} \\
+    \text{SMEM[$0$]} & \xleftarrow{\text{(0, sig\_tma\_to\_smem)}} \text{GMEM[$c+0$]} \\
+    \text{SMEM[$1$]} & \xleftarrow{\text{(0, sig\_tma\_to\_smem)}} \text{GMEM[$c+1$]} \\
+    & ... \\
+    \text{SMEM[$N-1$]} & \xleftarrow{\text{(0, sig\_tma\_to\_smem)}} \text{GMEM[$c+N-1$]} \\
+    & {\color{blueBoxFg}\textit{[[ thread $x$ reads SMEM[$x$] ]]}} \\
+    \text{A[$0$]} & \xleftarrow{\text{(0, sig\_cuda\_sync)}} \text{SMEM[$0$]} \\
+    \text{A[$1$]} & \xleftarrow{\text{(1, sig\_cuda\_sync)}} \text{SMEM[$1$]} \\
+    & ... \\
+    \text{A[$N-1$]} & \xleftarrow{\text{(N-1, sig\_cuda\_sync)}} \text{SMEM[$N-1$]} \\
+\end{align*}
+\end{minipage}
 %% \newpage
 %% \myTitle{Example GPU gemm}
 
