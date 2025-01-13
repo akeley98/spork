@@ -241,7 +241,7 @@ wgmma synchronization only occurs within a single warpgroup, with MMAs pipelined
 \item \texttt{wgmma.fence} begins a ``pipeline stage''
 \item \texttt{wgmma.mma} must appear within pipeline stage
 \item \texttt{wgmma.commit\_group} ends a pipeline stage
-\item ptxas f's you if it can't recognize the pattern
+\item ptxas f's you if it can't recognize the pattern  % fun fact: "f's" is used because no other verb fits without forcing a line break
 \end{itemize}
 \texttt{wgmma.wait\_group N} waits for the MMAs of the $N^{th}$ prior pipeline stage (0-indexed)
 
@@ -451,6 +451,7 @@ We define parallel for loops for each level of the CUDA thread hierarchy;
 \begin{itemize}
   \item i.e. each \myKey{collective unit}
   \item \texttt{\{units\}} = \texttt{clusters}, \texttt{blocks}, \texttt{warpgroups}, \texttt{warps}, \texttt{threads}
+  \item Generalize \texttt{seq}, \texttt{par} to \myKey{loop mode}
 \end{itemize}
 Must be \myKey{strictly nested}
 \begin{itemize}
@@ -468,7 +469,6 @@ with CudaDeviceFunction(blockDim=256):
             for x in cuda_threads(0, 16):
                 # 16 x 16 iteration space
                 # mapped to 256 threads
-
                 with CudaAsync(...):
                     # Async instructions
 \end{verbatim}
@@ -731,4 +731,145 @@ With Exo, we're trying to build something much more \textbf{imperative}
 
 \vspace{6mm}
 \hfill(Also, Triton generates IR and Exo GPU will generate C and CUDA C++)
+
+\newpage
+\myTitle{10 Miles Up: Synchronization Checking}
+
+\begin{minipage}[t]{0.48\textwidth}\fixminipage
+Internally, Exo will continue to be a fundamentally sequential programming system
+\begin{itemize}
+  \item Expose parallel for, etc. to the user
+  \item ... but rewrite rules, etc. will accept the correctness of these \myKey{without proof}
+\end{itemize}
+Each Exo proc may be interpreted in two ways:
+\begin{itemize}
+  \item \myKey{S-semantics} (Single-threaded)\\parallel for = sequential for,\\ignore async blocks
+  \item \myKeyB{M-semantics} (Multi-threaded)\\Treat parallel for, async blocks correctly
+\end{itemize}
+We will interpret procs under \myKey{S-semantics}\\until the very end, at code lowering time
+
+Prove interpretation under \myKey{S-semantics}\\and \myKeyB{M-semantics} will give the same results
+
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.48\textwidth}\fixminipage
+Strat: reduce parallelism to checking assertions on conceptually \myKey{sequential} programs
+
+Interpretation
+\begin{itemize}
+  \item $\Sigma$: environment: values of variables
+  \item $\Sigma^S$: synchronization environment (\myKey{SyncEnv})
+\end{itemize}
+\vspace{8mm}
+The SyncEnv will track the ``visibility'' (which threads can see) for \textit{each} read and write done to each variable -- this changes with synchronization
+
+Prove that sufficient synchronization exists such that each read under \myKeyB{M-semantics} pairs with the same write as under \myKey{S-semantics}
+\end{minipage}
+\vfill
+\begin{tikzpicture}[node distance=8mm]
+\node(proc0) [normalnode] {$proc_0$\\\myKey{S-semantics}};
+\node(proc1) [normalnode, right=of proc0] {$proc_1$\\\myKey{S-semantics}};
+\node(procNS) [normalnode, right=of proc1, xshift=+6mm] {$proc_N$\\\myKey{S-semantics}};
+\node(procNM) [normalnode, right=of procNS] {$proc_N$\\\myKeyB{M-semantics}};
+\node(cuda) [smallnode, right=of procNM] {CUDA C++};
+
+\draw [arrow] (proc0) -- (proc1);
+\draw [arrow, dotted] (proc1) to node(rewrites)[]{} (procNS);
+\draw [arrow] (procNS) to node(SM)[]{} (procNM);
+\draw [arrow] (procNM) to node(toCuda)[]{} (cuda);
+
+\node(exo) [normalnode, below=of rewrites, draw=blueBoxFg, fill=blueBoxBg, text=blueBoxFg] {Existing Exo Rewrites};
+\node(sync) [normalnode, below=of SM, draw=blueBoxFg, fill=blueBoxBg, text=blueBoxFg] {Synchronization Checking};
+\node(spork) [normalnode, below=of toCuda, draw=blueBoxFg, fill=blueBoxBg, text=blueBoxFg] {Spork Compiler};
+
+\draw [line, draw=blueBoxFg] (exo) -- (proc0);
+\draw [line, draw=blueBoxFg] (exo) -- (proc1);
+\draw [line, draw=blueBoxFg] (exo) -- (procNS);
+\draw [line, draw=blueBoxFg] (sync) -- (procNS);
+\draw [line, draw=blueBoxFg] (sync) -- (procNM);
+\draw [line, draw=blueBoxFg] (spork) -- (procNM);
+\draw [line, draw=blueBoxFg] (spork) -- (cuda);
+\end{tikzpicture}
+
+%% \newpage
+%% \myTitle{Example GPU gemm}
+
+%% \begin{minipage}[t]{\textwidth}\fixminipage
+%% \begin{verbatim}
+%% # DRAM is not correct, should be CudaGmem
+%% def exo_cuda_gemm(M: size, N: size, K: size, A: f32[M, K] @ DRAM,
+%%                   B: f32[K, N] @ DRAM, C: f32[M, N] @ DRAM):
+%%     assert M % 16 == 0
+%%     assert N % 16 == 0
+%%     assert K % 8 == 0
+%%     # (M/16) x (N/16) grid of 256-thread blocks
+%% \end{verbatim}
+%% \begin{mdframed}[style=MyFrame, backgroundcolor=greenBoxBg]
+%% \color{greenBoxFg}
+%% \begin{verbatim}
+%%     with CudaDeviceFunction(256, 1):
+%% \end{verbatim}
+%% \end{mdframed}
+%% \begin{mdframed}[style=MyFrame, backgroundcolor=yellowBoxBg]
+%% \color{yellowBoxFg}
+%% \begin{verbatim}
+%%         for mo in cuda_blocks(0, M / 16):
+%%             for no in cuda_blocks(0, N / 16):
+%%                 # ... CUDA block code [next slide]
+%% \end{verbatim}
+%% \end{mdframed}
+%% \mySub{Scheduling Code}
+%% \begin{verbatim}
+%% def schedule_gemm(p: Proc ...):
+%%     # ...
+
+%% \end{verbatim}
+%% \begin{mdframed}[style=MyFrame, backgroundcolor=greenBoxBg]
+%% \color{greenBoxFg}
+%% \begin{verbatim}
+%%     # Temporary syntax: wrap entire body as cuda device function
+%%     # with blockDim = m_tile * n_tile
+%%     p = tmp_add_with(p, p.body(), CudaDeviceFunction(blockDim = m_tile * n_tile))
+%% \end{verbatim}
+%% \end{mdframed}
+%% \begin{mdframed}[style=MyFrame, backgroundcolor=yellowBoxBg]
+%% \color{yellowBoxFg}
+%% \begin{verbatim}
+%%     p = set_loop_mode(p, "mo", exo.loop_modes.cuda_blocks)
+%%     p = set_loop_mode(p, "no", exo.loop_modes.cuda_blocks)
+%% \end{verbatim}
+%% \end{mdframed}
+%% \end{minipage}
+%% \newpage
+%% \myTitle{Example GPU gemm}
+
+%% {
+%% \begin{verbatim}
+%% # ... for mo/no cuda_blocks ...
+%%     accum: f32[16, 16] @ CudaRmem
+%%     for mi in cuda_threads(0, 16):
+%%         for ni in cuda_threads(0, 16):
+%%             accum[mi, ni] = 0
+%%     for ko in seq(0, K / 8):
+%%         A_tile: f32[16, 8] @ CudaSmem
+%%         for i0 in cuda_threads(0, 16):
+%%             for i1 in cuda_threads(0, 8):
+%%                 A_tile[i0, i1] = A[i0 + 16 * mo, i1 + 8 * ko]
+%%         B_tile: f32[8, 16] @ CudaSmem
+%%         for i0 in cuda_threads(0, 8):
+%%             for i1 in cuda_threads(0, 16):
+%%                 B_tile[i0, i1] = B[i0 + 8 * ko, i1 + 16 * no]
+%%         Fence(cuda_sync, cuda_generic)  # p = insert_fence(p, <Gap>, cuda_syncthreads)
+%%         for mi in cuda_threads(0, 16):
+%%             for ni in cuda_threads(0, 16):
+%%                 for ki in seq(0, 8):
+%%                     accum[mi, ni] += A_tile[mi, ki] * B_tile[ki, ni]
+%%         Fence(cuda_sync, cuda_generic)  # p = insert_fence(p, <Gap>, cuda_syncthreads)
+%%     for mi in cuda_threads(0, 16):
+%%         for ni in cuda_threads(0, 16):
+%%             C[mi + 16 * mo, ni + 16 * no] = accum[mi, ni]
+%% \end{verbatim}
+%% }
+
+
 \end{document}

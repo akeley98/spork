@@ -104,8 +104,8 @@ def schedule_gemm(p, new_name, use_cuda):
         p = set_memory(p, "B_tile", CudaSmem)
 
         # "x #n" means n-th loop with x as iteration variable
-        p = set_loop_mode(p, "mo", exo.loop_modes.CudaBlocks())
-        p = set_loop_mode(p, "no", exo.loop_modes.CudaBlocks())
+        p = set_loop_mode(p, "mo", exo.loop_modes.cuda_blocks)
+        p = set_loop_mode(p, "no", exo.loop_modes.cuda_blocks)
         p = set_loop_mode(p, "i0 #0", exo.loop_modes.cuda_threads)
         p = set_loop_mode(p, "i1 #0", exo.loop_modes.cuda_threads)
         p = set_loop_mode(p, "i0 #1", exo.loop_modes.cuda_threads)
