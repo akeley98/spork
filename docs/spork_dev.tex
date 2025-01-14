@@ -877,13 +877,14 @@ The SyncEnv associates \myKey{visibility records} with variables, containing sta
   \item $A_O$: original \myKey{actor signature}
 \end{itemize}
 
-One read/write visibility record added for \myKey{each} read/write of a variable
+One write visibility record for recent write, and one read visibility record added for \myKey{each} previous read
 
-With $(t: \mathsf{thread\_index}, a: \mathsf{actor\_signature})$ being the sigthread doing the access
+With $(t: \mathsf{thread\_index}, a: \mathsf{actor\_signature})$ being the sigthread doing the access, \myKey{initialize}
 \begin{itemize}
   \item $V_S$ = $\{(t,a)\}$ if the instruction is synchronous, otherwise $\{\}$
   \item $V_A$ = $\{(t,a)\}$
   \item $A_O$ = $a$
+  \item Invariant: $V_S \subseteq V_A$
 \end{itemize}
 TODO
 \begin{itemize}
@@ -897,8 +898,8 @@ TODO
 \begin{tikzpicture}[node distance=6mm]
 \node(SyncEnv) [normalnode] {$\Sigma^S$: SyncEnv};
 \node(vars) [normalnode, below=of SyncEnv] {variable};
-\node(reads) [normalnode, below=of vars, xshift=-25mm, minimum width=4cm, text width=4cm] {read visibility records};
-\node(writes) [normalnode, below=of vars, xshift=+25mm, minimum width=4cm, text width=4cm] {write visibility record};
+\node(reads) [normalnode, below=of vars, xshift=-25mm, minimum width=4cm, text width=4cm, draw=redBoxFg, text=redBoxFg, fill=redBoxBg] {read visibility records};  % Red/Read
+\node(writes) [normalnode, below=of vars, xshift=+25mm, minimum width=4cm, text width=4cm, draw=blueBoxFg, text=blueBoxFg, fill=blueBoxBg] {write visibility record};
 \node(record) [normalnode, below=of reads, xshift=+25mm] {visibility record};
 \node(VA) [smallnode, below=of record] {$V_A$};
 \node(VS) [smallnode, left=of VA] {$V_S$};
@@ -931,13 +932,51 @@ TODO
 \draw [arrow, draw=keyColorB] ($(VA.south)$) -- ($(sigthread.north)$);
 \draw [arrow, draw=keyColorB] ($(VA.south) + (0.5, 0)$) -- ($(sigthread.north) + (0.5, 0)$);
 
-\draw [arrow] (sigthread) -- (tid);
-\draw [arrow] (sigthread.east) -- (signature);
-\draw [arrow] (AO) -- (signature);
+\draw [arrow] (sigthread.south) to (tid);
+\draw [arrow] (sigthread.south) to[out=315, in=135] ($(signature.north) - (0.1, 0)$);
+\draw [arrow] (AO) to[out=270, in=90] ($(signature.north) + (0.1, 0)$);
 \end{tikzpicture}
 \end{minipage}
 \newpage
 \myTitle{SyncEnv Barrier Effects}
+\hfill
+{\color{titleColor}Ignore split barriers (\texttt{Arrive}, \texttt{Await}) for today; see spork.pdf}
+
+\begin{minipage}[t]{0.48\textwidth}\fixminipage
+
+Each \texttt{Fence($A_1$:\textsf{actor-kind}, $A_2$:\textsf{actor-kind})} statement is executed by a \myKey{collective lane}, itself defined by a range of threads $T$
+\begin{itemize}
+  \item e.g. warpgroup 2 may have $T = [256, 383]$
+  \item Define \myKey{first visibility set}: $V_1 = T \times A_1$
+  \begin{itemize}
+    \item set of sigthreads ``before the fence''
+  \end{itemize}
+  \item Define \myKey{second visibility set}: $V_2 = T \times A_2$
+  \begin{itemize}
+    \item set of sigthreads ``after the fence''
+  \end{itemize}
+\end{itemize}
+The effect of a \texttt{Fence} applies to \myKey{each visibility record} in the entire SyncEnv that \myKeyB{synchronizes with} (tbd) the fence.
+For each such record,
+\begin{itemize}
+  \item $V_A \leftarrow V_A \cup V_2$
+  \item $V_S \leftarrow V_S \cup V_2$
+  \item Expensive to simulate literally!
+\end{itemize}
+A fence can be \myKey{transitive} or \myKey{non-transitive}
+\begin{itemize}
+  \item Transitive: \myKeyB{synchronizes with}\\means $V_A \cap V_1$ non-empty
+  \item Non-transitive: \myKeyB{synchronizes with}\\means $V_A \cap V_1 \cap (\mathbb{N} \times A_O)$ non-empty
+  \begin{itemize}
+    \item Recall, $A_O$: original actor signature
+  \end{itemize}
+\end{itemize}
+
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.48\textwidth}\fixminipage
+\end{minipage}
+
 \newpage
 \myTitle{SyncEnv Correctness Checking}
 %% \newpage
