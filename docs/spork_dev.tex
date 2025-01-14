@@ -1286,19 +1286,314 @@ Fails for $t \ge 257$
 (read visibility record's $V_S$)
 \end{minipage}
 
-%% Challenges
-%%
-%% * Kernel launch (fat pointer, CPU-to-GPU "grid constant" ... could grid constant be a memory property?)
-%%
-%% * Rewrite rule problems, treat 0 specially (zero-on-first use for wgmma, predication)
-%%
-%% * Memory Types (memory "properties", memory layout / swizzling)
-%%
-%% * Distributed Memory (collective assignment? cross-collective communication?)
-%%
-%% * collective assignment also for parallel for loops especially grid launch
-%%     * collective dimension, non-collective dimension
-%%     * ... also for parview concept, later
-%%     * "partial" parview also allowed?
+\newpage
+\myTitle{Conclusion: Exo GPU Usage}
 
+\begin{itemize}
+  \item Schedule Exo using existing rewrites -- parallelism ignored
+  \item Wrap CUDA code with \myKey{\texttt{with CudaDeviceFunction}}
+  \item Within CUDA code, change the \myKey{\texttt{LoopMode}} of loops to convert from \texttt{seq} to CUDA-parallel for
+  \begin{itemize}
+    \item Top-level loops within \texttt{CudaDeviceFunction} block must be \myKey{\texttt{cuda\_blocks}} or \myKey{\texttt{cuda\_clusters}}
+  \end{itemize}
+  \item Replace memory types
+  \item Wrap async code with \myKey{\texttt{with CudaAsync($A:\textsf{actor-kind}$)}} and substitute TMA or wgmma \texttt{instr}
+  \begin{itemize}
+    \item $A$ = \texttt{wgmma\_async}: wgmma (tiled matrix multiply-accumulate)
+    \item $A$ = \texttt{tma\_to\_smem\_async}, \texttt{tma\_to\_gmem\_async}: TMA (tiled async matrix copy)
+    \item $A$ = \texttt{non\_bulk\_cp\_async}: Ampere async memcopy
+  \end{itemize}
+  \item Insert sufficient synchronization statements: \texttt{Fence($A_1$, $A_2$)}, \texttt{Arrive($A_1$, bar)}, \texttt{Await(bar, $A_2$)}
+  \begin{itemize}
+    \item Substitute appropriate \myKey{actor kinds} $A_1$, $A_2$.
+  \end{itemize}
+  \item Code lowering: Exo checks equivalence of \myKey{S-semantics} and \myKeyB{M-semantics}
+  \begin{itemize}
+    \item \myKey{S-semantics}: treat parallel for as sequential for, ignore async, ignore barriers
+    \item \myKeyB{M-semantics}: authentic parallelism
+    \item We could optionally insert simulation of the SyncEnv ($\Sigma^S$)
+    \item TODO: figure out how to statically prove correctness with the $\Sigma^S$ model
+  \end{itemize}
+\end{itemize}
+
+\newpage
+\myTitleExtra{Extra Discussion Slide: Atomics in SyncEnv}
+
+Synchronization checks currently not extended to atomic reductions
+\begin{itemize}
+  \item assumes read-only access can be concurrent
+  \item assumes \myKey{mutable access} must be serialized
+\end{itemize}
+Atomics break the latter assumption
+
+We cannot just assume atomics are ``trivially correct''
+\begin{itemize}
+  \item we want to prove \textit{equivalence} between \myKey{S-semantics} and \myKeyB{M-semantics}, not just race freedom
+  \item TMA reduce still has the async proxy issue
+\end{itemize}
+
+Currently we will only model relaxed memory model atomics
+\begin{itemize}
+  \item i.e. Exo won't support clever homemade synchronization with acquire/release atomics
+  \item besides this is what TMA provides anyway
+\end{itemize}
+
+Atomics are sort of like a read??? In that they can be concurrent.
+\begin{itemize}
+  \item more complex though, since there's also a ``\myKey{scope of atomicity}'', e.g. CTA-scoped atomics don't allow concurrent atomics across different CTAs; cross-proxy access is unclear.
+\end{itemize}
+
+Basically, we now have 3 ``categories'' of actions: reads, atomic reduce (ignore output), and writes
+\begin{itemize}
+  \item Different action categories must be serialized (e.g. write after atomic, read after write)
+  \item Reads may be concurrent; atomics can \textit{conditionally} be concurrent
+\end{itemize}
+
+\newpage
+\myTitleExtra{Extra Discussion Slide: Memory Types \& Kernel Launch}
+
+\begin{minipage}[t]{0.48\textwidth}\fixminipage
+Exo \texttt{instr}s expect a specific memory type
+
+Too inflexible for the GPU; generalize?
+
+\mySub{Memory Property}
+
+An \texttt{instr} requirement like \myKey{device visible} may apply to multiple memories, e.g. GMEM, SMEM, grid constant, pinned memory (CPU visible)
+
+\mySub{Memory Layout}
+
+Swizzle mode (wgmma) = \myKey{memory property}?
+
+\begin{itemize}
+  \item Cutlass/CuTe have deep systems for this but I think that's too out-of-scope
+  \item Swizzling not reducible to \texttt{divide\_dim} etc.
+  \item Should we stop hard-wiring C-style arrays?
+  \item Also need to reason about alignment
+\end{itemize}
+
+\mySub{Memory Access}
+
+\texttt{can\_read} won't cut it anymore
+\begin{itemize}
+  \item Need to consider the \myKey{actor kind}
+  \item Need to consider non-C memory layout, \myKey{distributed memory} (next slide)
+  \item Prefer not to force using custom \texttt{instr}
+\end{itemize}
+
+
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.48\textwidth}\fixminipage
+\mySub{Fat Pointers}
+
+TMA access \myKey{GMEM} via a tensorMap, which hard wires the \myKeyB{SMEM} matrix (box) size
+\begin{itemize}
+  \item In Exo, the box size is defined by the TMA \texttt{instr}'s window dim
+  \item Need to propagate this back to the CPU and prepare the tensorMap outside CUDA code
+\end{itemize}
+
+Similarities with other APIs (e.g. descriptor sets)
+\begin{itemize}
+  \item Externalizable? Hard, questionable payoff
+\end{itemize}
+
+\mySub{Grid Constant}
+
+CUDA device function parameters \myKey{copied} from CPU to GPU -- scalars or small fixed-size arrays
+
+Model as \texttt{GridConstant} \myKey{memory property}?
+\begin{itemize}
+  \item CPU read and write
+  \item read-only on GPU
+  \item no sync checking -- copy protects us
+  \item backdoor-ey: special case for compiler
+\end{itemize}
+Also in other APIs (e.g. push constants)
+\end{minipage}
+\newpage
+\myTitleExtra{Extra Discussion Slide: Distributed Memory}
+
+\begin{minipage}[t]{0.48\textwidth}\fixminipage
+
+A single logical array may have its values distributed across collective lanes, e.g.
+\begin{itemize}
+  \item wgmma $A$ or $D$ matrix -- distributed among warpgroups's 128 threads' registers
+  \item user may also want to define their own tiles split across thread registers
+  \item distributed shared memory -- cluster-scope allocation distributed among blocks
+\end{itemize}
+
+Poses correctness and implementation challenges
+\begin{itemize}
+  \item Must be transparent to \myKey{S-semantics}
+  \begin{itemize}
+    \item Ordinary array as far as it's concerned
+  \end{itemize}
+  \item Changes read/write syntax
+  \item Need to check each collective lane doesn't access another lane's values
+  \begin{itemize}
+    \item \myKey{S-semantics}: most of Exo is blind to this, so hard to forbid this \textit{a priori}
+  \end{itemize}
+  \item Limited communication across collective lanes may be possible (shuffles, multicast)
+\end{itemize}
+
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.48\textwidth}\fixminipage
+\begin{itemize}
+  \item Could make it a \myKey{memory property}?
+  \item ... but user may want custom tiling?
+  \item \myKey{collective assignment} (next slide)?
+\end{itemize}
+
+\mySub{Common Use Case}
+
+Even without wgmma, we need distributed memory due to scoping and fences.
+
+\begin{verbatim}
+# At block (CTA) scope
+matrix_tile: f32[64, 64] @ CudaRmem
+for ko in seq(0, num_k):
+    for yi in cuda_threads(0, 16):
+        for xi in cuda_threads(0, 16):
+            # Stage SMEM
+    Fence(cuda_sync, cuda_generic)
+    for yi in cuda_threads(0, 16):
+        for xi in cuda_threads(0, 16):
+            # Accum matrix_tile
+    Fence(cuda_sync, cuda_generic)
+\end{verbatim}
+
+The $64 \times 64$ tile could be split into $4 \times 4$ register tiles distributed into $16 \times 16$ threads
+
+Can't just declare a $4 \times 4$ tile at \texttt{cuda\_threads} scope -- alloc must persist across block-scoped \texttt{Fence} stmts
+\end{minipage}
+
+\newpage
+\myTitleExtra{Extra Discussion Slide: Collective Assignment}
+
+\begin{minipage}[t]{0.48\textwidth}\fixminipage
+Crazy Idea: mapping between N-dimensional iteration space and 2-tuple:
+\begin{itemize}
+  \item (\myKeyB{collective coordinate},
+  \item \myKey{non-collective coordinate})
+\end{itemize}
+
+(I didn't want to re-implement CuTe but humor me)
+
+Concept appears in a variety of contexts:
+
+\mySub{Distributed Memory}
+
+Register tiles need a mapping between tensor coordinates and 2-tuples
+\begin{itemize}
+  \item (\myKeyB{collective coord}: relative thread index,
+  \item \myKey{non-collective coord}: register index)
+\end{itemize}
+
+We restrict each thread to accessing only tensor coordinates with matching \myKeyB{collective coordinate}
+
+Similar logic for other collective units (e.g. the \myKeyB{collective coordinate} for distributed shared memory is the cluster-relative block index)
+
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.48\textwidth}\fixminipage
+\mySub{Parallel-for Work Distribution}
+
+The order that logical per-block tasks are executed by physical blocks can make a \myKey{huge difference} to speed (L2 utilization)
+
+Strategy depends on runtime matrix size -- hard to statically tile.
+Map \texttt{cuda\_blocks} iteration space to
+\begin{itemize}
+  \item (\myKeyB{collective coord}: physical block index,
+  \item \myKey{non-collective coord}: time)
+\end{itemize}
+
+\mySub{Parview -- Parallel View}
+
+We may need to add some annotations to help static analysis (borrowed concept from \textit{Descend})
+
+Could define a \textit{partial} mapping from tensor coordinates to
+\begin{itemize}
+  \item (\myKeyB{collective coord}: collective lane index,
+  \item \myKey{non-collective coord}: unused)
+\end{itemize}
+Collective lanes may only write to tensor coordinates assigned to themselves
+
+Collective lanes may only read from unmapped tensor coordinates
+\end{minipage}
+
+\newpage
+\myTitleExtra{Extra Discussion Slide: Rewrite Rule Issues (specials cases for value 0)}
+
+\begin{minipage}[t]{0.48\textwidth}\fixminipage
+\mySub{Predication}
+
+\texttt{divide\_loop} if guard causes issues:
+
+\begin{verbatim}
+for io in cuda_blocks(0, ...):  # outer loop
+    for ii in seq(0, TileSize): # inner loop
+        if <boundscheck>:
+            Read(...)
+            Arithmetic(...)
+            Write(...)
+\end{verbatim}
+
+With \greenBox{TMA} predication, we want to fission the inner loop (\texttt{ii}) and the bounds check, but then eliminate the bounds check from the \redBox{arithmetic}
+
+\begin{verbatim}
+for io in cuda_blocks(0, ...):
+\end{verbatim}
+\begin{mdframed}[style=MyFrame, backgroundcolor=greenBoxBg]
+\begin{verbatim}
+    for ii in seq(0, TileSize):
+        if <boundscheck>:  # boundscheck
+            ReadOr0(...)   # in TMA instr
+\end{verbatim}
+\end{mdframed}
+\begin{mdframed}[style=MyFrame, backgroundcolor=redBoxBg]
+\color{redBoxFg}
+\begin{verbatim}
+    for ii in seq(0, TileSize):
+        Arithmetic(...)
+\end{verbatim}
+\end{mdframed}
+\begin{mdframed}[style=MyFrame, backgroundcolor=greenBoxBg]
+\color{greenBoxFg}
+\begin{verbatim}
+    for ii in seq(0, TileSize):
+        if <boundscheck>:  # boundscheck
+            Write(...)     # in TMA instr
+\end{verbatim}
+\end{mdframed}
+
+This is only valid due to TMA giving 0 for out-of-bounds, and only for certain arithmetic
+
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.48\textwidth}\fixminipage
+\mySub{wgmma 0-initialization}
+
+The pattern with wgmma is \textbf{not} to 0-initialize the accumulator $D$, i.e. not this
+\begin{verbatim}
+D = 0
+for ko in seq(0, K // 16):
+    with CudaAsync(wgmma_async):
+        D = AB + D  # pseudocode
+\end{verbatim}
+but rather
+\begin{verbatim}
+D = <uninitialized>
+for ko in seq(0, K // 16):
+    with CudaAsync(wgmma_async):
+        D = ko == 0 ? AB : AB + D  # pseudocode
+\end{verbatim}
+which is implemented with the \texttt{scale-d} parameter.
+
+We will likely use \texttt{stage\_mem} with \texttt{accum=True} for such patterns, which implicitly inserts the 0-initialization.
+This needs to be modified, or we need a follow-up rewrite rule.
+
+(note, this assumes the loop runs at least once)
+\end{minipage}
 \end{document}
