@@ -24,16 +24,22 @@
 
 \begin{itemize}
 \item Support generating mixed CPU and CUDA code from Exo
-\item ``Minimal change'' to the core Exo language; avoid huge changes to analysis and rewrite
-\item Support basic synchronization, e.g. \texttt{\_\_syncthreads} (all threads in a CTA wait for all other threads in a CTA).
+\item \myKey{Minimal change} to the core Exo language; avoid huge changes to analysis and rewrite
+\item Support basic synchronization, e.g. \texttt{\_\_syncthreads}
 \begin{itemize}
-  \item Fork/join
+  \item (scoped all $\leftrightarrow$ all threads sync)
+  \item similar to fork/join
 \end{itemize}
-\item ... but also support split barriers: set of threads waiting for an event triggered by a different set of threads or different program location
+\item ... but also support \myKey{split barriers}
 \begin{itemize}
-  \item Move beyond fork/join model
+  \item thread set $B$ waits for thread set $A$
+  \item move beyond fork/join model
 \end{itemize}
-\item Support asynchronous CUDA accelerator instructions (async copy, async tensor core matrix multiply-accumulate)
+\item Support asynchronous CUDA accelerator instructions
+\begin{itemize}
+  \item async memory copies
+  \item ``tensor core'' -- tiled MMA
+\end{itemize}
 \item Not-too-conservative sync checking
 \end{itemize}
 \end{minipage} %
@@ -61,7 +67,7 @@ Key idea: most of Exo will still treat the code \textit{as if it were not parall
   \item Async \texttt{instr} = sync \texttt{instr}
 \end{itemize}
 
-Parallelism checks are part of the code lowering process.
+Check synchronization in code lowering process.
 
 \end{minipage} %
 \newpage
@@ -72,15 +78,15 @@ Parallelism checks are part of the code lowering process.
 
 CPU code launches ``grid'': hierarchy of threads
 \begin{itemize}
-  \item warp: 32 threads
-  \item warpgroup: 128 threads (new in H100)
-  \item CTA (block): \texttt{blockDim} threads (user-set size)
-  \item cluster: 1-16 cooperating blocks (user-set)
-  \item grid: \texttt{gridDim} blocks (user-set size)
+  \item warp: exactly 32 threads
+  \item warpgroup: exactly 128 threads (new in H100)
+  \item \myKeyB{CTA (block)}: \texttt{blockDim} (user-set) threads
+  \item cluster: 1-16 (user-set) cooperating blocks
+  \item grid: \texttt{gridDim} (user-set) blocks
 \end{itemize}
 I call these \myKey{``collective units''} (includes base case, one thread), abusing Cutlass vocabulary
 
-Core ``unit of parallelism'': CTA
+Core ``unit of parallelism'': \myKeyB{CTA}
 \begin{itemize}
   \item Easy to synchronize within CTAs; hard between CTAs (Exo won't model this)
   \item Sub-collectives (thread, warp, warpgroup) within CTA can split and coalesce easily
@@ -208,7 +214,7 @@ where
 \begin{itemize}
   \item $D$ matrix tile is in \textbf{registers (RMEM)}
   \begin{itemize}
-    \item Note: $D$ is implicitly synchronized for consecutive wgmma.mma!
+    \item Note: $D$ is implicitly synchronized for consecutive \texttt{wgmma.mma}!
   \end{itemize}
   \item $B$ matrix tile is in \myKeyB{shared memory (SMEM)}
   \item $A$ matrix tile is stored in either format
@@ -623,10 +629,13 @@ e.g. \texttt{cuda\_all} (all CUDA instructions), \texttt{cuda\_generic} (generic
 \myTitle{Exo Syntax -- CudaAsync Block}
 
 \begin{minipage}[t]{0.48\textwidth}\fixminipage
-As mentioned, nested within \texttt{CudaDeviceFunction} async block (actor kind \texttt{cuda\_sync})
 
-Syntax, \texttt{with CudaAsync(\textit{actor\_kind})}
+Syntax, \texttt{with CudaAsync(\textit{actor\_kind}): \textit{body}}
 
+\begin{itemize}
+  \item Nested in \texttt{with CudaDeviceFunction} block
+  \item Changes actor kind from \texttt{cuda\_sync} to \texttt{\textit{actor\_kind}}
+\end{itemize}
 Often, there is \myKey{nontrivial interaction} between the async instructions and related synchronization
 \begin{itemize}
 \item Example: wgmma ``pipeline stage'' must appear in fixed pattern (that gets ptxas's vaunted stamp of approval)
@@ -764,7 +773,7 @@ Interpretation
   \item $\Sigma^S$: synchronization environment (\myKey{SyncEnv})
 \end{itemize}
 \vspace{8mm}
-The SyncEnv will track the ``visibility'' (which threads can see) for \textit{each} read and write done to each variable -- this changes with synchronization
+The SyncEnv will track the ``visibility'' (set of threads that can see) for \textit{each} read and write done to each variable -- this \myKey{changes with synchronization}
 
 Prove that sufficient synchronization exists such that each read under \myKeyB{M-semantics} pairs with the same write as under \myKey{S-semantics}
 \end{minipage}
@@ -839,9 +848,9 @@ Example: actor kind \texttt{wgmma\_async}
 \end{itemize}
 \vspace{2mm}
 \begin{verbatim}
-with CudaAsync(tma_to_smem_async):
+for tid in cuda_threads(0, 1):
     # Only thread 0 does TMA (pseudocode)
-    for tid in cuda_threads(0, 1):
+    with CudaAsync(tma_to_smem_async):
         SMEM[0:N] = GMEM[c:c+N]
 # ...
 for tid in cuda_threads(0, N):
@@ -916,22 +925,22 @@ TODO
 \draw [arrow] (vars) -- (reads);
 \draw [arrow] (vars) -- (writes);
 
-\draw [arrow, draw=keyColorB] ($(reads.south) - (0.4, 0)$) -- ($(record.north) - (1.2, 0)$);
-\draw [arrow, draw=keyColorB] ($(reads.south) + (0.4, 0)$) -- ($(record.north) - (0.4, 0)$);
-\draw [arrow, draw=keyColorB] ($(reads.south) + (1.2, 0)$) -- ($(record.north) + (0.4, 0)$);
-\draw [arrow] ($(writes.south) - (0.4, 0)$) -- ($(record.north) + (1.2, 0)$);
+\draw [arrow, draw=keyColorB] ($(reads.south) - (0.2, 0)$) to[out=270, in=90] ($(record.north) - (0.3, 0)$);
+\draw [arrow, draw=keyColorB] ($(reads.south) + (0.0, 0)$) to[out=270, in=90] ($(record.north) - (0.1, 0)$);
+\draw [arrow, draw=keyColorB] ($(reads.south) + (0.2, 0)$) to[out=270, in=90] ($(record.north) + (0.1, 0)$);
+\draw [arrow] ($(writes.south) - (0, 0)$) to[out=270, in=90] ($(record.north) + (0.3, 0)$);
 
 \draw [arrow] (record) -- (VS);
 \draw [arrow] (record) -- (VA);
 \draw [arrow] (record) -- (AO);
 
-\draw [arrow, draw=keyColorB] ($(VS.south) - (0.2, 0)$) -- ($(sigthread.north) - (0.2, 0)$);
-\draw [arrow, draw=keyColorB] ($(VS.south)$) -- ($(sigthread.north)$);
-\draw [arrow, draw=keyColorB] ($(VS.south) + (0.2, 0)$) -- ($(sigthread.north) + (0.2, 0)$);
+\draw [arrow, draw=keyColorB] ($(VS.south) - (0.2, 0)$) to[out=270, in=90] ($(sigthread.north) - (0.5, 0)$);
+\draw [arrow, draw=keyColorB] ($(VS.south)$) to[out=270, in=90] ($(sigthread.north) - (0.3, 0)$);
+\draw [arrow, draw=keyColorB] ($(VS.south) + (0.2, 0)$) to[out=270, in=90] ($(sigthread.north) - (0.1, 0)$);
 
-\draw [arrow, draw=keyColorB] ($(VA.south) - (0.5, 0)$) -- ($(sigthread.north) - (0.5, 0)$);
-\draw [arrow, draw=keyColorB] ($(VA.south)$) -- ($(sigthread.north)$);
-\draw [arrow, draw=keyColorB] ($(VA.south) + (0.5, 0)$) -- ($(sigthread.north) + (0.5, 0)$);
+\draw [arrow, draw=keyColorB] ($(VA.south) - (0.2, 0)$) to[out=270, in=90] ($(sigthread.north) + (0.1, 0)$);
+\draw [arrow, draw=keyColorB] ($(VA.south)$) to[out=270, in=90] ($(sigthread.north) + (0.3, 0)$);
+\draw [arrow, draw=keyColorB] ($(VA.south) + (0.2, 0)$) to[out=270, in=90] ($(sigthread.north) + (0.5, 0)$);
 
 \draw [arrow] (sigthread.south) to (tid);
 \draw [arrow] (sigthread.south) to[out=315, in=135] ($(signature.north) - (0.1, 0)$);
@@ -1043,7 +1052,7 @@ For block 1 ($b = 1$), let's sketch before and after
 \end{minipage}
 \hfill
 \begin{minipage}[t]{0.55\textwidth}\fixminipage
-\mySub{$\Sigma^S$ Before}
+\mySub{$\Sigma^S$ Before Fence}
 
 \begin{tikzpicture}[node distance=2mm]
 \node(gmem0) [normalnode] {\texttt{gmemRead[0]}};
@@ -1067,7 +1076,7 @@ For block 1 ($b = 1$), let's sketch before and after
 \draw[line, draw=blueBoxFg] (smem255.east) --(w511.west);
 \end{tikzpicture}
 
-\mySub{$\Sigma^S$ After}
+\mySub{$\Sigma^S$ After Fence}
 
 \begin{tikzpicture}[node distance=2mm]
 \node(gmem0) [normalnode] {\texttt{gmemRead[0]}};
