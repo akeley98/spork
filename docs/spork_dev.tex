@@ -899,8 +899,8 @@ TODO
 \begin{tikzpicture}[node distance=6mm]
 \node(SyncEnv) [normalnode] {$\Sigma^S$: SyncEnv};
 \node(vars) [normalnode, below=of SyncEnv] {variable};
-\node(reads) [normalnode, below=of vars, xshift=-25mm, minimum width=4cm, text width=4cm, draw=redBoxFg, text=redBoxFg, fill=redBoxBg] {read visibility records};  % Red/Read
-\node(writes) [normalnode, below=of vars, xshift=+25mm, minimum width=4cm, text width=4cm, draw=blueBoxFg, text=blueBoxFg, fill=blueBoxBg] {write visibility record};
+\node(reads) [normalnode, below=of vars, xshift=-25mm, minimum width=4cm, text width=4cm, draw=redBoxFg, text=redBoxFg, fill=redBoxBg] {read visibility records\\\textit{red $\equiv$ ``read''}};
+\node(writes) [normalnode, below=of vars, xshift=+25mm, minimum width=4cm, text width=4cm, draw=blueBoxFg, text=blueBoxFg, fill=blueBoxBg] {write visibility record\\\textit{blue $\equiv$ ``not read''}};
 \node(record) [normalnode, below=of reads, xshift=+25mm] {visibility record};
 \node(VA) [smallnode, below=of record] {$V_A$};
 \node(VS) [smallnode, left=of VA] {$V_S$};
@@ -1011,7 +1011,9 @@ Really expensive if interpreted literally!
 
 \mySub{Example Code}
 
-\myKey{512 threads total, split into 2 blocks}
+\myKey{Block 0}: threads $T = [0, 255]$
+
+\myKey{Block 1}: threads $T = [256, 511]$
 
 \begin{verbatim}
 with CudaDeviceFunction(256):
@@ -1091,7 +1093,7 @@ For block 1 ($b = 1$), let's sketch before and after
 \myTitle{SyncEnv Barrier Example 2}
 
 \begin{minipage}[t]{0.55\textwidth}\fixminipage
-Suppose the block uses \texttt{smem} to stage a\\
+Suppose the block continues on to uses \texttt{smem} to stage a\\
 \myKeyB{SMEM}$\to$\myKey{GMEM} TMA copy
 
 \begin{verbatim}
@@ -1106,7 +1108,7 @@ with CudaDeviceFunction(256):
 \begin{mdframed}[style=MyFrame, backgroundcolor=greenBoxBg]
 \color{greenBoxFg}
 \begin{verbatim}
-        # Just one thread does TMA
+        # Only 0th thread per block does TMA
         for t in cuda_threads(0, 1):
 \end{verbatim}
 \end{mdframed}
@@ -1130,9 +1132,10 @@ For block \texttt{b=1}, \texttt{blockDim=256},\\
 \violetBox{\texttt{Fence(cuda\_sync, tma\_to\_gmem\_async)}} has
 \begin{itemize}
   \item $V_1 = \{(256, \texttt{sig\_cuda\_sync})\}$
-  \item $V_2 = \{(256, \texttt{sig\_tma\_to\_gmem})\}$
+  \item $V_2 = \{(\mathbf{256}, \textbf{\texttt{sig\_tma\_to\_gmem}})\}$
   \item Note, \texttt{sig\_cuda\_sync} $\in$ \texttt{cuda\_generic}
 \end{itemize}
+\blueBox{$(256, \texttt{sig\_cuda\_sync}) \in [256, 511] \times \texttt{cuda\_generic}$}
 \end{minipage}
 \hfill
 \begin{minipage}[t]{0.43\textwidth}\fixminipage
@@ -1143,7 +1146,7 @@ For block \texttt{b=1}, \texttt{blockDim=256},\\
 \draw[dotted] (smem0) to node(smemdots){} (smem255);
 
 \node(rtma) [widenode, below=of smemdots, fill=redBoxBg, draw=redBoxFg, text=redBoxFg, yshift=-10mm] {$V_S = \{\}$ \textit{(TMA \textbf{async} read)}\\$V_A=\{(256, \texttt{sig\_tma\_to\_gmem})\}$};
-\node(w256) [widenode, minimum width=8cm, text width=8cm, below=of rtma, fill=blueBoxBg, draw=blueBoxFg, text=blueBoxFg] {$V_S,V_A = [256, 511] \times \texttt{cuda\_generic} \cup \{\mathbf{256}, \textbf{\texttt{sig\_tma\_to\_gmem}}\}$\\\textit{unioned with $V_2$ (bold part)}};
+\node(w256) [widenode, minimum width=8cm, text width=8cm, below=of rtma, fill=blueBoxBg, draw=blueBoxFg, text=blueBoxFg] {$V_S,V_A = [256, 511] \times \texttt{cuda\_generic} \cup \{(\mathbf{256}, \textbf{\texttt{sig\_tma\_to\_gmem}})\}$\\\textit{unioned with $V_2$ (bold part)}};
 \node(wtma) [widenode, below=of w256, fill=blueBoxBg, draw=blueBoxFg, text=blueBoxFg, yshift=-8mm] {$V_S = \{\}$ \textit{(TMA \textbf{async} write)}\\$V_A=\{(256, \texttt{sig\_tma\_to\_gmem})\}$};
 \node(gmemWrite) [normalnode, below=of wtma, yshift=-8mm] {\texttt{gmemWrite[...]}};
 
@@ -1162,87 +1165,117 @@ Recall,
 \end{minipage}
 
 \newpage
-\myTitle{SyncEnv Correctness Checking}
-%% \newpage
-%% \myTitle{Example GPU gemm}
+\myTitle{Synchronization Checking}
 
-%% \begin{minipage}[t]{\textwidth}\fixminipage
-%% \begin{verbatim}
-%% # DRAM is not correct, should be CudaGmem
-%% def exo_cuda_gemm(M: size, N: size, K: size, A: f32[M, K] @ DRAM,
-%%                   B: f32[K, N] @ DRAM, C: f32[M, N] @ DRAM):
-%%     assert M % 16 == 0
-%%     assert N % 16 == 0
-%%     assert K % 8 == 0
-%%     # (M/16) x (N/16) grid of 256-thread blocks
-%% \end{verbatim}
-%% \begin{mdframed}[style=MyFrame, backgroundcolor=greenBoxBg]
-%% \color{greenBoxFg}
-%% \begin{verbatim}
-%%     with CudaDeviceFunction(256, 1):
-%% \end{verbatim}
-%% \end{mdframed}
-%% \begin{mdframed}[style=MyFrame, backgroundcolor=yellowBoxBg]
-%% \color{yellowBoxFg}
-%% \begin{verbatim}
-%%         for mo in cuda_blocks(0, M / 16):
-%%             for no in cuda_blocks(0, N / 16):
-%%                 # ... CUDA block code [next slide]
-%% \end{verbatim}
-%% \end{mdframed}
-%% \mySub{Scheduling Code}
-%% \begin{verbatim}
-%% def schedule_gemm(p: Proc ...):
-%%     # ...
+Each read/write access is done with a certain sigthread $(t, a)$
 
-%% \end{verbatim}
-%% \begin{mdframed}[style=MyFrame, backgroundcolor=greenBoxBg]
-%% \color{greenBoxFg}
-%% \begin{verbatim}
-%%     # Temporary syntax: wrap entire body as cuda device function
-%%     # with blockDim = m_tile * n_tile
-%%     p = tmp_add_with(p, p.body(), CudaDeviceFunction(blockDim = m_tile * n_tile))
-%% \end{verbatim}
-%% \end{mdframed}
-%% \begin{mdframed}[style=MyFrame, backgroundcolor=yellowBoxBg]
-%% \color{yellowBoxFg}
-%% \begin{verbatim}
-%%     p = set_loop_mode(p, "mo", exo.loop_modes.cuda_blocks)
-%%     p = set_loop_mode(p, "no", exo.loop_modes.cuda_blocks)
-%% \end{verbatim}
-%% \end{mdframed}
-%% \end{minipage}
-%% \newpage
-%% \myTitle{Example GPU gemm}
+The checks are done \myKey{prior to any changes} to $\Sigma^S$ (SyncEnv)
 
-%% {
-%% \begin{verbatim}
-%% # ... for mo/no cuda_blocks ...
-%%     accum: f32[16, 16] @ CudaRmem
-%%     for mi in cuda_threads(0, 16):
-%%         for ni in cuda_threads(0, 16):
-%%             accum[mi, ni] = 0
-%%     for ko in seq(0, K / 8):
-%%         A_tile: f32[16, 8] @ CudaSmem
-%%         for i0 in cuda_threads(0, 16):
-%%             for i1 in cuda_threads(0, 8):
-%%                 A_tile[i0, i1] = A[i0 + 16 * mo, i1 + 8 * ko]
-%%         B_tile: f32[8, 16] @ CudaSmem
-%%         for i0 in cuda_threads(0, 8):
-%%             for i1 in cuda_threads(0, 16):
-%%                 B_tile[i0, i1] = B[i0 + 8 * ko, i1 + 16 * no]
-%%         Fence(cuda_sync, cuda_generic)  # p = insert_fence(p, <Gap>, cuda_syncthreads)
-%%         for mi in cuda_threads(0, 16):
-%%             for ni in cuda_threads(0, 16):
-%%                 for ki in seq(0, 8):
-%%                     accum[mi, ni] += A_tile[mi, ki] * B_tile[ki, ni]
-%%         Fence(cuda_sync, cuda_generic)  # p = insert_fence(p, <Gap>, cuda_syncthreads)
-%%     for mi in cuda_threads(0, 16):
-%%         for ni in cuda_threads(0, 16):
-%%             C[mi + 16 * mo, ni + 16 * no] = accum[mi, ni]
-%% \end{verbatim}
-%% }
+For a read/write visibility record $x$, denote its \myKey{sync visibility set} as $V_S^x$
 
+\mySub{Checking on Read}
+
+\myKey{RAW} check: Check $(t,a) \in V_S^w$, where $w$ is the \blueBox{write visibility record}.\\
+If so, we say that the write recorded by $w$ is \myKeyB{visible-to} sigthread $(t,a)$.
+
+\mySub{Checking on Write}
+
+\myKey{WAW} check: Check write $w$ is \myKeyB{visible-to} $(t,a)$
+
+\myKey{WAR} check: For each \redBox{read visibility record} $r$, check that $(t,a) \in V_S^r$.\\
+If so, we say that the read recorded by $r$ is \myKeyB{visible-to} sigthread $(t,a)$.
+
+\mySub{\textbf{IMPORTANT:}} These are \textbf{NOT} ``allowed to read'' and ``allowed to write'' sets.\\
+It's more complicated than that.
+
+\hfill
+\begin{minipage}[t]{0.7\textwidth}\fixminipage
+\vspace{6mm}
+\textit{Deeper side note, not for live presentation: \myKey{WAR} checking is a ``conjunction of disjunctions''; with the disjunction being how each read visibility set $V_S$ gets independently augmented by synchronization ($V_S \leftarrow V_S \cup V_2$), and the conjunction being $\forall r, t \in V_S^r$.
+This is not really simplifiable to a single ``allowed to write'' set.}
+\end{minipage}
+\newpage
+% Title again moved out of desperation
+\begin{minipage}[t]{0.55\textwidth}\fixminipage
+\vspace{-6mm}
+\myTitle{Synchronization Checking Example}
+
+Suppose immediately after the TMA, we issue another \violetBox{\texttt{Fence}}.
+Then, all threads in the block write to \texttt{smem} again.
+
+\begin{verbatim}
+with CudaDeviceFunction(256):
+    for b in cuda_blocks(0, 2):
+        # ...
+        for t in cuda_threads(0, 1):
+            # fence.proxy.async
+            Fence(cuda_sync, tma_to_gmem_async)
+            with CudaAsync(tma_to_gmem_async):
+                # (placeholder) TMA instr
+                gmemWrite[...] = smem[0:256]
+\end{verbatim}
+\begin{mdframed}[style=MyFrame, backgroundcolor=violetBoxBg]
+\color{violetBoxFg}
+\begin{verbatim}
+            # Inadequate Fence! (1 thread only)
+            Fence(tma_to_gmem_async, cuda_sync)
+\end{verbatim}
+\end{mdframed}
+\hfill\textit{$\Sigma^S$ shown for this location}
+\vspace{2mm}
+\begin{mdframed}[style=MyFrame, backgroundcolor=greenBoxBg]
+\color{greenBoxFg}
+\begin{verbatim}
+        for t in cuda_threads(0, 256):
+            smem[t] = ...
+\end{verbatim}
+\end{mdframed}
+
+This \myKey{should fail} synchronization checking, since all but one thread fails to wait for the TMA.
+
+\begin{itemize}
+  \item $V_1 = \{(256, \texttt{sig\_tma\_to\_gmem})\}$
+  \item $V_2 = \{(\mathbf{256}, \textbf{\texttt{sig\_cuda\_sync}})\}$
+\end{itemize}
+Recall we're analyzing block $b=1$, threads $T = [256, 511]$
+
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.43\textwidth}\fixminipage
+\vspace{-8mm}
+\begin{tikzpicture}[node distance=2mm]
+\node(smem0) [normalnode, below=of gmem255] {\texttt{smem[0]}};
+\node(smem255) [normalnode, right=of smem0, xshift=8mm] {\texttt{smem[255]}};
+\draw[dotted] (smem0) to node(smemdots){} (smem255);
+
+\node(incoming256) [normalnode, above=of smem0, yshift=6mm, fill=greenBoxBg] {Incoming write\\$(t,a) = (256,$\\\texttt{sig\_cuda\_sync})};
+\node(incoming511) [normalnode, above=of smem255, yshift=6mm, fill=greenBoxBg] {Incoming write\\$(t,a) = (511,$\\\texttt{sig\_cuda\_sync})};
+
+\draw[dotted] (incoming256) to (incoming511);
+\draw[arrow] (incoming256) to (smem0);
+\draw[arrow] (incoming511) to (smem255);
+
+\node(rtma) [widenode, below=of smemdots, fill=redBoxBg, draw=redBoxFg, text=redBoxFg, yshift=-10mm] {$V_S = \{(\mathbf{256}, \textbf{\texttt{sig\_cuda\_sync}})\}$\\$V_A=\{(256, \texttt{sig\_tma\_to\_gmem}),$ $(\mathbf{256}, \textbf{\texttt{sig\_cuda\_sync}})\}$};
+\node(w256) [widenode, minimum width=8cm, text width=8cm, below=of rtma, fill=blueBoxBg, draw=blueBoxFg, text=blueBoxFg] {$V_S,V_A = [256, 511] \times \texttt{cuda\_generic} \cup \{(256, \texttt{sig\_tma\_to\_gmem})\}$};
+
+\draw[line, draw=redBoxFg] (smem0) -- (rtma);
+\draw[line, draw=redBoxFg] (smem255) -- (rtma);
+\draw[line, draw=blueBoxFg] (smem0) to[out=215,in=105] ($(w256.north) - (3.5, 0)$);
+\draw[line, draw=blueBoxFg] (smem255) to[out=325,in=75] ($(w256.north) + (3.5, 0)$);
+\end{tikzpicture}
+
+\myKey{WAW check pass}
+
+$\forall t \in [256, 511]$,\\\greenBox{$(t,a)$} $\in$ \blueBox{$[256, 511] \times \texttt{cuda\_generic} \cup ...$}\\
+(write visibility record's $V_S$)
+
+\myKey{WAR check fail}
+
+Fails except for \texttt{smem[0]}, i.e, $t \ge 257$
+
+\greenBox{$(t,a)$} $\notin$ \redBox{$\{(256, \texttt{sig\_cuda\_sync})\}$}\\
+(read visibility record's $V_S$)
+\end{minipage}
 
 %% Challenges
 %%
