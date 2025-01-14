@@ -20,10 +20,11 @@
 \newpage
 
 \begin{minipage}[t]{0.48\textwidth}\fixminipage
+\vspace{-6mm}
 \myTitle{Project Goals}  % Moved into minipage due to lack of space
-
+\vspace{6mm}
 \begin{itemize}
-\item Support generating mixed CPU and CUDA code from Exo
+\item Generate \myKey{mixed CPU and CUDA} code
 \item \myKey{Minimal change} to the core Exo language; avoid huge changes to analysis and rewrite
 \item Support basic synchronization, e.g. \texttt{\_\_syncthreads}
 \begin{itemize}
@@ -32,7 +33,7 @@
 \end{itemize}
 \item ... but also support \myKey{split barriers}
 \begin{itemize}
-  \item thread set $B$ waits for thread set $A$
+  \item (thread set $B$ waits for thread set $A$)
   \item move beyond fork/join model
 \end{itemize}
 \item Support asynchronous CUDA accelerator instructions
@@ -317,9 +318,9 @@ Async proxy fence required to see memory written by generic instructions.
 
 \mySub{Synchronization TMA $\to$ generic}
 
-If the TMA copies SMEM to GMEM, the completion mechanism is \myKey{commit\_group}
+If the TMA copies \myKeyB{SMEM}$\to$\myKey{GMEM}, the completion mechanism is \textbf{commit\_group}
 
-If the TMA copies GMEM to SMEM, the completion mechanism is \myKey{mbarrier} (split barrier)
+If the TMA copies \myKey{GMEM}$\to$\myKeyB{SMEM}, the completion mechanism is \textbf{mbarrier} (split barrier)
 
 \begin{itemize}
   \item Initialized in SMEM with arrive-count $A$
@@ -431,7 +432,7 @@ Parallelizing blocks on $C$ tiles requires reductions between thread blocks.
 \myTitle{Exo Syntax -- Async Block, Parallel For}
 
 \begin{minipage}[t]{0.48\textwidth}\fixminipage
-Open an ``async block'' to switch from compiling CPU code to accelerator code.
+Open an ``async block'' to switch from compiling CPU code to accelerator code
 \begin{itemize}
   \item Syntax: \texttt{with \textit{async\_config}: \textit{body}}
   \item Nomenclature?\\Idea is this block is ``asynchronous'' in some way relative to the parent code
@@ -545,9 +546,14 @@ with CudaDeviceFunction(...):
 \begin{minipage}[t]{0.48\textwidth}\fixminipage
 Ignore \texttt{cuda\_sync, cuda\_generic} for now (actor kinds, to be explained)
 
-In Exo, we are \myKey{explicit} about which operations are done by which \myKey{collective units} (e.g. block / coalesced warp), unlike in CUDA C++ where it is the \myKey{user's responsibility} to do this correctly, else get hangs or UB.
+One block of CUDA C++ could map to multiple blocks of Exo
+\begin{itemize}
+\item Exo: we are \myKey{explicit} about the collective unit used (parallel loop nesting)
+\item Cuda C++: expected collective unit is \myKey{implicit}, user error = deadlock or UB
+\end{itemize}
 
-This can cause one block of CUDA code to map to multiple blocks of Exo code, e.g. the code on the left is equivalent to CUDA code
+\mySub{CUDA C++ translation}
+
 \begin{verbatim}
 __global__ void <function name>()
 {
@@ -565,16 +571,17 @@ __global__ void <function name>()
 \myTitle{Exo Syntax -- Synchronization 2/2, Actor Kind}
 
 \begin{minipage}[t]{0.48\textwidth}\fixminipage
-Conceptually, an async block instructs the compiler to lower to a \myKey{different category} of instructions with \myKey{different synchronization} requirements
+Conceptually, an async block instructs the compiler to lower to a \myKey{different class} of instructions with \myKey{different synchronization} requirements
 
-For now, informally, this categorization is the \myKey{actor kind}, which is one of the following:
+For now, informally, this classification is the \myKey{actor kind}, which is one of the following:
 
-\vspace{12mm}
+\vspace{4mm}
 
 Top level code:
 \begin{itemize}
   \item \texttt{cpu}
 \end{itemize}
+\vspace{4mm}
 
 \texttt{with CudaDeviceFunction(...):}
 \begin{itemize}
@@ -583,6 +590,7 @@ Top level code:
     \item Synchronous CUDA instructions
   \end{itemize}
 \end{itemize}
+\vspace{4mm}
 
 \texttt{with CudaAsync(\textit{actor\_kind}):}
 \begin{itemize}
@@ -814,7 +822,7 @@ Imagine a dynamic trace of an Exo-GPU proc
 \begin{itemize}
   \item Sequential, since core Exo is sequential
   \item ... but we need to annotate which thread would do each action in M-semantics
-  \item ... and if it's an async instruction?
+  \item ... and whether it's an async instruction?
   \item ... to prove synchronization correctness
 \end{itemize}
 \myKey{Thread Index} = ``who'' did the access
@@ -823,7 +831,7 @@ Imagine a dynamic trace of an Exo-GPU proc
 
 \myKey{Actor Kind}
 \begin{itemize}
-  \item Informal: categorization of instructions
+  \item Informal: classification of instructions
   \item Formal: \myKey{set} of allowed \myKey{actor signatures}
   \item 1-to-many: a single accelerator can perform accesses with different sync requirements
 \end{itemize}
@@ -844,7 +852,7 @@ Example: actor kind \texttt{wgmma\_async}
 \myKey{sigthread} = (thread index, actor signature) pair
 \begin{itemize}
   \item Conceptual sub-thread of each thread
-  \item ``signs'' each action done in a dynamic trace
+  \item ``Signs'' each action done in a dynamic trace
 \end{itemize}
 \vspace{2mm}
 \begin{verbatim}
@@ -887,7 +895,10 @@ The SyncEnv associates \myKey{visibility records} with variables, containing sta
   \item $A_O$: original \myKey{actor signature}
 \end{itemize}
 
-One write visibility record for last write, and one read visibility record added for \myKey{each} previous read
+\begin{itemize}
+  \item one \blueBox{write} visibility record for last write
+  \item one \redBox{read} visibility record for \myKey{each} read
+\end{itemize}
 
 With $(t: \mathsf{thread\_index}, a: \mathsf{actor\_signature})$ being the sigthread doing the access, \myKey{initialize}
 \begin{itemize}
@@ -975,20 +986,13 @@ Formally, when we interpret a \texttt{Fence} statement, we say that a visibility
   \item transitive fences: if \violetBox{$V_A \cap V_1$} non-empty
   \item non-transitive fences:\\if \violetBox{$V_A \cap V_1 \cap (\mathbb{N} \times A_O)$} non-empty
   \begin{itemize}
-    \item Recall, $A_O$: original actor signature
+    \item $A_O$: original actor signature
   \end{itemize}
 \end{itemize}
 
 \end{minipage}
 \hfill
 \begin{minipage}[t]{0.48\textwidth}\fixminipage
-%% Example, suppose warpgroup 2 of block 0 executes \texttt{wgmma.fence}
-%% \begin{itemize}
-%%   \item \texttt{Fence(wgmma\_rmem, wgmma\_async\_rmem)}\\(in Exo)
-%%   \item $T = [256, 383]$
-%%   \item $V_1 = T \times \texttt{wgmma\_rmem}$
-%%   \item $V_2 = T \times \texttt{wgmma\_async\_rmem}$
-%% \end{itemize}
 
 \mySub{Side Notes}
 
@@ -1000,7 +1004,7 @@ Recall that actor kinds are a set of actor signatures, hence the typing is corre
 \end{itemize}
 
 \vspace{6mm}
-Ignore split barriers (\texttt{Arrive}, \texttt{Await}) today
+\mySub{Split Barriers (Arrive/Await)}
 \begin{itemize}
   \item See spork.pdf
   \item Essentially, \texttt{Arrive} gives $V_1$, \texttt{Await} gives $V_2$
@@ -1184,14 +1188,14 @@ For a read/write visibility record $x$, denote its \myKey{sync visibility set} a
 
 \mySub{Checking on Read}
 
-\myKey{RAW} check: Check $(t,a) \in V_S^w$, where $w$ is the \blueBox{write visibility record}.\\
+\myKey{RAW} check: Check $(t,a) \in V_S^w$, where $w$ is the \blueBox{write} visibility record.\\
 If so, we say that the write recorded by $w$ is \myKeyB{visible-to} sigthread $(t,a)$.
 
 \mySub{Checking on Write}
 
 \myKey{WAW} check: Check write $w$ is \myKeyB{visible-to} $(t,a)$
 
-\myKey{WAR} check: For each \redBox{read visibility record} $r$, check that $(t,a) \in V_S^r$.\\
+\myKey{WAR} check: For each \redBox{read} visibility record $r$, check that $(t,a) \in V_S^r$.\\
 If so, we say that the read recorded by $r$ is \myKeyB{visible-to} sigthread $(t,a)$.
 
 \mySub{\textbf{IMPORTANT:}} These are \textbf{NOT} ``allowed to read'' and ``allowed to write'' sets.\\
@@ -1200,7 +1204,7 @@ It's more complicated than that.
 \hfill
 \begin{minipage}[t]{0.7\textwidth}\fixminipage
 \vspace{6mm}
-\textit{Deeper side note, not for live presentation: \myKey{WAR} checking is a ``conjunction of disjunctions''; with the disjunction being how each read visibility set $V_S$ gets independently augmented by synchronization ($V_S \leftarrow V_S \cup V_2$), and the conjunction being $\forall r, t \in V_S^r$.
+\textit{Deeper side note, not for live presentation: \myKey{WAR} checking is a ``conjunction of disjunctions''; with the disjunction being how each read visibility set $V_S$ gets independently augmented by synchronization ($V_S \leftarrow V_S \cup V_2$), and the conjunction being $\forall r, (t,a) \in V_S^r$.\\
 This is not really simplifiable to a single ``allowed to write'' set.}
 \end{minipage}
 \newpage
@@ -1246,7 +1250,8 @@ This \myKey{should fail} synchronization checking, since all but one thread fail
   \item $V_1 = \{(256, \texttt{sig\_tma\_to\_gmem})\}$
   \item $V_2 = \{(\mathbf{256}, \textbf{\texttt{sig\_cuda\_sync}})\}$
 \end{itemize}
-Recall we're analyzing block $b=1$, threads $T = [256, 511]$
+Recall we're analyzing block $b=1$, i.e. threads $[256, 511]$\\
+(but $T = \{256\}$ alone for the thread-scoped Fence)
 
 \end{minipage}
 \hfill
@@ -1292,7 +1297,7 @@ Fails for $t \ge 257$
 \begin{itemize}
   \item Schedule Exo using existing rewrites -- parallelism ignored
   \item Wrap CUDA code with \myKey{\texttt{with CudaDeviceFunction}}
-  \item Within CUDA code, change the \myKey{\texttt{LoopMode}} of loops to convert from \texttt{seq} to CUDA-parallel for
+  \item Within CUDA code, change the \myKey{\texttt{LoopMode}} of loops to convert from \texttt{seq} to CUDA parallel for
   \begin{itemize}
     \item Top-level loops within \texttt{CudaDeviceFunction} block must be \myKey{\texttt{cuda\_blocks}} or \myKey{\texttt{cuda\_clusters}}
   \end{itemize}
@@ -1305,7 +1310,7 @@ Fails for $t \ge 257$
   \end{itemize}
   \item Insert sufficient synchronization statements: \texttt{Fence($A_1$, $A_2$)}, \texttt{Arrive($A_1$, bar)}, \texttt{Await(bar, $A_2$)}
   \begin{itemize}
-    \item Substitute appropriate \myKey{actor kinds} $A_1$, $A_2$.
+    \item Substitute appropriate \myKey{actor kinds} $A_1$, $A_2$
   \end{itemize}
   \item Code lowering: Exo checks equivalence of \myKey{S-semantics} and \myKeyB{M-semantics}
   \begin{itemize}
@@ -1322,9 +1327,8 @@ Fails for $t \ge 257$
 Synchronization checks currently not extended to atomic reductions
 \begin{itemize}
   \item assumes read-only access can be concurrent
-  \item assumes \myKey{mutable access} must be serialized
+  \item assumes \myKey{mutable access} must be serialized (atomics break this assumption)
 \end{itemize}
-Atomics break the latter assumption
 
 We cannot just assume atomics are ``trivially correct''
 \begin{itemize}
@@ -1345,8 +1349,8 @@ Atomics are sort of like a read??? In that they can be concurrent.
 
 Basically, we now have 3 ``categories'' of actions: reads, atomic reduce (ignore output), and writes
 \begin{itemize}
-  \item Different action categories must be serialized (e.g. write after atomic, read after write)
-  \item Reads may be concurrent; atomics can \textit{conditionally} be concurrent
+  \item Different action categories must be serialized (e.g. read after atomic, write after read)
+  \item Reads may always be concurrent; atomics can \textit{conditionally} be concurrent
 \end{itemize}
 
 \newpage
@@ -1367,14 +1371,14 @@ Swizzle mode (wgmma) = \myKey{memory property}?
 
 \begin{itemize}
   \item Cutlass/CuTe have deep systems for this but I think that's too out-of-scope
-  \item Swizzling not reducible to \texttt{divide\_dim} etc.
+  \item Can't express swizzling as \texttt{divide\_dim}, etc.
   \item Should we stop hard-wiring C-style arrays?
   \item Also need to reason about alignment
 \end{itemize}
 
 \mySub{Memory Access}
 
-\texttt{can\_read} won't cut it anymore
+\texttt{can\_read}, \texttt{write}, \texttt{reduce} needs change
 \begin{itemize}
   \item Need to consider the \myKey{actor kind}
   \item Need to consider non-C memory layout, \myKey{distributed memory} (next slide)
@@ -1448,7 +1452,7 @@ Poses correctness and implementation challenges
 
 \mySub{Common Use Case}
 
-Even without wgmma, we need distributed memory due to scoping and fences.
+Even without wgmma, we need distributed memory due to scoping and fences
 
 \begin{verbatim}
 # At block (CTA) scope
@@ -1549,7 +1553,7 @@ for io in cuda_blocks(0, ...):
 \begin{verbatim}
     for ii in seq(0, TileSize):
         if <boundscheck>:  # boundscheck
-            ReadOr0(...)   # in TMA instr
+            Read(or 0...)  # in TMA instr
 \end{verbatim}
 \end{mdframed}
 \begin{mdframed}[style=MyFrame, backgroundcolor=redBoxBg]
@@ -1587,7 +1591,8 @@ but rather
 D = <uninitialized>
 for ko in seq(0, K // 16):
     with CudaAsync(wgmma_async):
-        D = ko == 0 ? AB : AB + D  # pseudocode
+        # pseudocode
+        D = ko == 0 ? AB : AB + D
 \end{verbatim}
 which is implemented with the \texttt{scale-d} parameter.
 
