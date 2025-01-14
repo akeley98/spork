@@ -5,6 +5,7 @@
 \tikzstyle{smallnode} = [rectangle, minimum width=1.25cm, minimum height=1cm, text centered, text width=1.25cm, draw=black, fill=white]
 \tikzstyle{smallishnode} = [rectangle, minimum width=2cm, minimum height=1cm, text centered, text width=2cm, draw=black, fill=white]
 \tikzstyle{normalnode} = [rectangle, minimum width=3cm, minimum height=1cm, text centered, text width=3cm, draw=black, fill=white]
+\tikzstyle{widenode} = [rectangle, minimum width=62mm, minimum height=8mm, text centered, text width=62mm, draw=black, fill=white]
 \tikzstyle{bignode} = [rectangle, minimum width=3.5cm, minimum height=2cm, text centered, text width=3cm, draw=black, fill=white]
 \tikzstyle{smemnode} = [rectangle, minimum width=3cm, minimum height=1cm, text centered, text width=3cm, draw=keyColorB, fill=white]
 \tikzstyle{gmemnode} = [rectangle, minimum width=3cm, minimum height=1cm, text centered, text width=3cm, draw=keyColor, fill=white]
@@ -861,7 +862,7 @@ for tid in cuda_threads(0, N):
 \end{align*}
 \end{minipage}
 \newpage
-\myTitle{SyncEnv State}
+\myTitle{SyncEnv \hfill Correctness concept, not runtime state}
 
 \begin{minipage}[t]{0.48\textwidth}\fixminipage
 The SyncEnv associates \myKey{visibility records} with variables, containing state
@@ -877,7 +878,7 @@ The SyncEnv associates \myKey{visibility records} with variables, containing sta
   \item $A_O$: original \myKey{actor signature}
 \end{itemize}
 
-One write visibility record for recent write, and one read visibility record added for \myKey{each} previous read
+One write visibility record for last write, and one read visibility record added for \myKey{each} previous read
 
 With $(t: \mathsf{thread\_index}, a: \mathsf{actor\_signature})$ being the sigthread doing the access, \myKey{initialize}
 \begin{itemize}
@@ -938,35 +939,32 @@ TODO
 \end{tikzpicture}
 \end{minipage}
 \newpage
-\myTitle{SyncEnv Barrier Effects}
-\hfill
-{\color{titleColor}Ignore split barriers (\texttt{Arrive}, \texttt{Await}) for today; see spork.pdf}
+\myTitle{SyncEnv Barrier Visibility Sets}
 
 \begin{minipage}[t]{0.48\textwidth}\fixminipage
 
 Each \texttt{Fence($A_1$:\textsf{actor-kind}, $A_2$:\textsf{actor-kind})} statement is executed by a \myKey{collective lane}, itself defined by a range of threads $T$
+
 \begin{itemize}
   \item e.g. warpgroup 2 may have $T = [256, 383]$
   \item Define \myKey{first visibility set}: $V_1 = T \times A_1$
   \begin{itemize}
-    \item set of sigthreads ``before the fence''
+    \item set of sigthreads ``signalling the fence''
   \end{itemize}
   \item Define \myKey{second visibility set}: $V_2 = T \times A_2$
   \begin{itemize}
-    \item set of sigthreads ``after the fence''
+    \item set of sigthreads ``waiting for the fence''
   \end{itemize}
 \end{itemize}
-The effect of a \texttt{Fence} applies to \myKey{each visibility record} in the entire SyncEnv that \myKeyB{synchronizes with} (tbd) the fence.
-For each such record,
+
+A fence can be \myKey{transitive} or \myKey{non-transitive} (TODO elaborate)
+
+Informally, the \myKeyB{synchronizes-with} relation associates prior reads/writes (\myKey{visibility records}) with the fences that ``\myKey{protect}'' them.
+
+Formally, when we interpret a \texttt{Fence} statement, we say that a visibility record \myKeyB{synchronizes-with}
 \begin{itemize}
-  \item $V_A \leftarrow V_A \cup V_2$
-  \item $V_S \leftarrow V_S \cup V_2$
-  \item Expensive to simulate literally!
-\end{itemize}
-A fence can be \myKey{transitive} or \myKey{non-transitive}
-\begin{itemize}
-  \item Transitive: \myKeyB{synchronizes with}\\means $V_A \cap V_1$ non-empty
-  \item Non-transitive: \myKeyB{synchronizes with}\\means $V_A \cap V_1 \cap (\mathbb{N} \times A_O)$ non-empty
+  \item transitive fences: if \violetBox{$V_A \cap V_1$} non-empty
+  \item non-transitive fences:\\if \violetBox{$V_A \cap V_1 \cap (\mathbb{N} \times A_O)$} non-empty
   \begin{itemize}
     \item Recall, $A_O$: original actor signature
   \end{itemize}
@@ -975,6 +973,192 @@ A fence can be \myKey{transitive} or \myKey{non-transitive}
 \end{minipage}
 \hfill
 \begin{minipage}[t]{0.48\textwidth}\fixminipage
+%% Example, suppose warpgroup 2 of block 0 executes \texttt{wgmma.fence}
+%% \begin{itemize}
+%%   \item \texttt{Fence(wgmma\_rmem, wgmma\_async\_rmem)}\\(in Exo)
+%%   \item $T = [256, 383]$
+%%   \item $V_1 = T \times \texttt{wgmma\_rmem}$
+%%   \item $V_2 = T \times \texttt{wgmma\_async\_rmem}$
+%% \end{itemize}
+
+\mySub{Side Notes}
+
+Recall that actor kinds are a set of actor signatures, hence the typing is correct
+\begin{itemize}
+  \item $T$: set of thread indices
+  \item $A_i$: set of actor signatures
+  \item $T \times A_i$: set of\\(thread index, actor signature): \myKey{sigthread}
+\end{itemize}
+
+\vspace{6mm}
+Ignore split barriers (\texttt{Arrive}, \texttt{Await}) today
+\begin{itemize}
+  \item See spork.pdf
+  \item Essentially, \texttt{Arrive} gives $V_1$, \texttt{Await} gives $V_2$
+\end{itemize}
+\end{minipage}
+\newpage
+\begin{minipage}[t]{0.42\textwidth}\fixminipage
+\vspace{-6mm}
+\myTitle{SyncEnv Barrier Effects}
+
+\texttt{Fence} effect: do, \myKey{for each} visibility record in $\Sigma^S$ that \myKeyB{synchronizes-with} the fence,
+\begin{itemize}
+  \item $V_A \leftarrow V_A \cup V_2$
+  \item $V_S \leftarrow V_S \cup V_2$
+\end{itemize}
+Really expensive if interpreted literally!
+
+\mySub{Example Code}
+
+\myKey{512 threads total, split into 2 blocks}
+
+\begin{verbatim}
+with CudaDeviceFunction(256):
+    for b in cuda_blocks(0, 2):
+        smem : f32[256] @ CudaSmem
+        for t in cuda_threads(0, 256):
+            smem[t] = gmemRead[t]
+\end{verbatim}
+\begin{mdframed}[style=MyFrame, backgroundcolor=violetBoxBg]
+\color{violetBoxFg}
+\begin{verbatim}
+        Fence(cuda_sync, cuda_generic)
+\end{verbatim}
+\end{mdframed}
+
+\myKey{S-semantics}: interpret \texttt{b}-loop sequentially
+\begin{itemize}
+  \item Suppose $b=0$ already done
+\end{itemize}
+
+For block 1 ($b = 1$), let's sketch before and after
+\violetBox{\texttt{Fence(cuda\_sync, cuda\_generic)}}
+\begin{itemize}
+  \item $V_1 = [256, 511] \times \texttt{cuda\_sync}$
+  \item $V_2 = [256, 511] \times \texttt{cuda\_generic}$
+\end{itemize}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.55\textwidth}\fixminipage
+\mySub{$\Sigma^S$ Before}
+
+\begin{tikzpicture}[node distance=2mm]
+\node(gmem0) [normalnode] {\texttt{gmemRead[0]}};
+\node(gmem255) [normalnode, below=of gmem0, yshift=-3mm] {\texttt{gmemRead[255]}};
+\node(smem0) [normalnode, below=of gmem255] {\texttt{smem[0]}};
+\node(smem255) [normalnode, below=of smem0, yshift=-3mm] {\texttt{smem[255]}};
+
+\node(b0) [widenode, right=of gmem0, xshift=6mm, fill=redBoxBg, draw=redBoxFg, text=redBoxFg] {$V_S,V_A = [0,255] \times \texttt{cuda\_generic}$\\\textit{reads from previous iter $b=0$}};
+\node(r256) [widenode, below=of b0, fill=redBoxBg, draw=redBoxFg, text=redBoxFg] {$V_S,V_A = \{ 256, \texttt{sig\_cuda\_sync} \}$};
+\node(r511) [widenode, below=of r256, fill=redBoxBg, draw=redBoxFg, text=redBoxFg] {$V_S,V_A = \{ 511, \texttt{sig\_cuda\_sync} \}$};
+\node(w256) [widenode, below=of r511, fill=blueBoxBg, draw=blueBoxFg, text=blueBoxFg] {$V_S,V_A = \{ 256, \texttt{sig\_cuda\_sync} \}$};
+\node(w511) [widenode, below=of w256, fill=blueBoxBg, draw=blueBoxFg, text=blueBoxFg] {$V_S,V_A = \{ 511, \texttt{sig\_cuda\_sync} \}$};
+
+\draw[dotted] (gmem0) -- (gmem255);
+\draw[dotted] (smem0) -- (smem255);
+\draw[line, draw=redBoxFg] (gmem0.east) -- (b0.west);
+\draw[line, draw=redBoxFg] (gmem255.east) -- (b0.west);
+\draw[line, draw=redBoxFg] (gmem0.east) -- (r256.west);
+\draw[line, draw=redBoxFg] (gmem255.east) -- (r511.west);
+\draw[line, draw=blueBoxFg] (smem0.east) --(w256.west);
+\draw[line, draw=blueBoxFg] (smem255.east) --(w511.west);
+\end{tikzpicture}
+
+\mySub{$\Sigma^S$ After}
+
+\begin{tikzpicture}[node distance=2mm]
+\node(gmem0) [normalnode] {\texttt{gmemRead[0]}};
+\node(gmem255) [normalnode, below=of gmem0, yshift=-3mm] {\texttt{gmemRead[255]}};
+\node(smem0) [normalnode, below=of gmem255] {\texttt{smem[0]}};
+\node(smem255) [normalnode, below=of smem0, yshift=-3mm] {\texttt{smem[255]}};
+
+\node(b0) [widenode, right=of gmem0, xshift=6mm, fill=redBoxBg, draw=redBoxFg, text=redBoxFg] {$V_S,V_A = [0,255] \times \texttt{cuda\_generic}$\\\textit{unchanged as $V_A \cap V_1$ empty}};
+\node(r256) [widenode, below=of b0, fill=redBoxBg, draw=redBoxFg, text=redBoxFg] {$V_S,V_A = [256, 511] \times \texttt{cuda\_generic}$\\\textit{read visibility set unioned with $V_2$}};
+\node(w256) [widenode, below=of r256, fill=blueBoxBg, draw=blueBoxFg, text=blueBoxFg] {$V_S,V_A = [256, 511] \times \texttt{cuda\_generic}$\\\textit{write visibility set unioned with $V_2$}};
+
+\draw [dotted] (gmem0) -- (gmem255);
+\draw [dotted] (smem0) -- (smem255);
+\draw[line, draw=redBoxFg] (gmem0.east) -- (b0.west);
+\draw[line, draw=redBoxFg] (gmem255.east) -- (b0.west);
+\draw[line, draw=redBoxFg] (gmem0.east) -- (r256.west);
+\draw[line, draw=redBoxFg] (gmem255.east) -- (r256.west);
+\draw[line, draw=blueBoxFg] (smem0.east) --(w256.west);
+\draw[line, draw=blueBoxFg] (smem255.east) --(w256.west);
+\end{tikzpicture}
+\end{minipage}
+\newpage
+\myTitle{SyncEnv Barrier Example 2}
+
+\begin{minipage}[t]{0.55\textwidth}\fixminipage
+Suppose the block uses \texttt{smem} to stage a\\
+\myKeyB{SMEM}$\to$\myKey{GMEM} TMA copy
+
+\begin{verbatim}
+with CudaDeviceFunction(256):
+    for b in cuda_blocks(0, 2):
+        smem : f32[256] @ CudaSmem
+        for t in cuda_threads(0, 256):
+            smem[t] = gmemRead[t]
+        Fence(cuda_sync, cuda_generic)
+
+\end{verbatim}
+\begin{mdframed}[style=MyFrame, backgroundcolor=greenBoxBg]
+\color{greenBoxFg}
+\begin{verbatim}
+        # Just one thread does TMA
+        for t in cuda_threads(0, 1):
+\end{verbatim}
+\end{mdframed}
+\begin{mdframed}[style=MyFrame, backgroundcolor=violetBoxBg]
+\color{violetBoxFg}
+\begin{verbatim}
+            # fence.proxy.async
+            Fence(cuda_sync, tma_to_gmem_async)
+\end{verbatim}
+\end{mdframed}
+\begin{mdframed}[style=MyFrame, backgroundcolor=greenBoxBg]
+\color{greenBoxFg}
+\begin{verbatim}
+            with CudaAsync(tma_to_gmem_async):
+                # (placeholder) TMA instr
+                gmemWrite[...] = smem[0:256]
+\end{verbatim}
+\end{mdframed}
+
+For block \texttt{b=1}, \texttt{blockDim=256},\\
+\violetBox{\texttt{Fence(cuda\_sync, tma\_to\_gmem\_async)}} has
+\begin{itemize}
+  \item $V_1 = \{(256, \texttt{sig\_cuda\_sync})\}$
+  \item $V_2 = \{(256, \texttt{sig\_tma\_to\_gmem})\}$
+  \item Note, \texttt{sig\_cuda\_sync} $\in$ \texttt{cuda\_generic}
+\end{itemize}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.43\textwidth}\fixminipage
+\vspace{-8mm}
+\begin{tikzpicture}[node distance=2mm]
+\node(smem0) [normalnode, below=of gmem255] {\texttt{smem[0]}};
+\node(smem255) [normalnode, right=of smem0, xshift=8mm] {\texttt{smem[255]}};
+\draw[dotted] (smem0) to node(smemdots){} (smem255);
+
+\node(rtma) [widenode, below=of smemdots, fill=redBoxBg, draw=redBoxFg, text=redBoxFg, yshift=-10mm] {$V_S = \{\}$ \textit{(TMA \textbf{async} read)}\\$V_A=\{(256, \texttt{sig\_tma\_to\_gmem})\}$};
+\node(w256) [widenode, minimum width=8cm, text width=8cm, below=of rtma, fill=blueBoxBg, draw=blueBoxFg, text=blueBoxFg] {$V_S,V_A = [256, 511] \times \texttt{cuda\_generic} \cup \{\mathbf{256}, \textbf{\texttt{sig\_tma\_to\_gmem}}\}$\\\textit{unioned with $V_2$ (bold part)}};
+\node(wtma) [widenode, below=of w256, fill=blueBoxBg, draw=blueBoxFg, text=blueBoxFg, yshift=-8mm] {$V_S = \{\}$ \textit{(TMA \textbf{async} write)}\\$V_A=\{(256, \texttt{sig\_tma\_to\_gmem})\}$};
+\node(gmemWrite) [normalnode, below=of wtma, yshift=-8mm] {\texttt{gmemWrite[...]}};
+
+\draw[line, draw=redBoxFg] (smem0) -- (rtma);
+\draw[line, draw=redBoxFg] (smem255) -- (rtma);
+\draw[line, draw=blueBoxFg] (smem0) to[out=215,in=105] ($(w256.north) - (3.5, 0)$);
+\draw[line, draw=blueBoxFg] (smem255) to[out=325,in=75] ($(w256.north) + (3.5, 0)$);
+\draw[line, draw=blueBoxFg] (gmemWrite) to[] (wtma);
+\end{tikzpicture}
+
+Recall,
+\begin{itemize}
+\item $V_S$: \myKey{sync visibility set}
+\item $V_A$: \myKey{async visibility set}
+\end{itemize}
 \end{minipage}
 
 \newpage
