@@ -884,7 +884,7 @@ for tid in cuda_threads(0, N):
 \end{align*}
 \end{minipage}
 \newpage
-\myTitle{SyncEnv \hfill Correctness concept, not runtime state}
+\myTitle{SyncEnv State \hfill Correctness concept, not runtime state}
 
 \begin{minipage}[t]{0.48\textwidth}\fixminipage
 The SyncEnv associates \myKey{visibility records} with variables, containing state
@@ -938,17 +938,17 @@ TODO
 \draw [arrow, draw=keyColorB] ($(SyncEnv.south) - (0.2, 0)$) -- ($(vars.north) - (0.2, 0)$);
 \draw [arrow, draw=keyColorB] ($(SyncEnv.south) + (0.2, 0)$) -- ($(vars.north) + (0.2, 0)$);
 
-\draw [arrow] (vars) -- (reads);
-\draw [arrow] (vars) -- (writes);
+\draw [arrow] (vars) to[out=240,in=90] (reads);
+\draw [arrow] (vars) to[out=300,in=90] (writes);
 
 \draw [arrow, draw=keyColorB] ($(reads.south) - (0.2, 0)$) to[out=270, in=90] ($(record.north) - (0.3, 0)$);
 \draw [arrow, draw=keyColorB] ($(reads.south) + (0.0, 0)$) to[out=270, in=90] ($(record.north) - (0.1, 0)$);
 \draw [arrow, draw=keyColorB] ($(reads.south) + (0.2, 0)$) to[out=270, in=90] ($(record.north) + (0.1, 0)$);
 \draw [arrow] ($(writes.south) - (0, 0)$) to[out=270, in=90] ($(record.north) + (0.3, 0)$);
 
-\draw [arrow] (record) -- (VS);
-\draw [arrow] (record) -- (VA);
-\draw [arrow] (record) -- (AO);
+\draw [arrow] (record) to[out=240, in=90] (VS);
+\draw [arrow] (record) to[out=270, in=90] (VA);
+\draw [arrow] (record) to[out=300, in=90] (AO);
 
 \draw [arrow, draw=keyColorB] ($(VS.south) - (0.2, 0)$) to[out=270, in=90] ($(sigthread.north) - (0.5, 0)$);
 \draw [arrow, draw=keyColorB] ($(VS.south)$) to[out=270, in=90] ($(sigthread.north) - (0.3, 0)$);
