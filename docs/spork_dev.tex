@@ -25,6 +25,7 @@
 \vspace{6mm}
 \begin{itemize}
 \item Generate \myKey{mixed CPU and CUDA} code
+\item Support asynchronous CUDA accelerator instructions
 \item \myKey{Minimal change} to the core Exo language; avoid huge changes to analysis and rewrite
 \item Support basic synchronization, e.g. \texttt{\_\_syncthreads}
 \begin{itemize}
@@ -36,7 +37,6 @@
   \item (thread set $B$ waits for thread set $A$)
   \item move beyond fork/join model
 \end{itemize}
-\item Support asynchronous CUDA accelerator instructions
 \begin{itemize}
   \item async memory copies
   \item ``tensor core'' -- tiled MMA
@@ -48,8 +48,10 @@
 \begin{minipage}[t]{0.5\textwidth}\fixminipage
 \mySub{Elevator Pitch, Programming Model:}
 \begin{itemize}
-  \item \texttt{with} = open device (CUDA) code block
+  \item \texttt{with} = open asynchronous block
   \begin{itemize}
+    \item Open CUDA block in CPU code
+    \item Open async CUDA block
     \item Kenneth: we need to discuss overloading
   \end{itemize}
   \item \texttt{for i in cuda\_\{thread/warp/etc.\}(lo,hi)}\\ = distribute work across threads/warps/etc.
