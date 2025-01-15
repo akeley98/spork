@@ -636,7 +636,7 @@ e.g. \texttt{cuda\_all} (all CUDA instructions), \texttt{cuda\_generic} (generic
 \end{minipage}
 
 \newpage
-\myTitle{Exo Syntax -- CudaAsync Block}
+\myTitleExtra{Extra Info: CudaAsync Block}
 
 \begin{minipage}[t]{0.48\textwidth}\fixminipage
 
@@ -692,7 +692,7 @@ with CudaAsync(tma_to_smem_async):
 \end{minipage}
 
 \newpage
-\myTitle{Syntax Example}
+\myTitleExtra{Extra Info: Syntax Example}
 \begin{verbatim}
 with CudaDeviceFunction(blockDim=384):
     # blockDim 384 = 3 warpgroups
@@ -720,7 +720,7 @@ with CudaDeviceFunction(blockDim=384):
 \end{verbatim}
 
 \newpage
-\myTitle{Contrast with prior work: Triton}
+\myTitleExtra{Extra Info: Contrast with prior work: Triton}
 
 \begin{minipage}[t]{0.7\textwidth}\fixminipage
 Triton is another Python AST $\to$ CUDA language
