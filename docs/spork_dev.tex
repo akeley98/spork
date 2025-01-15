@@ -1065,10 +1065,10 @@ For block 1 ($b = 1$), let's sketch before and after
 \node(smem255) [normalnode, below=of smem0, yshift=-3mm] {\texttt{smem[255]}};
 
 \node(b0) [widenode, right=of gmem0, xshift=6mm, fill=redBoxBg, draw=redBoxFg, text=redBoxFg] {$V_S,V_A = [0,255] \times \texttt{cuda\_generic}$\\\textit{\color{lightttColor}reads from previous iter $b=0$}};
-\node(r256) [widenode, below=of b0, fill=redBoxBg, draw=redBoxFg, text=redBoxFg] {$V_S,V_A = \{ 256, \texttt{sig\_cuda\_sync} \}$};
-\node(r511) [widenode, below=of r256, fill=redBoxBg, draw=redBoxFg, text=redBoxFg] {$V_S,V_A = \{ 511, \texttt{sig\_cuda\_sync} \}$};
-\node(w256) [widenode, below=of r511, fill=blueBoxBg, draw=blueBoxFg, text=blueBoxFg] {$V_S,V_A = \{ 256, \texttt{sig\_cuda\_sync} \}$};
-\node(w511) [widenode, below=of w256, fill=blueBoxBg, draw=blueBoxFg, text=blueBoxFg] {$V_S,V_A = \{ 511, \texttt{sig\_cuda\_sync} \}$};
+\node(r256) [widenode, below=of b0, fill=redBoxBg, draw=redBoxFg, text=redBoxFg] {$V_S,V_A = \{ (256, \texttt{sig\_cuda\_sync}) \}$};
+\node(r511) [widenode, below=of r256, fill=redBoxBg, draw=redBoxFg, text=redBoxFg] {$V_S,V_A = \{ (511, \texttt{sig\_cuda\_sync}) \}$};
+\node(w256) [widenode, below=of r511, fill=blueBoxBg, draw=blueBoxFg, text=blueBoxFg] {$V_S,V_A = \{ (256, \texttt{sig\_cuda\_sync}) \}$};
+\node(w511) [widenode, below=of w256, fill=blueBoxBg, draw=blueBoxFg, text=blueBoxFg] {$V_S,V_A = \{ (511, \texttt{sig\_cuda\_sync}) \}$};
 
 \draw[dotted] (gmem0) -- (gmem255);
 \draw[dotted] (smem0) -- (smem255);
@@ -1528,7 +1528,7 @@ Collective lanes may only read from unmapped tensor coordinates
 \end{minipage}
 
 \newpage
-\myTitleExtra{Extra Discussion Slide: Rewrite Rule Issues (specials cases for value 0)}
+\myTitleExtra{Extra Discussion Slide: Rewrite Rule Issues (special cases for value 0)}
 
 \begin{minipage}[t]{0.48\textwidth}\fixminipage
 \mySub{Predication}
