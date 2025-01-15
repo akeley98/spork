@@ -756,21 +756,23 @@ With Exo, we're trying to build something much more \textbf{imperative}
 \myTitle{10 Miles Up: Synchronization Checking}
 
 \begin{minipage}[t]{0.46\textwidth}\fixminipage
-Internally, Exo will continue to be a fundamentally sequential programming system
-\begin{itemize}
-  \item Expose parallel for, etc. to the user
-  \item ... but rewrite rules, etc. will accept the correctness of these \myKey{without proof}
-\end{itemize}
 Each Exo proc may be interpreted in two ways:
 \begin{itemize}
   \item \myKey{S-semantics} (Single-threaded)\\parallel for = sequential for,\\ignore async blocks
   \item \myKeyB{M-semantics} (Multi-threaded)\\Treat parallel for, async blocks correctly
 \end{itemize}
+
+Internally, Exo will continue to be a fundamentally sequential programming system
+\begin{itemize}
+  \item Expose parallel for, etc. to the user
+  \item ... but rewrite rules, etc. will accept the correctness of these \myKey{without proof}
+\end{itemize}
+
+We will interpret procs under \myKey{S-semantics}\\until the very end, at code lowering time
+
 \end{minipage}
 \hfill
 \begin{minipage}[t]{0.52\textwidth}\fixminipage
-We will interpret procs under \myKey{S-semantics}\\until the very end, at code lowering time
-
 Prove interpretation under \myKey{S-semantics}\\and \myKeyB{M-semantics} will give the same results
 
 Strat: reduce parallelism to checking assertions on conceptually \myKey{sequential} programs
@@ -778,12 +780,12 @@ Strat: reduce parallelism to checking assertions on conceptually \myKey{sequenti
 Interpretation
 \begin{itemize}
   \item $\Sigma$: environment: \myKey{mutable} values of variables
-  \item $\Sigma^S$: synchronization environment (\myKey{SyncEnv}) -- \myKey{mutable} ``visibility history''
+  \item $\Sigma^S$: synchronization environment (\myKey{SyncEnv}) -- \myKey{mutable} ``access history''
 \end{itemize}
 $\Sigma^S$ will track, for each variable
 \begin{itemize}
   \item \myKey{History} of accesses (reads \& writes) done
-  \item Provable \myKey{visibility} of accesses to other threads
+  \item Provable \myKey{visibility} of past accesses to other threads
 \end{itemize}
 
 \end{minipage}
@@ -883,6 +885,79 @@ for tid in cuda_threads(0, N):
     \text{Y[$N-1$]} & \xleftarrow{\text{(N-1, sig\_cuda\_sync)}} \text{SMEM[$N-1$]} \\
 \end{align*}
 \end{minipage}
+\newpage
+\begin{minipage}[t]{0.48\textwidth}\fixminipage
+\vspace{-6mm}
+\myTitle{SyncEnv Mental Model}  % Desperate for space again
+\vspace{6mm}
+
+\mySub{For Each Variable}
+
+\begin{itemize}
+  \item Remember the most recent write
+  \item Remember \myKey{all prior reads}
+  \item Track their visibility to sigthreads
+\end{itemize}
+
+\mySub{$\Sigma^S$ mutable}
+\begin{itemize}
+  \item Changes on both reads and writes
+  \begin{itemize}
+    \item Reads are \myKey{highly stateful}
+  \end{itemize}
+  \item Initial visibility = \myKey{sigthread} doing access
+  \item Changes on barriers: visibility \myKey{grows}
+\end{itemize}
+
+\mySub{Intuition -- Simulation Mindset}
+\begin{itemize}
+  \item Simulate for loops sequentially
+  \begin{itemize}
+    \item This is a valid ``interleaving'' of threads\\
+    (see code inset if confused)
+  \end{itemize}
+  \item Assert visibility prior to access
+  \begin{itemize}
+    \item On read: prior writes must be visibile
+    \item On write: prior reads and writes `` ''
+    \item Guarantees any interleaving works
+  \end{itemize}
+\end{itemize}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.48\textwidth}\fixminipage
+\mySub{Rationale}
+
+``Sequential'' analysis, but threads exist?
+\begin{itemize}
+  \item {[sig]}threads = metadata in sequential proc
+  \item threads aren't real -- just a word
+\end{itemize}
+Stateful, simulation mindset?
+\begin{itemize}
+  \item Honestly, matches my intuition
+  \item Easy soundness \& completeness$^{\textsf{[citation needed]}}$
+  \item May or may not be basis for static analysis
+  \begin{itemize}
+    \item deduce $\Sigma^S$ at each program point
+    \item can compromise on completeness
+  \end{itemize}
+\end{itemize}
+
+\mySub{Code Inset}
+
+\begin{verbatim}
+for b in cuda_blocks(...):
+    for i in cuda_threads(...):
+        stuff_before_fence()
+    # __syncthreads()
+    Fence(cuda_sync, cuda_generic)
+    for i in cuda_threads(...):
+        stuff_after_fence()
+\end{verbatim}
+The \texttt{Fence} is outside the \texttt{cuda\_threads} loops; ensures S-semantics gives a valid interleaving
+\end{minipage}
+
 \newpage
 \myTitle{SyncEnv State \hfill Correctness concept, not runtime state}
 
