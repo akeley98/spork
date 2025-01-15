@@ -755,7 +755,7 @@ With Exo, we're trying to build something much more \textbf{imperative}
 \newpage
 \myTitle{10 Miles Up: Synchronization Checking}
 
-\begin{minipage}[t]{0.48\textwidth}\fixminipage
+\begin{minipage}[t]{0.46\textwidth}\fixminipage
 Internally, Exo will continue to be a fundamentally sequential programming system
 \begin{itemize}
   \item Expose parallel for, etc. to the user
@@ -766,24 +766,26 @@ Each Exo proc may be interpreted in two ways:
   \item \myKey{S-semantics} (Single-threaded)\\parallel for = sequential for,\\ignore async blocks
   \item \myKeyB{M-semantics} (Multi-threaded)\\Treat parallel for, async blocks correctly
 \end{itemize}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.52\textwidth}\fixminipage
 We will interpret procs under \myKey{S-semantics}\\until the very end, at code lowering time
 
 Prove interpretation under \myKey{S-semantics}\\and \myKeyB{M-semantics} will give the same results
 
-\end{minipage}
-\hfill
-\begin{minipage}[t]{0.48\textwidth}\fixminipage
 Strat: reduce parallelism to checking assertions on conceptually \myKey{sequential} programs
 
 Interpretation
 \begin{itemize}
-  \item $\Sigma$: environment: values of variables
-  \item $\Sigma^S$: synchronization environment (\myKey{SyncEnv})
+  \item $\Sigma$: environment: \myKey{mutable} values of variables
+  \item $\Sigma^S$: synchronization environment (\myKey{SyncEnv}) -- \myKey{mutable} ``visibility history''
 \end{itemize}
-\vspace{8mm}
-The SyncEnv will track the ``visibility'' (set of threads that can see) for \textit{each} read and write done to each variable -- this \myKey{changes with synchronization}
+$\Sigma^S$ will track, for each variable
+\begin{itemize}
+  \item \myKey{History} of accesses (reads \& writes) done
+  \item Provable \myKey{visibility} of accesses to other threads
+\end{itemize}
 
-Prove that sufficient synchronization exists such that each read under \myKeyB{M-semantics} pairs with the same write as under \myKey{S-semantics}
 \end{minipage}
 \vfill
 \begin{tikzpicture}[node distance=8mm]
@@ -798,15 +800,18 @@ Prove that sufficient synchronization exists such that each read under \myKeyB{M
 \draw [arrow] (procNS) to node(SM)[]{} (procNM);
 \draw [arrow] (procNM) to node(toCuda)[]{} (cuda);
 
-\node(exo) [normalnode, below=of rewrites, draw=blueBoxFg, fill=blueBoxBg, text=blueBoxFg] {Existing Exo Rewrites};
+\node(exo) [normalnode, text width=7cm, minimum width=7cm, below=of rewrites, draw=blueBoxFg, fill=blueBoxBg, text=blueBoxFg, xshift=-2cm] {Existing Exo Rewrites + \textbf{parallelism rewrites} (ignored in S-semantics)};
 \node(sync) [normalnode, below=of SM, draw=blueBoxFg, fill=blueBoxBg, text=blueBoxFg] {Synchronization Checking};
 \node(spork) [normalnode, below=of toCuda, draw=blueBoxFg, fill=blueBoxBg, text=blueBoxFg] {Spork Compiler};
+\node(note) [above=of SM, draw=redBoxFg, fill=redBoxBg, text=redBoxFg] {Physically same proc, \textbf{different interpretation}};
 
 \draw [line, draw=blueBoxFg] (exo) -- (proc0);
 \draw [line, draw=blueBoxFg] (exo) -- (proc1);
 \draw [line, draw=blueBoxFg] (exo) -- (procNS);
 \draw [line, draw=blueBoxFg] (sync) -- (procNS);
 \draw [line, draw=blueBoxFg] (sync) -- (procNM);
+\draw [line, draw=redBoxFg] (note) -- (procNS);
+\draw [line, draw=redBoxFg] (note) -- (procNM);
 \draw [line, draw=blueBoxFg] (spork) -- (procNM);
 \draw [line, draw=blueBoxFg] (spork) -- (cuda);
 \end{tikzpicture}
