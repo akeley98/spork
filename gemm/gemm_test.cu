@@ -260,7 +260,7 @@ void gemm_test(TestParams params, cudaStream_t stream)
 
     auto fill_garbage = [params, stream] (auto* d_c)
     {
-        cudaMemsetAsync(d_c, 0xDD, sizeof(*d_c) * params.M * params.N, stream);
+        cudaMemsetAsync(d_c, 0x7D, sizeof(*d_c) * params.M * params.N, stream);
     };
 
     auto run_cublas = [&] (float* d_c)
