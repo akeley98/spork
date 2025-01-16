@@ -71,7 +71,7 @@ tiled_multiplier_kernel(__grid_constant__ const TiledMultiplierArgs args)
 
 template <uint32_t CLUSTER_M, uint32_t CLUSTER_N, uint32_t SMEM_M, uint32_t SMEM_N, uint32_t SMEM_K,
           uint32_t WG_M, uint32_t WG_N, uint32_t WG_K,
-          uint32_t K_MAX_TILES, uint32_t CLUSTER_MODULUS, uint32_t RING_BUFFER_SIZE, bool DEDICATED_PRODUCER_WG>
+          bool STREAM_K, uint32_t CLUSTER_MODULUS, uint32_t RING_BUFFER_SIZE, bool DEDICATED_PRODUCER_WG>
 struct TiledMultiplier
 {
     uint32_t size_m, size_n, size_k;
@@ -220,35 +220,37 @@ struct TiledMultiplier
         return (DEDICATED_PRODUCER_WG + consumer_wg_count()) * 128;
     }
 
-    // If output matrix is cut into (CLUSTER_M, CLUSTER_N) blocks, one cluster work item handles one output matrix
-    // block, unless k_cluster_items > 1; in that case, k_cluster_items-many cluster items cooperate to fill the block
-    // using split-k strategy (reduce into output memory).
+    // A (CLUSTER_M, CLUSTER_N) size tile of the output matrix.
+    struct ClusterMN_Tile
+    {
+        uint32_t m_offset, n_offset;
+    };
+
+    // A (CLUSTER_M, CLUSTER_N, SMEM_K) size tile of M x N x K work space.
+    // This is the "smallest" unit of work that can be assigned to one cluster.
+    struct ClusterMN_SmemK_Tile
+    {
+        uint32_t m_offset, n_offset, k_offset;
+    };
+
+    // A (CLUSTER_M, CLUSTER_N, k_work_size) size portion of the M x N x K work space.
+    // Aggregation of ClusterMN_SmemK_Tile that are consecutive in k (thus k_work_size must be divisible by SMEM_K).
     //
     // We further partition the output tile into (SMEM_M, SMEM_N) tiles allocated to CTAs within the cluster.
     struct ClusterWorkItem
     {
         uint32_t m_offset, n_offset, k_offset;
+        uint32_t k_work_size;  // Must be divisible by SMEM_K
     };
 
-    static __host__ DEVICE_INLINE uint32_t m_cluster_items(uint32_t size_m)
+    static __host__ DEVICE_INLINE uint32_t m_cluster_tiles(uint32_t size_m)
     {
         return (size_m + CLUSTER_M - 1) / CLUSTER_M;
     }
 
-    static __host__ DEVICE_INLINE uint32_t n_cluster_items(uint32_t size_n)
+    static __host__ DEVICE_INLINE uint32_t n_cluster_tiles(uint32_t size_n)
     {
         return (size_n + CLUSTER_N - 1) / CLUSTER_N;
-    }
-
-    static __host__ DEVICE_INLINE uint32_t k_cluster_items(uint32_t size_k)
-    {
-        constexpr uint32_t k_divisor = SMEM_K * K_MAX_TILES;
-        return (size_k + k_divisor - 1) / k_divisor;
-    }
-
-    static __host__ DEVICE_INLINE uint32_t num_cluster_items(uint32_t size_m, uint32_t size_n, uint32_t size_k)
-    {
-        return m_cluster_items(size_m) * n_cluster_items(size_n) * k_cluster_items(size_k);
     }
 
     // Assignment of CTAs in cluster tile into indexed sub-tiles, of size (SMEM_M, SMEM_N).
@@ -287,21 +289,23 @@ struct TiledMultiplier
         return mask;
     }
 
-    // Linearized indexing of all ClusterWorkItem
-    DEVICE_INLINE ClusterWorkItem cluster_get_item(uint32_t item_idx) const
+    static __host__ DEVICE_INLINE uint32_t num_clusterMN_tiles(uint32_t size_m, uint32_t size_n)
     {
-        DEVICE_ASSERT(item_idx < num_cluster_items(size_m, size_n, size_k));
-        const uint32_t cluster_rows = m_cluster_items(size_m);
-        const uint32_t cluster_cols = n_cluster_items(size_n);
-        const uint32_t num_output_block_matrix = cluster_rows * cluster_cols;
-        const uint32_t cluster_k_group = k_cluster_items(size_k);
+        return m_cluster_tiles(size_m) * n_cluster_tiles(size_n);
+    }
+
+    // Linearized indexing of cluster MN tiles
+    DEVICE_INLINE ClusterMN_Tile get_clusterMN_tile(uint32_t tile_idx) const
+    {
+        DEVICE_ASSERT(tile_idx < num_clusterMN_tiles(size_m, size_n));
+
+        const uint32_t cluster_rows = m_cluster_tiles(size_m);
+        const uint32_t cluster_cols = n_cluster_tiles(size_n);
         const uint32_t cluster_col_remainder = cluster_cols % CLUSTER_MODULUS;
         const uint32_t superblock_count = cluster_cols / CLUSTER_MODULUS;
         const uint32_t superblock_cluster_count = cluster_rows * CLUSTER_MODULUS;
-        const uint32_t superblock_idx = (item_idx % num_output_block_matrix) / superblock_cluster_count;
-        const uint32_t cluster_idx_in_superblock = (item_idx % num_output_block_matrix) % superblock_cluster_count;
-        const uint32_t cluster_k_idx = item_idx / num_output_block_matrix;
-        const uint32_t cluster_k_offset = cluster_k_idx * (SMEM_K * K_MAX_TILES);
+        const uint32_t superblock_idx = tile_idx/ superblock_cluster_count;
+        const uint32_t cluster_idx_in_superblock = tile_idx % superblock_cluster_count;
 
         uint32_t cluster_m_idx, cluster_n_idx;
 
@@ -317,15 +321,12 @@ struct TiledMultiplier
         DEVICE_ASSERT(cluster_m_idx < cluster_rows);
         DEVICE_ASSERT(cluster_n_idx < cluster_cols);
 
-        return ClusterWorkItem{cluster_m_idx * CLUSTER_M, cluster_n_idx * CLUSTER_N, cluster_k_offset};
+        return {cluster_m_idx * CLUSTER_M, cluster_n_idx * CLUSTER_N};
     }
 
-    static __host__ DEVICE_INLINE bool using_cp_reduce(uint32_t size_k)
+    static __host__ DEVICE_INLINE bool using_cp_reduce([[maybe_unused]] uint32_t size_k)
     {
-#ifndef __CUDA_ARCH__
-        assert(k_cluster_items(size_k) != 0);
-#endif
-        return k_cluster_items(size_k) != 1;
+        return STREAM_K;
     }
 
     // Arrive on the mbarrier only for this CTA
@@ -765,36 +766,32 @@ struct TiledMultiplier
         }
     }
 
-    // Cluster cooperates to fill or add to the output matrix block of size (CLUSTER_M, CLUSTER_N) starting at
-    // (cluster_item.m_offset, cluster_item.n_offset); we process up to K_MAX_TILES input blocks on the K dimension
-    // starting at cluster_item.k_offset.
+    // Cluster cooperates to fill or partially reduce to a tile of the output matrix block,
+    // with the work specified by cluster_item.
     // Requires smem-allocated ring buffer.
     //
     // Each work item consists of k_tiles iterations of accumulating on the k-axis.
-    // We process the work item in `k_iter = k_tiles + k_pad_iter` iterations.
-    // Producer skips the last k_pad_iter iterations; consumer skips the first k_pad_iter iterations.
     template <bool ENABLE_PRODUCER_BRANCH, bool IS_CONSUMER>
     DEVICE_INLINE void cluster_process_item(ClusterWorkItem cluster_item, RingState& state, Shared& shared) const
     {
-        const uint32_t cta_m_offset = cluster_item.m_offset + cta_m_idx_cluster() * SMEM_M;
-        const uint32_t cta_n_offset = cluster_item.n_offset + cta_n_idx_cluster() * SMEM_N;
-        const uint32_t cta_k_initial_offset = cluster_item.k_offset;
-
-        DEVICE_ASSERT(cta_m_offset % SMEM_M == 0);
-        DEVICE_ASSERT(cta_n_offset % SMEM_N == 0);
-        DEVICE_ASSERT(cta_k_initial_offset % (SMEM_K * K_MAX_TILES) == 0);
         DEVICE_ASSERT(ENABLE_PRODUCER_BRANCH || !is_producer_wg());
         DEVICE_ASSERT(IS_CONSUMER || is_producer_wg());
 
+        const uint32_t cta_m_offset = cluster_item.m_offset + cta_m_idx_cluster() * SMEM_M;
+        const uint32_t cta_n_offset = cluster_item.n_offset + cta_n_idx_cluster() * SMEM_N;
+        DEVICE_ASSERT(cta_m_offset % SMEM_M == 0);
+        DEVICE_ASSERT(cta_n_offset % SMEM_N == 0);
+
         constexpr uint32_t k_pad_iter = DEDICATED_PRODUCER_WG ? 0u : RING_BUFFER_SIZE - 1u;
-        const uint32_t k_tiles = min((size_k - cta_k_initial_offset + SMEM_K - 1u) / SMEM_K, K_MAX_TILES);
+        const uint32_t k_tiles = cluster_item.k_work_size / SMEM_K;
         const uint32_t k_num_iters = k_tiles + k_pad_iter;
+        DEVICE_ASSERT(cluster_item.k_work_size % SMEM_K == 0);
 
         auto producer_on_k_iter = [&] (uint32_t k_iter)
         {
             if constexpr (ENABLE_PRODUCER_BRANCH) {
                 if (is_producer_wg() && k_iter < k_tiles) {
-                    const uint32_t tma_k_offset = cta_k_initial_offset + SMEM_K * k_iter;
+                    const uint32_t tma_k_offset = cluster_item.k_offset + SMEM_K * k_iter;
                     if (!state.producer_skip_tile_read_mbar) {
                         // Special exception to synchronization: on the first time cluster_process_item is called
                         // after CTA startup, for the first RING_BUFFER_SIZE iterations, we don't wait for the
@@ -811,6 +808,9 @@ struct TiledMultiplier
                 }
             }
         };
+
+        // We process the work item in `k_num_iter = k_tiles + k_pad_iter` iterations.
+        // Producer skips the last k_pad_iter iterations; consumer skips the first k_pad_iter iterations.
 
         if constexpr (k_pad_iter != 0) {
             for (uint32_t k_iter = 0; k_iter < k_pad_iter; ++k_iter) {
@@ -857,9 +857,9 @@ struct TiledMultiplier
             producer_on_k_iter(k_iter);
         }
 
-        constexpr bool always_use_tma = false;
+        constexpr bool use_tma = STREAM_K;
 
-        if (using_cp_reduce(size_k) || always_use_tma) {
+        if constexpr (use_tma) {
             // If we are using TMA to write the output tiles, we need to do a full sync of the cluster before and after
             // using TMA, since we need to re-use shared memory to stage the tile.
             // The sync should have the needed effect as at this point all outstanding producer TMA commands have been
@@ -916,6 +916,7 @@ struct TiledMultiplier
         }
         else {
             // Store tile directly to output memory, bypassing TMA and shared memory.
+            DEVICE_ASSERT(cluster_item.k_offset == 0 && cluster_item.k_work_size >= size_k);
             if constexpr (IS_CONSUMER) {
                 const uint32_t wg_m_offset = get_wg_m_idx() * WG_M;
                 const uint32_t wg_n_offset = get_wg_n_idx() * WG_N;
@@ -933,10 +934,54 @@ struct TiledMultiplier
     template <bool ENABLE_PRODUCER_BRANCH, bool IS_CONSUMER>
     DEVICE_INLINE void cluster_main_loop(RingState& state, Shared& shared) const
     {
-        const uint32_t num_items = num_cluster_items(size_m, size_n, size_k);
-        const uint32_t item_stride = gridDim.x / CLUSTER_NUM_CTA;
-        for (uint32_t item_idx = blockIdx.x / CLUSTER_NUM_CTA; item_idx < num_items; item_idx += item_stride) {
-            cluster_process_item<ENABLE_PRODUCER_BRANCH, IS_CONSUMER>(cluster_get_item(item_idx), state, shared);
+        DEVICE_ASSERT(gridDim.x % CLUSTER_NUM_CTA == 0);
+        DEVICE_ASSERT(gridDim.y == 1);
+        DEVICE_ASSERT(gridDim.z == 1);
+
+        const uint32_t num_clusters = gridDim.x / CLUSTER_NUM_CTA;
+        const uint32_t cluster_index = blockIdx.x / CLUSTER_NUM_CTA;
+        const uint32_t size_k_tiles = (size_k + SMEM_K - 1) / SMEM_K;  // Count of k tiles along k-axis
+
+        if constexpr (STREAM_K) {
+            // Evenly distribute MNK tiles to clusters.
+            // (Round up, so some cluster gets less work, instead of one straggler cluster getting more work)
+            const uint32_t num_mnk_tiles = size_k_tiles * num_clusterMN_tiles(size_m, size_n);
+            uint32_t tiles_per_cluster = (num_mnk_tiles + num_clusters - 1) / num_clusters;
+            // Assign MNK tiles in range [mnk_index, mnk_end) to this cluster.
+            uint32_t mnk_index = tiles_per_cluster * cluster_index;
+            const uint32_t mnk_end = umin(mnk_index + tiles_per_cluster, num_mnk_tiles);
+
+            while (mnk_index < mnk_end) {
+                // Figure out the MN-tile (output matrix tile) corresponding to this MNK tile
+                // and accumulate on the K-axis from SMEM_K * [k_tile_offset, k_tile_offset + work_k_tiles).
+                const uint32_t mn_index = mnk_index / size_k_tiles;
+                const uint32_t k_tile_offset = mnk_index % size_k_tiles;
+                // We accumulate either to the end of the K-axis, or to the boundary between different clusters' work.
+                const uint32_t work_k_tiles = umin(size_k_tiles - k_tile_offset, mnk_end - mnk_index);
+
+                ClusterWorkItem work{};
+                ClusterMN_Tile tile = get_clusterMN_tile(mn_index);
+                work.m_offset = tile.m_offset;
+                work.n_offset = tile.n_offset;
+                work.k_offset = k_tile_offset * SMEM_K;
+                work.k_work_size = work_k_tiles * SMEM_K;
+                cluster_process_item<ENABLE_PRODUCER_BRANCH, IS_CONSUMER>(work, state, shared);
+
+                mnk_index += work_k_tiles;
+            }
+        }
+        else {
+            // Output stationary over MN tiles; 1 tile per cluster.
+            const uint32_t num_mn_tiles = num_clusterMN_tiles(size_m, size_n);
+            for (uint32_t tile_index = cluster_index; tile_index < num_mn_tiles; tile_index += num_clusters) {
+                ClusterMN_Tile tile = get_clusterMN_tile(tile_index);
+                ClusterWorkItem work{};
+                work.m_offset = tile.m_offset;
+                work.n_offset = tile.n_offset;
+                work.k_offset = 0;
+                work.k_work_size = size_k_tiles * SMEM_K;
+                cluster_process_item<ENABLE_PRODUCER_BRANCH, IS_CONSUMER>(work, state, shared);
+            }
         }
 
         if constexpr (CLUSTER_NUM_CTA != 1) {
@@ -1020,8 +1065,7 @@ struct TiledMultiplier
         }
 
         const uint32_t max_cluster = 132 / CLUSTER_NUM_CTA;
-        const uint32_t num_cluster_items = m_cluster_items(size_m) * n_cluster_items(size_n) * k_cluster_items(size_k);
-        const uint32_t grid = (num_cluster_items < max_cluster ? num_cluster_items : max_cluster) * CLUSTER_NUM_CTA;
+        const uint32_t grid = max_cluster * CLUSTER_NUM_CTA;
         const uint32_t block = cta_size();
         const uint32_t smem = smem_size();
 
@@ -1083,13 +1127,13 @@ void matmul_impl(GPU_Tensors t, cudaStream_t stream)
     constexpr uint32_t wg_m = 128;
     constexpr uint32_t wg_n = 128;
     constexpr uint32_t wg_k = 8;
-    constexpr uint32_t cta_k_max_tiles = 16384u / smem_k;
+    constexpr bool stream_k = true;
     constexpr uint32_t cluster_modulus = 1024u / cluster_m;
     constexpr uint32_t ring_buffer_size = 4;
     constexpr bool dedicated_producer = true;
 
     using Multiplier = TiledMultiplier<cluster_m, cluster_n, smem_m, smem_n, smem_k, wg_m, wg_n, wg_k,
-                                       cta_k_max_tiles, cluster_modulus, ring_buffer_size, dedicated_producer>;
+                                       stream_k, cluster_modulus, ring_buffer_size, dedicated_producer>;
     Multiplier::launch(stream, size_m, size_n, size_k, t.a, t.b, t.c);
 }
 
