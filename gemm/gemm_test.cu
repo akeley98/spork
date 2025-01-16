@@ -177,20 +177,26 @@ void launch_device_compare_tensor(TestParams test_params,
 
 enum class AlgorithmCode
 {
-    mine = 0,
+    mine_output_stationary = 0,
     cublas = 1,
     cutlass = 2,
+    mine_split_k = 3,
+    mine_stream_k = 4,
 };
 
 inline const char* algorithm_name(AlgorithmCode code)
 {
     switch (code) {
-      case AlgorithmCode::mine:
-        return "mine";
+      case AlgorithmCode::mine_output_stationary:
+        return "mine (output stationary)";
       case AlgorithmCode::cublas:
         return "cublas";
       case AlgorithmCode::cutlass:
         return "cutlass";
+      case AlgorithmCode::mine_split_k:
+        return "mine (split k)";
+      case AlgorithmCode::mine_stream_k:
+        return "mine (stream k)";
     }
     return "unknown";
 }
@@ -296,12 +302,22 @@ void gemm_test(TestParams params, cudaStream_t stream)
     }
 
     // Initialize SM90 data
+    auto sm90_test = [&] (gemm_sm90_k_mode k_mode)
     {
         GPU_Tensors t{params.M, params.N, params.K, d_a, d_bT, d_c_warmup, 0, 1, 0};
         fill_garbage(t.c);
-        matmul_sm90(t, stream);
+        matmul_sm90(t, k_mode, stream);
+        launch_device_compare_tensor(params, d_c_baseline, d_c_warmup, params.M, params.N, d_bitfield, stream);
+    };
+    if (params.test_k_modes == TestKModes::all || params.test_k_modes == TestKModes::output_stationary) {
+        sm90_test(gemm_sm90_k_mode::output_stationary);
     }
-    launch_device_compare_tensor(params, d_c_baseline, d_c_warmup, params.M, params.N, d_bitfield, stream);
+    if (params.test_k_modes == TestKModes::all || params.test_k_modes == TestKModes::split_k) {
+        sm90_test(gemm_sm90_k_mode::split_k);
+    }
+    if (params.test_k_modes == TestKModes::all || params.test_k_modes == TestKModes::stream_k) {
+        sm90_test(gemm_sm90_k_mode::stream_k);
+    }
 
     // Test loop
     auto run_tests = [&] (AlgorithmCode algo, uint32_t test_count)
@@ -327,8 +343,14 @@ void gemm_test(TestParams params, cudaStream_t stream)
             }
             else {
                 GPU_Tensors t{params.M, params.N, params.K, d_a, d_bT, d_c_tested, 0, 1, 0};
-                if (algo == AlgorithmCode::mine) {
-                    matmul_sm90(t, stream);
+                if (algo == AlgorithmCode::mine_output_stationary) {
+                    matmul_sm90(t, gemm_sm90_k_mode::output_stationary, stream);
+                }
+                else if (algo == AlgorithmCode::mine_split_k) {
+                    matmul_sm90(t, gemm_sm90_k_mode::split_k, stream);
+                }
+                else if (algo == AlgorithmCode::mine_stream_k) {
+                    matmul_sm90(t, gemm_sm90_k_mode::stream_k, stream);
                 }
                 else if (algo == AlgorithmCode::cutlass) {
                     matmul_cutlass(t, stream_ws);
@@ -365,7 +387,16 @@ void gemm_test(TestParams params, cudaStream_t stream)
                samples_ms / sample_count, flops * 1e-12, bold, color_code, algorithm_name(algo));
         launch_device_compare_tensor(params, d_c_baseline, d_c_tested, params.M, params.N, d_bitfield, stream);
     };
-    run_tests(AlgorithmCode::mine, 48);
+    const int mine_test_count = 48;
+    if (params.test_k_modes == TestKModes::all || params.test_k_modes == TestKModes::output_stationary) {
+        run_tests(AlgorithmCode::mine_output_stationary, mine_test_count);
+    }
+    if (params.test_k_modes == TestKModes::all || params.test_k_modes == TestKModes::split_k) {
+        run_tests(AlgorithmCode::mine_split_k, mine_test_count);
+    }
+    if (params.test_k_modes == TestKModes::all || params.test_k_modes == TestKModes::split_k) {
+        run_tests(AlgorithmCode::mine_stream_k, mine_test_count);
+    }
 #if CUBLAS_TEST_ENABLED
     run_tests(AlgorithmCode::cublas, 16);
 #endif

@@ -16,6 +16,8 @@
 
 namespace gemm_sm90 {
 
+constexpr uint32_t MAX_CTA = 132;
+
 using mbarrier_t = long long;
 
 DEVICE_INLINE uint32_t smem_ptr_u32(const void* smem_ptr)
@@ -70,8 +72,8 @@ tiled_multiplier_kernel(__grid_constant__ const TiledMultiplierArgs args)
 }
 
 template <uint32_t CLUSTER_M, uint32_t CLUSTER_N, uint32_t SMEM_M, uint32_t SMEM_N, uint32_t SMEM_K,
-          uint32_t WG_M, uint32_t WG_N, uint32_t WG_K,
-          bool STREAM_K, uint32_t CLUSTER_MODULUS, uint32_t RING_BUFFER_SIZE, bool DEDICATED_PRODUCER_WG>
+          uint32_t WG_M, uint32_t WG_N, uint32_t WG_K, gemm_sm90_k_mode K_MODE,
+          uint32_t CLUSTER_MODULUS, uint32_t RING_BUFFER_SIZE, bool DEDICATED_PRODUCER_WG>
 struct TiledMultiplier
 {
     uint32_t size_m, size_n, size_k;
@@ -80,6 +82,8 @@ struct TiledMultiplier
     const CUtensorMap* tensorMap_bN;  // Column major
     const CUtensorMap* tensorMap_cN;  // Column major
     float* cN;
+
+    static constexpr uint32_t split_k_divisor = 16384;  // Maybe should not hard wire this.
 
     static constexpr uint32_t CLUSTER_M_NUM_CTA = CLUSTER_M / SMEM_M;
     static constexpr uint32_t CLUSTER_N_NUM_CTA = CLUSTER_N / SMEM_N;
@@ -326,7 +330,16 @@ struct TiledMultiplier
 
     static __host__ DEVICE_INLINE bool using_cp_reduce([[maybe_unused]] uint32_t size_k)
     {
-        return STREAM_K;
+        switch (K_MODE) {
+          case gemm_sm90_k_mode::output_stationary:
+            return false;
+          case gemm_sm90_k_mode::split_k:
+            return size_k >= split_k_divisor;
+          case gemm_sm90_k_mode::stream_k:
+            return true;
+        }
+        DEVICE_ASSERT(0);
+        return true;
     }
 
     // Arrive on the mbarrier only for this CTA
@@ -857,9 +870,9 @@ struct TiledMultiplier
             producer_on_k_iter(k_iter);
         }
 
-        constexpr bool use_tma = STREAM_K;
+        constexpr bool always_use_tma = true;
 
-        if constexpr (use_tma) {
+        if constexpr (always_use_tma || using_cp_reduce(size_k)) {
             // If we are using TMA to write the output tiles, we need to do a full sync of the cluster before and after
             // using TMA, since we need to re-use shared memory to stage the tile.
             // The sync should have the needed effect as at this point all outstanding producer TMA commands have been
@@ -885,7 +898,7 @@ struct TiledMultiplier
                 mbar_arrive_cta(shared.per_consumer_wg_mbar[consumer_wg_index()]);
                 state.per_consumer_wg_wait(elected, shared);
                 if (elected) {
-                    if (using_cp_reduce(size_k)) {
+                    if (!always_use_tma || using_cp_reduce(size_k)) {
                         asm volatile(
                             "cp.reduce.async.bulk.tensor.2d.global.shared::cta.add.tile.bulk_group"
                             " [%0, {%1, %2}], [%3];"
@@ -895,6 +908,7 @@ struct TiledMultiplier
                               "r"(smem_ptr_u32(&shared.aliased_per_wg_c_tile[consumer_wg_index()])));
                     }
                     else {
+                        // Used only when always_use_tma; otherwise we'd just store directly from registers.
                         asm volatile(
                             "cp.async.bulk.tensor.2d.global.shared::cta.tile.bulk_group"
                             " [%0, {%1, %2}], [%3];"
@@ -942,7 +956,7 @@ struct TiledMultiplier
         const uint32_t cluster_index = blockIdx.x / CLUSTER_NUM_CTA;
         const uint32_t size_k_tiles = (size_k + SMEM_K - 1) / SMEM_K;  // Count of k tiles along k-axis
 
-        if constexpr (STREAM_K) {
+        if constexpr (K_MODE == gemm_sm90_k_mode::stream_k) {
             // Evenly distribute MNK tiles to clusters.
             // (Round up, so some cluster gets less work, instead of one straggler cluster getting more work)
             const uint32_t num_mnk_tiles = size_k_tiles * num_clusterMN_tiles(size_m, size_n);
@@ -970,7 +984,28 @@ struct TiledMultiplier
                 mnk_index += work_k_tiles;
             }
         }
+        else if constexpr (K_MODE == gemm_sm90_k_mode::split_k) {
+            const uint32_t num_mn_tiles = num_clusterMN_tiles(size_m, size_n);
+            const uint32_t num_k_work_items = (size_k + split_k_divisor - 1) / split_k_divisor;
+            const uint32_t num_mnk_work_items = num_mn_tiles * num_k_work_items;
+
+            for (uint32_t work_index = cluster_index; work_index < num_mnk_work_items; work_index += num_clusters) {
+                const uint32_t mn_tile_index = work_index % num_mn_tiles;
+                const uint32_t k_work_index = work_index / num_mn_tiles;
+
+                ClusterMN_Tile tile = get_clusterMN_tile(mn_tile_index);
+                ClusterWorkItem work{};
+                work.m_offset = tile.m_offset;
+                work.n_offset = tile.n_offset;
+                work.k_offset = split_k_divisor * k_work_index;
+                const uint32_t work_k_tiles = umin(split_k_divisor / SMEM_K, size_k_tiles - work.k_offset);
+                work.k_work_size = work_k_tiles * SMEM_K;
+                cluster_process_item<ENABLE_PRODUCER_BRANCH, IS_CONSUMER>(work, state, shared);
+            }
+        }
         else {
+            static_assert(K_MODE == gemm_sm90_k_mode::output_stationary);
+
             // Output stationary over MN tiles; 1 tile per cluster.
             const uint32_t num_mn_tiles = num_clusterMN_tiles(size_m, size_n);
             for (uint32_t tile_index = cluster_index; tile_index < num_mn_tiles; tile_index += num_clusters) {
@@ -1064,7 +1099,7 @@ struct TiledMultiplier
             cudaMemsetAsync(cN, 0, size_m * size_n * sizeof(*cN), stream);
         }
 
-        const uint32_t max_cluster = 132 / CLUSTER_NUM_CTA;
+        const uint32_t max_cluster = MAX_CTA / CLUSTER_NUM_CTA;
         const uint32_t grid = max_cluster * CLUSTER_NUM_CTA;
         const uint32_t block = cta_size();
         const uint32_t smem = smem_size();
@@ -1104,7 +1139,7 @@ struct TiledMultiplier
     }
 };
 
-void matmul_impl(GPU_Tensors t, cudaStream_t stream)
+void matmul_impl(GPU_Tensors t, gemm_sm90_k_mode k_mode, cudaStream_t stream)
 {
     const uint32_t size_m = t.M;
     const uint32_t size_n = t.N;
@@ -1127,22 +1162,46 @@ void matmul_impl(GPU_Tensors t, cudaStream_t stream)
     constexpr uint32_t wg_m = 128;
     constexpr uint32_t wg_n = 128;
     constexpr uint32_t wg_k = 8;
-    constexpr bool stream_k = true;
     constexpr uint32_t cluster_modulus = 1024u / cluster_m;
     constexpr uint32_t ring_buffer_size = 4;
     constexpr bool dedicated_producer = true;
 
-    using Multiplier = TiledMultiplier<cluster_m, cluster_n, smem_m, smem_n, smem_k, wg_m, wg_n, wg_k,
-                                       stream_k, cluster_modulus, ring_buffer_size, dedicated_producer>;
-    Multiplier::launch(stream, size_m, size_n, size_k, t.a, t.b, t.c);
+    switch (k_mode) {
+      case gemm_sm90_k_mode::output_stationary:
+      {
+        using Multiplier = TiledMultiplier<cluster_m, cluster_n, smem_m, smem_n, smem_k, wg_m, wg_n, wg_k,
+                                           gemm_sm90_k_mode::output_stationary,
+                                           cluster_modulus, ring_buffer_size, dedicated_producer>;
+        Multiplier::launch(stream, size_m, size_n, size_k, t.a, t.b, t.c);
+        return;
+      }
+      case gemm_sm90_k_mode::split_k:
+      {
+        using Multiplier = TiledMultiplier<cluster_m, cluster_n, smem_m, smem_n, smem_k, wg_m, wg_n, wg_k,
+                                           gemm_sm90_k_mode::split_k,
+                                           cluster_modulus, ring_buffer_size, dedicated_producer>;
+        Multiplier::launch(stream, size_m, size_n, size_k, t.a, t.b, t.c);
+        return;
+      }
+      case gemm_sm90_k_mode::stream_k:
+      {
+        using Multiplier = TiledMultiplier<cluster_m, cluster_n, smem_m, smem_n, smem_k, wg_m, wg_n, wg_k,
+                                           gemm_sm90_k_mode::stream_k,
+                                           cluster_modulus, ring_buffer_size, dedicated_producer>;
+        Multiplier::launch(stream, size_m, size_n, size_k, t.a, t.b, t.c);
+        return;
+      }
+    }
+
+    assert(0);
 }
 
 }  // end namespace
 
-void matmul_sm90(GPU_Tensors t, cudaStream_t stream)
+void matmul_sm90(GPU_Tensors t, gemm_sm90_k_mode k_mode, cudaStream_t stream)
 {
     if (!t.a_col_major && t.b_col_major && t.c_col_major) {
-        gemm_sm90::matmul_impl(t, stream);
+        gemm_sm90::matmul_impl(t, k_mode, stream);
     }
     else if (!t.a_col_major && t.b_col_major && !t.c_col_major) {
         std::swap(t.a, t.b);
@@ -1150,7 +1209,7 @@ void matmul_sm90(GPU_Tensors t, cudaStream_t stream)
         t.a_col_major = false;
         t.b_col_major = true;
         t.c_col_major = true;
-        gemm_sm90::matmul_impl(t, stream);
+        gemm_sm90::matmul_impl(t, k_mode, stream);
     }
     else {
         assert(0);

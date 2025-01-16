@@ -13,10 +13,19 @@ enum class TestDataCode
     tiled_numbers = 2,
 };
 
+enum class TestKModes
+{
+    all = 0,
+    output_stationary = 1,
+    split_k = 2,
+    stream_k = 3,
+};
+
 struct TestParams
 {
     uint32_t M, N, K;
     TestDataCode test_data_code_A, test_data_code_B;
+    TestKModes test_k_modes;
 };
 
 void gemm_test(TestParams params, cudaStream_t stream);
