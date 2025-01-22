@@ -17,8 +17,9 @@ enum class TestKModes
 {
     all = 0,
     output_stationary = 1,
-    split_k = 2,
-    stream_k = 3,
+    split_k_outer = 2,
+    split_k_inner = 3,
+    stream_k = 4,
 };
 
 struct TestParams

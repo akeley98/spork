@@ -333,7 +333,8 @@ struct TiledMultiplier
         switch (K_MODE) {
           case gemm_sm90_k_mode::output_stationary:
             return false;
-          case gemm_sm90_k_mode::split_k:
+          case gemm_sm90_k_mode::split_k_inner:
+          case gemm_sm90_k_mode::split_k_outer:
             return size_k >= split_k_divisor;
           case gemm_sm90_k_mode::stream_k:
             return true;
@@ -984,14 +985,15 @@ struct TiledMultiplier
                 mnk_index += work_k_tiles;
             }
         }
-        else if constexpr (K_MODE == gemm_sm90_k_mode::split_k) {
+        else if constexpr (K_MODE == gemm_sm90_k_mode::split_k_inner || K_MODE == gemm_sm90_k_mode::split_k_outer) {
+            constexpr bool k_inner = K_MODE == gemm_sm90_k_mode::split_k_inner;
             const uint32_t num_mn_tiles = num_clusterMN_tiles(size_m, size_n);
             const uint32_t num_k_work_items = (size_k + split_k_divisor - 1) / split_k_divisor;
             const uint32_t num_mnk_work_items = num_mn_tiles * num_k_work_items;
 
             for (uint32_t work_index = cluster_index; work_index < num_mnk_work_items; work_index += num_clusters) {
-                const uint32_t mn_tile_index = work_index % num_mn_tiles;
-                const uint32_t k_work_index = work_index / num_mn_tiles;
+                const uint32_t mn_tile_index = k_inner ? work_index / num_k_work_items : work_index % num_mn_tiles;
+                const uint32_t k_work_index = k_inner ? work_index % num_k_work_items : work_index / num_mn_tiles;
 
                 ClusterMN_Tile tile = get_clusterMN_tile(mn_tile_index);
                 ClusterWorkItem work{};
@@ -1109,12 +1111,21 @@ struct TiledMultiplier
         std::call_once(f, [&] () {
             cudaFuncSetAttribute(kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, smem);
             if (1) {
+                const char* k_mode_str = "?";
+                switch (K_MODE) {
+                    case gemm_sm90_k_mode::output_stationary: k_mode_str = "output_stationary"; break;
+                    case gemm_sm90_k_mode::split_k_outer: k_mode_str = "split_k_outer"; break;
+                    case gemm_sm90_k_mode::split_k_inner: k_mode_str = "split_k_inner"; break;
+                    case gemm_sm90_k_mode::stream_k: k_mode_str = "stream_k"; break;
+                }
+                fprintf(stderr, "K_MODE:  %i (%s)\n", static_cast<int>(K_MODE), k_mode_str);
                 fprintf(stderr, "GRID:    %u\n", grid);
                 fprintf(stderr, "BLOCK:   %u\n", block);
                 fprintf(stderr, "SMEM:    %g KiB\n", double(smem) / 1024.0);
                 cudaFuncAttributes attr;
                 cudaFuncGetAttributes(&attr, kernel);
                 fprintf(stderr, "numRegs: %i\n", attr.numRegs);
+                fprintf(stderr, "\n");
             }
         });
 
@@ -1175,10 +1186,18 @@ void matmul_impl(GPU_Tensors t, gemm_sm90_k_mode k_mode, cudaStream_t stream)
         Multiplier::launch(stream, size_m, size_n, size_k, t.a, t.b, t.c);
         return;
       }
-      case gemm_sm90_k_mode::split_k:
+      case gemm_sm90_k_mode::split_k_outer:
       {
         using Multiplier = TiledMultiplier<cluster_m, cluster_n, smem_m, smem_n, smem_k, wg_m, wg_n, wg_k,
-                                           gemm_sm90_k_mode::split_k,
+                                           gemm_sm90_k_mode::split_k_outer,
+                                           cluster_modulus, ring_buffer_size, dedicated_producer>;
+        Multiplier::launch(stream, size_m, size_n, size_k, t.a, t.b, t.c);
+        return;
+      }
+      case gemm_sm90_k_mode::split_k_inner:
+      {
+        using Multiplier = TiledMultiplier<cluster_m, cluster_n, smem_m, smem_n, smem_k, wg_m, wg_n, wg_k,
+                                           gemm_sm90_k_mode::split_k_inner,
                                            cluster_modulus, ring_buffer_size, dedicated_producer>;
         Multiplier::launch(stream, size_m, size_n, size_k, t.a, t.b, t.c);
         return;

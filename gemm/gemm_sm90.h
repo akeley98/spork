@@ -5,7 +5,8 @@
 enum class gemm_sm90_k_mode
 {
     output_stationary,
-    split_k,
+    split_k_outer,      // Split-k, with k being the slow dimension for scheduling
+    split_k_inner,      // Split-k, with k being the fast dimension for scheduling [less efficient L2?]
     stream_k,
 };
 
