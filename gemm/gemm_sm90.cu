@@ -18,6 +18,13 @@ namespace gemm_sm90 {
 
 constexpr uint32_t MAX_CTA = 132;
 
+enum TmaMode
+{
+    never,
+    hybrid,
+    always,
+};
+
 using mbarrier_t = long long;
 
 DEVICE_INLINE uint32_t smem_ptr_u32(const void* smem_ptr)
@@ -328,7 +335,7 @@ struct TiledMultiplier
         return {cluster_m_idx * CLUSTER_M, cluster_n_idx * CLUSTER_N};
     }
 
-    static __host__ DEVICE_INLINE bool using_cp_reduce([[maybe_unused]] uint32_t size_k)
+    static __host__ DEVICE_INLINE bool need_zero_init_c([[maybe_unused]] uint32_t size_k)
     {
         switch (K_MODE) {
           case gemm_sm90_k_mode::output_stationary:
@@ -780,12 +787,12 @@ struct TiledMultiplier
         }
     }
 
-    // Cluster cooperates to fill or partially reduce to a tile of the output matrix block,
-    // with the work specified by cluster_item.
+    // Cluster cooperates to fill or partially reduce (determined by TMA_MODE) to an MN tile
+    // of the output matrix block, with the work specified by cluster_item.
     // Requires smem-allocated ring buffer.
     //
     // Each work item consists of k_tiles iterations of accumulating on the k-axis.
-    template <bool ENABLE_PRODUCER_BRANCH, bool IS_CONSUMER>
+    template <bool ENABLE_PRODUCER_BRANCH, bool IS_CONSUMER, TmaMode TMA_MODE>
     DEVICE_INLINE void cluster_process_item(ClusterWorkItem cluster_item, RingState& state, Shared& shared) const
     {
         DEVICE_ASSERT(ENABLE_PRODUCER_BRANCH || !is_producer_wg());
@@ -871,9 +878,10 @@ struct TiledMultiplier
             producer_on_k_iter(k_iter);
         }
 
-        constexpr bool always_use_tma = true;
+        const bool is_partial_k = cluster_item.k_work_size < size_k;  // Not != due to rounding up to SMEM_K
 
-        if constexpr (always_use_tma || using_cp_reduce(size_k)) {
+        // If condition is written so as to allow static removal of TMA code for TmaMode::never.
+        if (TMA_MODE == TmaMode::always || (TMA_MODE != TmaMode::never && is_partial_k)) {
             // If we are using TMA to write the output tiles, we need to do a full sync of the cluster before and after
             // using TMA, since we need to re-use shared memory to stage the tile.
             // The sync should have the needed effect as at this point all outstanding producer TMA commands have been
@@ -899,7 +907,8 @@ struct TiledMultiplier
                 mbar_arrive_cta(shared.per_consumer_wg_mbar[consumer_wg_index()]);
                 state.per_consumer_wg_wait(elected, shared);
                 if (elected) {
-                    if (!always_use_tma || using_cp_reduce(size_k)) {
+                    if (TMA_MODE != TmaMode::always || is_partial_k) {
+                        DEVICE_ASSERT(need_zero_init_c(size_k));
                         asm volatile(
                             "cp.reduce.async.bulk.tensor.2d.global.shared::cta.add.tile.bulk_group"
                             " [%0, {%1, %2}], [%3];"
@@ -909,7 +918,7 @@ struct TiledMultiplier
                               "r"(smem_ptr_u32(&shared.aliased_per_wg_c_tile[consumer_wg_index()])));
                     }
                     else {
-                        // Used only when always_use_tma; otherwise we'd just store directly from registers.
+                        // Used only when always using tma; otherwise we'd just store directly from registers.
                         asm volatile(
                             "cp.async.bulk.tensor.2d.global.shared::cta.tile.bulk_group"
                             " [%0, {%1, %2}], [%3];"
@@ -931,6 +940,7 @@ struct TiledMultiplier
         }
         else {
             // Store tile directly to output memory, bypassing TMA and shared memory.
+            // Clearly, this requires that the full k-column was accumulated locally.
             DEVICE_ASSERT(cluster_item.k_offset == 0 && cluster_item.k_work_size >= size_k);
             if constexpr (IS_CONSUMER) {
                 const uint32_t wg_m_offset = get_wg_m_idx() * WG_M;
@@ -987,7 +997,7 @@ struct TiledMultiplier
                 work.n_offset = tile.n_offset;
                 work.k_offset = k_tile_offset * SMEM_K;
                 work.k_work_size = work_k_tiles * SMEM_K;
-                cluster_process_item<ENABLE_PRODUCER_BRANCH, IS_CONSUMER>(work, state, shared);
+                cluster_process_item<ENABLE_PRODUCER_BRANCH, IS_CONSUMER, TmaMode::always>(work, state, shared);
 
                 mnk_index += work_k_tiles;
             }
@@ -1009,7 +1019,7 @@ struct TiledMultiplier
                 work.k_offset = split_k_divisor * k_work_index;
                 const uint32_t work_k_tiles = umin(split_k_divisor / SMEM_K, size_k_tiles - work.k_offset);
                 work.k_work_size = work_k_tiles * SMEM_K;
-                cluster_process_item<ENABLE_PRODUCER_BRANCH, IS_CONSUMER>(work, state, shared);
+                cluster_process_item<ENABLE_PRODUCER_BRANCH, IS_CONSUMER, TmaMode::hybrid>(work, state, shared);
             }
         }
         else {
@@ -1024,7 +1034,7 @@ struct TiledMultiplier
                 work.n_offset = tile.n_offset;
                 work.k_offset = 0;
                 work.k_work_size = size_k_tiles * SMEM_K;
-                cluster_process_item<ENABLE_PRODUCER_BRANCH, IS_CONSUMER>(work, state, shared);
+                cluster_process_item<ENABLE_PRODUCER_BRANCH, IS_CONSUMER, TmaMode::never>(work, state, shared);
             }
         }
 
@@ -1104,7 +1114,7 @@ struct TiledMultiplier
         init_tensorMap(&tensorMap_bN, bN, size_n, size_k, tensorMap_bN_box_n, tensorMap_box_k, input_swizzle);
         init_tensorMap(&tensorMap_cN, cN, size_n, size_m, tensorMap_cN_box_n, tensorMap_cN_box_m, CU_TENSOR_MAP_SWIZZLE_NONE);
 
-        if (using_cp_reduce(size_k)) {
+        if (need_zero_init_c(size_k)) {
             cudaMemsetAsync(cN, 0, size_m * size_n * sizeof(*cN), stream);
         }
 
