@@ -19,7 +19,8 @@ enum class TestKModes
     output_stationary = 1,
     split_k_outer = 2,
     split_k_inner = 3,
-    stream_k = 4,
+    stream_k_early_tma = 4,
+    stream_k_late_tma = 5,
 };
 
 struct TestParams

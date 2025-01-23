@@ -20,9 +20,17 @@ constexpr uint32_t MAX_CTA = 132;
 
 enum TmaMode
 {
-    never,
-    hybrid,
-    always,
+    // Never use TMA, hence never reduce to GMEM
+    never_reduce,
+
+    // Use TMA conditionally, only if reducing to GMEM
+    if_reduce,
+
+    // Use TMA always, and force use of the reduce mode
+    always_force_reduce,
+
+    // Use TMA always, conditional use of the reduce mode
+    always_cond_reduce,
 };
 
 using mbarrier_t = long long;
@@ -343,7 +351,8 @@ struct TiledMultiplier
           case gemm_sm90_k_mode::split_k_inner:
           case gemm_sm90_k_mode::split_k_outer:
             return size_k >= split_k_divisor;
-          case gemm_sm90_k_mode::stream_k:
+          case gemm_sm90_k_mode::stream_k_early_tma:
+          case gemm_sm90_k_mode::stream_k_late_tma:
             return true;
         }
         DEVICE_ASSERT(0);
@@ -878,10 +887,11 @@ struct TiledMultiplier
             producer_on_k_iter(k_iter);
         }
 
+        // Conditions written so as to allow static removal of TMA code for TmaMode::never_reduce.
         const bool is_partial_k = cluster_item.k_work_size < size_k;  // Not != due to rounding up to SMEM_K
+        const bool use_tma = TMA_MODE != TmaMode::never_reduce && (TMA_MODE != TmaMode::if_reduce || is_partial_k);
 
-        // If condition is written so as to allow static removal of TMA code for TmaMode::never.
-        if (TMA_MODE == TmaMode::always || (TMA_MODE != TmaMode::never && is_partial_k)) {
+        if (use_tma) {
             // If we are using TMA to write the output tiles, we need to do a full sync of the cluster before and after
             // using TMA, since we need to re-use shared memory to stage the tile.
             // The sync should have the needed effect as at this point all outstanding producer TMA commands have been
@@ -907,7 +917,7 @@ struct TiledMultiplier
                 mbar_arrive_cta(shared.per_consumer_wg_mbar[consumer_wg_index()]);
                 state.per_consumer_wg_wait(elected, shared);
                 if (elected) {
-                    if (TMA_MODE != TmaMode::always || is_partial_k) {
+                    if (TMA_MODE != TmaMode::always_cond_reduce || is_partial_k) {
                         DEVICE_ASSERT(need_zero_init_c(size_k));
                         asm volatile(
                             "cp.reduce.async.bulk.tensor.2d.global.shared::cta.add.tile.bulk_group"
@@ -918,7 +928,7 @@ struct TiledMultiplier
                               "r"(smem_ptr_u32(&shared.aliased_per_wg_c_tile[consumer_wg_index()])));
                     }
                     else {
-                        // Used only when always using tma; otherwise we'd just store directly from registers.
+                        DEVICE_ASSERT(TMA_MODE == TmaMode::always_cond_reduce);
                         asm volatile(
                             "cp.async.bulk.tensor.2d.global.shared::cta.tile.bulk_group"
                             " [%0, {%1, %2}], [%3];"
@@ -967,29 +977,71 @@ struct TiledMultiplier
         const uint32_t cluster_index = blockIdx.x / CLUSTER_NUM_CTA;
         const uint32_t size_k_tiles = (size_k + SMEM_K - 1) / SMEM_K;  // Count of k tiles along k-axis
 
-        if constexpr (K_MODE == gemm_sm90_k_mode::stream_k) {
-            // Evenly distribute MNK tiles to clusters.
-            // First `tiles_mod_clusters` clusters will get `base_tiles_per_cluster + 1` tiles to work on
-            // and the remainder will get only `base_tiles_per_cluster` tiles.
-            const uint32_t num_mnk_tiles = size_k_tiles * num_clusterMN_tiles(size_m, size_n);
-            const uint32_t base_tiles_per_cluster = num_mnk_tiles / num_clusters;
-            const uint32_t tiles_mod_clusters = num_mnk_tiles % num_clusters;
-            auto mnk_index_for_cluster = [base_tiles_per_cluster, tiles_mod_clusters] (uint32_t cluster_index)
+        if constexpr (K_MODE == gemm_sm90_k_mode::stream_k_early_tma || K_MODE == gemm_sm90_k_mode::stream_k_late_tma) {
+            constexpr bool early_tma = K_MODE == gemm_sm90_k_mode::stream_k_early_tma;
+            constexpr bool late_tma = K_MODE == gemm_sm90_k_mode::stream_k_late_tma;
+            static_assert(early_tma != late_tma);
+
+            // https://research.colfax-intl.com/cutlass-tutorial-persistent-kernels-and-stream-k/
+            // Following the above advice to assign full k-columns of MN tiles to clusters if possible,
+            // and only using stream-K for the tail of up to (2 * num_clusters - 1) MN tiles
+            const uint32_t num_mn_tiles = num_clusterMN_tiles(size_m, size_n);
+            const uint32_t tail_mn_tiles = umin(num_mn_tiles, num_mn_tiles % num_clusters + num_clusters);
+            DEVICE_ASSERT(tail_mn_tiles < 2 * num_clusters);
+            const uint32_t full_mn_tiles = num_mn_tiles - tail_mn_tiles;
+
+            if constexpr (early_tma) {
+                // Output stationary over MN tiles; 1 tile per cluster.
+                // Don't handle the tail MN tiles.
+                for (uint32_t tile_index = cluster_index; tile_index < full_mn_tiles; tile_index += num_clusters) {
+                    ClusterMN_Tile tile = get_clusterMN_tile(tile_index);
+                    ClusterWorkItem work{};
+                    work.m_offset = tile.m_offset;
+                    work.n_offset = tile.n_offset;
+                    work.k_offset = 0;
+                    work.k_work_size = size_k_tiles * SMEM_K;
+                    cluster_process_item<ENABLE_PRODUCER_BRANCH, IS_CONSUMER, TmaMode::never_reduce>(work, state,
+                                                                                                     shared);
+                }
+            }
+
+            // MN tiles are subdivided on the K dimension into MNK tiles.
+            // Evenly distribute MNK tiles of the tail MN tiles to clusters.
+            // First `mnk_mod_clusters` clusters will get `base_mnk_per_cluster + 1` tiles to work on
+            // and the remainder will get only `base_mnk_per_cluster` tiles.
+            const uint32_t tail_mnk_tiles = size_k_tiles * tail_mn_tiles;
+            const uint32_t base_mnk_per_cluster = tail_mnk_tiles / num_clusters;
+            const uint32_t mnk_mod_clusters = tail_mnk_tiles % num_clusters;
+            auto tail_mnk_index_for_cluster =
+                [full_mn_tiles, size_k_tiles, base_mnk_per_cluster, mnk_mod_clusters] (uint32_t _cluster)
             {
-                return umin(cluster_index, tiles_mod_clusters) + base_tiles_per_cluster * cluster_index;
+                return full_mn_tiles * size_k_tiles         // Skip non-tail MN tiles
+                       + base_mnk_per_cluster * _cluster    // Evenly divide tail MNK tiles to clusters
+                       + umin(_cluster, mnk_mod_clusters);  // Assign 1 extra tile for first mnk_mod_clusters clusters.
             };
+            // This cluster is assigned tail MNK tiles in range [tail_mnk_start, tail_mnk_end)
+            const uint32_t tail_mnk_start = tail_mnk_index_for_cluster(cluster_index);
+            const uint32_t tail_mnk_end = tail_mnk_index_for_cluster(cluster_index + 1);
+            uint32_t mnk_index;
+            if (early_tma || full_mn_tiles == 0) {
+                // In early TMA mode, we only have to handle the tail (due to the output stationary loop above).
+                // This is also the case for late TMA if the tail comprises the entire workload.
+                mnk_index = tail_mnk_start;
+            }
+            else {
+                // In late TMA mode, we start with all work assigned.
+                // Start with cluster_index-th MN tile, unless the tail comprises the entire workload [above].
+                mnk_index = cluster_index * size_k_tiles;
+            }
 
-            // Assign MNK tiles in range [mnk_index, mnk_end) to this cluster.
-            uint32_t mnk_index = mnk_index_for_cluster(cluster_index);
-            const uint32_t mnk_end = mnk_index_for_cluster(cluster_index + 1);
-
-            while (mnk_index < mnk_end) {
+            // Handle MNK tiles
+            while (mnk_index < tail_mnk_end) {
                 // Figure out the MN-tile (output matrix tile) corresponding to this MNK tile
-                // and accumulate on the K-axis from SMEM_K * [k_tile_offset, k_tile_offset + work_k_tiles).
+                // and accumulate on the K-axis in the range SMEM_K * [k_tile_offset, k_tile_offset + work_k_tiles).
                 const uint32_t mn_index = mnk_index / size_k_tiles;
                 const uint32_t k_tile_offset = mnk_index % size_k_tiles;
                 // We accumulate either to the end of the K-axis, or to the boundary between different clusters' work.
-                const uint32_t work_k_tiles = umin(size_k_tiles - k_tile_offset, mnk_end - mnk_index);
+                const uint32_t work_k_tiles = umin(size_k_tiles - k_tile_offset, tail_mnk_end - mnk_index);
 
                 ClusterWorkItem work{};
                 ClusterMN_Tile tile = get_clusterMN_tile(mn_index);
@@ -997,10 +1049,25 @@ struct TiledMultiplier
                 work.n_offset = tile.n_offset;
                 work.k_offset = k_tile_offset * SMEM_K;
                 work.k_work_size = work_k_tiles * SMEM_K;
-                cluster_process_item<ENABLE_PRODUCER_BRANCH, IS_CONSUMER, TmaMode::always>(work, state, shared);
+                constexpr auto TMA_MODE = late_tma ? TmaMode::if_reduce : TmaMode::always_force_reduce;
+                cluster_process_item<ENABLE_PRODUCER_BRANCH, IS_CONSUMER, TMA_MODE>(work, state, shared);
 
-                mnk_index += work_k_tiles;
+                if (late_tma && mn_index < full_mn_tiles) {
+                    // Seek to the next full size MN tile (we are not handling the tail yet)
+                    mnk_index += size_k_tiles * num_clusters;
+                    DEVICE_ASSERT(mnk_index % size_k_tiles == 0);
+
+                    if (mnk_index >= full_mn_tiles * size_k_tiles) {
+                        // Transition to stream-k tail
+                        mnk_index = tail_mnk_start;
+                    }
+                }
+                else {
+                    // Stream-K tail; proceed past work just done and to immediate next MN tile.
+                    mnk_index += work_k_tiles;
+                }
             }
+
         }
         else if constexpr (K_MODE == gemm_sm90_k_mode::split_k_inner || K_MODE == gemm_sm90_k_mode::split_k_outer) {
             constexpr bool k_inner = K_MODE == gemm_sm90_k_mode::split_k_inner;
@@ -1019,7 +1086,7 @@ struct TiledMultiplier
                 work.k_offset = split_k_divisor * k_work_index;
                 const uint32_t work_k_tiles = umin(split_k_divisor / SMEM_K, size_k_tiles - work.k_offset);
                 work.k_work_size = work_k_tiles * SMEM_K;
-                cluster_process_item<ENABLE_PRODUCER_BRANCH, IS_CONSUMER, TmaMode::hybrid>(work, state, shared);
+                cluster_process_item<ENABLE_PRODUCER_BRANCH, IS_CONSUMER, TmaMode::if_reduce>(work, state, shared);
             }
         }
         else {
@@ -1034,7 +1101,7 @@ struct TiledMultiplier
                 work.n_offset = tile.n_offset;
                 work.k_offset = 0;
                 work.k_work_size = size_k_tiles * SMEM_K;
-                cluster_process_item<ENABLE_PRODUCER_BRANCH, IS_CONSUMER, TmaMode::never>(work, state, shared);
+                cluster_process_item<ENABLE_PRODUCER_BRANCH, IS_CONSUMER, TmaMode::never_reduce>(work, state, shared);
             }
         }
 
@@ -1133,7 +1200,8 @@ struct TiledMultiplier
                     case gemm_sm90_k_mode::output_stationary: k_mode_str = "output_stationary"; break;
                     case gemm_sm90_k_mode::split_k_outer: k_mode_str = "split_k_outer"; break;
                     case gemm_sm90_k_mode::split_k_inner: k_mode_str = "split_k_inner"; break;
-                    case gemm_sm90_k_mode::stream_k: k_mode_str = "stream_k"; break;
+                    case gemm_sm90_k_mode::stream_k_early_tma: k_mode_str = "stream_k_early_tma"; break;
+                    case gemm_sm90_k_mode::stream_k_late_tma: k_mode_str = "stream_k_late_tma"; break;
                 }
                 fprintf(stderr, "K_MODE:  %i (%s)\n", static_cast<int>(K_MODE), k_mode_str);
                 fprintf(stderr, "GRID:    %u\n", grid);
@@ -1219,10 +1287,18 @@ void matmul_impl(GPU_Tensors t, gemm_sm90_k_mode k_mode, cudaStream_t stream)
         Multiplier::launch(stream, size_m, size_n, size_k, t.a, t.b, t.c);
         return;
       }
-      case gemm_sm90_k_mode::stream_k:
+      case gemm_sm90_k_mode::stream_k_early_tma:
       {
         using Multiplier = TiledMultiplier<cluster_m, cluster_n, smem_m, smem_n, smem_k, wg_m, wg_n, wg_k,
-                                           gemm_sm90_k_mode::stream_k,
+                                           gemm_sm90_k_mode::stream_k_early_tma,
+                                           cluster_modulus, ring_buffer_size, dedicated_producer>;
+        Multiplier::launch(stream, size_m, size_n, size_k, t.a, t.b, t.c);
+        return;
+      }
+      case gemm_sm90_k_mode::stream_k_late_tma:
+      {
+        using Multiplier = TiledMultiplier<cluster_m, cluster_n, smem_m, smem_n, smem_k, wg_m, wg_n, wg_k,
+                                           gemm_sm90_k_mode::stream_k_late_tma,
                                            cluster_modulus, ring_buffer_size, dedicated_producer>;
         Multiplier::launch(stream, size_m, size_n, size_k, t.a, t.b, t.c);
         return;

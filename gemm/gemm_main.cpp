@@ -10,6 +10,7 @@ int main()
         params.M = M;
         params.N = N;
         params.K = K;
+        params.test_k_modes = TestKModes::all;
         if (!nontrivial_only) {
             params.test_data_code_A = TestDataCode::tiled_numbers;
             params.test_data_code_B = TestDataCode::identity;

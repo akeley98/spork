@@ -177,12 +177,13 @@ void launch_device_compare_tensor(TestParams test_params,
 
 enum class AlgorithmCode
 {
-    mine_output_stationary = 0,
-    cublas = 1,
-    cutlass = 2,
-    mine_split_k_inner = 3,
-    mine_split_k_outer = 4,
-    mine_stream_k = 5,
+    mine_output_stationary,
+    cublas,
+    cutlass,
+    mine_split_k_inner,
+    mine_split_k_outer,
+    mine_stream_k_early_tma,
+    mine_stream_k_late_tma,
 };
 
 inline const char* algorithm_name(AlgorithmCode code)
@@ -198,8 +199,10 @@ inline const char* algorithm_name(AlgorithmCode code)
         return "mine (split k inner)";
       case AlgorithmCode::mine_split_k_outer:
         return "mine (split k outer)";
-      case AlgorithmCode::mine_stream_k:
-        return "mine (stream k)";
+      case AlgorithmCode::mine_stream_k_early_tma:
+        return "mine (stream k early TMA)";
+      case AlgorithmCode::mine_stream_k_late_tma:
+        return "mine (stream k late TMA)";
     }
     return "unknown";
 }
@@ -321,8 +324,11 @@ void gemm_test(TestParams params, cudaStream_t stream)
     if (params.test_k_modes == TestKModes::all || params.test_k_modes == TestKModes::split_k_inner) {
         sm90_test(gemm_sm90_k_mode::split_k_inner);
     }
-    if (params.test_k_modes == TestKModes::all || params.test_k_modes == TestKModes::stream_k) {
-        sm90_test(gemm_sm90_k_mode::stream_k);
+    if (params.test_k_modes == TestKModes::all || params.test_k_modes == TestKModes::stream_k_early_tma) {
+        sm90_test(gemm_sm90_k_mode::stream_k_early_tma);
+    }
+    if (params.test_k_modes == TestKModes::all || params.test_k_modes == TestKModes::stream_k_late_tma) {
+        sm90_test(gemm_sm90_k_mode::stream_k_late_tma);
     }
 
     // Test loop
@@ -358,8 +364,11 @@ void gemm_test(TestParams params, cudaStream_t stream)
                 else if (algo == AlgorithmCode::mine_split_k_outer) {
                     matmul_sm90(t, gemm_sm90_k_mode::split_k_outer, stream);
                 }
-                else if (algo == AlgorithmCode::mine_stream_k) {
-                    matmul_sm90(t, gemm_sm90_k_mode::stream_k, stream);
+                else if (algo == AlgorithmCode::mine_stream_k_early_tma) {
+                    matmul_sm90(t, gemm_sm90_k_mode::stream_k_early_tma, stream);
+                }
+                else if (algo == AlgorithmCode::mine_stream_k_late_tma) {
+                    matmul_sm90(t, gemm_sm90_k_mode::stream_k_late_tma, stream);
                 }
                 else if (algo == AlgorithmCode::cutlass) {
                     matmul_cutlass(t, stream_ws);
@@ -406,8 +415,11 @@ void gemm_test(TestParams params, cudaStream_t stream)
     if (params.test_k_modes == TestKModes::all || params.test_k_modes == TestKModes::split_k_inner) {
         run_tests(AlgorithmCode::mine_split_k_inner, mine_test_count);
     }
-    if (params.test_k_modes == TestKModes::all || params.test_k_modes == TestKModes::stream_k) {
-        run_tests(AlgorithmCode::mine_stream_k, mine_test_count);
+    if (params.test_k_modes == TestKModes::all || params.test_k_modes == TestKModes::stream_k_early_tma) {
+        run_tests(AlgorithmCode::mine_stream_k_early_tma, mine_test_count);
+    }
+    if (params.test_k_modes == TestKModes::all || params.test_k_modes == TestKModes::stream_k_late_tma) {
+        run_tests(AlgorithmCode::mine_stream_k_late_tma, mine_test_count);
     }
 #if CUBLAS_TEST_ENABLED
     run_tests(AlgorithmCode::cublas, 16);
