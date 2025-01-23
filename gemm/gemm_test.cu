@@ -315,11 +315,11 @@ void gemm_test(TestParams params, cudaStream_t stream)
     if (params.test_k_modes == TestKModes::all || params.test_k_modes == TestKModes::output_stationary) {
         sm90_test(gemm_sm90_k_mode::output_stationary);
     }
-    if (params.test_k_modes == TestKModes::all || params.test_k_modes == TestKModes::split_k_inner) {
-        sm90_test(gemm_sm90_k_mode::split_k_inner);
-    }
     if (params.test_k_modes == TestKModes::all || params.test_k_modes == TestKModes::split_k_outer) {
         sm90_test(gemm_sm90_k_mode::split_k_outer);
+    }
+    if (params.test_k_modes == TestKModes::all || params.test_k_modes == TestKModes::split_k_inner) {
+        sm90_test(gemm_sm90_k_mode::split_k_inner);
     }
     if (params.test_k_modes == TestKModes::all || params.test_k_modes == TestKModes::stream_k) {
         sm90_test(gemm_sm90_k_mode::stream_k);

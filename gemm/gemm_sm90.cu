@@ -959,12 +959,19 @@ struct TiledMultiplier
 
         if constexpr (K_MODE == gemm_sm90_k_mode::stream_k) {
             // Evenly distribute MNK tiles to clusters.
-            // (Round up, so some cluster gets less work, instead of one straggler cluster getting more work)
+            // First `tiles_mod_clusters` clusters will get `base_tiles_per_cluster + 1` tiles to work on
+            // and the remainder will get only `base_tiles_per_cluster` tiles.
             const uint32_t num_mnk_tiles = size_k_tiles * num_clusterMN_tiles(size_m, size_n);
-            uint32_t tiles_per_cluster = (num_mnk_tiles + num_clusters - 1) / num_clusters;
+            const uint32_t base_tiles_per_cluster = num_mnk_tiles / num_clusters;
+            const uint32_t tiles_mod_clusters = num_mnk_tiles % num_clusters;
+            auto mnk_index_for_cluster = [base_tiles_per_cluster, tiles_mod_clusters] (uint32_t cluster_index)
+            {
+                return umin(cluster_index, tiles_mod_clusters) + base_tiles_per_cluster * cluster_index;
+            };
+
             // Assign MNK tiles in range [mnk_index, mnk_end) to this cluster.
-            uint32_t mnk_index = tiles_per_cluster * cluster_index;
-            const uint32_t mnk_end = umin(mnk_index + tiles_per_cluster, num_mnk_tiles);
+            uint32_t mnk_index = mnk_index_for_cluster(cluster_index);
+            const uint32_t mnk_end = mnk_index_for_cluster(cluster_index + 1);
 
             while (mnk_index < mnk_end) {
                 // Figure out the MN-tile (output matrix tile) corresponding to this MNK tile

@@ -32,11 +32,15 @@ int main()
     sized_tests(32768, 40016, 816, false);
     sized_tests(40016, 32768, 6400, true);
     sized_tests(12288, 24576, 1536, true);
-    sized_tests(6144, 6144, 49152, true);
-    sized_tests(720, 720, 120000, true);
     sized_tests(720, 1440, 65536, true);
     sized_tests(1440, 1440, 65536, true);
-    sized_tests(6 * 256, 11 * 128, 65536, true);
+    sized_tests(6 * 256, 3 * 256, 65536, true);
+    sized_tests(6 * 256, 10 * 256, 65536, true);
+    sized_tests(6 * 256, 11 * 256, 65536, true);  // 66 2-SM clusters on H100 SXM5
+    sized_tests(6 * 256, 12 * 256, 65536, true);
+    sized_tests(3 * 256, 11 * 256, 65536, true);
+    sized_tests(9 * 256, 11 * 256, 65536, true);
+    sized_tests(4 * 256, 11 * 256, 16384 * 3, true);
 
     cudaDeviceSynchronize();
     cutlass_synclog_print();
