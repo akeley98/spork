@@ -283,11 +283,14 @@ Handled with \texttt{cp.async.bulk.tensor} instructions.
 \begin{itemize}
 \item Async 1D-5D tile copy \myKey{GMEM}$\leftrightarrow$\myKeyB{SMEM}
 \item \myKeyB{SMEM} tile: densely packed C-order matrix
+\begin{itemize}
+  \item 128 byte alignment
+\end{itemize}
 \item \myKey{GMEM} tile: tile from big C-order matrix
 \begin{itemize}
-  \item \myKey{Predicated} and strided (16B aligned)
+  \item \myKey{Predicated} and strided
+  \item 16 byte aligned memory and strides
 \end{itemize}
-\item 16 byte aligned; cannot stride innermost dim
 \end{itemize}
 
 \begin{tikzpicture}[node distance=5mm]
@@ -304,9 +307,9 @@ Need to encode GMEM matrix as \myKey{\texttt{CUtensorMap}}
   \item Encodes GMEM matrix size and strides
   \item Encodes SMEM tile size (\& swizzle mode)
   \item SMEM pointer NOT encoded
-  \item Used on device, but must be encoded on the host CPU
+  \item Used on device, but should be encoded on the host CPU
   \begin{itemize}
-    \item not 100\% true, look up tensorMap proxy if you want
+    \item not 100\% true (tensorMap proxy)
   \end{itemize}
 \end{itemize}
 
@@ -462,10 +465,10 @@ We define parallel for loops for each level of the CUDA thread hierarchy;
 \texttt{for \_ in cuda\_\{units\}:}
 \begin{itemize}
   \item i.e. each \myKey{collective unit}
-  \item \texttt{\{units\}} = \texttt{clusters}, \texttt{blocks}, \texttt{warpgroups}, \texttt{warps}, \texttt{threads}
+  \item \texttt{\{units\}} = \redBox{\texttt{clusters}}, \texttt{blocks}, \texttt{warpgroups}, \texttt{warps}, \texttt{threads} {\small (TODO clusters need thought)}
   \item Generalize \texttt{seq}, \texttt{par} to \myKey{loop mode}
 \end{itemize}
-Must be \myKey{strictly nested}
+Must be \myKey{strictly nested} (except \redBox{clusters}?)
 \begin{itemize}
   \item levels except \texttt{blocks} may be skipped
   \item exception: \myKey{multidimensional} iteration\\(defined by directly nested same-unit loops)
