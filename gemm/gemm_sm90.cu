@@ -19,7 +19,7 @@ namespace gemm_sm90 {
 constexpr uint32_t MAX_CTA = 132;
 
 // Controls use of TMA and its .reduce functionality for writing the OUTPUT to GMEM.
-enum TmaMode
+enum class TmaMode
 {
     // Never use TMA, hence never reduce to GMEM
     never_reduce,
