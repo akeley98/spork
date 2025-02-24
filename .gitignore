@@ -13,6 +13,7 @@ compile_commands.json
 docs/spork_2024.pdf
 docs/spork_dev.pdf
 docs/spork.pdf
+docs/SpecialWindow.pdf
 gemm/gemm
 attn
 libattn.so

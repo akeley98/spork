@@ -15,6 +15,7 @@
 \usepackage[usenames,dvipsnames,svgnames,table,hyperref]{xcolor}
 \usepackage[hidelinks]{hyperref}
 \usepackage{fontspec}
+\usepackage{mdframed}
 \usepackage{tikz}
 \usetikzlibrary{shapes.geometric, arrows, positioning, calc}
 
@@ -49,6 +50,8 @@
 \definecolor{lightttColor}{RGB}{69, 69, 80}
 \newcommand{\lighttt}[1]{{\color{lightttColor}\texttt{#1}}}
 \newcommand{\graytt}[1]{{\color{gray}\texttt{#1}}}
+
+\input{colorbox_common.tex}
 
 \renewcommand*{\theenumi}{\alph{enumi}}
 \renewcommand*\labelenumi{(\theenumi)}
