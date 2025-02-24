@@ -7,7 +7,8 @@
 \mySub{Proposal Summary}
 
 We need to model \lighttt{CUtensorMap} in Exo, which is a descriptor needed for using the H100's TMA feature.
-This 128-byte blob is non-trivial to initialize, and needs to be initialized on the CPU, prior to its usage in the CUDA kernel.
+This 128-byte blob is non-trivial to initialize, and needs to be initialized on the CPU, prior to its usage in the CUDA kernel
+(i.e. we can't create it at the call site of a TMA instruction).
 
 The CUtensorMap contains
 \begin{itemize}
@@ -81,9 +82,9 @@ We have three cases, which I propose names for:
 \hline
 Proposed Name & Exo Object Code Syntax & Generated C & LoopIR type\\
 \hline
-\textbf{Dense Tensor} & \ \lighttt{varname: basetyp[shape]} proc parameter or alloc & Simple pointer & \ \lighttt{T.Tensor} with \lighttt{is\_win = False} \\
+\textbf{Dense Tensor} & \ \lighttt{varname: basetyp[shape]} proc parameter or alloc & Simple pointer & \ \lighttt{T.Tensor} with \lighttt{is\_window = False} \\
 \hline
-\textbf{Window Parameter} & \ \lighttt{varname: [basetyp][shape]} proc parameter & Window struct (pointer, strides) & \ \lighttt{T.Tensor} with \lighttt{is\_win = True} \\
+\textbf{Window Parameter} & \ \lighttt{varname: [basetyp][shape]} proc parameter & Window struct (pointer, strides) & \ \lighttt{T.Tensor} with \lighttt{is\_window = True} \\
 \hline
 \textbf{Derived Window} & \ \lighttt{dstname = srcname[slice]} (window statement) & Window struct (pointer, strides) & \ \lighttt{T.Window} with \lighttt{src\_buf = Sym} of aliased \lighttt{T.Tensor} \\
 \hline
@@ -101,7 +102,7 @@ Not necessarily with my proposed name, but some clear vocab is needed.
 \filbreak
 Currently, the \lighttt{T.Window} type is needed because we statically track in the type system what is the \lighttt{Sym} of the buffer that the window aliases, and also the offsets for the window relative to the underlying aliased tensor.
 This is only needed for derived windows, because window parameters can be assumed not to alias any other inputs (this is part of the usage contract for Exo).
-We use this data for soundness checks in rewrites and bounds checking.
+We are supposed to use this data for soundness checks in rewrites and bounds checking.
 
 \filbreak
 \mySub{Opinion: Why David Doesn't Like WindowStmt}
@@ -119,7 +120,7 @@ It's not just the cost of fixing the current \lighttt{WindowStmt} bugs but the o
 
 \filbreak
 That said, I acknowledge I'm not aware of how the underlying rewrite and safety checks work, and maybe there's a simple common helper that can be implemented and used consistently everywhere to handle this.
-But I still worry about mistakes from oversights ... especially since Python has no static typechecking and the \lighttt{T.Tensor} vs. \lighttt{T.Window} footgun exists.
+But I still worry about mistakes from oversights ... especially since Python has no static typechecking and the \lighttt{T.Tensor} vs. \lighttt{T.Window} distinction is easy to miss.
 
 \filbreak
 \myKey{Philosophical:} There's a clear reason for \textbf{window parameters} to exist in Exo, because this is the only way to pass sub-tiles of tensors through function call boundaries.
@@ -133,17 +134,28 @@ This seems like syntatic sugar, in the sense that (ignoring Exo-GPU), everything
 We already have this supported as \lighttt{inline\_window}.
 Which could just be rolled into \lighttt{inline\_proc} to eliminate the \lighttt{WindowStmt} entirely.
 
+\filbreak
 I feel for a USL, these sort of convenience features belong in the scheduling language, and not the underlying object code.
 Now with \lighttt{SpecialWindow} and Exo-GPU, we do have a need for a concrete window-like construct supported in object code.
 But I question -- if \lighttt{WindowStmt} didn't already exist -- whether we would have chosen to implement \lighttt{SpecialWindow} by creating \lighttt{WindowStmt} as it exists today.
 
 \filbreak
-\myKey{Clarity:}
+\myKey{Clarity:} Having a special case in the type system for a rarely used feature is a huge risk in my opinion (as evidenced by all these bugs not being discovered by testing, even trivial things like \lighttt{AttributeError}).
+Even with Exo-GPU, this will still be the case, as TMA isn't really something that typical Exo users or devs will use consistently, and although I'm trying to generalize \lighttt{CUtensorMap} to \lighttt{SpecialWindow}, in practice I doubt this pattern appears often.
 
-Having a special case in the type system for a rarely used feature is a huge risk in my opinion (as evidenced by all these bugs not being discovered by testing).
-Even with Exo-GPU, this will still be the case, as TMA isn't really something that typical Exo users or devs will use consistently, and although I'm trying to generalize CUtensorMap to SpecialWindow, in practice I doubt this pattern appears often.
-
+\filbreak
 Regardless of whether I ``should'' find the windowing system confusing, empirically, it was in fact confusing for me.
 So I'm motivated to improve this situation for the next guy, either by improving the type system or eliminating \lighttt{WindowStmt} and derived windows entirely.
+
+\filbreak
+Array indexing, windowing, and dataflow (i.e. window aliasing) are core PL concepts for Exo that the group of people who are working on extending Exo all have to understand and interact with.
+The costs of a confusing design are multiplied by the (growing) number of such people.
+If we do keep the \lighttt{WindowStmt} and derived window around, then I think the time to think the implementation through carefully is now, \textit{before} this becomes an entrenched feature.
+
+\filbreak
+Great software comes from clarity of thought, where everyone has a clear picture of what the possible states of the system are and how their changes interact with that.
+Clarity of thought comes from clear concepts.
+Clear concepts are helped along greatly by clear naming.
+The current special-casing situation with ``window'' \textit{sometimes} meaning \lighttt{T.Window}, sometimes not, doesn't contribute to clarity.
 
 \end{document}
