@@ -1,31 +1,36 @@
-archcode = -arch compute_90a -code sm_90a
-nvcc_args = -DNDEBUG=1 -Xcompiler -Wno-abi -ccbin g++-12 -O2 -Xcompiler -Wall -Xcompiler -fPIC -g -std=c++20 -I cutlass/include/ -I cutlass/tools/util/include/ -I ../ThunderKittens/include/ -c $archcode --expt-extended-lambda --expt-relaxed-constexpr
+archcode90a = -arch compute_90a -code sm_90a
+archcode80 = -arch compute_80 -code sm_80,sm_90a
+
+nvcc_args = -DNDEBUG=1 -Xcompiler -Wno-abi -ccbin g++-12 -O2 -Xcompiler -Wall -Xcompiler -fPIC -g -std=c++20 -I cutlass/include/ -I cutlass/tools/util/include/ -I ../ThunderKittens/include/ -c --expt-extended-lambda --expt-relaxed-constexpr
 
 rule nvcc
-  command = /usr/local/cuda-12.3/bin/nvcc --ptxas-options=-O3 -lineinfo $nvcc_args $in -o $out -MD -MF $out.d
+  command = /usr/local/cuda-12.3/bin/nvcc --ptxas-options=-O3 -lineinfo $nvcc_args $archcode90a $in -o $out -MD -MF $out.d
+  depfile = $out.d
+
+rule nvcc_80
+  command = /usr/local/cuda-12.3/bin/nvcc --ptxas-options=-O3 -lineinfo $nvcc_args $archcode80 $in -o $out -MD -MF $out.d
   depfile = $out.d
 
 rule nvcc_keep
-  command = /usr/local/cuda-12.3/bin/nvcc --ptxas-options=-O3 -lineinfo $nvcc_args $in -o $out -MD -MF $out.d -keep
+  command = /usr/local/cuda-12.3/bin/nvcc --ptxas-options=-O3 -lineinfo $nvcc_args $archcode90a $in -o $out -MD -MF $out.d -keep
   depfile = $out.d
 
 rule nvcc_keep_G
-  command = /usr/local/cuda-12.3/bin/nvcc -G $nvcc_args $in -o $out -MD -MF $out.d -keep
+  command = /usr/local/cuda-12.3/bin/nvcc -G $nvcc_args $archcode90a $in -o $out -MD -MF $out.d -keep
   depfile = $out.d
 
 rule dlink
-  command = /usr/local/cuda-12.3/bin/nvcc $archcode -dlink $in -o $out
+  command = /usr/local/cuda-12.3/bin/nvcc $archcode80 -dlink $in -o $out
 
 rule link
-  command = nvcc -ccbin g++-12 $archcode $in -o $out -lcuda -lcublas
+  command = nvcc -ccbin g++-12 $archcode80 $in -o $out -lcuda -lcublas
 
-build bin/gemm/cute_gemm.o : nvcc_keep gemm/cute_gemm.cu
 build bin/gemm/cutlass_gemm.o : nvcc_keep gemm/cutlass_gemm.cu
 build bin/gemm/gemm_sm90.o : nvcc_keep gemm/gemm_sm90.cu
-build bin/gemm/gemm_sm80.o : nvcc gemm/gemm_sm80.cu
-build bin/gemm/xgemm.o : nvcc gemm/xgemm.cu
-build bin/gemm/gemm_test.o : nvcc gemm/gemm_test.cu
-build bin/gemm/gemm_main.o : nvcc gemm/gemm_main.cpp
+build bin/gemm/gemm_sm80.o : nvcc_80 gemm/gemm_sm80.cu
+build bin/gemm/xgemm.o : nvcc_80 gemm/xgemm.cu
+build bin/gemm/gemm_test.o : nvcc_80 gemm/gemm_test.cu
+build bin/gemm/gemm_main.o : nvcc_80 gemm/gemm_main.cpp
 
 build bin/gemm/dlink.o : dlink bin/gemm/cutlass_gemm.o bin/gemm/cute_gemm.o bin/gemm/gemm_sm90.o bin/gemm/gemm_sm80.o bin/gemm/xgemm.o bin/gemm/gemm_test.o bin/gemm/gemm_main.o
 build gemm/gemm: link bin/gemm/dlink.o bin/gemm/cutlass_gemm.o bin/gemm/cute_gemm.o bin/gemm/gemm_sm90.o bin/gemm/gemm_sm80.o bin/gemm/xgemm.o bin/gemm/gemm_test.o bin/gemm/gemm_main.o

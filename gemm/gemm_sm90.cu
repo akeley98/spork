@@ -1290,10 +1290,15 @@ void matmul_impl(GPU_Tensors t, gemm_sm90_k_mode k_mode, cudaStream_t stream)
       }
       case gemm_sm90_k_mode::stream_k_early_tma:
       {
+        // Due to annoying compiler warning
+        fprintf(stderr, "gemm_sm90_k_mode::stream_k_early_tma disabled\n");
+        assert(0);
+#if 0
         using Multiplier = TiledMultiplier<cluster_m, cluster_n, smem_m, smem_n, smem_k, wg_m, wg_n, wg_k,
                                            gemm_sm90_k_mode::stream_k_early_tma,
                                            cluster_modulus, ring_buffer_size, dedicated_producer>;
         Multiplier::launch(stream, size_m, size_n, size_k, t.a, t.b, t.c);
+#endif
         return;
       }
       case gemm_sm90_k_mode::stream_k_late_tma:

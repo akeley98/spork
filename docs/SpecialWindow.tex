@@ -82,9 +82,9 @@ We have three cases, which I propose names for:
 \hline
 Proposed Name & Exo Object Code Syntax & Generated C & LoopIR type\\
 \hline
-\textbf{Dense Tensor} & \ \lighttt{varname: basetyp[shape]} proc parameter or alloc & Simple pointer & \ \lighttt{T.Tensor} with \lighttt{is\_window = False} \\
+\textbf{Dense Tensor} & \ \lighttt{varname: basetyp[shape]} proc parameter or alloc & Simple pointer & \ \lighttt{T.Tensor} with \lighttt{is\_win() False} \\
 \hline
-\textbf{Window Parameter} & \ \lighttt{varname: [basetyp][shape]} proc parameter & Window struct (pointer, strides) & \ \lighttt{T.Tensor} with \lighttt{is\_window = True} \\
+\textbf{Window Parameter} & \ \lighttt{varname: [basetyp][shape]} proc parameter & Window struct (pointer, strides) & \ \lighttt{T.Tensor} with \lighttt{is\_win() True} \\
 \hline
 \textbf{Derived Window} & \ \lighttt{dstname = srcname[slice]} (window statement) & Window struct (pointer, strides) & \ \lighttt{T.Window} with \lighttt{src\_buf = Sym} of aliased \lighttt{T.Tensor} \\
 \hline

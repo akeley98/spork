@@ -13,21 +13,53 @@ enum class TestDataCode
     tiled_numbers = 2,
 };
 
-enum class TestKModes
+enum class AlgorithmCode
 {
-    all = 0,
-    output_stationary = 1,
-    split_k_outer = 2,
-    split_k_inner = 3,
-    stream_k_early_tma = 4,
-    stream_k_late_tma = 5,
+    cublas,
+    cutlass,
+    exo,
+    mine_output_stationary,
+    mine_split_k_inner,
+    mine_split_k_outer,
+    mine_stream_k_early_tma,
+    mine_stream_k_late_tma,
 };
+
+constexpr uint32_t algorithm_count = 1u + static_cast<uint32_t>(AlgorithmCode::mine_stream_k_late_tma);
+
+inline uint32_t algorithm_code_bit(AlgorithmCode code)
+{
+    return 1u << static_cast<uint32_t>(code);
+}
+
+inline const char* algorithm_name(AlgorithmCode code)
+{
+    switch (code) {
+      case AlgorithmCode::mine_output_stationary:
+        return "mine (output stationary)";
+      case AlgorithmCode::cublas:
+        return "cublas";
+      case AlgorithmCode::cutlass:
+        return "cutlass";
+      case AlgorithmCode::mine_split_k_inner:
+        return "mine (split k inner)";
+      case AlgorithmCode::mine_split_k_outer:
+        return "mine (split k outer)";
+      case AlgorithmCode::mine_stream_k_early_tma:
+        return "mine (stream k early TMA)";
+      case AlgorithmCode::mine_stream_k_late_tma:
+        return "mine (stream k late TMA)";
+      case AlgorithmCode::exo:
+        return "exo";
+    }
+    return "unknown";
+}
 
 struct TestParams
 {
     uint32_t M, N, K;
     TestDataCode test_data_code_A, test_data_code_B;
-    TestKModes test_k_modes;
+    uint32_t algorithm_code_bits;
 };
 
 void gemm_test(TestParams params, cudaStream_t stream);
