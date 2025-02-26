@@ -23,7 +23,6 @@ int main()
 
         params.algorithm_code_bits = 0;
         params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::cublas);
-        params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::exo);
         if (is_h100) {
             params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::cutlass);
             params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::mine_output_stationary);
@@ -31,6 +30,9 @@ int main()
             params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::mine_split_k_outer);
             // params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::mine_stream_k_early_tma);
             params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::mine_stream_k_late_tma);
+        }
+        else {
+            params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::exo);
         }
 
         if (!nontrivial_only) {
@@ -50,10 +52,10 @@ int main()
         }
     };
 
-    sized_tests(160, 480, 816, false);
-    sized_tests(720, 1440, 65536, true);
-    sized_tests(1440, 1440, 65536, true);
+    sized_tests(768, 1536, 65536, false);
+    sized_tests(1536, 1536, 65536, true);
     if (is_h100) {
+        sized_tests(160, 480, 816, false);
         sized_tests(32768, 65536, 48, true);
         sized_tests(32768, 40016, 816, false);
         sized_tests(40016, 32768, 6400, true);

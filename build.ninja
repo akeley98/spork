@@ -25,12 +25,19 @@ rule dlink
 rule link
   command = nvcc -ccbin g++-12 $archcode80 $in -o $out -lcuda -lcublas
 
+rule exocc_xgemm
+  command = exocc $in
+  depfile = xgemm/xgemm.d
+
+build xgemm/xgemm.c xgemm/xgemm.cu xgemm/xgemm.cuh xgemm/xgemm.h: exocc_xgemm xgemm.py
+
 build bin/gemm/cutlass_gemm.o : nvcc_keep gemm/cutlass_gemm.cu
 build bin/gemm/gemm_sm90.o : nvcc_keep gemm/gemm_sm90.cu
 build bin/gemm/gemm_sm80.o : nvcc_80 gemm/gemm_sm80.cu
-build bin/gemm/xgemm.o : nvcc_80 gemm/xgemm.cu
-build bin/gemm/gemm_test.o : nvcc_80 gemm/gemm_test.cu
+build bin/xgemm/xgemm.c.o : nvcc_80 xgemm/xgemm.c
+build bin/xgemm/xgemm.cu.o : nvcc_80 xgemm/xgemm.cu
+build bin/gemm/gemm_test.o : nvcc_80 gemm/gemm_test.cu | xgemm/xgemm.h
 build bin/gemm/gemm_main.o : nvcc_80 gemm/gemm_main.cpp
 
-build bin/gemm/dlink.o : dlink bin/gemm/cutlass_gemm.o bin/gemm/cute_gemm.o bin/gemm/gemm_sm90.o bin/gemm/gemm_sm80.o bin/gemm/xgemm.o bin/gemm/gemm_test.o bin/gemm/gemm_main.o
-build gemm/gemm: link bin/gemm/dlink.o bin/gemm/cutlass_gemm.o bin/gemm/cute_gemm.o bin/gemm/gemm_sm90.o bin/gemm/gemm_sm80.o bin/gemm/xgemm.o bin/gemm/gemm_test.o bin/gemm/gemm_main.o
+build bin/gemm/dlink.o : dlink bin/gemm/cutlass_gemm.o bin/gemm/cute_gemm.o bin/gemm/gemm_sm90.o bin/gemm/gemm_sm80.o bin/xgemm/xgemm.cu.o bin/gemm/gemm_test.o bin/gemm/gemm_main.o
+build gemm/gemm: link bin/gemm/dlink.o bin/gemm/cutlass_gemm.o bin/gemm/cute_gemm.o bin/gemm/gemm_sm90.o bin/gemm/gemm_sm80.o bin/xgemm/xgemm.c.o bin/xgemm/xgemm.cu.o bin/gemm/gemm_test.o bin/gemm/gemm_main.o

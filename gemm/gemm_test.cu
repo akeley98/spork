@@ -8,7 +8,7 @@
 #include "cutlass_gemm.h"
 #include "gemm_sm80.h"
 #include "gemm_sm90.h"
-#include "xgemm.h"
+#include "../xgemm/xgemm.h"
 
 #include "cutlass/arch/synclog.hpp"
 
@@ -271,7 +271,7 @@ void gemm_test(TestParams params, cudaStream_t stream)
             }
             else if (algo == AlgorithmCode::exo) {
                 assert(stream == 0);
-                exo_cuda_gemm(nullptr, int(params.M), int(params.N), int(params.K), d_a, d_b, d_c_tested);
+                xgemm_cuda(nullptr, int(params.M), int(params.N), int(params.K), d_a, d_b, d_c_tested);
             }
             else {
                 GPU_Tensors t{params.M, params.N, params.K, d_a, d_bT, d_c_tested, 0, 1, 0};
