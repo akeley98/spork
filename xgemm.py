@@ -113,10 +113,14 @@ def xgemm_cuda(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B: f32[K
     assert N % N1 == 0
     assert K % K0 == 0
 
-    with ExtWithContext(launch, body_prefix, body_suffix, body_ext, ext_snippets):
+    # with ExtWithContext(launch, body_prefix, body_suffix, body_ext, ext_snippets):
+    with CudaDeviceFunction(blockDim = 256):
+        Fence(cpu_cuda_api, cuda_api, codegen="")
         # These should be cuda_tasks loops
-        for m2 in _codegen_par(0, M / M1, c_index="exo_task.m2", static_bounds=(None, None)):
-            for n2 in _codegen_par(0, N / N1, c_index="exo_task.n2", static_bounds=(None, None)):
+        # for m2 in _codegen_par(0, M / M1, c_index="exo_task.m2", static_bounds=(None, None)):
+        for m2 in cuda_tasks(0, M / M1):
+            # for n2 in _codegen_par(0, N / N1, c_index="exo_task.n2", static_bounds=(None, None)):
+            for n2 in cuda_tasks(0, N / N1):
                 # Per CTA code
 
                 # Tiles
@@ -130,7 +134,7 @@ def xgemm_cuda(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B: f32[K
                         accum[m0, n0] = 0
 
                 for k1 in seq(0, K / K0):
-                    Fence(cuda_sync, cuda_sync, codegen="__syncthreads();")
+                    Fence(cuda_classic, cuda_classic, codegen="__syncthreads();")
 
                     # Load A tile
                     for m1 in seq(0, M1 / 16):
@@ -144,7 +148,7 @@ def xgemm_cuda(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B: f32[K
                             for n0 in _codegen_par(0, 128, c_index="threadIdx.x % 128", static_bounds=(None, None)):
                                 B_tile[k0_seq * 2 + k0_par, n0] = B[k1 * K0 + k0_seq * 2 + k0_par, n2 * N1 + n0]
 
-                    Fence(cuda_sync, cuda_sync, codegen="__syncthreads();")
+                    Fence(cuda_classic, cuda_classic, codegen="__syncthreads();")
 
                     for m1 in _codegen_par(0, 16, c_index="threadIdx.x / 16", static_bounds=(None, None)):
                         for n1 in _codegen_par(0, 16, c_index="threadIdx.x % 16", static_bounds=(None, None)):
