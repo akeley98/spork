@@ -4,101 +4,6 @@ from exo import *
 from exo.stdlib.scheduling import *
 from exo.spork.cuda_memory import *
 
-m_tile = 16
-n_tile = 16
-k_tile = 8
-
-launch = "exo_cudaLaunch0_xgemm_cuda(exo_cudaStream, (struct exo_CudaDeviceArgs0_xgemm_cuda) {M, N, K, A, B, C});"
-
-h_snippet = """\
-#include <cuda.h>
-#include <cuda_runtime.h>
-static const cudaStream_t exo_cudaStream = 0;  // TODO
-
-struct exo_CudaDeviceArgs0_xgemm_cuda
-{
-    int M, N, K;
-    const float* A;
-    const float* B;
-    float* C;
-};
-
-void exo_cudaLaunch0_xgemm_cuda(cudaStream_t exo_cudaStream, struct exo_CudaDeviceArgs0_xgemm_cuda exo_deviceArgs);
-#ifdef __CUDACC__
-__global__ void exo_deviceFunction0_xgemm_cuda(__grid_constant__ const struct exo_CudaDeviceArgs0_xgemm_cuda exo_deviceArgs);
-#endif
-"""
-
-cuh_snippet = """\
-struct exo_Cuda0_xgemm_cuda
-{
-    using exo_DeviceArgs = exo_CudaDeviceArgs0_xgemm_cuda;
-
-    static const uint32_t exo_blockDim = 256;
-
-    struct exo_Task
-    {
-        int_fast32_t m2, n2;
-    };
-
-    static constexpr unsigned exo_smemBytes = 0;
-
-    static __device__ void exo_deviceSetup(char* exo_smem, const exo_DeviceArgs& exo_deviceArgs);
-    static __device__ void exo_deviceMainLoop(char* exo_smem, const exo_DeviceArgs& exo_deviceArgs);
-    static __device__ void exo_deviceTask(char* exo_smem, const exo_DeviceArgs& exo_deviceArgs, exo_Task exo_task);
-    static void exo_cudaLaunch(cudaStream_t exo_cudaStream, const exo_DeviceArgs& exo_deviceArgs);
-};
-
-__device__ void exo_Cuda0_xgemm_cuda::exo_deviceSetup(char* exo_smem, const exo_DeviceArgs& exo_deviceArgs)
-{
-}
-
-__device__ void exo_Cuda0_xgemm_cuda::exo_deviceMainLoop(char* exo_smem, const exo_DeviceArgs& exo_deviceArgs)
-{
-    unsigned exo_taskIndex = 0;
-    for (int_fast32_t m2 = 0; m2 < exo_deviceArgs.M / 256; ++m2) {
-        for (int_fast32_t n2 = 0; n2 < exo_deviceArgs.N / 128; ++n2) {
-            if (exo_taskIndex++ % gridDim.x == blockIdx.x) {
-                exo_deviceTask(exo_smem, exo_deviceArgs, {m2, n2});
-            }
-        }
-    }
-}
-
-inline void exo_Cuda0_xgemm_cuda::exo_cudaLaunch(cudaStream_t exo_cudaStream, const exo_DeviceArgs& exo_deviceArgs)
-{
-    const uint32_t exo_gridDim = 48;
-    exo_deviceFunction0_xgemm_cuda<<<exo_gridDim, exo_blockDim, exo_smemBytes, exo_cudaStream>>>(exo_deviceArgs);
-}
-"""
-
-cu_snippet = """\
-__global__ void exo_deviceFunction0_xgemm_cuda(__grid_constant__ const struct exo_CudaDeviceArgs0_xgemm_cuda exo_deviceArgs)
-{
-    extern __shared__ char exo_smem[];
-    exo_Cuda0_xgemm_cuda::exo_deviceSetup(exo_smem, exo_deviceArgs);
-    exo_Cuda0_xgemm_cuda::exo_deviceMainLoop(exo_smem, exo_deviceArgs);
-}
-
-void exo_cudaLaunch0_xgemm_cuda(cudaStream_t exo_cudaStream, struct exo_CudaDeviceArgs0_xgemm_cuda exo_deviceArgs)
-{
-    exo_Cuda0_xgemm_cuda::exo_cudaLaunch(exo_cudaStream, exo_deviceArgs);
-}
-"""
-
-ext_snippets = {"h":h_snippet, "cu":cu_snippet, "cuh":cuh_snippet}
-
-body_prefix = """__device__ void exo_Cuda0_xgemm_cuda::exo_deviceTask(char* exo_smem, const exo_DeviceArgs& exo_deviceArgs, exo_Task exo_task) {
-  const float* A = exo_deviceArgs.A;
-  const float* B = exo_deviceArgs.B;
-  float* C = exo_deviceArgs.C;
-  int M = exo_deviceArgs.M;
-  int N = exo_deviceArgs.N;
-  int K = exo_deviceArgs.K;
-"""
-body_suffix = "}"
-body_ext = "cuh"
-
 M0 = 16
 N0 = 8
 
@@ -113,9 +18,8 @@ def xgemm_cuda(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B: f32[K
     assert N % N1 == 0
     assert K % K0 == 0
 
-    # with ExtWithContext(launch, body_prefix, body_suffix, body_ext, ext_snippets):
     with CudaDeviceFunction(blockDim = 256):
-        Fence(cpu_cuda_api, cuda_api, codegen="")
+        Fence(cpu_cuda_api, cuda_api)
         for m2 in cuda_tasks(0, M / M1):
             for n2 in cuda_tasks(0, N / N1):
                 # Per CTA code
