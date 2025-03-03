@@ -52,8 +52,8 @@ int main()
         }
     };
 
-    sized_tests(768, 1536, 65536, false);
-    sized_tests(1536, 1536, 65536, true);
+    sized_tests(7680, 1536, 4096, false);
+    sized_tests(15360, 1536, 4096, true);
     if (is_h100) {
         sized_tests(160, 480, 816, false);
         sized_tests(32768, 65536, 48, true);
