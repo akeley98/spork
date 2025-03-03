@@ -5,6 +5,8 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#include <cuda/std/array>
+
 #include "gpu_tensor.h"
 
 namespace {
@@ -22,29 +24,50 @@ __device__ __forceinline__ void async_memcpy_waitall() {
     asm volatile("cp.async.wait_all;\n" ::);
 }
 
-struct WmmaA
+struct WmmaA : cuda::std::array<unsigned, 4>
 {
-    unsigned r0, r1, r2, r3;
 };
 
-struct WmmaB
+struct WmmaB : cuda::std::array<unsigned, 2>
 {
-    unsigned r0, r1;
 };
 
-struct WmmaD
+struct WmmaD : cuda::std::array<unsigned, 4>
 {
-    unsigned r0, r1, r2, r3;
 };
 
-inline __device__ void store_d(float* data, WmmaD d, unsigned row_stride)
+inline __device__ void load_a(WmmaA& rmem, const float* gmem, cuda::std::array<unsigned, 2> element_strides)
 {
+    const unsigned row_stride = element_strides[0];
+    const unsigned col_stride = element_strides[1];
     const unsigned warp_lane = threadIdx.x % 32u;
-    const unsigned thread_offset = (warp_lane % 4u) * 2u + (warp_lane / 4u) * row_stride;
-    data[thread_offset] = __uint_as_float(d.r0);
-    data[thread_offset + 1] = __uint_as_float(d.r1);
-    data[thread_offset + row_stride * 8] = __uint_as_float(d.r2);
-    data[thread_offset + 1 + row_stride * 8] = __uint_as_float(d.r3);
+    const float* gmem_thread_baseaddr = &gmem[warp_lane / 4u * row_stride + warp_lane % 4u * col_stride];
+    rmem[0] = __float_as_uint(gmem_thread_baseaddr[0]);
+    rmem[1] = __float_as_uint(gmem_thread_baseaddr[8 * row_stride]);
+    rmem[2] = __float_as_uint(gmem_thread_baseaddr[4 * col_stride]);
+    rmem[3] = __float_as_uint(gmem_thread_baseaddr[8 * row_stride + 4 * col_stride]);
+}
+
+inline __device__ void load_b(WmmaB& rmem, const float* gmem, cuda::std::array<unsigned, 2> element_strides)
+{
+    const unsigned row_stride = element_strides[0];
+    const unsigned col_stride = element_strides[1];
+    const unsigned warp_lane = threadIdx.x % 32u;
+    const float* gmem_thread_baseaddr = &gmem[warp_lane % 4u * row_stride + warp_lane / 4u * col_stride];
+    rmem[0] = __float_as_uint(gmem_thread_baseaddr[0]);
+    rmem[1] = __float_as_uint(gmem_thread_baseaddr[4 * row_stride]);
+}
+
+inline __device__ void store_d(float* gmem, WmmaD rmem, cuda::std::array<unsigned, 2> element_strides)
+{
+    const unsigned row_stride = element_strides[0];
+    const unsigned col_stride = element_strides[1];
+    const unsigned warp_lane = threadIdx.x % 32u;
+    float* gmem_thread_baseaddr = &gmem[(warp_lane / 4u) * row_stride + (warp_lane % 4u) * 2u * col_stride];
+    gmem_thread_baseaddr[0] = __uint_as_float(rmem[0]);
+    gmem_thread_baseaddr[col_stride] = __uint_as_float(rmem[1]);
+    gmem_thread_baseaddr[8 * row_stride] = __uint_as_float(rmem[2]);
+    gmem_thread_baseaddr[8 * row_stride + col_stride] = __uint_as_float(rmem[3]);
 }
 
 inline __device__ WmmaD wmma(WmmaA a, WmmaB b, WmmaD c)
@@ -54,56 +77,9 @@ inline __device__ WmmaD wmma(WmmaA a, WmmaB b, WmmaD c)
         "{%0,%1,%2,%3},\n\t"
         "{%4,%5,%6,%7},\n\t"
         "{%8,%9},\n\t"
-        "{%10,%11,%12,%13};" : "=r"(d.r0), "=r"(d.r1), "=r"(d.r2), "=r"(d.r3)
-        : "r"(a.r0), "r"(a.r1), "r"(a.r2), "r"(a.r3), "r"(b.r0), "r"(b.r1), "r"(c.r0), "r"(c.r1), "r"(c.r2), "r"(c.r3));
+        "{%10,%11,%12,%13};" : "=r"(d[0]), "=r"(d[1]), "=r"(d[2]), "=r"(d[3])
+        : "r"(a[0]), "r"(a[1]), "r"(a[2]), "r"(a[3]), "r"(b[0]), "r"(b[1]), "r"(c[0]), "r"(c[1]), "r"(c[2]), "r"(c[3]));
     return d;
-}
-
-struct alignas(float4) Tile8x8A
-{
-    float tile_data[64];
-
-     __device__ void half_warp_async_load(float const* input_data, unsigned row_stride)
-    {
-        const unsigned lane = threadIdx.x % 16u;
-        const unsigned row = lane % 8u;
-        const unsigned col = (lane / 8u) * 4u;
-        cp_async4(&tile_data[lane * 4], input_data + row_stride * row + col);
-    }
-};
-
-__device__ WmmaA load_a(const Tile8x8A& top_tile, const Tile8x8A& bottom_tile)
-{
-    WmmaA a;
-    const unsigned lane = threadIdx.x % 32u;
-    a.r0 = __float_as_uint(top_tile.tile_data[lane]);
-    a.r1 = __float_as_uint(bottom_tile.tile_data[lane]);
-    a.r2 = __float_as_uint(top_tile.tile_data[lane + 32]);
-    a.r3 = __float_as_uint(bottom_tile.tile_data[lane + 32]);
-    return a;
-}
-
-struct alignas(float4) Tile8x8B
-{
-    float tile_data[64];
-
-    __device__ void half_warp_async_load(float const* input_data, unsigned row_stride)
-    {
-        const unsigned lane = threadIdx.x % 16u;
-        const unsigned row = lane / 2u;
-        const unsigned col = (lane % 2u) * 4u;
-        cp_async4(&tile_data[lane * 4], input_data + row_stride * row + col);
-    }
-};
-
-__device__ WmmaB load_b(const Tile8x8B& tile)
-{
-    WmmaB b;
-    const unsigned lane = threadIdx.x % 32u;
-    const unsigned swizzled_lane = (lane % 4u) * 8u + lane / 4u;
-    b.r0 = __float_as_uint(tile.tile_data[swizzled_lane]);
-    b.r1 = __float_as_uint(tile.tile_data[swizzled_lane + 32]);
-    return b;
 }
 
 /* TODO: your GPU kernels here... */
@@ -121,10 +97,10 @@ struct TiledMultiplier
     static constexpr uint32_t WARP_K = 8;
 
     // One buffer of double buffer.
-    struct Buffers
+    struct alignas(float4) Buffers
     {
-        Tile8x8A a_tiles[SMEM_I / 8][SMEM_K / 8];  // Stores SMEM_I × SMEM_K of a
-        Tile8x8B b_tiles[SMEM_K / 8][SMEM_J / 8];  // Stores SMEM_K × SMEM_J of b
+        float a[SMEM_I][SMEM_K];  // Stores SMEM_I × SMEM_K of a
+        float b[SMEM_K][SMEM_J];  // Stores SMEM_K × SMEM_J of b
     };
 
     __host__ __device__ static constexpr uint32_t smem_size()
@@ -159,27 +135,17 @@ struct TiledMultiplier
     __device__ void cta_async_load_block(Buffers& buffers, uint32_t cta_i_offset,
                                          uint32_t cta_j_offset, uint32_t cta_k_offset) const
     {
-        constexpr uint32_t num_half_warps = cta_size() / 16u;
-        constexpr uint32_t num_tiles_a = SMEM_I * SMEM_K / 64u;
-        constexpr uint32_t num_tiles_b = SMEM_K * SMEM_J / 64u;
-        const uint32_t half_warp_index = threadIdx.x / 16u;
-
-        for (uint32_t tile_index = half_warp_index; tile_index < num_tiles_a; tile_index += num_half_warps) {
-            const uint32_t tile_i_idx = (tile_index / (SMEM_K / 8));
-            const uint32_t tile_k_idx = (tile_index % (SMEM_K / 8));
-            const uint32_t tile_i_offset = cta_i_offset + 8 * tile_i_idx;
-            const uint32_t tile_k_offset = cta_k_offset + 8 * tile_k_idx;
-            const float* src = a + tile_i_offset * size_k + tile_k_offset;
-            buffers.a_tiles[tile_i_idx][tile_k_idx].half_warp_async_load(src, size_k);
+        for (unsigned work_idx = threadIdx.x; work_idx < SMEM_I * SMEM_K / 4u; work_idx += blockDim.x) {
+            const unsigned thr_i_offset = work_idx / (SMEM_K / 4u);
+            const unsigned thr_k_offset = 4 * (work_idx % (SMEM_K / 4u));
+            cp_async4(&buffers.a[thr_i_offset][thr_k_offset],
+                      &a[(thr_i_offset + cta_i_offset) * size_k + cta_k_offset + thr_k_offset]);
         }
-
-        for (uint32_t tile_index = half_warp_index; tile_index < num_tiles_b; tile_index += num_half_warps) {
-            const uint32_t tile_k_idx = (tile_index / (SMEM_J / 8));
-            const uint32_t tile_j_idx = (tile_index % (SMEM_J / 8));
-            const uint32_t tile_k_offset = cta_k_offset + 8 * tile_k_idx;
-            const uint32_t tile_j_offset = cta_j_offset + 8 * tile_j_idx;
-            const float* src = b + tile_k_offset * size_j + tile_j_offset;
-            buffers.b_tiles[tile_k_idx][tile_j_idx].half_warp_async_load(src, size_j);
+        for (unsigned work_idx = threadIdx.x; work_idx < SMEM_K * SMEM_J / 4u; work_idx += blockDim.x) {
+            const unsigned thr_k_offset = work_idx / (SMEM_J / 4u);
+            const unsigned thr_j_offset = 4 * (work_idx % (SMEM_J / 4u));
+            cp_async4(&buffers.b[thr_k_offset][thr_j_offset],
+                      &b[(thr_k_offset + cta_k_offset) * size_j + cta_j_offset + thr_j_offset]);
         }
     }
 
@@ -204,10 +170,11 @@ struct TiledMultiplier
         const uint32_t warp_j_idx = get_warp_j_idx();
 
         for (uint32_t warp_k_idx = 0; warp_k_idx < SMEM_K / WARP_K; ++warp_k_idx) {
-            WmmaA wmma_a = load_a(buffers.a_tiles[2 * warp_i_idx][warp_k_idx],
-                                  buffers.a_tiles[2 * warp_i_idx + 1][warp_k_idx]);
-            WmmaB wmma_b0 = load_b(buffers.b_tiles[warp_k_idx][2 * warp_j_idx]);
-            WmmaB wmma_b1 = load_b(buffers.b_tiles[warp_k_idx][2 * warp_j_idx + 1]);
+            WmmaA wmma_a;
+            WmmaB wmma_b0, wmma_b1;
+            load_a(wmma_a, &buffers.a[warp_i_idx * WARP_I][warp_k_idx * WARP_K], {SMEM_K, 1});
+            load_b(wmma_b0, &buffers.b[warp_k_idx * WARP_K][warp_j_idx * WARP_J], {SMEM_J, 1});
+            load_b(wmma_b1, &buffers.b[warp_k_idx * WARP_K][warp_j_idx * WARP_J + 8], {SMEM_J, 1});
             accum0 = wmma(wmma_a, wmma_b0, accum0);
             accum1 = wmma(wmma_a, wmma_b1, accum1);
         }
@@ -222,8 +189,8 @@ struct TiledMultiplier
         assert(size_k % SMEM_K == 0);
 
         const uint32_t k_blk_dim = size_k / SMEM_K;
-        WmmaD accum0{0, 0, 0, 0};
-        WmmaD accum1{0, 0, 0, 0};
+        WmmaD accum0{{0, 0, 0, 0}};
+        WmmaD accum1{{0, 0, 0, 0}};
 
         for (uint32_t cta_k_idx = 0; cta_k_idx <= k_blk_dim; ++cta_k_idx) {
             if (cta_k_idx < k_blk_dim) {
@@ -239,8 +206,8 @@ struct TiledMultiplier
 
         const uint32_t warp_i_offset = get_warp_i_idx() * WARP_I + cta_i_offset;
         const uint32_t warp_j_offset = get_warp_j_idx() * WARP_J + cta_j_offset;
-        store_d(c + warp_i_offset * size_j + warp_j_offset, accum0, size_j);
-        store_d(c + warp_i_offset * size_j + (warp_j_offset + 8), accum1, size_j);
+        store_d(c + warp_i_offset * size_j + warp_j_offset, accum0, {size_j, 1});
+        store_d(c + warp_i_offset * size_j + (warp_j_offset + 8), accum1, {size_j, 1});
     }
 
     __device__ void kernel_main()
