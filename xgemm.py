@@ -12,6 +12,14 @@ N1 = 128
 
 K0 = 16
 
+Sm80_sync = 'asm volatile("cp.async.wait_all;" ::); __syncthreads();'
+
+@instr("exo_Sm80_cpAsync16B(&{smem_data}, &{gmem_data});")
+def tmp_cpAsync16B_f32(smem: [f32][4] @ CudaSmemLinear, gmem: [f32][4] @ CudaGmemLinear):
+    for i in seq(0, 4):
+        smem[i] = gmem[i]
+
+
 @proc
 def xgemm_cuda(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B: f32[K,N] @ CudaGmemLinear, C: f32[M,N] @ CudaGmemLinear):
     assert M % M1 == 0
@@ -38,21 +46,23 @@ def xgemm_cuda(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B: f32[K
 
                 # K tiles loop
                 for k1 in seq(0, K / K0):
-                    Fence(cuda_classic, cuda_classic, codegen="__syncthreads();")
+                    Fence(Sm80_generic, Sm80_generic, codegen=Sm80_sync)
 
                     # Load A tile
-                    for m1 in seq(0, M1 / 16):
-                        for m0 in cuda_threads(0, 16, unit=16 * cuda_thread):
-                            for k0 in cuda_threads(0, 16, unit=cuda_thread):
-                                A_tile[m1 * 16 + m0, k0] = A[m2 * M1 + m1 * 16 + m0, k1 * K0 + k0]
+                    for m1 in seq(0, M1 / 64):
+                        for m0 in cuda_threads(0, 64, unit=4 * cuda_thread):
+                            for k0 in cuda_threads(0, 4, unit=cuda_thread):
+                                tmp_cpAsync16B_f32(A_tile[m1 * 64 + m0, 4 * k0 : 4 * k0 + 4],
+                                                   A[m2 * M1 + m1 * 64 + m0, k1 * K0 + k0 * 4 : k1 * K0 + k0 * 4 + 4])
 
                     # Load B tile
-                    for k0_seq in seq(0, 8):
-                        for k0_par in cuda_threads(0, 2, unit=128 * cuda_thread):
-                            for n0 in cuda_threads(0, 128, unit=cuda_thread):
-                                B_tile[k0_seq * 2 + k0_par, n0] = B[k1 * K0 + k0_seq * 2 + k0_par, n2 * N1 + n0]
+                    for k0_seq in seq(0, 2):
+                        for k0_par in cuda_threads(0, 8, unit=32 * cuda_thread):
+                            for n0 in cuda_threads(0, 32, unit=cuda_thread):
+                                tmp_cpAsync16B_f32(B_tile[k0_seq * 8 + k0_par, 4 * n0 : 4 * n0 + 4],
+                                                   B[k1 * K0 + k0_seq * 8 + k0_par, n2 * N1 + 4 * n0 : n2 * N1 + 4 * n0 + 4])
 
-                    Fence(cuda_classic, cuda_classic, codegen="__syncthreads();")
+                    Fence(Sm80_generic, Sm80_generic, codegen=Sm80_sync)
 
                     # Multiply and accumulate A and B tiles
                     for m1 in cuda_threads(0, 16, unit=16 * cuda_thread):
@@ -69,5 +79,3 @@ def xgemm_cuda(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B: f32[K
                         for m0 in seq(0, M0, pragma_unroll=0):
                             for n0 in seq(0, N0, pragma_unroll=0):
                                 C[m2 * M1 + m1 * M0 + m0, n2 * N1 + n1 * N0 + n0] = accum[m1,n1,m0, n0]
-
-
