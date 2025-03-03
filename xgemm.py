@@ -29,11 +29,14 @@ def xgemm_cuda(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B: f32[K
                 B_tile : f32[K0, N1] @ CudaSmemLinear
 
                 # Zero-out accumulator
-                accum : f32[M0, N0] @ CudaRmem
-                for m0 in seq(0, M0, pragma_unroll=0):
-                    for n0 in seq(0, N0, pragma_unroll=0):
-                        accum[m0, n0] = 0
+                accum : f32[16, 16, M0, N0] @ CudaRmem
+                for m1 in cuda_threads(0, 16, unit=16 * cuda_thread):
+                    for n1 in cuda_threads(0, 16, unit=cuda_thread):
+                        for m0 in seq(0, M0, pragma_unroll=0):
+                            for n0 in seq(0, N0, pragma_unroll=0):
+                                accum[m1, n1, m0, n0] = 0
 
+                # K tiles loop
                 for k1 in seq(0, K / K0):
                     Fence(cuda_classic, cuda_classic, codegen="__syncthreads();")
 
@@ -51,18 +54,20 @@ def xgemm_cuda(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B: f32[K
 
                     Fence(cuda_classic, cuda_classic, codegen="__syncthreads();")
 
+                    # Multiply and accumulate A and B tiles
                     for m1 in cuda_threads(0, 16, unit=16 * cuda_thread):
                         for n1 in cuda_threads(0, 16, unit=cuda_thread):
                             for m0 in seq(0, M0, pragma_unroll=0):
                                 for n0 in seq(0, N0, pragma_unroll=0):
                                     for k0 in seq(0, K0):
-                                        accum[m0,n0] += A_tile[m1 * M0 + m0, k0] * B_tile[k0, n1 * N0 + n0]
+                                        accum[m1,n1,m0,n0] += A_tile[m1 * M0 + m0, k0] * B_tile[k0, n1 * N0 + n0]
+                # End K tiles loop
 
                 # Write out accumulator
                 for m1 in cuda_threads(0, 16, unit=16 * cuda_thread):
                     for n1 in cuda_threads(0, 16, unit=cuda_thread):
                         for m0 in seq(0, M0, pragma_unroll=0):
                             for n0 in seq(0, N0, pragma_unroll=0):
-                                C[m2 * M1 + m1 * M0 + m0, n2 * N1 + n1 * N0 + n0] = accum[m0, n0]
+                                C[m2 * M1 + m1 * M0 + m0, n2 * N1 + n1 * N0 + n0] = accum[m1,n1,m0, n0]
 
 
