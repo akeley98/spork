@@ -14,7 +14,7 @@ int main()
     const bool is_h100 = cuda_cc_major == 9 && cuda_cc_minor == 0;
     fprintf(stderr, "is_h100: %i\n", is_h100);
 
-    auto sized_tests = [is_h100] (uint32_t M, uint32_t N, uint32_t K, bool nontrivial_only)
+    auto sized_tests = [is_h100] (uint32_t M, uint32_t N, uint32_t K, bool nontrivial_only, bool exo = 0)
     {
         TestParams params{};
         params.M = M;
@@ -31,7 +31,7 @@ int main()
             // params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::mine_stream_k_early_tma);
             params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::mine_stream_k_late_tma);
         }
-        else {
+        if (exo) {
             params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::exo);
         }
 
@@ -52,8 +52,8 @@ int main()
         }
     };
 
-    sized_tests(7680, 1536, 4096, false);
-    sized_tests(15360, 1536, 4096, true);
+    sized_tests(7680, 1536, 4096, false, true);
+    sized_tests(15360, 1536, 8192, true, true);
     if (is_h100) {
         sized_tests(160, 480, 816, false);
         sized_tests(32768, 65536, 48, true);

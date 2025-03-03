@@ -4,14 +4,11 @@ from exo import *
 from exo.stdlib.scheduling import *
 from exo.spork.cuda_memory import *
 
-M0 = 16
-N0 = 8
-
-Mw = 64
+Mw = 48
 Nw = 64
 
-M1 = 256
-N1 = 128
+M1 = 192
+N1 = 128  # Does not change gracefully
 
 K0 = 16
 
@@ -59,7 +56,7 @@ def xgemm_cuda(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B: f32[K
     assert N % N1 == 0
     assert K % K0 == 0
 
-    with CudaDeviceFunction(blockDim = 256):
+    with CudaDeviceFunction(blockDim = 256, blocks_per_sm = 2):
         Fence(cpu_cuda_api, cuda_api)
         for m2 in cuda_tasks(0, M / M1):
             for n2 in cuda_tasks(0, N / N1):
@@ -70,11 +67,11 @@ def xgemm_cuda(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B: f32[K
                 B_smem : f32[2, K0, N1] @ CudaSmemLinear
 
                 # Zero-out accumulator (warp code)
-                D_rmem : f32[4, 2, 4, 8, 16, 8] @ Sm80_RmemMatrixD
-                for mw in cuda_threads(0, 4, unit=2 * cuda_warp):
-                    for nw in cuda_threads(0, 2, unit=cuda_warp):
-                        for m_seq in seq(0, 4):
-                            for n_seq in seq(0, 8):
+                D_rmem : f32[M1/Mw, N1/Nw, Mw/16, Nw/8, 16, 8] @ Sm80_RmemMatrixD
+                for mw in cuda_threads(0, M1/Mw, unit=(N1/Nw) * cuda_warp):
+                    for nw in cuda_threads(0, N1/Nw, unit=cuda_warp):
+                        for m_seq in seq(0, Mw/16):
+                            for n_seq in seq(0, Nw/8):
                                 tmp_zero_d(D_rmem[mw,nw,m_seq, n_seq,:,:])
 
                 # K tiles loop, double buffered
@@ -100,27 +97,27 @@ def xgemm_cuda(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B: f32[K
                                                          n2 * N1 + 4 * n0 : n2 * N1 + 4 * n0 + 4])
 
                     if k1 > 0:
-                        for mw in cuda_threads(0, 4, unit=2 * cuda_warp):
-                            for nw in cuda_threads(0, 2, unit=cuda_warp):
+                        for mw in cuda_threads(0, M1 / Mw, unit=(N1/Nw) * cuda_warp):
+                            for nw in cuda_threads(0, N1 / Nw, unit=cuda_warp):
                                 # Load all B matrix tiles ahead of time
-                                B_rmem : f32[2, 8, 8, 8] @ Sm80_RmemMatrixB
-                                for n_seq in seq(0, 8, pragma_unroll=0):
+                                B_rmem : f32[K0/8, Nw/8, 8, 8] @ Sm80_RmemMatrixB
+                                for n_seq in seq(0, Nw / 8, pragma_unroll=0):
                                     for k_seq in seq(0, K0 / 8, pragma_unroll=0):
                                         tmp_load_b(B_rmem[k_seq,n_seq,:,:],
                                                    B_smem[1 - k1 % 2,
                                                           k_seq*8:(k_seq+1)*8,
                                                           nw*Nw + n_seq*8 : nw*Nw + (n_seq+1)*8])
 
-                                for m_seq in seq(0, 4, pragma_unroll=0):
+                                for m_seq in seq(0, Mw / 16, pragma_unroll=0):
                                     # Load A matrix tiles needed for m iteration
-                                    A_rmem : f32[2, 16, 8] @ Sm80_RmemMatrixA
+                                    A_rmem : f32[K0/8, 16, 8] @ Sm80_RmemMatrixA
                                     for k_seq in seq(0, K0 / 8, pragma_unroll=0):
                                         tmp_load_a(A_rmem[k_seq,:,:],
                                                    A_smem[1 - k1 % 2,
                                                           mw*Mw + m_seq*16 : mw*Mw + (m_seq+1)*16,
                                                           k_seq*8:(k_seq+1)*8])
                                     # Accumulate to tile of warp tiles owned by warp.
-                                    for n_seq in seq(0, 8, pragma_unroll=0):
+                                    for n_seq in seq(0, Nw / 8, pragma_unroll=0):
                                         for k_seq in seq(0, K0 / 8, pragma_unroll=0):
                                             tmp_mma(D_rmem[mw,nw,m_seq,n_seq,:,:],
                                                     A_rmem[k_seq,:,:],
@@ -130,10 +127,12 @@ def xgemm_cuda(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B: f32[K
                 # End K tiles loop
 
                 # Write out accumulator
-                for mw in cuda_threads(0, 4, unit=2 * cuda_warp):
-                    for nw in cuda_threads(0, 2, unit=cuda_warp):
-                        for m_seq in seq(0, 4):
-                            for n_seq in seq(0, 8):
+                for mw in cuda_threads(0, M1 / Mw, unit=(N1/Nw) * cuda_warp):
+                    for nw in cuda_threads(0, N1 / Nw, unit=cuda_warp):
+                        for m_seq in seq(0, Mw / 16, pragma_unroll=0):
+                            for n_seq in seq(0, Nw / 8, pragma_unroll=0):
                                 tmp_store_d(C[m2 * M1 + mw * Mw + m_seq * 16 : m2 * M1 + mw * Mw + (m_seq+1) * 16,
                                               n2 * N1 + nw * Nw + n_seq * 8 : n2 * N1 + nw * Nw + (n_seq+1) * 8],
                                             D_rmem[mw,nw,m_seq,n_seq,:,:])
+
+xgemm_cuda = simplify(xgemm_cuda)
