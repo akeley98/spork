@@ -103,10 +103,10 @@ def xgemm_cuda(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B: f32[K
                         for mw in cuda_threads(0, 4, unit=2 * cuda_warp):
                             for nw in cuda_threads(0, 2, unit=cuda_warp):
                                 # Load all B matrix tiles ahead of time
-                                B_rmem : f32[8, 2, 8, 8] @ Sm80_RmemMatrixB
+                                B_rmem : f32[2, 8, 8, 8] @ Sm80_RmemMatrixB
                                 for n_seq in seq(0, 8, pragma_unroll=0):
                                     for k_seq in seq(0, K0 / 8, pragma_unroll=0):
-                                        tmp_load_b(B_rmem[n_seq,k_seq,:,:],
+                                        tmp_load_b(B_rmem[k_seq,n_seq,:,:],
                                                    B_smem[1 - k1 % 2,
                                                           k_seq*8:(k_seq+1)*8,
                                                           nw*Nw + n_seq*8 : nw*Nw + (n_seq+1)*8])
@@ -124,7 +124,7 @@ def xgemm_cuda(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B: f32[K
                                         for k_seq in seq(0, K0 / 8, pragma_unroll=0):
                                             tmp_mma(D_rmem[mw,nw,m_seq,n_seq,:,:],
                                                     A_rmem[k_seq,:,:],
-                                                    B_rmem[n_seq,k_seq,:,:])
+                                                    B_rmem[k_seq,n_seq,:,:])
 
                     Fence(Sm80_generic, Sm80_generic, codegen=Sm80_sync)
                 # End K tiles loop
