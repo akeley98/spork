@@ -18,6 +18,7 @@ enum class AlgorithmCode
     cublas,
     cutlass,
     exo,
+    mine_sm_80,
     mine_output_stationary,
     mine_split_k_inner,
     mine_split_k_outer,
@@ -41,6 +42,8 @@ inline const char* algorithm_name(AlgorithmCode code)
         return "cublas";
       case AlgorithmCode::cutlass:
         return "cutlass";
+      case AlgorithmCode::mine_sm_80:
+        return "mine_sm_80";
       case AlgorithmCode::mine_split_k_inner:
         return "mine (split k inner)";
       case AlgorithmCode::mine_split_k_outer:

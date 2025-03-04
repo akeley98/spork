@@ -191,7 +191,7 @@ void gemm_test(TestParams params, cudaStream_t stream)
     unsigned long long* d_bitfield = nullptr;
     float* d_a = nullptr;
     float* d_b = nullptr;
-    float* d_bT = nullptr;
+    float* d_bCol = nullptr;
     float* d_c_baseline = nullptr;
     float* d_c_tested = nullptr;
 
@@ -200,7 +200,7 @@ void gemm_test(TestParams params, cudaStream_t stream)
     cudaMallocAsync(&d_a,    sizeof(float) * params.M * params.K, stream);
 
     cudaMallocAsync(&d_b,    sizeof(float) * params.N * params.K, stream);
-    cudaMallocAsync(&d_bT,   sizeof(float) * params.N * params.K, stream);
+    cudaMallocAsync(&d_bCol, sizeof(float) * params.N * params.K, stream);
 
     cudaMallocAsync(&d_c_baseline, sizeof(float) * params.M * params.N, stream);
     cudaMallocAsync(&d_c_tested,   sizeof(float) * params.M * params.N, stream);
@@ -218,7 +218,7 @@ void gemm_test(TestParams params, cudaStream_t stream)
         dim3 block{16, 16, 1};
         device_init_test_data<<<grid_a, block, 0, stream>>>(d_a, params.M, params.K, params.test_data_code_A, false);
         device_init_test_data<<<grid_b, block, 0, stream>>>(d_b, params.K, params.N, params.test_data_code_B, false);
-        device_init_test_data<<<grid_b, block, 0, stream>>>(d_bT, params.N, params.K, params.test_data_code_B, true);
+        device_init_test_data<<<grid_b, block, 0, stream>>>(d_bCol, params.N, params.K, params.test_data_code_B, true);
     }
 
     auto fill_garbage = [params, stream] (auto* d_c)
@@ -236,7 +236,7 @@ void gemm_test(TestParams params, cudaStream_t stream)
         const float alpha = 1.0f;
         const float beta = 0.0f;
         CUBLAS_CHECK(cublasSgemm(cublasH, transa, transb, int(params.N), int(params.M), int(params.K),
-                                 &alpha, d_bT, int(params.K), d_a, int(params.K), &beta, d_c, int(params.N)));
+                                 &alpha, d_bCol, int(params.K), d_a, int(params.K), &beta, d_c, int(params.N)));
 #endif
     };
 
@@ -274,8 +274,12 @@ void gemm_test(TestParams params, cudaStream_t stream)
                 assert(stream == 0);
                 xgemm_cuda(nullptr, int(params.M), int(params.N), int(params.K), d_a, d_b, d_c_tested);
             }
+            else if (algo == AlgorithmCode::mine_sm_80) {
+                GPU_Tensors t{params.M, params.N, params.K, d_a, d_b, d_c_tested, 0, 0, 0};
+                matmul_sm80(t, stream);
+            }
             else {
-                GPU_Tensors t{params.M, params.N, params.K, d_a, d_bT, d_c_tested, 0, 1, 0};
+                GPU_Tensors t{params.M, params.N, params.K, d_a, d_bCol, d_c_tested, 0, 1, 0};
                 if (algo == AlgorithmCode::mine_output_stationary) {
                     matmul_sm90(t, gemm_sm90_k_mode::output_stationary, stream);
                 }
@@ -324,9 +328,10 @@ void gemm_test(TestParams params, cudaStream_t stream)
                 color_code = 31;
                 break;
               case AlgorithmCode::cublas:
+              case AlgorithmCode::cutlass:
                 color_code = 32;
                 break;
-              case AlgorithmCode::cutlass:
+              case AlgorithmCode::mine_sm_80:
                 color_code = 33;
                 break;
               case AlgorithmCode::exo:
@@ -354,7 +359,7 @@ void gemm_test(TestParams params, cudaStream_t stream)
 
         const auto algorithm_code = static_cast<AlgorithmCode>(bit_index);
         int test_count = 48;
-        if (algorithm_code == AlgorithmCode::cublas) {
+        if (algorithm_code == AlgorithmCode::cublas || algorithm_code == AlgorithmCode::mine_sm_80) {
             test_count = 16;
         }
         if (algorithm_code == AlgorithmCode::cutlass) {
@@ -367,7 +372,7 @@ void gemm_test(TestParams params, cudaStream_t stream)
 
     cudaFreeAsync(d_a, stream);
     cudaFreeAsync(d_b, stream);
-    cudaFreeAsync(d_bT, stream);
+    cudaFreeAsync(d_bCol, stream);
     cudaFreeAsync(d_c_baseline, stream);
     cudaFreeAsync(d_c_tested, stream);
 

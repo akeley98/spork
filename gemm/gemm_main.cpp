@@ -1,4 +1,5 @@
 #include "gemm_test.h"
+#include "gemm_sm80.h"
 
 #include <cuda_runtime.h>
 #include <stdio.h>
@@ -30,6 +31,15 @@ int main()
             params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::mine_split_k_outer);
             // params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::mine_stream_k_early_tma);
             params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::mine_stream_k_late_tma);
+        }
+        {
+            GPU_Tensors t{};
+            t.M = M;
+            t.N = N;
+            t.K = K;
+            if (matmul_sm80_supports(t)) {
+                params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::mine_sm_80);
+            }
         }
         if (exo) {
             params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::exo);
