@@ -21,4 +21,4 @@ ninja
 /gemm_sm90.*
 /cute_gemm.*
 /cutlass_gemm.*
-xgemm/xgemm
+xgemm/*
