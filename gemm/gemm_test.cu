@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "cutlass_gemm.h"
+#include "gemm_baseline.h"
 #include "gemm_sm80.h"
 #include "gemm_sm90.h"
 #include "../xgemm/xgemm.h"
@@ -243,7 +244,7 @@ void gemm_test(TestParams params, cudaStream_t stream)
     {
         GPU_Tensors t{params.M, params.N, params.K, d_a, d_b, d_c_baseline, 0, 0, 0};
         fill_garbage(t.c);
-        matmul_sm80(t, stream);
+        matmul_baseline(t, stream);
     }
 
     // Test loop
