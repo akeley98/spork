@@ -78,6 +78,9 @@ int main()
         sized_tests(9 * 256, 11 * 256, 65536, true);
         sized_tests(4 * 256, 11 * 256, 16384 * 3, true);
     }
+    else {
+        sized_tests(7680, 3072, 16384, true, true);
+    }
 
     cudaDeviceSynchronize();
     cutlass_synclog_print();
