@@ -9,6 +9,13 @@
 
 #include "gpu_tensor.h"
 
+// Sorry:
+//   I = M
+//   J = N
+// Since we inherited code from 6.S894 lab6
+//
+// fyi THIS IS ALL WILLIAM BRANDON'S FAULT
+
 namespace {
 
 __device__ __forceinline__ void cp_async4(void *smem_ptr, const void *glob_ptr) {
@@ -70,16 +77,14 @@ inline __device__ void store_d(float* gmem, WmmaD rmem, cuda::std::array<unsigne
     gmem_thread_baseaddr[8 * row_stride + col_stride] = __uint_as_float(rmem[3]);
 }
 
-inline __device__ WmmaD wmma(WmmaA a, WmmaB b, WmmaD c)
+inline __device__ void wmma(WmmaD& d, WmmaA a, WmmaB b)
 {
-    WmmaD d;
     asm("mma.sync.aligned.m16n8k8.row.col.f32.tf32.tf32.f32\n\t"
         "{%0,%1,%2,%3},\n\t"
         "{%4,%5,%6,%7},\n\t"
         "{%8,%9},\n\t"
         "{%10,%11,%12,%13};" : "=r"(d[0]), "=r"(d[1]), "=r"(d[2]), "=r"(d[3])
-        : "r"(a[0]), "r"(a[1]), "r"(a[2]), "r"(a[3]), "r"(b[0]), "r"(b[1]), "r"(c[0]), "r"(c[1]), "r"(c[2]), "r"(c[3]));
-    return d;
+        : "r"(a[0]), "r"(a[1]), "r"(a[2]), "r"(a[3]), "r"(b[0]), "r"(b[1]), "r"(d[0]), "r"(d[1]), "r"(d[2]), "r"(d[3]));
 }
 static constexpr uint32_t MMA_I = 16;
 static constexpr uint32_t MMA_J = 8;
@@ -87,14 +92,14 @@ static constexpr uint32_t MMA_K = 8;
 
 /* TODO: your GPU kernels here... */
 
-struct TiledConfig
+struct TileConfig
 {
     uint32_t smem_i, smem_j, smem_k;
     uint32_t warp_i, warp_j;
     uint32_t cta_modulus;
 };
 
-template <TiledConfig config>
+template <TileConfig tile_config>
 struct TiledMultiplier
 {
     uint32_t size_i, size_j, size_k;
@@ -102,12 +107,12 @@ struct TiledMultiplier
     float const* b;
     float* c;
 
-    static constexpr uint32_t SMEM_I = config.smem_i;
-    static constexpr uint32_t SMEM_J = config.smem_j;
-    static constexpr uint32_t SMEM_K = config.smem_k;
-    static constexpr uint32_t WARP_I = config.warp_i;
-    static constexpr uint32_t WARP_J = config.warp_j;
-    static constexpr uint32_t CTA_MODULUS = config.cta_modulus;
+    static constexpr uint32_t SMEM_I = tile_config.smem_i;
+    static constexpr uint32_t SMEM_J = tile_config.smem_j;
+    static constexpr uint32_t SMEM_K = tile_config.smem_k;
+    static constexpr uint32_t WARP_I = tile_config.warp_i;
+    static constexpr uint32_t WARP_J = tile_config.warp_j;
+    static constexpr uint32_t CTA_MODULUS = tile_config.cta_modulus;
 
     // One buffer of ring buffer.
     struct alignas(float4) Buffers
@@ -121,9 +126,17 @@ struct TiledMultiplier
         Buffers buffers[2];  // TODO ring buffer
     };
 
+    // Accumulator tiles per warp
+    struct WarpAccum
+    {
+        static_assert(WARP_I % MMA_I == 0);
+        static_assert(WARP_J % MMA_J == 0);
+        WmmaD ij[WARP_I / MMA_I][WARP_J / MMA_J];
+    };
+
     __host__ __device__ static constexpr uint32_t grid_size()
     {
-        return 48;
+        return 96;
     }
 
     __host__ __device__ static constexpr uint32_t cta_size()
@@ -182,19 +195,34 @@ struct TiledMultiplier
     }
 
     // Accumulate warp-assigned matrix tile based on values in shared memory buffers.
-    __device__ void warp_accum_block(WmmaD& accum0, WmmaD& accum1, const Buffers& buffers) const
+    __device__ void warp_accum_block(WarpAccum& accum, const Buffers& buffers) const
     {
         const uint32_t warp_i_idx = get_warp_i_idx();
         const uint32_t warp_j_idx = get_warp_j_idx();
 
-        for (uint32_t warp_k_idx = 0; warp_k_idx < SMEM_K / MMA_K; ++warp_k_idx) {
-            WmmaA wmma_a;
-            WmmaB wmma_b0, wmma_b1;
-            load_a(wmma_a, &buffers.a[warp_i_idx * WARP_I][warp_k_idx * MMA_K], {SMEM_K, 1});
-            load_b(wmma_b0, &buffers.b[warp_k_idx * MMA_K][warp_j_idx * WARP_J], {SMEM_J, 1});
-            load_b(wmma_b1, &buffers.b[warp_k_idx * MMA_K][warp_j_idx * WARP_J + 8], {SMEM_J, 1});
-            accum0 = wmma(wmma_a, wmma_b0, accum0);
-            accum1 = wmma(wmma_a, wmma_b1, accum1);
+        // B tiles pre-cached in registers for re-use.
+        WmmaB mma_b_kj[SMEM_K / MMA_K][WARP_J / MMA_J];
+        for (uint32_t mma_j_idx = 0; mma_j_idx < WARP_J / MMA_J; ++mma_j_idx) {
+            for (uint32_t mma_k_idx = 0; mma_k_idx < SMEM_K / MMA_K; ++mma_k_idx) {
+                const uint32_t j = warp_j_idx*WARP_J + mma_j_idx*MMA_J;
+                const uint32_t k = mma_k_idx*MMA_K;
+                load_b(mma_b_kj[mma_k_idx][mma_j_idx], &buffers.b[k][j], {SMEM_J, 1});
+            }
+        }
+
+        for (uint32_t mma_i_idx = 0; mma_i_idx < WARP_I / MMA_I; ++mma_i_idx) {
+            // Load A tiles needed.
+            WmmaA mma_a_k[SMEM_K / MMA_K];
+            const uint32_t i = warp_i_idx*WARP_I + mma_i_idx*MMA_I;
+            for (uint32_t mma_k_idx = 0; mma_k_idx < SMEM_K / MMA_K; ++mma_k_idx) {
+                const uint32_t k = mma_k_idx*MMA_K;
+                load_a(mma_a_k[mma_k_idx], &buffers.a[i][k], {SMEM_K, 1});
+            }
+            for (uint32_t mma_j_idx = 0; mma_j_idx < WARP_J / MMA_J; ++mma_j_idx) {
+                for (uint32_t mma_k_idx = 0; mma_k_idx < SMEM_K / MMA_K; ++mma_k_idx) {
+                    wmma(accum.ij[mma_i_idx][mma_j_idx], mma_a_k[mma_k_idx], mma_b_kj[mma_k_idx][mma_j_idx]);
+                }
+            }
         }
     }
 
@@ -206,9 +234,8 @@ struct TiledMultiplier
         assert(cta_j_offset % SMEM_J == 0);
         assert(size_k % SMEM_K == 0);
 
+        WarpAccum accum{};
         const uint32_t k_blk_dim = size_k / SMEM_K;
-        WmmaD accum0{{0, 0, 0, 0}};
-        WmmaD accum1{{0, 0, 0, 0}};
 
         for (uint32_t cta_k_idx = 0; cta_k_idx <= k_blk_dim; ++cta_k_idx) {
             if (cta_k_idx < k_blk_dim) {
@@ -216,7 +243,7 @@ struct TiledMultiplier
             }
             if (cta_k_idx > 0) {
                 // Accumulate smem buffer filled in previous iteration. NB <= in for loop is critical for this!
-                warp_accum_block(accum0, accum1, smem.buffers[(cta_k_idx % 2u) ^ 1u]);
+                warp_accum_block(accum, smem.buffers[(cta_k_idx % 2u) ^ 1u]);
             }
             async_memcpy_waitall();
             __syncthreads();
@@ -224,8 +251,13 @@ struct TiledMultiplier
 
         const uint32_t warp_i_offset = get_warp_i_idx() * WARP_I + cta_i_offset;
         const uint32_t warp_j_offset = get_warp_j_idx() * WARP_J + cta_j_offset;
-        store_d(c + warp_i_offset * size_j + warp_j_offset, accum0, {size_j, 1});
-        store_d(c + warp_i_offset * size_j + (warp_j_offset + 8), accum1, {size_j, 1});
+        for (uint32_t mma_i_idx = 0; mma_i_idx < WARP_I / MMA_I; ++mma_i_idx) {
+            for (uint32_t mma_j_idx = 0; mma_j_idx < WARP_J / MMA_J; ++mma_j_idx) {
+                const auto i = warp_i_offset + MMA_I * mma_i_idx;
+                const auto j = warp_j_offset + MMA_J * mma_j_idx;
+                store_d(c + i * size_j + j, accum.ij[mma_i_idx][mma_j_idx], {size_j, 1});
+            }
+        }
     }
 
     __device__ void kernel_main()
@@ -273,8 +305,8 @@ tiled_multiplier_kernel(Multiplier multiplier)
     multiplier.kernel_main();
 }
 
-template <TiledConfig config>
-void TiledMultiplier<config>::launch(cudaStream_t stream)
+template <TileConfig tile_config>
+void TiledMultiplier<tile_config>::launch(cudaStream_t stream)
 {
     using Multiplier = std::remove_reference_t<decltype(*this)>;
     const uint32_t grid = grid_size();
@@ -286,11 +318,11 @@ void TiledMultiplier<config>::launch(cudaStream_t stream)
 
 }  // end namespace
 
-constexpr TiledConfig config
+constexpr TileConfig tile_config
 {
-    64, 64, 16,
-    16, 16,
-    4,
+    192, 128, 16,
+    48, 64,
+    1,
 };
 
 void matmul_sm80(GPU_Tensors t, cudaStream_t stream) {
@@ -299,11 +331,11 @@ void matmul_sm80(GPU_Tensors t, cudaStream_t stream) {
     const uint32_t size_k = t.K;
 
     assert(matmul_sm80_supports(t));
-    TiledMultiplier<config> multiplier{size_i, size_j, size_k, t.a, t.b, t.c};
+    TiledMultiplier<tile_config> multiplier{size_i, size_j, size_k, t.a, t.b, t.c};
     multiplier.launch(stream);
 }
 
 bool matmul_sm80_supports(GPU_Tensors t)
 {
-    return !t.a_col_major && !t.b_col_major && !t.c_col_major && t.M % config.smem_i == 0 && t.N % config.smem_j == 0 && t.K % config.smem_k == 0;
+    return !t.a_col_major && !t.b_col_major && !t.c_col_major && t.M % tile_config.smem_i == 0 && t.N % tile_config.smem_j == 0 && t.K % tile_config.smem_k == 0;
 };
