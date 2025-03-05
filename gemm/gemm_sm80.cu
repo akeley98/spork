@@ -16,7 +16,16 @@
 //
 // fyi THIS IS ALL WILLIAM BRANDON'S FAULT
 
-namespace {
+#define DEVICE_INLINE __device__ __forceinline__
+
+namespace gemm_sm80_impl {
+
+using mbarrier_t = long long;
+
+DEVICE_INLINE uint32_t smem_ptr_u32(const void* smem_ptr)
+{
+    return static_cast<uint32_t>(__cvta_generic_to_shared(smem_ptr));
+}
 
 __device__ __forceinline__ void cp_async4(void *smem_ptr, const void *glob_ptr) {
     const int BYTES = 16;
@@ -98,7 +107,7 @@ static constexpr uint32_t MMA_K = 8;
 
 struct TileConfig
 {
-    uint32_t smem_i, smem_j, smem_k;
+    uint32_t smem_i, smem_j, smem_k, ring_buffer_size;
     uint32_t warp_i, warp_j;
     uint32_t cta_modulus;
     uint32_t cta_per_sm;
@@ -115,6 +124,7 @@ struct TiledMultiplier
     static constexpr uint32_t SMEM_I = tile_config.smem_i;
     static constexpr uint32_t SMEM_J = tile_config.smem_j;
     static constexpr uint32_t SMEM_K = tile_config.smem_k;
+    static constexpr uint32_t RING_BUFFER_SIZE = tile_config.ring_buffer_size;
     static constexpr uint32_t WARP_I = tile_config.warp_i;
     static constexpr uint32_t WARP_J = tile_config.warp_j;
     static constexpr uint32_t CTA_MODULUS = tile_config.cta_modulus;
@@ -128,7 +138,9 @@ struct TiledMultiplier
 
     struct SmemLayout
     {
-        Buffers buffers[2];  // TODO ring buffer
+        Buffers buffers[RING_BUFFER_SIZE];
+        mbarrier_t tile_fill_mbar[RING_BUFFER_SIZE];
+        mbarrier_t tile_read_mbar[RING_BUFFER_SIZE];
     };
 
     static_assert(sizeof(SmemLayout) <= 100 << 10);
@@ -140,6 +152,90 @@ struct TiledMultiplier
         static_assert(WARP_J % MMA_J == 0);
         WmmaD ij[WARP_I / MMA_I][WARP_J / MMA_J];
     };
+
+    // Helper for ring buffering and for waiting on an mbarrier while tracking the phase.
+    struct RingState
+    {
+        // Phase bit tracking
+        unsigned tile_fill_bits : RING_BUFFER_SIZE = 0;
+        unsigned tile_read_bits : RING_BUFFER_SIZE = 0;
+
+        unsigned consumer_ring_idx : 5 = 0;
+        unsigned producer_ring_idx : 5 = 0;
+        static_assert(RING_BUFFER_SIZE < 32);
+
+        DEVICE_INLINE void tile_fill_wait_ring(SmemLayout& shared)
+        {
+            const uint32_t i = consumer_ring_idx;
+            assert(i < RING_BUFFER_SIZE);
+            mbar_wait(shared.tile_fill_mbar[i], (tile_fill_bits >> i) & 1u);
+            tile_fill_bits ^= 1u << i;
+        }
+
+        DEVICE_INLINE void tile_read_wait_ring(SmemLayout& shared)
+        {
+            const uint32_t i = producer_ring_idx;
+            assert(i < RING_BUFFER_SIZE);
+            mbar_wait(shared.tile_read_mbar[i], (tile_read_bits >> i) & 1u);
+            tile_read_bits ^= 1u << i;
+        }
+
+        static DEVICE_INLINE void mbar_wait(mbarrier_t& mbar, uint32_t parity)
+        {
+            asm volatile(
+                    "{.reg.pred P1; BEFORE_WAIT: mbarrier.test_wait.parity.acquire.cta.shared::cta.b64 P1, [%0], %1; @P1 bra.uni WAIT_DONE; bra.uni BEFORE_WAIT; WAIT_DONE: }"
+            :
+            : "r"(smem_ptr_u32(&mbar)), "r"(parity));
+        }
+
+        DEVICE_INLINE void advance_consumer_ring_idx()
+        {
+            const unsigned tmp = consumer_ring_idx;
+            consumer_ring_idx = tmp == RING_BUFFER_SIZE - 1u ? 0u : tmp + 1u;
+        }
+
+        DEVICE_INLINE void advance_producer_ring_idx()
+        {
+            const unsigned tmp = producer_ring_idx;
+            if (tmp == RING_BUFFER_SIZE - 1) {
+                producer_ring_idx = 0u;
+            }
+            else {
+                producer_ring_idx = tmp + 1u;
+            }
+        }
+    };
+
+    template <uint32_t ARRIVE_THREADS>
+    DEVICE_INLINE void init_mbar(mbarrier_t& mbar) const
+    {
+        asm volatile("mbarrier.init.shared::cta.b64 [%0], %1;" :: "r"(smem_ptr_u32(&mbar)), "n"(ARRIVE_THREADS));
+    }
+
+    template <uint32_t ARRIVE_THREADS, uint32_t COUNT>
+    DEVICE_INLINE void cta_init_mbar_array(mbarrier_t (&mbar_array) [COUNT]) const
+    {
+        assert(COUNT < blockDim.x);
+        if (threadIdx.x < COUNT) {
+            init_mbar<ARRIVE_THREADS>(mbar_array[threadIdx.x]);
+        }
+    }
+
+    static DEVICE_INLINE void mbar_arrive_classic(mbarrier_t& mbar)
+    {
+        asm volatile("mbarrier.arrive.shared::cta.b64 _, [%0];" :: "r"(smem_ptr_u32(&mbar)));
+    }
+
+    static DEVICE_INLINE void mbar_arrive_cp_async(mbarrier_t& mbar)
+    {
+        asm volatile("cp.async.mbarrier.arrive.noinc.shared::cta.b64 [%0];" :: "r"(smem_ptr_u32(&mbar)));
+    }
+
+    DEVICE_INLINE void cta_first_time_init(SmemLayout& shared) const
+    {
+        cta_init_mbar_array<cta_size()>(shared.tile_fill_mbar);
+        cta_init_mbar_array<cta_size()>(shared.tile_read_mbar);
+    }
 
     __host__ __device__ __forceinline__ static constexpr uint32_t grid_size()
     {
@@ -252,26 +348,44 @@ struct TiledMultiplier
     }
 
     // CTA cooperates to fill the output matrix block of size (SMEM_I, SMEM_J) starting at (cta_i_offset, cta_j_offset).
-    // Requires smem-allocated double buffer.
-    __device__ __forceinline__ void cta_compute_block(uint32_t cta_i_offset, uint32_t cta_j_offset, SmemLayout& smem)
+    // Requires smem-allocated ring buffer.
+    // Includes sync before operations (needed for ring buffer to be safe between usages ... this could be optimized to
+    // pipeline across work items, but at least for my other sm_90a kernel, it wasn't worth it).
+    __device__ __forceinline__ void cta_sync_compute_block(uint32_t cta_i_offset, uint32_t cta_j_offset,
+                                                           RingState& ring, SmemLayout& smem)
     {
+        __syncthreads();
+
         assert(cta_i_offset % SMEM_I == 0);
         assert(cta_j_offset % SMEM_J == 0);
         assert(size_k % SMEM_K == 0);
 
         WarpAccum accum{};
+        const uint32_t K_LAG = RING_BUFFER_SIZE / 2u;
         const uint32_t k_blk_dim = size_k / SMEM_K;
+        const uint32_t k_iter_count = k_blk_dim + K_LAG;
 
-        for (uint32_t cta_k_idx = 0; cta_k_idx <= k_blk_dim; ++cta_k_idx) {
-            if (cta_k_idx < k_blk_dim) {
-                cta_async_load_block(smem.buffers[cta_k_idx % 2u], cta_i_offset, cta_j_offset, cta_k_idx * SMEM_K);
+        for (uint32_t k_iter = 0; k_iter < k_iter_count; ++k_iter) {
+            if (k_iter < k_blk_dim) {
+                if (k_iter >= RING_BUFFER_SIZE) {
+                    // Don't wait on tile_read_mbar for first RING_BUFFER_SIZE iterations.
+                    ring.tile_read_wait_ring(smem);
+                }
+                cta_async_load_block(smem.buffers[ring.producer_ring_idx],
+                                     cta_i_offset, cta_j_offset, k_iter * SMEM_K);
+                mbar_arrive_cp_async(smem.tile_fill_mbar[ring.producer_ring_idx]);
+                ring.advance_producer_ring_idx();
             }
-            if (cta_k_idx > 0) {
-                // Accumulate smem buffer filled in previous iteration. NB <= in for loop is critical for this!
-                warp_accum_block(accum, smem.buffers[(cta_k_idx % 2u) ^ 1u]);
+            if (k_iter >= K_LAG) {
+                // Accumulate smem buffer filled K_LAG iterations ago.
+                ring.tile_fill_wait_ring(smem);
+                warp_accum_block(accum, smem.buffers[ring.consumer_ring_idx]);
+                if (k_iter + RING_BUFFER_SIZE < k_iter_count) {
+                    // Don't signal tile_read_mbar on last RING_BUFFER_SIZE many iterations, to match producer skip.
+                    mbar_arrive_classic(smem.tile_read_mbar[ring.consumer_ring_idx]);
+                }
+                ring.advance_consumer_ring_idx();
             }
-            async_memcpy_waitall();
-            __syncthreads();
         }
 
         const uint32_t warp_i_offset = get_warp_i_idx() * WARP_I + cta_i_offset;
@@ -301,11 +415,17 @@ struct TiledMultiplier
         assert(gridDim.x == grid_size());
         assert(blockDim.x == cta_size());
 
+        extern __shared__ char smem_bytes[];
+        auto& smem = reinterpret_cast<SmemLayout&>(smem_bytes[0]);
+
         const uint32_t cta_rows = size_i / SMEM_I;
         const uint32_t cta_cols = size_j / SMEM_J;
         const uint32_t cta_col_remainder = cta_cols % CTA_MODULUS;
         const uint32_t superblock_count = cta_cols / CTA_MODULUS;
         const uint32_t superblock_cta_count = cta_rows * CTA_MODULUS;
+
+        RingState ring{};
+        cta_first_time_init(smem);
 
         for (uint32_t task_index = blockIdx.x; task_index < i_cta() * j_cta(); task_index += grid_size()) {
             uint32_t cta_i_idx, cta_j_idx;
@@ -325,8 +445,7 @@ struct TiledMultiplier
             assert(cta_i_idx < cta_rows);
             assert(cta_j_idx < cta_cols);
 
-            extern __shared__ char smem[];
-            cta_compute_block(cta_i_idx * SMEM_I, cta_j_idx * SMEM_J, reinterpret_cast<SmemLayout&>(smem[0]));
+            cta_sync_compute_block(cta_i_idx * SMEM_I, cta_j_idx * SMEM_J, ring, smem);
         }
     }
 
@@ -354,8 +473,8 @@ void TiledMultiplier<tile_config, b_col_major, c_col_major>::launch(cudaStream_t
 
 constexpr TileConfig tile_config
 {
-    256, 192, 16,
-    64, 96,
+    256, 192, 16, 3,  // SMEM I,J,K, ring buffer
+    64, 96,           // WARP I,J
     128,  // cta modulus
     1,    // cta per sm
 };
@@ -391,6 +510,7 @@ void matmul_TT(uint32_t M, uint32_t N, uint32_t K, const float* a, const float* 
 }  // end namespace
 
 void matmul_sm80(GPU_Tensors t, cudaStream_t stream) {
+    using namespace gemm_sm80_impl;
     assert(matmul_sm80_supports(t));
     if (t.a_col_major != t.b_col_major) {
         // Ideally, we want A to be row major and B to be column major.
@@ -416,6 +536,8 @@ void matmul_sm80(GPU_Tensors t, cudaStream_t stream) {
 
 bool matmul_sm80_supports(GPU_Tensors t)
 {
+    using namespace gemm_sm80_impl;
+
     // Conservative
     static_assert(768 % tile_config.smem_i == 0);
     static_assert(768 % tile_config.smem_j == 0);
