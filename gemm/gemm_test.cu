@@ -359,12 +359,6 @@ void gemm_test(TestParams params, cudaStream_t stream)
 
         const auto algorithm_code = static_cast<AlgorithmCode>(bit_index);
         int test_count = 48;
-        if (algorithm_code == AlgorithmCode::cublas) {
-            test_count = 16;
-        }
-        if (algorithm_code == AlgorithmCode::cutlass) {
-            test_count = 4;
-        }
         run_tests(algorithm_code, test_count);
     }
 

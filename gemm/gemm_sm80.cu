@@ -107,7 +107,7 @@ static constexpr uint32_t MMA_K = 8;
 
 struct TileConfig
 {
-    uint32_t smem_i, smem_j, smem_k, ring_buffer_size;
+    uint32_t smem_i, smem_j, smem_k, ring_buffer_size, ring_buffer_lag;
     uint32_t warp_i, warp_j;
     uint32_t cta_modulus;
     uint32_t cta_per_sm;
@@ -125,9 +125,13 @@ struct TiledMultiplier
     static constexpr uint32_t SMEM_J = tile_config.smem_j;
     static constexpr uint32_t SMEM_K = tile_config.smem_k;
     static constexpr uint32_t RING_BUFFER_SIZE = tile_config.ring_buffer_size;
+    static constexpr uint32_t RING_BUFFER_LAG = tile_config.ring_buffer_lag;
     static constexpr uint32_t WARP_I = tile_config.warp_i;
     static constexpr uint32_t WARP_J = tile_config.warp_j;
     static constexpr uint32_t CTA_MODULUS = tile_config.cta_modulus;
+
+    static_assert(RING_BUFFER_SIZE >= 1);
+    static_assert(RING_BUFFER_LAG < RING_BUFFER_SIZE);
 
     // One buffer of ring buffer.
     struct alignas(float4) Buffers
@@ -361,9 +365,8 @@ struct TiledMultiplier
         assert(size_k % SMEM_K == 0);
 
         WarpAccum accum{};
-        const uint32_t K_LAG = RING_BUFFER_SIZE / 2u;
         const uint32_t k_blk_dim = size_k / SMEM_K;
-        const uint32_t k_iter_count = k_blk_dim + K_LAG;
+        const uint32_t k_iter_count = k_blk_dim + RING_BUFFER_LAG;
 
         for (uint32_t k_iter = 0; k_iter < k_iter_count; ++k_iter) {
             if (k_iter < k_blk_dim) {
@@ -376,8 +379,8 @@ struct TiledMultiplier
                 mbar_arrive_cp_async(smem.tile_fill_mbar[ring.producer_ring_idx]);
                 ring.advance_producer_ring_idx();
             }
-            if (k_iter >= K_LAG) {
-                // Accumulate smem buffer filled K_LAG iterations ago.
+            if (k_iter >= RING_BUFFER_LAG) {
+                // Accumulate smem buffer filled RING_BUFFER_LAG iterations ago.
                 ring.tile_fill_wait_ring(smem);
                 warp_accum_block(accum, smem.buffers[ring.consumer_ring_idx]);
                 if (k_iter + RING_BUFFER_SIZE < k_iter_count) {
@@ -473,9 +476,9 @@ void TiledMultiplier<tile_config, b_col_major, c_col_major>::launch(cudaStream_t
 
 constexpr TileConfig tile_config
 {
-    256, 192, 16, 3,  // SMEM I,J,K, ring buffer
-    64, 96,           // WARP I,J
-    128,  // cta modulus
+    384, 128, 16, 3, 1,  // SMEM I,J,K, ring buffer, lag
+    96, 64,              // WARP I,J
+    28,   // cta modulus
     1,    // cta per sm
 };
 
