@@ -43,7 +43,8 @@ struct WmmaD : cuda::std::array<unsigned, 4>
 {
 };
 
-inline __device__ void load_a(WmmaA& rmem, const float* gmem, cuda::std::array<unsigned, 2> element_strides)
+__device__ __forceinline__ void
+load_a(WmmaA& rmem, const float* gmem, cuda::std::array<unsigned, 2> element_strides)
 {
     const unsigned row_stride = element_strides[0];
     const unsigned col_stride = element_strides[1];
@@ -55,7 +56,8 @@ inline __device__ void load_a(WmmaA& rmem, const float* gmem, cuda::std::array<u
     rmem[3] = __float_as_uint(gmem_thread_baseaddr[8 * row_stride + 4 * col_stride]);
 }
 
-inline __device__ void load_b(WmmaB& rmem, const float* gmem, cuda::std::array<unsigned, 2> element_strides)
+__device__ __forceinline__ void
+load_b(WmmaB& rmem, const float* gmem, cuda::std::array<unsigned, 2> element_strides)
 {
     const unsigned row_stride = element_strides[0];
     const unsigned col_stride = element_strides[1];
@@ -65,7 +67,8 @@ inline __device__ void load_b(WmmaB& rmem, const float* gmem, cuda::std::array<u
     rmem[1] = __float_as_uint(gmem_thread_baseaddr[4 * row_stride]);
 }
 
-inline __device__ void store_d(float* gmem, WmmaD rmem, cuda::std::array<unsigned, 2> element_strides)
+__device__ __forceinline__ void
+store_d(float* gmem, WmmaD rmem, cuda::std::array<unsigned, 2> element_strides)
 {
     const unsigned row_stride = element_strides[0];
     const unsigned col_stride = element_strides[1];
@@ -77,7 +80,8 @@ inline __device__ void store_d(float* gmem, WmmaD rmem, cuda::std::array<unsigne
     gmem_thread_baseaddr[8 * row_stride + col_stride] = __uint_as_float(rmem[3]);
 }
 
-inline __device__ void wmma(WmmaD& d, WmmaA a, WmmaB b)
+__device__ __forceinline__ void
+wmma(WmmaD& d, WmmaA a, WmmaB b)
 {
     asm("mma.sync.aligned.m16n8k8.row.col.f32.tf32.tf32.f32\n\t"
         "{%0,%1,%2,%3},\n\t"
@@ -97,6 +101,7 @@ struct TileConfig
     uint32_t smem_i, smem_j, smem_k;
     uint32_t warp_i, warp_j;
     uint32_t cta_modulus;
+    uint32_t cta_per_sm;
 };
 
 template <TileConfig tile_config>
@@ -126,6 +131,8 @@ struct TiledMultiplier
         Buffers buffers[2];  // TODO ring buffer
     };
 
+    static_assert(sizeof(SmemLayout) <= 100 << 10);
+
     // Accumulator tiles per warp
     struct WarpAccum
     {
@@ -134,12 +141,17 @@ struct TiledMultiplier
         WmmaD ij[WARP_I / MMA_I][WARP_J / MMA_J];
     };
 
-    __host__ __device__ static constexpr uint32_t grid_size()
+    __host__ __device__ __forceinline__ static constexpr uint32_t grid_size()
     {
-        return 96;
+        return 48 * tile_config.cta_per_sm;
     }
 
-    __host__ __device__ static constexpr uint32_t cta_size()
+    __host__ __device__ __forceinline__ static constexpr uint32_t cta_per_sm()
+    {
+        return tile_config.cta_per_sm;
+    }
+
+    __host__ __device__ __forceinline__ static constexpr uint32_t cta_size()
     {
         // If output matrix is cut into (WARP_I, WARP_J) blocks, one warp handles one matrix block.
         static_assert(SMEM_I % WARP_I == 0);
@@ -149,13 +161,13 @@ struct TiledMultiplier
 
     // If output matrix is cut into (SMEM_I, SMEM_J) blocks, one CTA handles one matrix block.
 
-    __host__ __device__ uint32_t i_cta() const
+    __host__ __device__ __forceinline__ uint32_t i_cta() const
     {
         assert(size_i % SMEM_I == 0);
         return size_i / SMEM_I;
     }
 
-    __host__ __device__ uint32_t j_cta() const
+    __host__ __device__ __forceinline__ uint32_t j_cta() const
     {
         assert(size_j % SMEM_J == 0);
         return size_j / SMEM_J;
@@ -163,8 +175,8 @@ struct TiledMultiplier
 
     // Fill shared memory A tile with SMEM_I×SMEM_K block starting at (cta_i_offset, cta_k_offset)
     // Fill shared memory B tile with SMEM_K×SMEM_J block starting at (cta_k_offset, cta_j_offset)
-    __device__ void cta_async_load_block(Buffers& buffers, uint32_t cta_i_offset,
-                                         uint32_t cta_j_offset, uint32_t cta_k_offset) const
+    __device__ __forceinline__ void cta_async_load_block(Buffers& buffers, uint32_t cta_i_offset,
+                                                         uint32_t cta_j_offset, uint32_t cta_k_offset) const
     {
         for (unsigned work_idx = threadIdx.x; work_idx < SMEM_I * SMEM_K / 4u; work_idx += blockDim.x) {
             const unsigned thr_i_offset = work_idx / (SMEM_K / 4u);
@@ -182,20 +194,20 @@ struct TiledMultiplier
 
     // Static assignment of warps within CTA to per-warp output tiles (WARP_I, WARP_J) within
     // per-CTA output tile (SMEM_I, SMEM_J)
-    __device__ uint32_t get_warp_i_idx() const
+    __device__ __forceinline__ uint32_t get_warp_i_idx() const
     {
         const uint32_t warp_index = threadIdx.x / 32u;
         return warp_index / (SMEM_J / WARP_J);
     }
 
-    __device__ uint32_t get_warp_j_idx() const
+    __device__ __forceinline__ uint32_t get_warp_j_idx() const
     {
         const uint32_t warp_index = threadIdx.x / 32u;
         return warp_index % (SMEM_J / WARP_J);
     }
 
     // Accumulate warp-assigned matrix tile based on values in shared memory buffers.
-    __device__ void warp_accum_block(WarpAccum& accum, const Buffers& buffers) const
+    __device__ __forceinline__ void warp_accum_block(WarpAccum& accum, const Buffers& buffers) const
     {
         const uint32_t warp_i_idx = get_warp_i_idx();
         const uint32_t warp_j_idx = get_warp_j_idx();
@@ -228,7 +240,7 @@ struct TiledMultiplier
 
     // CTA cooperates to fill the output matrix block of size (SMEM_I, SMEM_J) starting at (cta_i_offset, cta_j_offset).
     // Requires smem-allocated double buffer.
-    __device__ void cta_compute_block(uint32_t cta_i_offset, uint32_t cta_j_offset, SmemLayout& smem)
+    __device__ __forceinline__ void cta_compute_block(uint32_t cta_i_offset, uint32_t cta_j_offset, SmemLayout& smem)
     {
         assert(cta_i_offset % SMEM_I == 0);
         assert(cta_j_offset % SMEM_J == 0);
@@ -260,7 +272,7 @@ struct TiledMultiplier
         }
     }
 
-    __device__ void kernel_main()
+    __device__ __forceinline__ void kernel_main()
     {
         assert(gridDim.x == grid_size());
         assert(blockDim.x == cta_size());
@@ -299,7 +311,7 @@ struct TiledMultiplier
 
 template <typename Multiplier>
 __global__ void
-__launch_bounds__(Multiplier::cta_size())
+__launch_bounds__(Multiplier::cta_size() * Multiplier::cta_per_sm())
 tiled_multiplier_kernel(Multiplier multiplier)
 {
     multiplier.kernel_main();
@@ -320,9 +332,10 @@ void TiledMultiplier<tile_config>::launch(cudaStream_t stream)
 
 constexpr TileConfig tile_config
 {
-    192, 128, 16,
-    48, 64,
-    1,
+    256, 192, 16,
+    64, 96,
+    128,  // cta modulus basically disabled for now
+    1,    // cta per sm
 };
 
 void matmul_sm80(GPU_Tensors t, cudaStream_t stream) {
