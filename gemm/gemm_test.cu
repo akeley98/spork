@@ -275,7 +275,7 @@ void gemm_test(TestParams params, cudaStream_t stream)
                 xgemm_cuda(nullptr, int(params.M), int(params.N), int(params.K), d_a, d_b, d_c_tested);
             }
             else if (algo == AlgorithmCode::mine_sm_80) {
-                GPU_Tensors t{params.M, params.N, params.K, d_a, d_b, d_c_tested, 0, 0, 0};
+                GPU_Tensors t{params.M, params.N, params.K, d_a, d_bCol, d_c_tested, 0, 1, 0};
                 matmul_sm80(t, stream);
             }
             else {

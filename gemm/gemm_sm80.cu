@@ -104,7 +104,7 @@ struct TileConfig
     uint32_t cta_per_sm;
 };
 
-template <TileConfig tile_config>
+template <TileConfig tile_config, bool b_col_major, bool c_col_major>
 struct TiledMultiplier
 {
     uint32_t size_i, size_j, size_k;
@@ -122,8 +122,8 @@ struct TiledMultiplier
     // One buffer of ring buffer.
     struct alignas(float4) Buffers
     {
-        float a[SMEM_I][SMEM_K];  // Stores SMEM_I × SMEM_K of a
-        float b[SMEM_K][SMEM_J];  // Stores SMEM_K × SMEM_J of b
+        float a[SMEM_I * SMEM_K];  // Stores SMEM_I × SMEM_K of a [row major]
+        float b[SMEM_K * SMEM_J];  // Stores SMEM_K × SMEM_J of b [as per b_col_major]
     };
 
     struct SmemLayout
@@ -181,14 +181,22 @@ struct TiledMultiplier
         for (unsigned work_idx = threadIdx.x; work_idx < SMEM_I * SMEM_K / 4u; work_idx += blockDim.x) {
             const unsigned thr_i_offset = work_idx / (SMEM_K / 4u);
             const unsigned thr_k_offset = 4 * (work_idx % (SMEM_K / 4u));
-            cp_async4(&buffers.a[thr_i_offset][thr_k_offset],
+            cp_async4(&buffers.a[thr_i_offset*SMEM_K + thr_k_offset],
                       &a[(thr_i_offset + cta_i_offset) * size_k + cta_k_offset + thr_k_offset]);
         }
         for (unsigned work_idx = threadIdx.x; work_idx < SMEM_K * SMEM_J / 4u; work_idx += blockDim.x) {
-            const unsigned thr_k_offset = work_idx / (SMEM_J / 4u);
-            const unsigned thr_j_offset = 4 * (work_idx % (SMEM_J / 4u));
-            cp_async4(&buffers.b[thr_k_offset][thr_j_offset],
-                      &b[(thr_k_offset + cta_k_offset) * size_j + cta_j_offset + thr_j_offset]);
+            if constexpr (b_col_major) {
+                const unsigned thr_j_offset = work_idx / (SMEM_K / 4u);
+                const unsigned thr_k_offset = 4 * (work_idx % (SMEM_K / 4u));
+                cp_async4(&buffers.b[thr_j_offset*SMEM_K + thr_k_offset],
+                          &b[(thr_j_offset + cta_j_offset) * size_k + cta_k_offset + thr_k_offset]);
+            }
+            else {
+                const unsigned thr_k_offset = work_idx / (SMEM_J / 4u);
+                const unsigned thr_j_offset = 4 * (work_idx % (SMEM_J / 4u));
+                cp_async4(&buffers.b[thr_k_offset*SMEM_J + thr_j_offset],
+                          &b[(thr_k_offset + cta_k_offset) * size_j + cta_j_offset + thr_j_offset]);
+            }
         }
     }
 
@@ -218,7 +226,12 @@ struct TiledMultiplier
             for (uint32_t mma_k_idx = 0; mma_k_idx < SMEM_K / MMA_K; ++mma_k_idx) {
                 const uint32_t j = warp_j_idx*WARP_J + mma_j_idx*MMA_J;
                 const uint32_t k = mma_k_idx*MMA_K;
-                load_b(mma_b_kj[mma_k_idx][mma_j_idx], &buffers.b[k][j], {SMEM_J, 1});
+                if constexpr (b_col_major) {
+                    load_b(mma_b_kj[mma_k_idx][mma_j_idx], &buffers.b[j*SMEM_K + k], {1, SMEM_K});
+                }
+                else {
+                    load_b(mma_b_kj[mma_k_idx][mma_j_idx], &buffers.b[k*SMEM_J + j], {SMEM_J, 1});
+                }
             }
         }
 
@@ -228,7 +241,7 @@ struct TiledMultiplier
             const uint32_t i = warp_i_idx*WARP_I + mma_i_idx*MMA_I;
             for (uint32_t mma_k_idx = 0; mma_k_idx < SMEM_K / MMA_K; ++mma_k_idx) {
                 const uint32_t k = mma_k_idx*MMA_K;
-                load_a(mma_a_k[mma_k_idx], &buffers.a[i][k], {SMEM_K, 1});
+                load_a(mma_a_k[mma_k_idx], &buffers.a[i*SMEM_K + k], {SMEM_K, 1});
             }
             for (uint32_t mma_j_idx = 0; mma_j_idx < WARP_J / MMA_J; ++mma_j_idx) {
                 for (uint32_t mma_k_idx = 0; mma_k_idx < SMEM_K / MMA_K; ++mma_k_idx) {
@@ -263,11 +276,22 @@ struct TiledMultiplier
 
         const uint32_t warp_i_offset = get_warp_i_idx() * WARP_I + cta_i_offset;
         const uint32_t warp_j_offset = get_warp_j_idx() * WARP_J + cta_j_offset;
-        for (uint32_t mma_i_idx = 0; mma_i_idx < WARP_I / MMA_I; ++mma_i_idx) {
+        if constexpr (c_col_major) {
             for (uint32_t mma_j_idx = 0; mma_j_idx < WARP_J / MMA_J; ++mma_j_idx) {
-                const auto i = warp_i_offset + MMA_I * mma_i_idx;
-                const auto j = warp_j_offset + MMA_J * mma_j_idx;
-                store_d(c + i * size_j + j, accum.ij[mma_i_idx][mma_j_idx], {size_j, 1});
+                for (uint32_t mma_i_idx = 0; mma_i_idx < WARP_I / MMA_I; ++mma_i_idx) {
+                    const auto i = warp_i_offset + MMA_I * mma_i_idx;
+                    const auto j = warp_j_offset + MMA_J * mma_j_idx;
+                    store_d(c + j * size_i + i, accum.ij[mma_i_idx][mma_j_idx], {1, size_i});
+                }
+            }
+        }
+        else {
+            for (uint32_t mma_i_idx = 0; mma_i_idx < WARP_I / MMA_I; ++mma_i_idx) {
+                for (uint32_t mma_j_idx = 0; mma_j_idx < WARP_J / MMA_J; ++mma_j_idx) {
+                    const auto i = warp_i_offset + MMA_I * mma_i_idx;
+                    const auto j = warp_j_offset + MMA_J * mma_j_idx;
+                    store_d(c + i * size_j + j, accum.ij[mma_i_idx][mma_j_idx], {size_j, 1});
+                }
             }
         }
     }
@@ -317,8 +341,8 @@ tiled_multiplier_kernel(Multiplier multiplier)
     multiplier.kernel_main();
 }
 
-template <TileConfig tile_config>
-void TiledMultiplier<tile_config>::launch(cudaStream_t stream)
+template <TileConfig tile_config, bool b_col_major, bool c_col_major>
+void TiledMultiplier<tile_config, b_col_major, c_col_major>::launch(cudaStream_t stream)
 {
     using Multiplier = std::remove_reference_t<decltype(*this)>;
     const uint32_t grid = grid_size();
@@ -328,27 +352,73 @@ void TiledMultiplier<tile_config>::launch(cudaStream_t stream)
     tiled_multiplier_kernel<Multiplier> <<<grid, block, smem, stream>>>(*this);
 }
 
-}  // end namespace
-
 constexpr TileConfig tile_config
 {
     256, 192, 16,
     64, 96,
-    128,  // cta modulus basically disabled for now
+    128,  // cta modulus
     1,    // cta per sm
 };
 
-void matmul_sm80(GPU_Tensors t, cudaStream_t stream) {
-    const uint32_t size_i = t.M;
-    const uint32_t size_j = t.N;
-    const uint32_t size_k = t.K;
+// A row major ("transposed" per BLAS notation), B column major.
+void matmul_TN(uint32_t M, uint32_t N, uint32_t K, const float* a, const float* b, float* c, bool c_col_major,
+               cudaStream_t stream)
+{
+    if (c_col_major) {
+        TiledMultiplier<tile_config, true, true> multiplier{M, N, K, a, b, c};
+        multiplier.launch(stream);
+    }
+    else {
+        TiledMultiplier<tile_config, true, false> multiplier{M, N, K, a, b, c};
+        multiplier.launch(stream);
+    }
+}
 
+// A and B row major.
+void matmul_TT(uint32_t M, uint32_t N, uint32_t K, const float* a, const float* b, float* c, bool c_col_major,
+               cudaStream_t stream)
+{
+    if (c_col_major) {
+        TiledMultiplier<tile_config, false, true> multiplier{M, N, K, a, b, c};
+        multiplier.launch(stream);
+    }
+    else {
+        TiledMultiplier<tile_config, false, false> multiplier{M, N, K, a, b, c};
+        multiplier.launch(stream);
+    }
+}
+
+}  // end namespace
+
+void matmul_sm80(GPU_Tensors t, cudaStream_t stream) {
     assert(matmul_sm80_supports(t));
-    TiledMultiplier<tile_config> multiplier{size_i, size_j, size_k, t.a, t.b, t.c};
-    multiplier.launch(stream);
+    if (t.a_col_major != t.b_col_major) {
+        // Ideally, we want A to be row major and B to be column major.
+        // Swap and transpose matrices if not.
+        if (t.a_col_major) {
+            matmul_TN(t.N, t.M, t.K, t.b, t.a, t.c, !t.c_col_major, stream);
+        }
+        else {
+            matmul_TN(t.M, t.N, t.K, t.a, t.b, t.c, t.c_col_major, stream);
+        }
+    }
+    else {
+        // Need all inputs row major.
+        // Swap and transpose matrices if both column major.
+        if (t.a_col_major) {
+            matmul_TT(t.N, t.M, t.K, t.b, t.a, t.c, !t.c_col_major, stream);
+        }
+        else {
+            matmul_TT(t.M, t.N, t.K, t.a, t.b, t.c, t.c_col_major, stream);
+        }
+    }
 }
 
 bool matmul_sm80_supports(GPU_Tensors t)
 {
-    return !t.a_col_major && !t.b_col_major && !t.c_col_major && t.M % tile_config.smem_i == 0 && t.N % tile_config.smem_j == 0 && t.K % tile_config.smem_k == 0;
+    // Conservative
+    static_assert(768 % tile_config.smem_i == 0);
+    static_assert(768 % tile_config.smem_j == 0);
+    static_assert(32 % tile_config.smem_k == 0);
+    return t.M % 768 == 0 && t.N % 768 == 0 && t.K % 32 == 0;
 };
