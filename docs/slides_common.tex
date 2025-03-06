@@ -35,9 +35,11 @@
 \newcommand{\myTitleExtra}[1]{{\large \color{extraTitleColor} \hspace{-4mm} \textbf{\textsf{#1}}}}
 \definecolor{subColor}{RGB}{179, 0, 149}
 \newcommand{\mySub}[1]{\textsf{\color{subColor}$\blacktriangleright$ #1}}
-\definecolor{keyColor}{RGB}{170, 149, 0}
+\definecolor{keyColor}{RGB}{170, 149, 0}  % legacy, = keyColorA
+\definecolor{keyColorA}{RGB}{170, 149, 0}
 \definecolor{keyColorB}{RGB}{170, 210, 0}
 \newcommand{\myKey}[1]{\textbf{\color{keyColor}#1}}
+\newcommand{\myKeyA}[1]{\textbf{\color{keyColor}#1}}
 \newcommand{\myKeyB}[1]{\textbf{\color{keyColorB}#1}}
 
 \input{colorbox_common.tex}

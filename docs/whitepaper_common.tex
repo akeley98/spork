@@ -35,12 +35,22 @@
 \else
 \newcommand{\myTitle}[1]{{ \vspace{2mm} \large \color{titleColor} \hspace{-12mm} \textbf{\textsf{#1}} \vspace{2mm}}}
 \fi
-%\definecolor{subColor}{RGB}{97, 153, 0}
 \definecolor{subColor}{RGB}{170, 149, 0}
 \newcommand{\mySub}[1]{{\color{subColor}\hspace{-9mm} \textsf{#1}}}
-%\definecolor{keyColor}{RGB}{170, 149, 0}
 \definecolor{keyColor}{RGB}{118, 185, 0}
 \newcommand{\myKey}[1]{{\color{keyColor}\textbf{#1}}}
+
+\definecolor{keyColorA}{RGB}{170, 149, 0}
+\definecolor{keyColorB}{RGB}{170, 210, 0}
+\newcommand{\myKeyA}[1]{\textbf{\color{keyColorA}#1}}
+\newcommand{\myKeyB}[1]{\textbf{\color{keyColorB}#1}}
+
+\definecolor{mainColor}{RGB}{170, 0, 170}
+\definecolor{minorColor}{RGB}{0, 149, 232}
+\newcommand{\mainKey}[1]{\textbf{\color{mainColor}#1}}
+\newcommand{\minorKey}[1]{\textbf{\color{minorColor}#1}}
+\newcommand{\mainSub}[1]{{\color{mainColor}\hspace{-9mm} \textsf{#1}}}
+\newcommand{\minorSub}[1]{{\color{minorColor}\hspace{-9mm} \textsf{#1}}}
 
 \definecolor{hookColor}{RGB}{204, 0, 255}
 \newcommand{\hook}[1]{{\color{hookColor}\textbf{#1}}}
@@ -60,3 +70,14 @@
 
 \sloppy
 \newcommand{\abs}[1]{\left \vert #1 \right\vert}
+
+% Some of these links are now dead...
+\newcommand{\mbarrier}{\webText{mbarrier}{https://docs.nvidia.com/cuda/parallel-thread-execution/\#parallel-synchronization-and-communication-instructions-mbarrier}}
+\newcommand{\cpAsync}{\webText{cp.async}{https://docs.nvidia.com/cuda/parallel-thread-execution/\#data-movement-and-conversion-instructions-cp-async}}
+\newcommand{\cpAsyncBulk}{\webText{cp.async.bulk}{https://docs.nvidia.com/cuda/parallel-thread-execution/\#data-movement-and-conversion-instructions-cp-async-bulk}}
+\newcommand{\fenceProxyAsync}{\webText{fence.proxy.async}{https://docs.nvidia.com/cuda/parallel-thread-execution/\#asynchronous-warpgroup-level-matrix-async-proxy}}
+\newcommand{\wgmma}{\webText{wgmma}{https://docs.nvidia.com/cuda/parallel-thread-execution/\#asynchronous-warpgroup-level-matrix-instructions}}
+\newcommand{\hopperBlog}{\webText{NVIDIA Hopper Architecture In-Depth}{https://developer.nvidia.com/blog/nvidia-hopper-architecture-in-depth/}}
+\newcommand{\expectTxOperation}{\webText{expect-tx operation}{https://docs.nvidia.com/cuda/parallel-thread-execution/\#parallel-synchronization-and-communication-instructions-mbarrier-expect-tx-operation}}
+\newcommand{\completeTxOperation}{\webText{complete-tx operation}{https://docs.nvidia.com/cuda/parallel-thread-execution/\#parallel-synchronization-and-communication-instructions-mbarrier-complete-tx-operation}}
+\newcommand{\wgmmaFence}{\webText{wgmma.fence}{https://docs.nvidia.com/cuda/parallel-thread-execution/\#asynchronous-warpgroup-level-matrix-instructions-wgmma-fence}}

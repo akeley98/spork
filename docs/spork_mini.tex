@@ -1,0 +1,206 @@
+% xelatex </dev/null spork_mini.tex
+
+\input{whitepaper_common.tex}
+
+\tikzstyle{smallnode} = [rectangle, minimum width=1.25cm, minimum height=1cm, text centered, text width=1.25cm, draw=black, fill=white]
+\tikzstyle{smallishnode} = [rectangle, minimum width=2cm, minimum height=1cm, text centered, text width=2cm, draw=black, fill=white]
+\tikzstyle{normalnode} = [rectangle, minimum width=3cm, minimum height=1cm, text centered, text width=3cm, draw=black, fill=white]
+\tikzstyle{widenode} = [rectangle, minimum width=62mm, minimum height=8mm, text centered, text width=62mm, draw=black, fill=white]
+\tikzstyle{bignode} = [rectangle, minimum width=3.5cm, minimum height=2cm, text centered, text width=3cm, draw=black, fill=white]
+\tikzstyle{smemnode} = [rectangle, minimum width=3cm, minimum height=1cm, text centered, text width=3cm, draw=keyColorB, fill=white]
+\tikzstyle{gmemnode} = [rectangle, minimum width=3cm, minimum height=1cm, text centered, text width=3cm, draw=keyColorA, fill=white]
+\tikzstyle{smallishsmemnode} = [rectangle, minimum width=2cm, minimum height=1cm, text centered, text width=2cm, draw=keyColorB, fill=white]
+\tikzstyle{arrow} = [thick,->,>=stealth]
+\tikzstyle{line} = [thick]
+
+\begin{document}
+\myTitle{Exo GPU (Spork) Summary 2025-03-11}
+
+I'll outline a sketch of how we'll extend Exo to target CUDA, then go over the core features of the language extension and their relationships to CUDA concepts:
+
+\begin{enumerate}
+  \item Parallel loops: explict scheduling at each level of the CUDA thread hierarchy
+  \item Async blocks \& actor kind: CUDA asynchronous instructions
+  \item Synchronization statements
+\end{enumerate}
+
+\filbreak
+\mainSub{Language Sketch}
+
+\mainKey{Parallel-for loops:}
+Currently, Exo supports a limited form of parallel-for loop (\lighttt{par}), which lowers to OpenMP's \lighttt{\#pragma omp parallel for} construct.
+This schedules each iteration of the for loop on a different CPU thread.
+Spork will generalize this to allow scheduling over not only single threads, but over \myKeyA{collective units} -- convergent groupings of threads.
+For example, we could schedule a loop to execute each iteration with a different group of 32 cooperating threads (one warp).
+
+%% We will generalize the binary choice of \lighttt{seq} or \lighttt{par} loops into ``loop mode'' objects.
+%% For CUDA, we can configure loops to not only single threads to loop iterations, but also assign ``convergent'' groups of threads (e.g. 32 threads -- one warp) for each iteration.
+
+%% For both CUDA and the existing OpenMP parallelization, the correctness of the parallelization is not checked until code-lowering time.
+
+\filbreak
+\mainKey{Async Blocks:}
+At multiple levels, we will have to model blocks of Exo code that run on a different timeline than the surrounding code:
+\begin{enumerate}
+  \item CPU code launching a CUDA kernel
+  \item CUDA code executing asynchronous CUDA instructions
+\end{enumerate}
+We will overload the \lighttt{with} statement to open such an ``async block''.
+We will support lowering to \myKeyA{mixed CPU and CUDA} code; to launch a CUDA kernel, use \lighttt{with CudaDeviceFunction(blockDim=...)} to open an async block that lowers to CUDA.
+
+Each async block defines a \myKeyA{actor kind} for its sub-tree (the proc root has actor kind \lighttt{cpu}).
+Broadly, the purpose of the actor kind is to categorize instructions based on what kind of synchronization they need.
+Only instructions with the correct actor kind can appear in the async block.
+
+The most common actor kinds are \lighttt{cpu} and \lighttt{cuda\_classic} (synchronous CUDA instructions).
+
+\filbreak
+\mainKey{Synchronization Statements:}
+We will \textit{not} be taking a fork/join approach here.
+This is too restrictive to model the highly pipelined and asynchronous instructions needed to write tensor processing kernels for the A100 and especially the H100.
+
+Instead, we will provide (and task) the Exo user with \myKeyA{explicit synchronization} directives.
+In the simple case, the user can use an all-to-all sync (all threads in a certain collective wait for all others),
+but we will also provide fine-grained arrive/await synchronization (e.g. threads 128-255 wait for threads 0-31).
+
+This is a very different approach than, for example, Halide and Triton.
+
+\filbreak
+\mainSub{Core Idea: S/M Equivalence}
+
+The key idea of this design is to keep the parallelism constructs orthogonal to the core language, as if they were pragmas that only control code lowering.
+In particular, these constructs don't change the dataflow.
+All rewrite operations (and probably Chexo) will continue to interpret procs under \myKeyA{S-semantics} (single-threaded semantics), where
+\begin{enumerate}
+  \item parallel-for loops are treated like sequential loops
+  \item async blocks are treated like \lighttt{if True}
+\end{enumerate}
+
+\filbreak
+\mainKey{Corollary:} current rewrites don't need to change, and any new rewrites that modify loop modes, add async blocks, or modify synchronization don't need any checking.
+
+\filbreak
+The final lowered proc will exhibit \myKeyB{M-semantics} (multi-threaded semantics), where parallel/async Exo constructs are lowered to actual parallel/async code.
+To complete the chain-of-equivalence between the original proc and the lowered CUDA code, we just have to prove that the \textit{final} proc interpreted under S-semantics gives the same result as said proc interpreted under M-semantics.
+In other words, prove that sufficient synchronization exists to guarantee that the parallel program produces the same output as-if it were forcibly executed sequentially (interpreted under \myKeyA{S-semantics}).
+
+\begin{centering}
+\sffamily
+\begin{tikzpicture}[node distance=6mm]
+\node(proc0) [normalnode] {$proc_0$\\\myKeyA{S-semantics}};
+\node(proc1) [normalnode, right=of proc0] {$proc_1$\\\myKeyA{S-semantics}};
+\node(procNS) [normalnode, right=of proc1] {$proc_N$\\\myKeyA{S-semantics}};
+\node(procNM) [normalnode, right=of procNS] {$proc_N$\\\myKeyB{M-semantics}};
+\node(cuda) [smallnode, right=of procNM] {CUDA C++};
+
+\draw [arrow] (proc0) -- (proc1);
+\draw [arrow, dotted] (proc1) to node(rewrites)[]{} (procNS);
+\draw [arrow] (procNS) to node(SM)[]{} (procNM);
+\draw [arrow] (procNM) to node(toCuda)[]{} (cuda);
+
+\node(exo) [normalnode, text width=7cm, minimum width=7cm, below=of rewrites, draw=blueBoxFg, fill=blueBoxBg, text=blueBoxFg, xshift=-2cm] {Existing Exo Rewrites + \textbf{parallelism rewrites} (ignored in S-semantics)};
+\node(sync) [normalnode, below=of SM, draw=blueBoxFg, fill=blueBoxBg, text=blueBoxFg] {Synchronization Checking};
+\node(spork) [normalnode, below=of toCuda, draw=blueBoxFg, fill=blueBoxBg, text=blueBoxFg] {Codegen};
+\node(note) [above=of SM, draw=redBoxFg, fill=redBoxBg, text=redBoxFg] {Physically same proc, \textbf{different interpretation}};
+
+\draw [line, draw=blueBoxFg] (exo) -- (proc0);
+\draw [line, draw=blueBoxFg] (exo) -- (proc1);
+\draw [line, draw=blueBoxFg] (exo) -- (procNS);
+\draw [line, draw=blueBoxFg] (sync) -- (procNS);
+\draw [line, draw=blueBoxFg] (sync) -- (procNM);
+\draw [line, draw=redBoxFg] (note) -- (procNS);
+\draw [line, draw=redBoxFg] (note) -- (procNM);
+\draw [line, draw=blueBoxFg] (spork) -- (procNM);
+\draw [line, draw=blueBoxFg] (spork) -- (cuda);
+\end{tikzpicture}
+\end{centering}
+
+\filbreak
+\myTitle{Parallelism \& Memory}
+
+\mainSub{CUDA Thread \& Memory Hierarchy}
+
+Unlike HLS (high-level synthesis) and similar compilers that try to map quasi-sequential C-like code to parallel hardware, the CUDA language explicitly makes it the programmer's job to manage parallelism at each level of the CUDA thread and memory hierarchy.
+
+\filbreak
+\mainKey{Kernel launch:} CUDA threads are launched from the CPU, organized as a grid of \lighttt{gridDim}-many blocks (\myKeyB{CTA}: cooperative thread array), each consisting of \lighttt{blockDim}-many threads.
+Both parameters are set by the programmer.
+
+\filbreak
+\mainKey{Work distribution:} For the most part, from CUDA, each thread is programmed as if it were a scalar processor.
+  The programmer assigns work to each thread.
+
+\filbreak
+\mainKey{Memory Types:} The programmer manually manages moving data between different memory types in CUDA.
+    These form a hierarchy roughly parallel to the thread hierarchy (see upcoming diagram).
+    Each thread block has its own private shared memory (\myKeyB{SMEM}), whose size and usage is controlled by the programmer.
+    This is typically used as a manual cache, or to communicate values between threads.
+
+\filbreak
+\mainKey{Programmer-managed Synchronization:}
+  The programmer manages synchronization between threads.
+  \textit{Within} a single block, there are constructs for synchronizing all or a subset of threads with another set of threads.
+  \textit{Across} blocks, for the most part, there are no native synchronization mechanisms besides atomic reductions.
+  Thus, typical algorithms have \myKeyB{frequent} communication \myKeyB{within} blocks, and \myKeyA{minimal} communication \myKeyA{between} blocks.
+
+\filbreak
+\begin{centering}
+\sffamily
+\begin{tikzpicture}[node distance=3.5mm]
+\node (grid) [normalnode] {grid};
+\node (gmem) [gmemnode, right=of grid, xshift=4mm] {\myKeyA{GMEM}};
+\node (gmeminfo) [widenode, right=of gmem] {\myKeyA{GMEM:} Global memory. \myKeyA{``slow''}, 10s of GB. Any thread in grid may access.};
+\draw[line] (grid) -- (gmem);
+
+\node (block0) [smallishnode, fill=violetBoxBg, below=of grid, xshift=-15mm, yshift=-16mm] {block};
+\node (block1) [smallishnode, right=of block0, xshift=0.6cm] {block};
+\node (block2) [smallishnode, right=of block1, xshift=1.6cm] {block};
+
+\node (smem0) [smallishsmemnode, above=of block0] {\myKeyB{SMEM}};
+\node (smem1) [smallishsmemnode, above=of block1] {\myKeyB{SMEM}};
+\node (smem2) [smallishsmemnode, above=of block2] {\myKeyB{SMEM}};
+\node(smeminfo) [widenode, right=of smem2, yshift=-6mm] {\myKeyB{SMEM:} Shared memory. Per-CTA memory (L1 cache carveout). \myKeyB{``fast''}, but still $\approx$10$\times$ slower than math.};
+
+\draw[arrow] (grid.south) to[out=270,in=0] (block0.east);
+\draw[arrow] (grid.south) to[out=290,in=180] (block1.west);
+\draw[arrow] (grid.south) to[out=330,in=100] ($(block2.west)+(0,0.6)$);
+\draw[dotted] ($(block0.east) - (0, 0.3)$) to ($(block1.west) - (0, 0.3)$);
+\draw[dotted] ($(block1.east) - (0, 0.3)$) to node(gridDim)[]{gridDim} ($(block2.west) - (0, 0.3)$);
+\draw[arrow,dotted] (grid.south) to [out=330,in=100] (gridDim.north);
+
+\node (thread0) [smallishnode, fill=violetBoxBg, below=of block0, yshift=-4mm] {thread};
+\node (thread1) [smallishnode, fill=violetBoxBg, right=of thread0] {thread};
+\node (thread2) [smallishnode, fill=violetBoxBg, right=of thread1, xshift=2cm] {thread};
+\node (threadinfo) [widenode, right=of thread2, yshift=2mm, fill=violetBoxBg] {Threads in the same block (CTA) may synchronize explicitly with each other.};
+\node (rmem0) [smallishnode, below=of thread0] {\textbf{RMEM}};
+\node (rmem1) [smallishnode, below=of thread1] {\textbf{RMEM}};
+\node (rmem2) [smallishnode, below=of thread2] {\textbf{RMEM}};
+\node (rmeminfo) [widenode, right=of rmem2] {\textbf{RMEM:}\\Register ``memory''. 255 per thread.};
+\draw[line] (thread0) -- (rmem0);
+\draw[line] (thread1) -- (rmem1);
+\draw[line] (thread2) -- (rmem2);
+
+\draw[line] (block0) -- (smem0);
+\draw[line] (block1) -- (smem1);
+\draw[line] (block2) -- (smem2);
+
+\draw[arrow] (block0.south) to [out=270,in=90] (thread0.north);
+\draw[arrow] (block0.south) to [out=290,in=110] (thread1.north);
+\draw[arrow] (block0.south) to [out=330,in=150] (thread2.north);
+\draw[dotted] ($(thread0.east) - (0, 0.3)$) to ($(thread1.west) - (0, 0.3)$);
+\draw[dotted] ($(thread1.east) - (0, 0.3)$) to node(blockDim)[]{blockDim} ($(thread2.west) - (0, 0.3)$);
+\draw[arrow,dotted] (block0.south) to [out=310,in=130] (blockDim.north);
+\end{tikzpicture}
+\end{centering}
+
+\filbreak
+\minorSub{Extra Info: Thread Block Clusters}
+
+Prior to the H100, shared memory was truly local to a single block.
+The H100 introduces clusters of 2, 4, 8, or 16 thread blocks.
+Threads within the same cluster support synchronizing with each other and can view each others' shared memory (\myKeyA{distributed shared memory}), with restrictions.
+For the most part, this feature is set up assuming that all CTAs' shared memory layout is the same, and multicasting patterns are used.
+Direct access to another within-cluster CTA's shared memory is possible, but expensive.
+
+
+\end{document}

@@ -8,7 +8,7 @@
 \tikzstyle{widenode} = [rectangle, minimum width=62mm, minimum height=8mm, text centered, text width=62mm, draw=black, fill=white]
 \tikzstyle{bignode} = [rectangle, minimum width=3.5cm, minimum height=2cm, text centered, text width=3cm, draw=black, fill=white]
 \tikzstyle{smemnode} = [rectangle, minimum width=3cm, minimum height=1cm, text centered, text width=3cm, draw=keyColorB, fill=white]
-\tikzstyle{gmemnode} = [rectangle, minimum width=3cm, minimum height=1cm, text centered, text width=3cm, draw=keyColor, fill=white]
+\tikzstyle{gmemnode} = [rectangle, minimum width=3cm, minimum height=1cm, text centered, text width=3cm, draw=keyColorA, fill=white]
 \tikzstyle{smallishsmemnode} = [rectangle, minimum width=2cm, minimum height=1cm, text centered, text width=2cm, draw=keyColorB, fill=white]
 \tikzstyle{arrow} = [thick,->,>=stealth]
 \tikzstyle{line} = [thick]
@@ -796,9 +796,9 @@ $\Sigma^S$ will track, for each variable
 \end{minipage}
 \vfill
 \begin{tikzpicture}[node distance=8mm]
-\node(proc0) [normalnode] {$proc_0$\\\myKey{S-semantics}};
-\node(proc1) [normalnode, right=of proc0] {$proc_1$\\\myKey{S-semantics}};
-\node(procNS) [normalnode, right=of proc1, xshift=+6mm] {$proc_N$\\\myKey{S-semantics}};
+\node(proc0) [normalnode] {$proc_0$\\\myKeyA{S-semantics}};
+\node(proc1) [normalnode, right=of proc0] {$proc_1$\\\myKeyA{S-semantics}};
+\node(procNS) [normalnode, right=of proc1, xshift=+6mm] {$proc_N$\\\myKeyA{S-semantics}};
 \node(procNM) [normalnode, right=of procNS] {$proc_N$\\\myKeyB{M-semantics}};
 \node(cuda) [smallnode, right=of procNM] {CUDA C++};
 
