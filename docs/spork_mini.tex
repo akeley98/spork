@@ -354,13 +354,88 @@ The loop mode object is constructed as
 \filbreak
 Currently, loop modes can't take positional arguments, only keyword arguments.
 
-\filbreak
-\minorSub{Extra Info: Collective Units}
-
+%% \filbreak
+%% \minorSub{Extra Info: Collective Units}
 
 \filbreak
 \mainSub{Memory Allocation}
 
+Thoughts on how to extend tensors and memory types for CUDA.
+
+\mainKey{Memory Types:} Of course we can re-use Exo's memory types to express different kinds of CUDA memory:
+\begin{itemize}
+  \item \lighttt{CudaBasicDeviceVisible}: All device-visible memory
+  \item \lighttt{CudaGmem*}: Global memory (allocated by the CPU)
+  \item \lighttt{CudaHost*}: Global memory sub-type; allocated by CPU; visible to CPU and CUDA device.
+  \item \lighttt{CudaSmem*}: Shared memory
+  \item \lighttt{CudaRmem*}: Registers
+  \item \lighttt{GridConstant*}: CPU-to-CUDA constants
+\end{itemize}
+
+\filbreak
+Since Exo uses \lighttt{issubclass} to check correct memory types, we may need to use multiple inheritance for more complicated cases (e.g. \lighttt{CudaHost*} types have to inherit from both \lighttt{DRAM} and \lighttt{CudaBasicDeviceVisible}).
+
+\filbreak
+The grid constants need a bit more explanation.
+Unlike other memory types, grid constants don't have a fixed address, and are copied from the CPU to CUDA on kernel launch.
+(These are the function parameters of a CUDA kernel).
+We can model this in Exo as \lighttt{DRAM\_STACK} that the GPU is allowed to read (but not write) and is exempt from synchronization checking (due to the implicit copy protecting concurrent CPU/CUDA access).
+
+\filbreak
+\mainKey{Memory Actor Kind:} We need to add a new member function allowing us to query whether each \myKeyA{actor kind} has permission to read, write, and allocate each type of memory.
+For backwards compatibility, by default, memory types will allow all operations by the CPU and none by any other actor kind.
+
+\filbreak
+\begin{itemize}
+  \item \lighttt{CudaGmem*}: \lighttt{cpu} allocated; \lighttt{cuda\_classic} read/write
+  \item \lighttt{CudaHost*}: \lighttt{cpu} allocated, read/write; \lighttt{cuda\_classic} read/write
+  \item \lighttt{CudaSmem*}, \lighttt{CudaRmem*}: \lighttt{cuda\_classic} allocated, read/write
+  \item \lighttt{GridConstant*}: \lighttt{cpu} allocated, read/write; \lighttt{cuda\_classic} read-only
+\end{itemize}
+
+\filbreak
+These permissions don't apply to instrs, which are also the only way to interact with memory for actor kinds corresponding to CUDA async instructions.
+
+\filbreak
+\mainKey{Distributed Memory:} This is the trickiest part.
+In Exo's scheduling system, we are concerned with the dataflow, so each tensor has to be declared with its true size
+(e.g. \lighttt{f32[64,64]} for a $64 \times 64$ matrix tile).
+However, in CUDA, the storage for such a tensor is often distributed across threads' registers.
+For example, the $64 \times 64$ tile may be split into sub-tiles of size $16 \times 8$, with each tile living in the registers of one thread of a $4 \times 8$ grid of threads.
+
+\filbreak
+Since registers are allocated per-thread, the declared size of such a tensor in CUDA source code is that of the per-register sub-tile, and not the full tile size given by the Exo type.
+We bridge this gap with distributed memory analysis.
+
+\filbreak
+Each memory type has a ``native collective unit'' corresponding to its visibility scope in hardware (1 thread for registers; CTA for shared memory; warp/warpgroup for tensor core matrix tiles).
+If the collective unit at the point a tensor is allocated doesn't match the memory type's native collective unit, some of the leading dimensions are deduced to be ``distributed dimensions''.
+The lowered allocation is based only on the remaining tensor dimensions, and may be a scalar, if all dimensions are distributed.
+
+\filbreak
+Example:
+
+\graytt{\# Assume collective unit here is a CTA of 32 threads}\\
+\graytt{\# \yellowBox{SMEM:} no distributed dimensions; native unit (CTA) matches collective unit}\\
+\blacktt{A\_smem: f32[\blueBox{64, 16}] @ \yellowBox{CudaSmemLinear}}\\
+\blacktt{B\_smem: f32[\blueBox{16, 64}] @ \yellowBox{CudaSmemLinear}}\\
+\graytt{\# \yellowBox{Register} tile: \redBox{distributed}, \blueBox{non-distributed} dimensions}\\
+\blacktt{C\_tile: f32[\redBox{4, 8}, \blueBox{16, 8}] @ \yellowBox{CudaRmemLinear}}\\
+\graytt{\# NB compiler looks ahead to see usage is C\_tile[\redBox{mt,nt},\blueBox{ms,ns}]}\\
+\graytt{\# Deduction based on following usage:}\\
+\blacktt{~~for \redBox{mt} in cuda\_threads(0, 4, unit=8*cuda\_thread):}\\
+\blacktt{~~~~for \redBox{nt} in cuda\_threads(0, 8, unit=cuda\_thread):}\\
+\graytt{~~~~~~\# Collective unit is now 1 thread -- matches native unit}\\
+\graytt{~~~~~~\# Further index variables deduced as non-distributed,}\\
+\graytt{~~~~~~\# even if they are from parallel loops}\\
+\blacktt{~~~~~~for ks in cuda\_threads(0, 16, unit=cuda\_thread):}\\
+\blacktt{~~~~~~~~for \blueBox{ms} in cuda\_threads(0, 16, unit=cuda\_thread):}\\
+\blacktt{~~~~~~~~~~for \blueBox{ns} in cuda\_threads(0, 8, unit=cuda\_thread):}\\
+\blacktt{~~~~~~~~~~~~C\_tile[\redBox{mt,nt},\blueBox{ms,ns}] += A\_tile[mt*16+ms,ks] * B\_tile[ks,nt*8+ns]}
+
+\filbreak
+The details of how this deduction is made are not included here, but crucially, know that we enforce that each thread only accesses its own tile of the distributed memory.
+This same logic also applies to distributed shared memory (allocated per-CTA, but may hold a larger logical tile distributed across CTAs in a cluster).
 
 \filbreak
 \myTitle{Async Instructions \& Actor Kind}
