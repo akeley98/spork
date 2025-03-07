@@ -36,6 +36,7 @@ We introduce two core concepts for the Spork Exo-GPU extension:
     Currently, each Exo statement is assumed to be executed by 1 thread, but for the GPU, some statements could be executed by multiple cooperating threads (e.g. a warp of 32 convergent threads).
 \end{enumerate}
 The \myKeyA{actor kind} and \myKeyA{collective unit} are statically analyzed for each statement in an Exo proc.
+Both of these terms are my invention (CUDA programmers won't know what you're talking about).
 
 \filbreak
 At multiple levels, we will have to model blocks of Exo code that run on a different timeline than the surrounding code:
@@ -53,7 +54,7 @@ For example, wrapping code with \lighttt{with CudaDeviceFunction(...)} lowers th
 
 \filbreak
 \mainKey{Parallel-for:} The user will then set the \myKeyA{collective unit} for code by using parallel-for loops.
-Each loop splits the parent collective into a fixed number of smaller collectives, with one collective assigned to execute each ``loop iteration''. For example:
+Each loop splits the parent ``collective lane'' into a fixed number of smaller collective lanes, with one collective lane assigned to execute each ``loop iteration''. For example:
 
 {\color{lightttColor}
 \begin{verbatim}
@@ -71,7 +72,7 @@ We will \textit{not} be taking a fork-join approach here; this is too restrictiv
 
 \filbreak
 Instead, we will provide (and task) the user with inserting explicit \myKeyA{synchronization statements}.
-In the simple case, the user can use an all-to-all sync (all threads in a certain collective wait for all others),
+In the simple case, the user can use an all-to-all sync (all threads in a certain collective lane wait for all others),
 but we will also provide finer-grained arrive/await synchronization (e.g. threads 128-383 wait for threads 0-31).
 
 \filbreak
@@ -208,6 +209,7 @@ The CUDA programmer is tasked with choosing the number of threads to launch, pro
 \filbreak
 \mainKey{Kernel Launch:} CUDA threads are launched from the CPU, organized as a grid of \lighttt{gridDim}-many blocks (\myKeyB{CTA}: cooperative thread array), each consisting of \lighttt{blockDim}-many threads.
 Both parameters are set by the programmer.
+Furthermore, the hardware arranges threads into aligned 32-thread \myKeyA{warps} and 128-thread \myKeyA{warpgroups} (this is important for certain SIMD operations).
 
 \filbreak
 \mainKey{Work Distribution:} For the most part, from CUDA, each thread is programmed as if it were a scalar processor.
@@ -239,14 +241,126 @@ Direct access to another within-cluster CTA's shared memory is possible, but exp
 \filbreak
 \mainSub{Kernel Launch}
 
+The \lighttt{with CudaDeviceFunction(blockDim, clusterDim=1, blocks\_per\_sm=1)} async block defines a CUDA kernel/grid launch.
+The parameters are defined by arguments used to construct the \lighttt{CudaDeviceFunction} object.
+
+\filbreak
+\mainKey{Block (CTA) Size}: \lighttt{blockDim}.
+
+\filbreak
+\mainKey{Cluster Size:} \lighttt{clusterDim} (must be 1 for pre-H100).
+
+\filbreak
+\mainKey{Grid Size:} \lighttt{blocks\_per\_sm} times SM count (I'm not sure if this is the best way to expose \lighttt{gridDim} yet).
+If \lighttt{clusterDim > 1}, we further need to query the maximum number of clusters of the given size that can execute on the H100 device concurrently.
+
+\filbreak
+\mainKey{Collective Unit:} Besides changing the actor kind from \lighttt{cpu} to \lighttt{cuda\_classic}, this defines the \myKeyA{top-level collective unit}, which is an entire cluster of \lighttt{clusterDim × blockDim} threads.
+
 \filbreak
 \mainSub{Parallel Loops}
+
+Exo currently provides a binary choice of loop mode: \lighttt{seq} or \lighttt{par}.
+We will generalize this to a loop mode object defined in Python code.
+The Spork extension will define two new loop modes: \lighttt{cuda\_tasks}, and \lighttt{cuda\_threads}.
+
+\filbreak
+\mainKey{Cuda Tasks:} At the top-level, an Exo CUDA kernel is defined by a single nest of \lighttt{cuda\_tasks} loops.
+Consecutive \myKeyA{tasks} (i.e. body of the inner-most \lighttt{cuda\_tasks} loop) are assigned to \myKeyA{top-level collectives} (clusters or CTAs) in a round-robin order.
+Such loops correspond to the ``\myKeyA{minimal} communication \myKeyA{between} blocks'' (or clusters) portion of a typical CUDA algorithm.
+
+\filbreak
+Example:
+{\color{lightttColor}
+\begin{verbatim}
+with CudaDeviceFunction(...):
+    for y in cuda_tasks(0, size_y):
+        for x in cuda_tasks(0, size_x):  # say size_x = 10
+            foo
+            bar
+\end{verbatim}
+}
+Say there are 48 CTAs on the device.
+Then CTA 0 executes the task (\lighttt{foo, bar}) for \lighttt{(y,x) = (0,0)}, CTA 1 executes the task for \lighttt{(y,x) = (0,1)} ... CTA 47 executes for \lighttt{(y,x) = (4,7)}, and we wraparound to CTA 0 for executing \lighttt{(y,x) = (4,8)}.
+
+\filbreak
+The \lighttt{cuda\_task} loop can basically do anything an ordinary \lighttt{seq} loop is, since they're lowered to sequential loops (plus some modular arithmetic for task distribution).
+
+\filbreak
+NOTE: the \lighttt{cuda\_tasks} loop does \textit{not} change the actor kind or collective unit.
+It's simply a tool for allowing the user to define what order tasks are executed, which can have a huge impact on L2 hit rate.
+TODO maybe support if statements nested in \lighttt{cuda\_tasks} loops, for imperfect tiling.
+
+\filbreak
+\mainKey{Cuda Threads:} Below the \lighttt{cuda\_tasks} loops, the \lighttt{cuda\_threads} loops may appear anywhere, although the valid usage is much more restrictive.
+
+Each statement, including a for loop, is executed by a certain \myKeyA{collective lane} of cooperating threads (base case: one thread).
+This number and arrangement of threads within this collective lane is statically described with a \myKeyA{collective unit} (e.g. thread, warp, warpgroup).
+
+\filbreak
+A \lighttt{cuda\_threads(lo, hi, unit=...)} loop statement takes the executing ``parent'' collective lane and subdivides it into collective lanes of the collective unit type specified.
+
+\filbreak
+The loop must have \lighttt{lo=0}, and \lighttt{hi} a constant.
+Each iteration is assigned to a different collective lane, and the total number of threads required (iteration count times collective unit size) must not exceed the number available in the parent collective lane.
+(More precisely, the number of tiles created by applying the argument collective unit as a tile operator to the parent collective unit must be at least the number of loop iterations; this is not described in this document).
+However, it's allowed for there to be fewer threads used than available.
+
+\filbreak
+Such loops correspond to the ``\myKeyB{frequent} communication \myKeyB{within} blocks'' (or clusters) portion of a typical CUDA algorithm.
+
+\filbreak
+Example:
+{\color{lightttColor}
+\begin{verbatim}
+with CudaDeviceFunction(blockDim=512):  # top-level collective: CTA/block of 512 T (threads)
+    for foo in cuda_tasks(...):         # cuda_tasks: no effect on collective unit
+        for w in cuda_threads(0, 16, unit=cuda_warp):
+            # Parent collective lane (512 T) cut into 16 warps (32 T)
+            warp_fn()  # executed by collective lane of 32 convergent threads
+            for t in cuda_threads(0, 32, unit=cuda_thread):
+                # Parent collective lane (32 T) cut into 32 single threads.
+        for y in cuda_threads(0, 64, unit=8*cuda_thread):
+            # Parent collective lane (512 T) cut into 64 * 8 T
+            # Note 8 threads isn't any special hardware unit -- just defined by user ad-hoc
+            for x in cuda_threads(0, 8, unit=cuda_thread):
+                # Parent collective lane (8 T) cut into 8 single threads.
+        for z in cuda_threads(0, 12, unit=cuda_warp):
+            # Parent collective lane (512 T) cut into 12 warps (32 T)
+            # with 128 threads wasted.
+        for w in cuda_threads(0, 16, unit=64 * cuda_thread):
+            # Invalid: need 16 * 64 T (1024 T) but parent collective lane has only 512 T.
+\end{verbatim}
+}
+
+\filbreak
+No \myKeyA{Store} or \myKeyA{Reduce} statement may appear anywhere the collective unit is not a single thread.
+Generally, only synchronization, control flow (including nested parallel for), and custom instrs appear as valid statements in blocks of code with non-single-thread collective units.
+
+\filbreak
+\minorSub{Extra Info: Parallel-for Syntax}
+
+This is a little bit strange, but the currently implemented Spork loop syntax is
+
+\lighttt{\ \ for \greenBox{iter} in \violetBox{loop\_mode\_name}(\greenBox{lo}, \greenBox{hi}, \blueBox{kwarg1 = value1}, \blueBox{kwarg2 = value2}...):}
+
+where \greenBox{iter}, \greenBox{lo}, and \greenBox{hi} are \textit{parsed} as Exo code (can refer to values created in the Exo object code), wheras the keyword argument \blueBox{values} are \textit{evaluated} as Python code (can refer to Python values in-scope at the time the \lighttt{proc} is parsed).
+The loop mode object is constructed as
+
+\filbreak
+\lighttt{\ \ \violetBox{loop\_mode\_name}(\blueBox{kwarg1 = value1}, \blueBox{kwarg2 = value2}...)}\\
+\lighttt{\ \ \# often no args, e.g. seq()}
+
+\filbreak
+Currently, loop modes can't take positional arguments, only keyword arguments.
+
+\filbreak
+\minorSub{Extra Info: Collective Units}
+
 
 \filbreak
 \mainSub{Memory Allocation}
 
-\filbreak
-\minorSub{Extra Info: Collective Units}
 
 \filbreak
 \myTitle{Async Instructions \& Actor Kind}

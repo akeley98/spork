@@ -123,6 +123,7 @@ def xgemm_cuda(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B: f32[K
                                                     A_rmem[k_seq,:,:],
                                                     B_rmem[k_seq,n_seq,:,:])
 
+                    # NB codegen=... is a hack, should be removed once barrier lowering is implemented.
                     Fence(Sm80_generic, Sm80_generic, codegen=Sm80_sync)
                 # End K tiles loop
 
