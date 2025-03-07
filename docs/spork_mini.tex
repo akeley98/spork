@@ -19,40 +19,66 @@
 I'll outline a sketch of how we'll extend Exo to target CUDA, then go over the core features of the language extension and their relationships to CUDA concepts:
 
 \begin{enumerate}
-  \item Parallel loops: explict scheduling at each level of the CUDA thread hierarchy
   \item Async blocks \& actor kind: CUDA asynchronous instructions
+  \item Parallel loops: explict scheduling at each level of the CUDA thread hierarchy
   \item Synchronization statements
 \end{enumerate}
 
 \filbreak
 \mainSub{Language Sketch}
 
-\mainKey{Parallel-for loops:}
-Currently, Exo supports a limited form of parallel-for loop (\lighttt{par}), which lowers to OpenMP's \lighttt{\#pragma omp parallel for} construct.
-This schedules each iteration of the for loop on a different CPU thread.
-Spork will generalize this to allow scheduling over not only single threads, but over \myKeyA{collective units} -- convergent groupings of threads.
-For example, we could schedule a loop to execute each iteration with a different group of 32 cooperating threads (one warp).
-
-%% We will generalize the binary choice of \lighttt{seq} or \lighttt{par} loops into ``loop mode'' objects.
-%% For CUDA, we can configure loops to not only single threads to loop iterations, but also assign ``convergent'' groups of threads (e.g. 32 threads -- one warp) for each iteration.
-
-%% For both CUDA and the existing OpenMP parallelization, the correctness of the parallelization is not checked until code-lowering time.
-
 \filbreak
-\mainKey{Async Blocks:}
+\mainKey{Async Blocks (actor kind):}
 At multiple levels, we will have to model blocks of Exo code that run on a different timeline than the surrounding code:
 \begin{enumerate}
-  \item CPU code launching a CUDA kernel
-  \item CUDA code executing asynchronous CUDA instructions
+  \item CPU code launching a CUDA kernel:\\
+  subsequent CPU instructions don't wait for the launched kernel.
+  \item CUDA code executing asynchronous CUDA instructions:\\
+  subsequent CUDA instructions (on the same thread!) don't wait for the async instruction.
 \end{enumerate}
 We will overload the \lighttt{with} statement to open such an ``async block''.
 We will support lowering to \myKeyA{mixed CPU and CUDA} code; to launch a CUDA kernel, use \lighttt{with CudaDeviceFunction(blockDim=...)} to open an async block that lowers to CUDA.
 
-Each async block defines a \myKeyA{actor kind} for its sub-tree (the proc root has actor kind \lighttt{cpu}).
+Each async block changes the \myKeyA{actor kind} for its subtree (the proc root has actor kind \lighttt{cpu}).
 Broadly, the purpose of the actor kind is to categorize instructions based on what kind of synchronization they need.
 Only instructions with the correct actor kind can appear in the async block.
 
 The most common actor kinds are \lighttt{cpu} and \lighttt{cuda\_classic} (synchronous CUDA instructions).
+
+{\color{lightttColor}
+\begin{verbatim}
+def my_proc(...):
+    # CPU code here (actor kind: cpu)
+    with CudaDeviceFunction(blockDim = 256):
+        # CUDA code here (actor kind: cuda_classic)
+        # Lowered to CUDA device function
+\end{verbatim}
+}
+
+\filbreak
+\mainKey{Parallel-for Loops (collective unit):}
+Currently, Exo supports a limited form of parallel-for loop (\lighttt{par}), which lowers to OpenMP's \lighttt{\#pragma omp parallel for} construct.
+This schedules each iteration of the for loop on a different CPU thread.
+Spork will generalize this to allow scheduling over not only single threads, but over \myKeyA{collective units} -- convergent groupings of threads.
+The new \lighttt{for cuda\_threads} loop changes the collective unit of the subtree.
+
+\filbreak
+With the OpenMP-based \lighttt{par} loop, the loop both creates the threads and distributes work among them.
+For Spork, the \lighttt{cuda\_threads} loop only subdivides the threads previously launched with \lighttt{CudaDeviceFunction}.
+
+\filbreak
+{\color{lightttColor}
+\begin{verbatim}
+with CudaDeviceFunction(blockDim=128):  # block = 128 threads here
+    # ... distribute work across blocks (to be explained)
+    for y in cuda_threads(0, 16, unit=8 * cuda_thread):
+        # 16 "iterations", executing collective unit = 8 cuda threads
+        # So block of 128 threads is subdivided to 16 groups of 8 threads each.
+        for x in cuda_threads(0, 8, unit=cuda_thread):
+            # 8 "iterations", executing collective unit = 1 cuda thread
+            # We further subdivided the 8 threads into 8 single threads
+\end{verbatim}
+}
 
 \filbreak
 \mainKey{Synchronization Statements:}
@@ -77,14 +103,15 @@ All rewrite operations (and probably Chexo) will continue to interpret procs und
 \end{enumerate}
 
 \filbreak
-\mainKey{Corollary:} current rewrites don't need to change, and any new rewrites that modify loop modes, add async blocks, or modify synchronization don't need any checking.
+Corollary: current rewrites don't need to change, and any new rewrites that modify loop modes, add async blocks, or modify synchronization don't need any checking.
 
 \filbreak
 The final lowered proc will exhibit \myKeyB{M-semantics} (multi-threaded semantics), where parallel/async Exo constructs are lowered to actual parallel/async code.
-To complete the chain-of-equivalence between the original proc and the lowered CUDA code, we just have to prove that the \textit{final} proc interpreted under S-semantics gives the same result as said proc interpreted under M-semantics.
-In other words, prove that sufficient synchronization exists to guarantee that the parallel program produces the same output as-if it were forcibly executed sequentially (interpreted under \myKeyA{S-semantics}).
+To complete the chain-of-equivalence (figure \ref{fig:chain}) between the original proc and the lowered CUDA code, we just have to prove that the \textit{final} proc interpreted under S-semantics gives the same result as said proc interpreted under M-semantics.
+In other words, prove that sufficient synchronization exists to guarantee that the parallel program produces the same 
+output as-if it were forcibly executed sequentially (interpreted under \myKeyA{S-semantics}).
 
-\begin{centering}
+\begin{figure*}[!b]
 \sffamily
 \begin{tikzpicture}[node distance=6mm]
 \node(proc0) [normalnode] {$proc_0$\\\myKeyA{S-semantics}};
@@ -113,38 +140,18 @@ In other words, prove that sufficient synchronization exists to guarantee that t
 \draw [line, draw=blueBoxFg] (spork) -- (procNM);
 \draw [line, draw=blueBoxFg] (spork) -- (cuda);
 \end{tikzpicture}
-\end{centering}
+\caption{Chain-of-equivalence (S/M equivalence)} \label{fig:chain}
+\end{figure*}
 
 \filbreak
 \myTitle{Parallelism \& Memory}
 
 \mainSub{CUDA Thread \& Memory Hierarchy}
 
-Unlike HLS (high-level synthesis) and similar compilers that try to map quasi-sequential C-like code to parallel hardware, the CUDA language explicitly makes it the programmer's job to manage parallelism at each level of the CUDA thread and memory hierarchy.
+My core observation of the CUDA programminng model is that the mapping of the algorithm to the parallel hardware is very \myKeyA{explicit}, at least compared to HLS and other ``clever'' quasi-C compilers.
+The CUDA programmer is tasked with choosing the number of threads to launch, programming individual threads (workload distribution), and ensuring correct synchronization.
 
-\filbreak
-\mainKey{Kernel launch:} CUDA threads are launched from the CPU, organized as a grid of \lighttt{gridDim}-many blocks (\myKeyB{CTA}: cooperative thread array), each consisting of \lighttt{blockDim}-many threads.
-Both parameters are set by the programmer.
-
-\filbreak
-\mainKey{Work distribution:} For the most part, from CUDA, each thread is programmed as if it were a scalar processor.
-  The programmer assigns work to each thread.
-
-\filbreak
-\mainKey{Memory Types:} The programmer manually manages moving data between different memory types in CUDA.
-    These form a hierarchy roughly parallel to the thread hierarchy (see upcoming diagram).
-    Each thread block has its own private shared memory (\myKeyB{SMEM}), whose size and usage is controlled by the programmer.
-    This is typically used as a manual cache, or to communicate values between threads.
-
-\filbreak
-\mainKey{Programmer-managed Synchronization:}
-  The programmer manages synchronization between threads.
-  \textit{Within} a single block, there are constructs for synchronizing all or a subset of threads with another set of threads.
-  \textit{Across} blocks, for the most part, there are no native synchronization mechanisms besides atomic reductions.
-  Thus, typical algorithms have \myKeyB{frequent} communication \myKeyB{within} blocks, and \myKeyA{minimal} communication \myKeyA{between} blocks.
-
-\filbreak
-\begin{centering}
+\begin{figure*}[!b]
 \sffamily
 \begin{tikzpicture}[node distance=3.5mm]
 \node (grid) [normalnode] {grid};
@@ -191,7 +198,30 @@ Both parameters are set by the programmer.
 \draw[dotted] ($(thread1.east) - (0, 0.3)$) to node(blockDim)[]{blockDim} ($(thread2.west) - (0, 0.3)$);
 \draw[arrow,dotted] (block0.south) to [out=310,in=130] (blockDim.north);
 \end{tikzpicture}
-\end{centering}
+\caption{CUDA thread and memory hierarchy} \label{fig:hierarchy}
+\end{figure*}
+
+\filbreak
+\mainKey{Kernel Launch:} CUDA threads are launched from the CPU, organized as a grid of \lighttt{gridDim}-many blocks (\myKeyB{CTA}: cooperative thread array), each consisting of \lighttt{blockDim}-many threads.
+Both parameters are set by the programmer.
+
+\filbreak
+\mainKey{Work Distribution:} For the most part, from CUDA, each thread is programmed as if it were a scalar processor.
+The programmer assigns work to each thread.
+
+\filbreak
+\mainKey{Memory Types:} The programmer manually manages moving data between different memory types in CUDA.
+These form a hierarchy roughly parallel to the thread hierarchy (figure \ref{fig:hierarchy}).
+Each thread block has its own private shared memory (\myKeyB{SMEM}), whose size and usage is controlled by the programmer.
+This is typically used as a manual cache, or to communicate values between threads.
+
+\filbreak
+\mainKey{Programmer-managed Synchronization:}
+  The programmer manages synchronization between threads.
+  \textit{Within} a single block, there are constructs for synchronizing all or a subset of threads with another set of threads.
+  \textit{Across} blocks, for the most part, there are no native synchronization mechanisms besides atomic reductions.
+  Thus, typical algorithms have \myKeyB{frequent} communication \myKeyB{within} blocks, and \myKeyA{minimal} communication \myKeyA{between} blocks.
+  With the H100 (Hopper generation), CTAs are now grouped into clusters, which allow some limited cross-CTA communication.
 
 \filbreak
 \minorSub{Extra Info: Thread Block Clusters}
@@ -202,5 +232,23 @@ Threads within the same cluster support synchronizing with each other and can vi
 For the most part, this feature is set up assuming that all CTAs' shared memory layout is the same, and multicasting patterns are used.
 Direct access to another within-cluster CTA's shared memory is possible, but expensive.
 
+\filbreak
+\mainSub{Kernel Launch}
 
+\filbreak
+\mainSub{Parallel Loops}
+
+\filbreak
+\mainSub{Memory Allocation}
+
+\filbreak
+\minorSub{Extra Info: Collective Units}
+
+\filbreak
+\myTitle{Async Instructions \& Actor Kind}
+
+\filbreak
+\myTitle{Synchronization}
+
+% We saw that each statement is executed with a certain actor kind and 
 \end{document}
