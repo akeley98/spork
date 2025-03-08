@@ -368,7 +368,7 @@ Thoughts on how to extend tensors and memory types for CUDA.
   \item \lighttt{CudaGmem*}: Global memory (allocated by the CPU)
   \item \lighttt{CudaHost*}: Global memory sub-type; allocated by CPU; visible to CPU and CUDA device.
   \item \lighttt{CudaSmem*}: Shared memory
-  \item \lighttt{CudaRmem*}: Registers
+  \item \lighttt{CudaRmem}: Registers
   \item \lighttt{GridConstant*}: CPU-to-CUDA constants
 \end{itemize}
 
@@ -389,7 +389,7 @@ For backwards compatibility, by default, memory types will allow all operations 
 \begin{itemize}
   \item \lighttt{CudaGmem*}: \lighttt{cpu} allocated; \lighttt{cuda\_classic} read/write
   \item \lighttt{CudaHost*}: \lighttt{cpu} allocated, read/write; \lighttt{cuda\_classic} read/write
-  \item \lighttt{CudaSmem*}, \lighttt{CudaRmem*}: \lighttt{cuda\_classic} allocated, read/write
+  \item \lighttt{CudaSmem*}, \lighttt{CudaRmem}: \lighttt{cuda\_classic} allocated, read/write
   \item \lighttt{GridConstant*}: \lighttt{cpu} allocated, read/write; \lighttt{cuda\_classic} read-only
 \end{itemize}
 
@@ -420,7 +420,7 @@ Example:
 \blacktt{A\_smem: f32[\blueBox{64, 16}] @ \yellowBox{CudaSmemLinear}}\\
 \blacktt{B\_smem: f32[\blueBox{16, 64}] @ \yellowBox{CudaSmemLinear}}\\
 \graytt{\# \yellowBox{Register} tile: \redBox{distributed}, \blueBox{non-distributed} dimensions}\\
-\blacktt{C\_tile: f32[\redBox{4, 8}, \blueBox{16, 8}] @ \yellowBox{CudaRmemLinear}}\\
+\blacktt{C\_tile: f32[\redBox{4, 8}, \blueBox{16, 8}] @ \yellowBox{CudaRmem}}\\
 \graytt{\# NB compiler looks ahead to see usage is C\_tile[\redBox{mt,nt},\blueBox{ms,ns}]}\\
 \graytt{\# Deduction based on following usage:}\\
 \blacktt{~~for ks in seq(0, 16):} \graytt{\# irrelevant, ignored.}\\
