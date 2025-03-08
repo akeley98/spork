@@ -424,15 +424,15 @@ Example:
 \blacktt{C\_tile: f32[\redBox{4, 8}, \blueBox{16, 8}] @ \yellowBox{CudaRmem}}\\
 \graytt{\# NB compiler looks ahead to see usage is C\_tile[\redBox{mt,nt},\blueBox{ms,ns}]}\\
 \graytt{\# Deduction based on following usage:}\\
-\blacktt{~~for ks in seq(0, 16):} \graytt{\# irrelevant, ignored.}\\
-\blacktt{~~~~for \redBox{mt} in cuda\_threads(0, 4, unit=8*cuda\_thread):}\\
-\blacktt{~~~~~~for \redBox{nt} in cuda\_threads(0, 8, unit=cuda\_thread):}\\
-\graytt{~~~~~~~~\# Collective unit is now 1 thread -- matches native unit.}\\
-\graytt{~~~~~~~~\# Further index variables deduced as non-distributed,}\\
-\graytt{~~~~~~~~\# whether they are from parallel or sequential loops.}\\
-\blacktt{~~~~~~~~for \blueBox{ms} in seq(0, 16):}\\
-\blacktt{~~~~~~~~~~for \blueBox{ns} in seq(0, 8):}\\
-\blacktt{~~~~~~~~~~~~C\_tile[\redBox{mt,nt},\blueBox{ms,ns}] += A\_tile[mt*16+ms,ks] * B\_tile[ks,nt*8+ns]}
+\blacktt{for ks in seq(0, 16):} \graytt{\# irrelevant, ignored.}\\
+\blacktt{~~for \redBox{mt} in cuda\_threads(0, 4, unit=8*cuda\_thread):}\\
+\blacktt{~~~~for \redBox{nt} in cuda\_threads(0, 8, unit=cuda\_thread):}\\
+\graytt{~~~~~~\# Collective unit is now 1 thread -- matches native unit.}\\
+\graytt{~~~~~~\# Further index variables deduced as non-distributed,}\\
+\graytt{~~~~~~\# whether they are from parallel or sequential loops.}\\
+\blacktt{~~~~~~for \blueBox{ms} in seq(0, 16):}\\
+\blacktt{~~~~~~~~for \blueBox{ns} in seq(0, 8):}\\
+\blacktt{~~~~~~~~~~C\_tile[\redBox{mt,nt},\blueBox{ms,ns}] += A\_smem[mt*16+ms,ks] * B\_smem[ks,nt*8+ns]}
 
 \filbreak
 The details of how this deduction is made are not included here, but crucially, know that we enforce that each thread only accesses its own tile of the distributed memory.
