@@ -415,20 +415,20 @@ The lowered allocation is based only on the remaining tensor dimensions, and may
 \filbreak
 Example:
 
-\graytt{\# Assume collective unit here is a CTA of 32 threads}\\
-\graytt{\# \yellowBox{SMEM:} no distributed dimensions; native unit (CTA) matches collective unit}\\
+\graytt{\# Assume collective unit here is a CTA of 32 threads.}\\
+\graytt{\# \yellowBox{SMEM:} no distributed dimensions; native unit (CTA) matches collective unit.}\\
 \blacktt{A\_smem: f32[\blueBox{64, 16}] @ \yellowBox{CudaSmemLinear}}\\
 \blacktt{B\_smem: f32[\blueBox{16, 64}] @ \yellowBox{CudaSmemLinear}}\\
 \graytt{\# \yellowBox{Register} tile: \redBox{distributed}, \blueBox{non-distributed} dimensions}\\
 \blacktt{C\_tile: f32[\redBox{4, 8}, \blueBox{16, 8}] @ \yellowBox{CudaRmemLinear}}\\
 \graytt{\# NB compiler looks ahead to see usage is C\_tile[\redBox{mt,nt},\blueBox{ms,ns}]}\\
 \graytt{\# Deduction based on following usage:}\\
-\blacktt{~~for ks in seq(0, 16):} \graytt{\# irrelevant, ignored}\\
+\blacktt{~~for ks in seq(0, 16):} \graytt{\# irrelevant, ignored.}\\
 \blacktt{~~~~for \redBox{mt} in cuda\_threads(0, 4, unit=8*cuda\_thread):}\\
 \blacktt{~~~~~~for \redBox{nt} in cuda\_threads(0, 8, unit=cuda\_thread):}\\
-\graytt{~~~~~~~~\# Collective unit is now 1 thread -- matches native unit}\\
+\graytt{~~~~~~~~\# Collective unit is now 1 thread -- matches native unit.}\\
 \graytt{~~~~~~~~\# Further index variables deduced as non-distributed,}\\
-\graytt{~~~~~~~~\# whether they are from parallel or sequential loops}\\
+\graytt{~~~~~~~~\# whether they are from parallel or sequential loops.}\\
 \blacktt{~~~~~~~~for \blueBox{ms} in seq(0, 16):}\\
 \blacktt{~~~~~~~~~~for \blueBox{ns} in seq(0, 8):}\\
 \blacktt{~~~~~~~~~~~~C\_tile[\redBox{mt,nt},\blueBox{ms,ns}] += A\_tile[mt*16+ms,ks] * B\_tile[ks,nt*8+ns]}
