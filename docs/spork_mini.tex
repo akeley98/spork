@@ -379,7 +379,7 @@ Since Exo uses \lighttt{issubclass} to check correct memory types, we may need t
 The grid constants need a bit more explanation.
 Unlike other memory types, grid constants don't have a fixed address, and are copied from the CPU to CUDA on kernel launch.
 (These are the function parameters of a CUDA kernel).
-We can model this in Exo as \lighttt{DRAM\_STACK} that the GPU is allowed to read (but not write) and is exempt from synchronization checking (due to the implicit copy protecting concurrent CPU/CUDA access).
+We can model this in Exo as \lighttt{DRAM\_STACK} that the GPU is allowed to read (but not write) and is exempt from synchronization checking (due to the implicit copy, which protects ``concurrent'' CPU/CUDA access).
 
 \filbreak
 \mainKey{Memory Actor Kind:} We need to add a new member function allowing us to query whether each \myKeyA{actor kind} has permission to read, write, and allocate each type of memory.
@@ -398,24 +398,25 @@ These permissions don't apply to instrs, which are also the only way to interact
 
 \filbreak
 \mainKey{Distributed Memory:} This is the trickiest part.
-In Exo's scheduling system, we are concerned with the dataflow, so each tensor has to be declared with its true size
-(e.g. \lighttt{f32[64,64]} for a $64 \times 64$ matrix tile).
-However, in CUDA, the storage for such a tensor is often distributed across threads' registers.
-For example, the $64 \times 64$ tile may be split into sub-tiles of size $16 \times 8$, with each tile living in the registers of one thread of a $4 \times 8$ grid of threads.
+Consider a $64 \times 64$ matrix tile stored in CUDA registers.
+This is far too big for one thread, so let's say it's divided into sub-tiles of size $16 \times 8$, with each tile resident in the registers of one thread of a $4 \times 8$ grid of threads.
 
-\filbreak
-Since registers are allocated per-thread, the declared size of such a tensor in CUDA source code is that of the per-register sub-tile, and not the full tile size given by the Exo type.
+There's two notions of the ``shape'' of this matrix tile.
+\begin{enumerate}
+  \item In \myKeyA{Exo}, the size is $64 \times 64$, since here, we're concerned about the \textit{dataflow}, so we need the true (logical) tile size.
+  \item In \myKeyA{CUDA}, the size is $16 \times 8$, since registers are allocated by threads, and that's the size of the sub-tile for each thread.
+\end{enumerate}
 We bridge this gap with distributed memory analysis.
 
 \filbreak
-Each memory type has a ``native collective unit'' corresponding to its visibility scope in hardware (1 thread for registers; CTA for shared memory; warp/warpgroup for tensor core matrix tiles).
+Each memory type has a ``native collective unit'' corresponding to its visibility scope in hardware (one thread for registers; one CTA for shared memory; one warp/warpgroup for tensor core matrix tiles).
 If the collective unit at the point a tensor is allocated doesn't match the memory type's native collective unit, some of the leading dimensions are deduced to be ``distributed dimensions''.
 The lowered allocation is based only on the remaining tensor dimensions, and may be a scalar, if all dimensions are distributed.
 
 \filbreak
 Example:
 
-\graytt{\# Assume collective unit here is a CTA of 32 threads.}\\
+\graytt{\# Assume collective unit here is a CTA of only 1 warp (32 threads).}\\
 \graytt{\# \yellowBox{SMEM:} no distributed dimensions; native unit (CTA) matches collective unit.}\\
 \blacktt{A\_smem: f32[\blueBox{64, 16}] @ \yellowBox{CudaSmemLinear}}\\
 \blacktt{B\_smem: f32[\blueBox{16, 64}] @ \yellowBox{CudaSmemLinear}}\\
