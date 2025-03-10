@@ -680,7 +680,72 @@ wgmma synchronization only occurs within a single warpgroup, with MMAs pipelined
 \filbreak
 \mainSub{Actor Kind, Actor Signature}
 
+You probably didn't read all details on async instructions above.
+That's OK; the purpose of the \myKeyA{actor kind} and \myKeyA{actor signature} abstractions is to allow us to categorize instructions and memory accesses by what kind of synchronization is required, without knowing the details of how the instruction or synchronization is implemented.
+We just care that the synchronization performed matches that expected for the instruction.
+
+\filbreak
+For checking synchronization, we need to annotate, for each memory access (read/write) performed
+\begin{itemize}
+  \item The ID of the thread that performed the access (or set of threads, for warp/warpgroup cooperative instructions)
+  \item ``How'' the instruction performed the access. This is the \myKeyA{actor signature}.
+\end{itemize}
+
+\filbreak
+We have distinct \myKeyA{actor signatures} whenever we need to encode that different synchronization requirements hold.
+(e.g. actions performed by sm\_80 cp.async, TMA, and wgmma all have different actor signatures since they are all synchronized differently).
+
+\filbreak
+\mainKey{Actor Kind:} We informally defined actor kind as a ``category'' of instructions.
+Formally, an actor kind is a set of actor signatures (the categorized instructions may only use these signatures for accesses).
+In addition, we allow ``synthetic'' actor kinds that aren't used to categorize instructions, but are just supersets or subsets of other actor kinds.
+These will be used for synchronization statements, to be explained in later sections.
+
+\filbreak
+The actor kind also includes a $V_1$-transitive flag.
+This is out of the scope of this document.
+
+\filbreak
+\mainKey{Sigthread:} Thread ID $\times$ actor signature pair.
+This annotates each memory access.
+A set of sigthreads can be summarized as $(T:\text{thread IDs} \times A:\text{actor kind})$, or a union of such.
+
+\filbreak
+\mainKey{List of actor signatures:} The separate actor signatures for the two types of wgmma register accesses are needed in order to handle the special implicit synchronization for back-to-back wgmma writes to accumulators.
+\begin{align*}
+\lighttt{sig\_cpu: } & \text{Default CPU}\\
+\lighttt{sig\_cuda\_classic: } & \text{Default CUDA (synchronous CUDA instructions)}\\
+\lighttt{sig\_Sm80\_cp\_async: } & \text{Ampere \lighttt{cp.async} (async memcpy in generic proxy)}\\
+\lighttt{sig\_tma\_to\_smem: } & \text{Hopper TMA \lighttt{cp.bulk.async} to shared memory}\\
+\lighttt{sig\_tma\_to\_gmem: } & \text{Hopper TMA \lighttt{cp\{.reduce\}.bulk.async} to global memory}\\
+\lighttt{sig\_wgmma\_rmem\_a: } & \text{wgmma access to `A' parameter when stored in registers}\\
+\lighttt{sig\_wgmma\_rmem\_d: } & \text{wgmma access to `D' parameter (accumulator) when stored in registers}\\
+\lighttt{sig\_wgmma\_smem: } & \text{wgmma access to shared memory (either `A' or `B' parameter)}
+\end{align*}
+
+\filbreak
+\mainKey{Illustration:} sigthread annotations for memory accesses for this example program: thread 0 issues a TMA instruction copying \textsf{GMEM} to \textsf{SMEM}, then each thread reads one value from \textsf{SMEM}.
+This program would not be correct without (unseen) synchronization inserted between the two.
+{\sffamily
+\begin{align*}
+    & \blueBox{\textit{[[ thread 0 kicks off TMA ]]}} \\
+    \text{SMEM[$0$]} & \xleftarrow{\text{(0, sig\_tma\_to\_smem)}} \text{GMEM[$c+0$]} \\
+    \text{SMEM[$1$]} & \xleftarrow{\text{(0, sig\_tma\_to\_smem)}} \text{GMEM[$c+1$]} \\
+    & ... \\
+    \text{SMEM[$N-1$]} & \xleftarrow{\text{(0, sig\_tma\_to\_smem)}} \text{GMEM[$c+N-1$]} \\
+    & \blueBox{\textit{[[ thread $x$ reads SMEM[$x$] ]]}} \\
+    \text{Y[$0$]} & \xleftarrow{\text{(0, sig\_cuda\_classic)}} \text{SMEM[$0$]} \\
+    \text{Y[$1$]} & \xleftarrow{\text{(1, sig\_cuda\_classic)}} \text{SMEM[$1$]} \\
+    & ... \\
+    \text{Y[$N-1$]} & \xleftarrow{\text{(N-1, sig\_cuda\_classic)}} \text{SMEM[$N-1$]} \\
+\end{align*}
+}
+
+
+
 \filbreak
 \myTitle{Synchronization}
+
+% Subsequent sigthreads to rely on the completion of actions...
 
 \end{document}
