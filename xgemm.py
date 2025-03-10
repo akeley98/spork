@@ -18,6 +18,7 @@ Sm80_sync = 'asm volatile("cp.async.wait_all;" ::); __syncthreads();'
 
 @instr("exo_Sm80_cpAsync16B(&{smem_data}, &{gmem_data});")
 def tmp_cpAsync16B_f32(smem: [f32][4] @ CudaSmemLinear, gmem: [f32][4] @ CudaGmemLinear):
+    assert stride(smem, 0) == 1
     for i in seq(0, 4):
         smem[i] = gmem[i]
 
