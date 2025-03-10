@@ -89,7 +89,7 @@ We will then enforce that the correct barriers were used to wait for their resul
 We will enforce that this appears in a scope where the collective unit is one CTA.
 
 \filbreak
-\mainKey{Invalid Divergence:} Some instructions expect to be called by a certain convergent collective unit (e.g. warp/warpgroup tensor core instructions) and we will enforce this at the call site of each instr.
+\mainKey{Invalid Instruction Divergence:} Some instructions expect to be called by a certain convergent collective unit (e.g. warp/warpgroup tensor core instructions) and we will enforce this at the call site of each instr.
 This is really a generalization of the barrier divergence issue, although older literature won't be aware of this, since these new instructions weren't invented yet.
 
 \filbreak
@@ -707,7 +707,7 @@ This is out of the scope of this document.
 
 \filbreak
 \mainKey{Sigthread:} Thread ID $\times$ actor signature pair.
-This annotates each memory access.
+This annotates (``signs'') each memory access.
 A set of sigthreads can be summarized as $(T:\text{thread IDs} \times A:\text{actor kind})$, or a union of such.
 
 \filbreak
@@ -741,11 +741,84 @@ This program would not be correct without (unseen) synchronization inserted betw
 \end{align*}
 }
 
-
-
 \filbreak
 \myTitle{Synchronization}
 
-% Subsequent sigthreads to rely on the completion of actions...
+We introduce \myKeyA{synchronization statements}, which we view as being executed cooperatively by an entire collective lane.
+
+\filbreak
+\begin{itemize}
+  \item \lighttt{Arrive($A_1$:\textsf{actor kind}, $B$:\textsf{barrier})}
+  \item \lighttt{Await($B$:\textsf{barrier}, $A_2$:\textsf{actor kind}, $N$:\textsf{integer} = 0)}
+  \item \lighttt{Fence($A_1$:\textsf{actor kind}, $A_2$:\textsf{actor kind})}
+\end{itemize}
+
+\filbreak
+For \lighttt{Arrive} and \lighttt{Await}, we need $B$ to refer to a barrier variable declared with \lighttt{$B$ : barrier}.
+
+\filbreak
+Let $T$ be the set of threads in the collective lane (e.g. CTA) executing the statement.
+Each execution of an \lighttt{Arrive} statement defines the first visibility set $V_1 = T \times A_1$ (set of sigthreads).
+Each execution of an \lighttt{Await} statements defines the second visibility set $V_2 = T \times A_2$.
+
+\filbreak
+Each \lighttt{Await} matches with the $N^{th}$ prior \lighttt{Arrive} done with the same barrier $B$.
+All actions performed by a sigthread in $V_2$ subsequent to the \lighttt{Await} may assume that all actions performed by a sigthread in $V_1$ prior to the matched \lighttt{Arrive} have completed and have visible effects.
+
+\filbreak
+A \lighttt{Fence($A_1$, $A_2$)} statement is like \lighttt{Arrive($A_1$, $B$)} followed immediately by \lighttt{Await($B$, $A_2$, 0)} where $B$ is an anonymous barrier variable.
+
+\filbreak
+Unlike most of Exo, I'm intentionally taking a rather ``declarative'' and non-externalized approach with these synchronization statements.
+The user only declares the intent of which kind of instructions (actor kind) to synchronize with which others, and the logic for how to lower synchronization statements is centralized in the Spork compiler.
+There may be downsides to this approach, but I feel this will make correctness checking so much more feasible than analyzing that raw CUDA synchronization primitives are used correctly, and I think this declarative style of programming will give the user enough control to generate exactly what they need in practice.
+
+\filbreak
+We will not support lowering all possible combinations of $A_1$, $A_2$, $T$ (collective lane); futhermore, we'll only support some fixed usage patterns for \lighttt{barrier} declaration, \lighttt{Arrive}, and \lighttt{Await} statements, with the intent that they'll lower in an obvious way to mbarrier or commit\_group synchronization, without surprises.
+We'll work out the precise details later.
+
+\filbreak
+\mainKey{Barrier Divergence:}
+The possibility of barrier divergence is defined out of existence with this design, since the generated barrier will be precisely what is expected for the \myKeyA{collective unit} at the point the synchronization statement was placed.
+So for example, \lighttt{Fence(cuda\_classic, cuda\_classic)} lowers in different ways in the following:
+{\color{lightttColor}
+\begin{verbatim}
+with CudaDeviceFunction(blockDim=256):
+    for task in cuda_tasks(...):
+        for i in seq(...):
+            # Lowers to __syncthreads(), since the collective unit here is a full CTA
+            Fence(cuda_classic, cuda_classic)
+
+            for w in cuda_threads(0, 8, unit=32 * cuda_thread):
+                # Lowers to __syncwarp(), since the collective unit here is a warp (32 T)
+                Fence(cuda_classic, cuda_classic)
+\end{verbatim}
+}
+
+\filbreak
+If the user makes a mistake and the ``wrong'' barrier is generated, this will be detected in synchronization checking.
+If no suitable barrier exists (e.g. trying to synchronize wgmma where the collective unit is not a warpgroup), a compile-time error will be issued.
+
+\filbreak
+\mainKey{Invalid Instruction Divergence:}
+Wherever a call to an \lighttt{instr} is made, we check that the \myKeyA{collective unit} matches that expected for the \lighttt{instr}.
+For example, with \lighttt{wgmma\_mma(...)} being a wgmma instruction:
+{\color{lightttColor}
+\begin{verbatim}
+with CudaDeviceFunction(blockDim=256):
+    for task in cuda_tasks(...):
+        # Collective unit here is a full CTA of 256 threads
+        with CudaAsync(wgmma_async):
+            wgmma_mma(...)  # WRONG, expected 128 T.
+        for wg in cuda_threads(0, 2, unit=128 * cuda_thread):
+            # Collective unit here is 128 threads (warpgroup)
+            with CudaAsync(wgmma_async):
+                wgmma_mma(...)  # OK
+        for t in cuda_threads(0, 256, unit=cuda_thread):
+            # Collective unit here is 1 thread
+            with CudaAsync(wgmma_async):
+                wgmma_mma(...)  # WRONG, expected 128 T.
+\end{verbatim}
+}
 
 \end{document}
