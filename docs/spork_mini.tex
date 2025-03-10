@@ -109,7 +109,6 @@ def my_proc(...):
                 for x in cuda_threads(0, 8, unit=cuda_thread):
                     # 8 "iterations", executing collective unit = 1 cuda thread
                     # We further subdivided the 8 threads into 8 single threads
-
 \end{verbatim}
 }
 
@@ -468,6 +467,60 @@ This same logic also applies to distributed shared memory (allocated per-CTA, bu
 
 \filbreak
 \myTitle{Async Instructions \& Actor Kind}
+
+CUDA defines some asynchronous instructions.
+These are part of the instruction stream for a CUDA thread, but execution continues to the next instruction without waiting.
+This means the following won't work if the highlighted statements are async:
+\begin{enumerate}
+  \item \redBox{$A \leftarrow X$}
+  \item \redBox{$B \leftarrow Y$}
+  \item $C \leftarrow C + AB$ (incorrectly assumes $A,B$ written to)
+\end{enumerate}
+
+\filbreak
+Two async instructions issued by the same thread/warpgroup don't even complete in the same order relative to each other, e.g., the following is a data race:
+\begin{enumerate}
+  \item \redBox{$A \leftarrow X$}
+  \item \redBox{$A \leftarrow Y$} (might be overwritten by ``prior'' $A \leftarrow X$)
+\end{enumerate}
+
+\filbreak
+These instructions are also unaffected by ``ordinary'' synchronization (e.g. \lighttt{\_\_syncthreads});
+you have to use specialialized barriers to wait for these instructions
+(except, they are still protected by implicit ``stop the world'' barriers between grid launches on the same stream).
+
+\filbreak
+\mainSub{Async Instructions Summary}
+
+\mainKey{Non-bulk Async Copy (sm\_80):}
+These instructions allow a single thread to copy 4, 8, or 16 aligned bytes from \myKeyA{GMEM} to \myKeyB{SMEM}.
+The 16 byte copy is extra nice because it skips the L1 cache (avoids pollution).
+Generally, to copy a matrix tile, you distribute the copies over many threads.
+
+\filbreak
+\mainKey{TMA (sm\_90a bulk async copy):}
+These copies are ``bulk'' because a single thread can now copy an entire range of memory, or a (strided) matrix tile.
+The copy can be in either direction between \myKeyA{GMEM} and \myKeyB{SMEM}.
+Matrix tile reads/writes to \myKeyA{GMEM} are predicated: out-of-bounds writes are discarded; reads return 0 or NaN (configurable).
+
+\filbreak
+For matrix tile copies, you have to construct a \lighttt{CUtensorMap}, which describes the shape and strides of the source matrix.
+This will be modelled as \lighttt{SpecialWindow} in Exo, not described in this document.
+
+\filbreak
+\mainKey{wgmma (sm\_90a tensor cores):}
+These instructions need to be called convergently by a warpgroup (128 aligned threads).
+They perform a matrix multiply-accumulate operation $D = D + AB$ where each is a matrix tile.
+The $D$ (accumulator) must be in \textbf{RMEM} (register tile); $B$ is in \myKeyB{SMEM}, and $A$ is in either.
+(Note, unlike the copy instructions, registers themselves are accessed and modified asynchronously).
+
+\filbreak
+The $A$ operand (if in \myKeyB{SMEM}) must be row-major, and the $B$ operand column-major.
+The register tiles distribute the full matrix tile evenly over the registers of the 128 threads.
+Although register tiles don't implicitly have a majorness, in practice wgmma is most efficient when the $D$ tile is read/written in column-major order.
+Finally, the \myKeyB{SMEM} operands may be swizzled for improved memory access patterns (this is really complicated and poorly documented).
+
+\minorSub{Extra Info: Async Instruction Details}
 
 \filbreak
 \myTitle{Synchronization}
