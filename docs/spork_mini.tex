@@ -492,20 +492,51 @@ you have to use specialialized barriers to wait for these instructions
 \filbreak
 \mainSub{Async Instructions Summary}
 
+These instructions were introduced with Ampere (a.k.a. sm\_80, A100) or Hopper (a.k.a. sm\_90a, H100).
+Blackwell also introduces 5th generation tensor cores, which I don't cover here.
+
+\filbreak
 \mainKey{Non-bulk Async Copy (sm\_80):}
 These instructions allow a single thread to copy 4, 8, or 16 aligned bytes from \myKeyA{GMEM} to \myKeyB{SMEM}.
 The 16 byte copy is extra nice because it skips the L1 cache (avoids pollution).
 Generally, to copy a matrix tile, you distribute the copies over many threads.
 
+\begin{figure*}[!b]
+\sffamily
+\begin{tikzpicture}[node distance=5mm]
+\node (smem) [smemnode] {\myKeyB{SMEM tile}};
+\node (gmembig) [bignode, right=of smem, yshift=-3mm] {};
+\node (gmem) [gmemnode, right=of smem, xshift=9mm] {\myKeyA{GMEM tile}};
+\draw [arrow] ($(smem.east)-(0,0.2)$) -- ($(gmem.west)-(0,0.2)$);
+\draw [arrow] ($(gmem.west)+(0,0.2)$) -- ($(smem.east)+(0,0.2)$);
+
+\node (smem2) [smemnode, right=of gmem, yshift=4mm] {\myKeyB{SMEM tile}};
+\node (op2) [normalnode, right=of smem2, fill=violetBoxBg] {AtomicOp};
+\draw [arrow] (smem2) -- (op2);
+\node (gmembig2) [bignode, below=of op2, xshift=-8mm] {};
+\node (gmem2) [gmemnode, below=of op2, yshift=-6mm] {\myKeyA{GMEM tile}};
+\draw [arrow] (gmem2.east) to[out=0,in=0] (op2.east);
+\draw [arrow] (op2.south) to[out=250,in=110] (gmem2.north);
+\end{tikzpicture}
+\caption{TMA matrix tile copy (left), reduce (right)} \label{fig:tma}
+\end{figure*}
+
 \filbreak
 \mainKey{TMA (sm\_90a bulk async copy):}
 These copies are ``bulk'' because a single thread can now copy an entire range of memory, or a (strided) matrix tile.
 The copy can be in either direction between \myKeyA{GMEM} and \myKeyB{SMEM}.
-Matrix tile reads/writes to \myKeyA{GMEM} are predicated: out-of-bounds writes are discarded; reads return 0 or NaN (configurable).
+Matrix tile reads/writes to \myKeyA{GMEM} are predicated \textbf{(figure \ref{fig:tma}, left)}.
+Out-of-bounds writes are discarded; reads return 0 or NaN (configurable).
 
 \filbreak
 For matrix tile copies, you have to construct a \lighttt{CUtensorMap}, which describes the shape and strides of the source matrix.
 This will be modelled as \lighttt{SpecialWindow} in Exo, not described in this document.
+
+\filbreak
+Furthermore, when copying \myKeyB{SMEM}$\to$\myKeyA{GMEM}, TMA instructions take an optional reduction operator.
+This changes the behavior from \lighttt{GMEM[slice] = SMEM} to \lighttt{GMEM[slice] \violetBox{+=} SMEM} \textbf{(figure \ref{fig:tma}, right)}.
+This reduction is \myKeyA{atomic} per-element.
+Exo will expose only addition (\lighttt{+=}) for now, but the underlying instruction supports other reduction operators (e.g. max).
 
 \filbreak
 \mainKey{wgmma (sm\_90a tensor cores):}
@@ -517,10 +548,137 @@ The $D$ (accumulator) must be in \textbf{RMEM} (register tile); $B$ is in \myKey
 \filbreak
 The $A$ operand (if in \myKeyB{SMEM}) must be row-major, and the $B$ operand column-major.
 The register tiles distribute the full matrix tile evenly over the registers of the 128 threads.
-Although register tiles don't implicitly have a majorness, in practice wgmma is most efficient when the $D$ tile is read/written in column-major order.
+Although register tiles don't inherently have a majorness, in practice wgmma is most efficient when the $D$ tile is read/written in column-major order.
 Finally, the \myKeyB{SMEM} operands may be swizzled for improved memory access patterns (this is really complicated and poorly documented).
 
-\minorSub{Extra Info: Async Instruction Details}
+\filbreak
+\minorSub{Extra Info: sm\_90a Instructions}
+
+\minorKey{Async Proxy:}
+In CUDA terminology, TMA and wgmma (sm\_90a) are considered to operate in the \myKeyA{async proxy}
+\begin{itemize}
+  \item \myKeyA{generic proxy}: most other instructions
+  \item \myKeyA{tensorMap proxy}: we'll ignore this
+  \item Memory not visible by default across proxies
+\end{itemize}
+
+\filbreak
+PTX docs has \textit{tomes} about this; boils down to
+\begin{itemize}
+  \item Need a \lighttt{fence.proxy.async} for generic$\to$async proxy data flow
+  \item \textit{Nothing} needed for async$\to$generic
+  \begin{itemize}
+    \item (detail: the fence is required in both directions, but built in to the ``wait for async instruction'' machinery)
+  \end{itemize}
+\end{itemize}
+
+\filbreak
+\minorKey{TMA:}
+Handled with \lighttt{cp.async.bulk.tensor} PTX instructions.
+
+\begin{itemize}
+\item Async 1D-5D tile copy \myKeyA{GMEM}$\leftrightarrow$\myKeyB{SMEM} \textbf{(figure \ref{fig:tma})}.
+\item \myKeyB{SMEM} tile: densely packed C-order matrix
+\begin{itemize}
+  \item 128 byte alignment
+\end{itemize}
+\item \myKeyA{GMEM} tile: tile from big C-order matrix
+\begin{itemize}
+  \item \myKeyA{Predicated} and strided
+  \item 16 byte aligned memory and strides
+  \item Innermost rank can't be strided
+\end{itemize}
+\end{itemize}
+
+\filbreak
+\minorKey{TMA Synchronization, generic$\to$TMA:} Async proxy fence (\lighttt{fence.proxy.async}) required for TMA to see memory written by generic instructions.
+
+\filbreak
+\minorKey{TMA Synchronization, TMA$\to$generic:}
+
+\filbreak
+If the TMA copies \myKeyB{SMEM}$\to$\myKeyA{GMEM}, the completion mechanism is \textbf{commit\_group}
+
+\filbreak
+If the TMA copies \myKeyA{GMEM}$\to$\myKeyB{SMEM}, the completion mechanism is \textbf{mbarrier} (split barrier)
+
+\filbreak
+\begin{itemize}
+  \item Initialized in SMEM with arrive-count $A$
+  \item Any number of threads can wait until both of the following complete:
+  \begin{itemize}
+    \item $A$-many threads arrive
+    \item \lighttt{tx-count}-many bytes copied by TMA
+  \end{itemize}
+  \item Re-usable (detail: requires parity tracking)
+\end{itemize}
+
+\filbreak
+Usually, we nominate only \myKeyA{1 thread} to issue the TMA instruction.
+Hence, we use a 1-to-many mbarrier to synchronize ($A = 1$).
+
+\filbreak
+NB mbarrier is usable without TMA (\lighttt{tx-count=0})
+
+\begin{figure*}[b!]
+\sffamily
+\begin{tikzpicture}[node distance=1mm]
+\node (fence0) [smallnode] {fence};
+\node (mma00) [smallishnode, right=of fence0, fill=violetBoxBg] {MMA\\scale-d=0};
+\node (mma01) [smallnode, right=of mma00, fill=violetBoxBg] {MMA};
+\node (commit0) [smallnode, right=of mma01, fill=violetBoxBg] {commit\\group};
+\node (fence1) [smallnode, right=of commit0] {fence};
+\node (mma10) [smallnode, right=of fence1] {MMA};
+\node (mma11) [smallnode, right=of mma10] {MMA};
+\node (commit1) [smallnode, right=of mma11] {commit\\group};
+\node (wait1) [smallishnode, right=of commit1, fill=violetBoxBg] {wait\_group \textbf{1}};
+\draw[arrow] (mma00.south) to[out=330,in=210] (mma01.south);
+\draw[arrow] (mma01.south) to[out=330,in=210] (commit0.south);
+\draw[arrow] (commit0.south) to[out=350,in=190] (wait1.south);
+\end{tikzpicture}
+\caption{Two example pipeline stages for wgmma. The highlighted \lighttt{wait\_group} waits for prior highlighted instructions, but no other instructions.} \label{fig:wgmmaPipeline}
+\end{figure*}
+
+\filbreak
+\minorKey{wgmma:} Each \lighttt{wgmma.mma\_async} instruction is issued by a warpgroup (128 aligned threads) and computes
+\begin{itemize}
+  \item $D \leftarrow AB$ or \hfill (scale-d = 0)
+  \item $D \leftarrow AB + D$ \hfill (scale-d = 1)
+\end{itemize}
+
+\filbreak
+As mentioned, $D$ (accumulator) is a \textbf{register tile}, $B$ is in \myKeyB{SMEM}, and $A$ is in either storage type.
+Usually, scale-d=0 only for the first iteration.
+
+\filbreak
+\minorKey{Synchronization, generic$\to$wgmma:}
+Synchronization differs depending on whether the values in question are in \textbf{RMEM} or \myKeyB{SMEM}.
+For \textbf{registers}, issue \lighttt{wgmma.fence}.
+For \myKeyB{SMEM}, issue \lighttt{fence.proxy.async}.
+
+\filbreak
+\minorKey{Synchronization, wgmma$\to$wgmma:}
+wgmma defines an important implicit synchronization guarantee.
+Consecutive \lighttt{wgmma.mma\_async} instructions using the same $D$ (accumulator) have their effects on $D$ implicitly ordered.
+This applies to no other effects.
+
+\filbreak
+\minorKey{Synchronization, wgmma$\to$generic:}
+The completion mechanism is ``commit group''.
+
+\filbreak
+wgmma synchronization only occurs within a single warpgroup, with MMAs pipelined:
+
+\begin{itemize}
+\item \lighttt{wgmma.fence} begins a \myKeyA{pipeline stage}
+\item \lighttt{wgmma.mma} must appear within \myKeyA{pipeline stage}
+\item \lighttt{wgmma.commit\_group} ends a \myKeyA{pipeline stage} \textbf{(figure \ref{fig:wgmmaPipeline})}
+\item ptxas generates bad code if it can't recognize the pattern
+\end{itemize}
+\lighttt{wgmma.wait\_group N} waits for the MMAs of the $N^{th}$ prior pipeline stage (0-indexed)
+
+\filbreak
+\mainSub{Actor Kind, Actor Signature}
 
 \filbreak
 \myTitle{Synchronization}
