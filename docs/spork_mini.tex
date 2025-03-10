@@ -76,6 +76,23 @@ In the simple case, the user can use an all-to-all sync (all threads in a certai
 but we will also provide finer-grained arrive/await synchronization (e.g. threads 128-383 wait for threads 0-31).
 
 \filbreak
+By statically analyzing the \myKeyA{actor kind} and \myKeyA{collective unit} for each statement, we can prevent entire categories of synchronization bugs.
+If you have prior CUDA experience, you may see how we can prevent the following bugs:
+
+\filbreak
+\mainKey{Async Instruction Mistakes:} If the user employs CUDA async instructions (e.g. cp.async, TMA, wgmma tensor cores) then the user must explicitly place them in async blocks with the correct actor kind.
+We will then enforce that the correct barriers were used to wait for their results prior to usage in future statements.
+
+\filbreak
+\mainKey{Barrier Divergence:} Suppose the user inserts a \lighttt{\_\_syncthreads} somewhere.
+(Exo syntax to be described in later sections).
+We will enforce that this appears in a scope where the collective unit is one CTA.
+
+\filbreak
+\mainKey{Invalid Divergence:} Some instructions expect to be called by a certain convergent collective unit (e.g. warp/warpgroup tensor core instructions) and we will enforce this at the call site of each instr.
+This is really a generalization of the barrier divergence issue, although older literature won't be aware of this, since these new instructions weren't invented yet.
+
+\filbreak
 \mainSub{Code Example Sketch}
 {\color{lightttColor}
 \begin{verbatim}
@@ -348,8 +365,8 @@ where \greenBox{iter}, \greenBox{lo}, and \greenBox{hi} are \textit{parsed} as E
 The loop mode object is constructed as
 
 \filbreak
-\lighttt{\ \ \violetBox{loop\_mode\_name}(\blueBox{kwarg1 = value1}, \blueBox{kwarg2 = value2}...)}\\
-\lighttt{\ \ \# often no args, e.g. seq()}
+\lighttt{~~\violetBox{loop\_mode\_name}(\blueBox{kwarg1 = value1}, \blueBox{kwarg2 = value2}...)}\\
+\lighttt{~~\# often no args, e.g. seq()}
 
 \filbreak
 Currently, loop modes can't take positional arguments, only keyword arguments.
@@ -364,11 +381,17 @@ Thoughts on how to extend tensors and memory types for CUDA.
 
 \mainKey{Memory Types:} Of course we can re-use Exo's memory types to express different kinds of CUDA memory:
 \begin{itemize}
+  \filbreak
   \item \lighttt{CudaBasicDeviceVisible}: All device-visible memory
+  \filbreak
   \item \lighttt{CudaGmem*}: Global memory (allocated by the CPU)
+  \filbreak
   \item \lighttt{CudaHost*}: Global memory sub-type; allocated by CPU; visible to CPU and CUDA device.
+  \filbreak
   \item \lighttt{CudaSmem*}: Shared memory
+  \filbreak
   \item \lighttt{CudaRmem}: Registers
+  \filbreak
   \item \lighttt{GridConstant*}: CPU-to-CUDA constants
 \end{itemize}
 
@@ -387,9 +410,13 @@ For backwards compatibility, by default, memory types will allow all operations 
 
 \filbreak
 \begin{itemize}
+  \filbreak
   \item \lighttt{CudaGmem*}: \lighttt{cpu} allocated; \lighttt{cuda\_classic} read/write
+  \filbreak
   \item \lighttt{CudaHost*}: \lighttt{cpu} allocated, read/write; \lighttt{cuda\_classic} read/write
+  \filbreak
   \item \lighttt{CudaSmem*}, \lighttt{CudaRmem}: \lighttt{cuda\_classic} allocated, read/write
+  \filbreak
   \item \lighttt{GridConstant*}: \lighttt{cpu} allocated, read/write; \lighttt{cuda\_classic} read-only
 \end{itemize}
 
@@ -401,10 +428,11 @@ These permissions don't apply to instrs, which are also the only way to interact
 Consider a $64 \times 64$ matrix tile stored in CUDA registers.
 This is far too big for one thread, so let's say it's divided into sub-tiles of size $16 \times 8$, with each tile resident in the registers of one thread of a $4 \times 8$ grid of threads.
 
+\filbreak
 There's two notions of the ``shape'' of this matrix tile.
 \begin{enumerate}
-  \item In \myKeyA{Exo}, the size is $64 \times 64$, since here, we're concerned about the \textit{dataflow}, so we need the true (logical) tile size.
-  \item In \myKeyA{CUDA}, the size is $16 \times 8$, since registers are allocated by threads, and that's the size of the sub-tile for each thread.
+  \item In \myKeyA{Exo}, the shape is $64 \times 64$, since here, we're concerned about the \textit{dataflow}, so we need the true (logical) tile size.
+  \item In \myKeyA{CUDA}, the shape is $16 \times 8$, since registers are allocated by threads, and that's the size of the sub-tile for each thread.
 \end{enumerate}
 We bridge this gap with distributed memory analysis.
 
