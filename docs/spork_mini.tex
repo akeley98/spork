@@ -289,18 +289,18 @@ Such loops correspond to the ``\myKeyA{minimal} communication \myKeyA{between} b
 Example:
 {\color{lightttColor}
 \begin{verbatim}
-with CudaDeviceFunction(...):
+with CudaDeviceFunction(blockDim=256):
     for y in cuda_tasks(0, size_y):
         for x in cuda_tasks(0, size_x):  # say size_x = 10
             foo
             bar
 \end{verbatim}
 }
-Say there are 48 CTAs on the device.
+Say there are 48 CTAs launched.
 Then CTA 0 executes the task (\lighttt{foo, bar}) for \lighttt{(y,x) = (0,0)}, CTA 1 executes the task for \lighttt{(y,x) = (0,1)} ... CTA 47 executes for \lighttt{(y,x) = (4,7)}, and we wraparound to CTA 0 for executing \lighttt{(y,x) = (4,8)}.
 
 \filbreak
-The \lighttt{cuda\_task} loop can basically do anything an ordinary \lighttt{seq} loop is, since they're lowered to sequential loops (plus some modular arithmetic for task distribution).
+The \lighttt{cuda\_tasks} loop can basically do anything an ordinary \lighttt{seq} loop is, since they're lowered to sequential loops (plus some modular arithmetic for task distribution).
 
 \filbreak
 NOTE: the \lighttt{cuda\_tasks} loop does \textit{not} change the actor kind or collective unit.
@@ -642,8 +642,8 @@ NB mbarrier is usable without TMA (\lighttt{tx-count=0})
 \filbreak
 \minorKey{wgmma:} Each \lighttt{wgmma.mma\_async} instruction is issued by a warpgroup (128 aligned threads) and computes
 \begin{itemize}
-  \item $D \leftarrow AB$ or \hfill (scale-d = 0)
-  \item $D \leftarrow AB + D$ \hfill (scale-d = 1)
+  \item $D \leftarrow AB$ (scale-d = 0), or,
+  \item $D \leftarrow AB + D$ (scale-d = 1)
 \end{itemize}
 
 \filbreak
@@ -706,9 +706,9 @@ The actor kind also includes a $V_1$-transitive flag.
 This is out of the scope of this document.
 
 \filbreak
-\mainKey{Sigthread:} Thread ID $\times$ actor signature pair.
+\mainKey{Sigthread:} (Thread ID $\times$ actor signature) pair.
 This annotates (``signs'') each memory access.
-A set of sigthreads can be summarized as $(T:\text{thread IDs} \times A:\text{actor kind})$, or a union of such.
+A set of sigthreads can be summarized as $(T:\text{thread ID set} \times A:\text{actor kind})$, or a union of such.
 
 \filbreak
 \mainKey{List of actor signatures:} The separate actor signatures for the two types of wgmma register accesses are needed in order to handle the special implicit synchronization for back-to-back wgmma writes to accumulators.
@@ -726,6 +726,23 @@ A set of sigthreads can be summarized as $(T:\text{thread IDs} \times A:\text{ac
 \filbreak
 \mainKey{Illustration:} sigthread annotations for memory accesses for this example program: thread 0 issues a TMA instruction copying \textsf{GMEM} to \textsf{SMEM}, then each thread reads one value from \textsf{SMEM}.
 This program would not be correct without (unseen) synchronization inserted between the two.
+
+\begin{minipage}[t]{0.48\textwidth}\codeminipage
+\vspace{10mm}
+{\color{lightttColor}
+\begin{verbatim}
+for tid in cuda_threads(0, 1):
+    # Only thread 0 does TMA (pseudocode)
+    with CudaAsync(tma_to_smem_async):
+        SMEM[0:N] = GMEM[c:c+N]
+# ...
+for tid in cuda_threads(0, N):
+    Y[tid] = SMEM[tid]
+\end{verbatim}
+}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.48\textwidth}\fixminipage
 {\sffamily
 \begin{align*}
     & \blueBox{\textit{[[ thread 0 kicks off TMA ]]}} \\
@@ -740,6 +757,7 @@ This program would not be correct without (unseen) synchronization inserted betw
     \text{Y[$N-1$]} & \xleftarrow{\text{(N-1, sig\_cuda\_classic)}} \text{SMEM[$N-1$]} \\
 \end{align*}
 }
+\end{minipage}
 
 \filbreak
 \myTitle{Synchronization}
@@ -774,7 +792,8 @@ The user only declares the intent of which kind of instructions (actor kind) to 
 There may be downsides to this approach, but I feel this will make correctness checking so much more feasible than analyzing that raw CUDA synchronization primitives are used correctly, and I think this declarative style of programming will give the user enough control to generate exactly what they need in practice.
 
 \filbreak
-We will not support lowering all possible combinations of $A_1$, $A_2$, $T$ (collective lane); futhermore, we'll only support some fixed usage patterns for \lighttt{barrier} declaration, \lighttt{Arrive}, and \lighttt{Await} statements, with the intent that they'll lower in an obvious way to mbarrier or commit\_group synchronization, without surprises.
+I'm specifying all different forms of CUDA synchronization (and CUDA/CPU synchronization) to use this common syntax in order to make correctness checking straightforward without needing to know the low-level barrier details; this does not imply we support lowering all possible combinations of $A_1$, $A_2$, $T$ (collective lane).
+Futhermore, we'll only support some fixed usage patterns for \lighttt{barrier} declaration, \lighttt{Arrive}, and \lighttt{Await} statements, with the intent that they'll lower in an obvious way to mbarrier or commit\_group synchronization, without surprises.
 We'll work out the precise details later.
 
 \filbreak
