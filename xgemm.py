@@ -6,11 +6,11 @@ from exo.spork.cuda_memory import *
 
 Sm80_cp_async = actor_kinds.Sm80_cp_async  # Maybe crappy, fixme
 
-Mw = 48
+Mw = 96
 Nw = 64
 
 M1 = 192
-N1 = 128  # Does not change gracefully
+N1 = 256  # Does not change gracefully
 
 K0 = 16
 
@@ -59,7 +59,7 @@ def xgemm_cuda(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B: f32[K
     assert N % N1 == 0
     assert K % K0 == 0
 
-    with CudaDeviceFunction(blockDim = 256, blocks_per_sm = 2):
+    with CudaDeviceFunction(blockDim = 256, blocks_per_sm = 1):
         Fence(cpu_cuda_api, cuda_api)
         for m2 in cuda_tasks(0, M / M1):
             for n2 in cuda_tasks(0, N / N1):
@@ -93,11 +93,11 @@ def xgemm_cuda(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B: f32[K
                                                              k1 * K0 + k0 * 4 : k1 * K0 + k0 * 4 + 4])
 
                             # Load B tile
-                            for k0_seq in seq(0, 2):
-                                for k0_par in cuda_threads(0, 8, unit=32 * cuda_thread):
-                                    for n0 in cuda_threads(0, 32, unit=cuda_thread):
-                                        tmp_cpAsync16B_f32(B_smem[k1 % 2, k0_seq * 8 + k0_par, 4 * n0 : 4 * n0 + 4],
-                                                           B[k1 * K0 + k0_seq * 8 + k0_par,
+                            for k0_seq in seq(0, 4):
+                                for k0_par in cuda_threads(0, 4, unit=64 * cuda_thread):
+                                    for n0 in cuda_threads(0, 64, unit=cuda_thread):
+                                        tmp_cpAsync16B_f32(B_smem[k1 % 2, k0_seq * 4 + k0_par, 4 * n0 : 4 * n0 + 4],
+                                                           B[k1 * K0 + k0_seq * 4 + k0_par,
                                                              n2 * N1 + 4 * n0 : n2 * N1 + 4 * n0 + 4])
                         # end CudaAsync(Sm80_cp_async)
                 # for-k1 (K tiles) loop continues
