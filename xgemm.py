@@ -42,7 +42,7 @@ def tmp_mma(D: [f32][16,8] @ Sm80_RmemMatrixD, A: [f32][16,8] @ Sm80_RmemMatrixA
                 D[m,n] += A[m,k] * B[k,n]
 
 @instr("exo_Sm80_tmp_store_d(&{gmem_data}, {rmem_data}, {gmem_layout});")
-def tmp_store_d(gmem: [f32][16,8] @ CudaGmemLinear, rmem: [f32][16,8] @ Sm80_RmemMatrixD):
+def tmp_store_d(gmem: [f32][16,8] @ CudaDeviceVisibleLinear, rmem: [f32][16,8] @ Sm80_RmemMatrixD):
     for m in seq(0, 16):
         for n in seq(0, 8):
             gmem[m,n] = rmem[m,n]
