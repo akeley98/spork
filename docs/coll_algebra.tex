@@ -1,0 +1,231 @@
+% xelatex </dev/null coll_algebra.tex
+
+\input{whitepaper_common.tex}
+
+\tikzstyle{redsmallnode} = [rectangle, minimum width=1.25cm, minimum height=1cm, text centered, text width=1.25cm, draw=redBoxFg, fill=redBoxBg, text=redBoxFg]
+\tikzstyle{bluesmallnode} = [rectangle, minimum width=1.25cm, minimum height=1cm, text centered, text width=1.25cm, draw=blueBoxFg, fill=blueBoxBg, text=blueBoxFg]
+\tikzstyle{smallnode} = [rectangle, minimum width=1.25cm, minimum height=1cm, text centered, text width=1.25cm, draw=black, fill=white]
+\tikzstyle{smallishnode} = [rectangle, minimum width=2cm, minimum height=1cm, text centered, text width=2cm, draw=black, fill=white]
+\tikzstyle{normalnode} = [rectangle, minimum width=3cm, minimum height=1cm, text centered, text width=3cm, draw=black, fill=white]
+\tikzstyle{widenode} = [rectangle, minimum width=62mm, minimum height=8mm, text centered, text width=62mm, draw=black, fill=white]
+\tikzstyle{bignode} = [rectangle, minimum width=3.5cm, minimum height=2cm, text centered, text width=3cm, draw=black, fill=white]
+\tikzstyle{arrow} = [thick,->,>=stealth]
+\tikzstyle{line} = [thick]
+
+
+\begin{document}
+\myTitle{Exo GPU (Spork) Collective Algebra}
+
+Thoughts on how to formally model subdividing groups of threads, thread indexing, and thread convergence (e.g. for barriers or warp/warpgroup tensor core MMA).
+
+\filbreak
+\mainKey{Collective Unit:} A ``unit of measurement'' for threads arranged in a certain shape.
+For example ``32 consecutive threads'' is a collective unit.
+This would be a warp if aligned, but in Spork, alignment is not generally a property of a collective unit.
+We only check alignment as an additional requirement when matching collective units for lowering \lighttt{instr} and barriers.
+
+\filbreak
+Nevertheless, we use familiar terms like ``warp'' for user-facing code; this is only an abuse-of-notation in the rare case that the user chooses to misalign threads.
+
+\filbreak
+Collective units need not be contiguous.
+For example, a quadpair -- two groups of four threads each, offset by 16 from each other -- is a collective unit, and is distinct in shape from 8 contiguous threads.
+
+\filbreak
+\mainKey{Thread Collective:} A grouping of threads dynamically created at runtime.
+The shape of the group is described by a collective unit.
+For example, threads 0-31, threads 32-63, threads 64-95 ... are all distinct thread collectives that share the collective unit ``warp''.
+Threads [0, 3] $\cup$ [16, 19], threads [4, 7] $\cup$ [20, 23], etc. are distinct thread collectives with collective unit ``quadpair''.
+
+\filbreak
+A parallel-for loop causes a distinct thread collective to be assigned to execute each iteration.
+
+\filbreak
+\mainKey{Top-level Collective:} A CUDA cluster, including the degenerate case of a single CTA if \lighttt{clusterDim = 1} (as is usually the case).
+This terminology can generalize to other APIs.
+
+\filbreak
+\mainKey{Collective Tiling:} A collective tiling either describes the top-level collective, or describes how the thread collectives for executing statements within a parallel for loop or specialization statement are generated.
+Collective tilings are arranged in a parent-child relationship, with each parallel for loop creating a new child that suballocates threads from the parent, and with the top-level parent being the top-level collective.
+
+\filbreak
+The primary purpose of this document is to build up to a full description of the collective tiling, and the principles (but not necessarily the imperative details) of how it's constructed.
+\textbf{Throughout the Exo codebase -- for both internal and user-facing code -- } we will use ``\blacktt{coll}'' consistently as an abbreviation for ``collective''.
+The word ``collective'' is too long, and if we don't create an official abbreviation, the temptation too create incompatible, ad-hoc abbreviations is just too high.
+
+\filbreak
+\myTitle{Domain}
+
+The first thing we'll do is arrange the threads of the top-level collective into an N-dimensional ``domain grid''.
+The \myKeyA{full domain} describes the size along each dimension of this grid.
+For a CUDA cluster, this is (\lighttt{clusterDim}, \lighttt{blockDim}).
+This could generalize to non-CUDA APIs, but there's a built-in assumption that the left-most dimension is the ``most significant''.
+
+A domain must consist only of positive integers, and \textit{should} contain only values at least 2.
+However, 1 values may result when substituting parameters (as would occur in the common case that \lighttt{clusterDim = 1}).
+We can fix this later, as part of domain completion.
+
+\filbreak
+The thread count of a domain is the product of its coordinates.
+A \myKeyA{partial domain} is a domain whose total thread count is lower than that of the top-level collective.
+For example, \lighttt{(blockDim,)} is a partial domain if \lighttt{clusterDim != 1}.
+
+\filbreak
+Jumping ahead somewhat, physical threads are arranged in the domain grid by the top-level collective tiling's \myKeyA{intra-box expressions}.
+For a CUDA cluster, these expressions are (\lighttt{blockIdx.x \% clusterDim}, \lighttt{threadIdx.x}).
+
+\filbreak
+\mainSub{Domain Completion}
+
+Collective units and collective tilings are described in terms of their domain.
+Often, their domains are not the same.
+We reconcile this with domain completion, translating both to a common domain.
+Domain completion consists of (up to) 3 steps in order.
+
+\filbreak
+Here, we only describe the steps for modifying the domain.
+Whenever we modify the $n^{th}$ coordinate of a domain, we modify in parallel the $n^{th}$ coordinate of each attribute of a collective unit or collective tiling.
+We'll describe this later.
+
+\filbreak
+\mainKey{Partial Prepend:} If the source domain is partial, we prepend $\frac{t}{s}$, where $t$ is the thread count of the full domain and $s$ is the thread count of the partial domain.
+If this is not an integer, this step fails.
+
+Side note, this is the main place where the left-most $\equiv$ ``most significant'' assumption is made.
+
+\filbreak
+\mainKey{Coordinate Removal:} Each domain coordinate that's 1 is removed.
+
+\filbreak
+\mainKey{Coordinate Splitting:} Domain coordinate values $c$ may be split into two consecutive coordinates $(\frac{c}{f}, f)$, where $f$ is the \myKeyA{splitting factor}.
+
+\filbreak
+\mainSub{Domain Completion Example}
+
+Let's say we have two domains
+
+\textbf{A:} (1, 64, 16)\\
+\textbf{B:} (16, 128)
+
+with \textbf{A} being a \myKeyA{partial domain} ($s = 1024$ threads) and \textbf{B} being a \myKeyA{full domain} ($t = 2048$ threads).
+This is not very realistic for the CUDA use case; it's just for illustration.
+
+\filbreak
+\mainKey{Partial Prepend:} Since \textbf{A} is a partial domain, we prepend $2 = \frac{t}{s}$.
+
+$\downarrow$ {\color{grayttColor} (1, 64, 16)} \\
+\textbf{A:} (\blueBox{2}, 1, 64, 16)
+
+$\downarrow$ {\color{grayttColor} (16, 128)} \\
+\textbf{B:} (16, 128)
+
+\filbreak
+\mainKey{Coordinate Removal:} Remove the redundant 1 in \textbf{A}.
+
+$\downarrow$ {\color{grayttColor} (2, \redBox{1}, 64, 16)} \\
+\textbf{A:} (2, 64, 16)
+
+$\downarrow$ {\color{grayttColor} (16, 128)} \\
+\textbf{B:} (16, 128)
+
+\filbreak
+\mainKey{Coordinate Splitting:} Multiple splits are required to reconcile \textbf{A} and \textbf{B}.
+
+$\downarrow$ {\color{grayttColor} (2, \violetBox{64}, 16)} \\
+\textbf{A:} (2, \violetBox{8, 8}, 16) \\
+Splitting factor: \violetBox{8}
+
+$\downarrow$ {\color{grayttColor} (\blueBox{16}, \greenBox{128})} \\
+\textbf{B:} (\blueBox{2, 8}, \greenBox{8, 16}) \\
+Splitting factors: \blueBox{8}, \greenBox{16}
+
+\filbreak
+\myTitle{Collective Unit}
+
+A collective unit consists of a \myKeyA{domain} and \myKeyA{box} size.
+The box is \lighttt{Optional[int]}-valued and has the same dimension as the domain.
+If the box contains a None coordinate, it's said to be \myKeyA{agnostic} on that dimension, and can't match any real thread collective.
+
+\filbreak
+Otherwise, given a certain domain, the collective unit for a thread collective is defined by the said domain and the shape of the filled axis-aligned box the threads form when arranged in the domain grid.\footnote{If the threads don't form a filled box, no collective unit with the given domain can match the thread collective.}
+For example, with the domain being (\lighttt{clusterDim}, \lighttt{blockDim}), the box for a single warp is (1, 32), while the box for ``one warp chosen from each CTA in the cluster'' is (\lighttt{clusterDim}, 32) \textbf{(figure \ref{fig:units})}.
+
+\filbreak
+Due to domain completion, the ``warp'' collective unit can be described with domain=(\lighttt{blockDim},), box=(32,).
+This is (almost) equivalent to the warp given in the example.
+
+\begin{figure*}[!b]
+\sffamily
+\begin{tikzpicture}[node distance=2mm]
+\node(t000) [smallnode] {0,0};
+\node(t001) [smallnode, right=of t000] {0,1};
+\node(t002) [smallnode, right=of t001] {0,2};
+\node(t031) [smallnode, right=of t002, xshift=4mm] {0,31};
+\draw [dotted] (t002) -- (t031);
+\node(t032) [bluesmallnode, right=of t031] {0,32};
+\node(t033) [bluesmallnode, right=of t032] {0,33};
+\node(t034) [bluesmallnode, right=of t033] {0,34};
+\node(t063) [bluesmallnode, right=of t034, xshift=4mm] {0,63};
+\draw [dotted] (t034) -- (t063);
+
+\node(t100) [redsmallnode, below=of t000] {1,0};
+\node(t101) [redsmallnode, right=of t100] {1,1};
+\node(t102) [redsmallnode, right=of t101] {1,2};
+\node(t131) [redsmallnode, right=of t102, xshift=4mm] {1,31};
+\draw [dotted] (t102) -- (t131);
+\node(t132) [bluesmallnode, right=of t131] {1,32};
+\node(t133) [bluesmallnode, right=of t132] {1,33};
+\node(t134) [bluesmallnode, right=of t133] {1,34};
+\node(t163) [bluesmallnode, right=of t134, xshift=4mm] {1,63};
+\draw [dotted] (t134) -- (t163);
+
+\node(t200) [smallnode, below=of t100] {2,0};
+\node(t201) [smallnode, right=of t200] {2,1};
+\node(t202) [smallnode, right=of t201] {2,2};
+\node(t231) [smallnode, right=of t202, xshift=4mm] {2,31};
+\draw [dotted] (t202) -- (t231);
+\node(t232) [bluesmallnode, right=of t231] {2,32};
+\node(t233) [bluesmallnode, right=of t232] {2,33};
+\node(t234) [bluesmallnode, right=of t233] {2,34};
+\node(t263) [bluesmallnode, right=of t234, xshift=4mm] {2,63};
+\draw [dotted] (t234) -- (t263);
+
+\node(t300) [smallnode, below=of t200] {3,0};
+\node(t301) [smallnode, right=of t300] {3,1};
+\node(t302) [smallnode, right=of t301] {3,2};
+\node(t331) [smallnode, right=of t302, xshift=4mm] {3,31};
+\draw [dotted] (t302) -- (t331);
+\node(t332) [bluesmallnode, right=of t331] {3,32};
+\node(t333) [bluesmallnode, right=of t332] {3,33};
+\node(t334) [bluesmallnode, right=of t333] {3,34};
+\node(t363) [bluesmallnode, right=of t334, xshift=4mm] {3,63};
+\draw [dotted] (t334) -- (t363);
+
+\node(legend) [smallnode, text width=8cm, draw=none, above=of t032] {\lighttt{(blockIdx.x \% clusterDim, threadIdx.x)}};
+\end{tikzpicture}
+\caption{With \lighttt{clusterDim = 4}, \lighttt{blockDim = 64}, and domain = $(4, 64)$, we highlight examples of thread collectives with collective units \redBox{single warp} (box $(1, 32)$) and \blueBox{warp per CTA} (box $(\lighttt{clusterDim}, 32)$). Note a single row of this grid corresponds to one CTA in a cluster.}
+\label{fig:units}
+\end{figure*}
+
+\filbreak
+\mainSub{Collective Unit Domain Completion}
+
+When doing domain completion, the corresponding steps for the box attribute are:
+
+\filbreak
+\mainKey{Partial Prepend:} If we are matching collective units (e.g. to enforce an \lighttt{instr}'s requirements), prepend 1.
+Otherwise, prepend None.
+
+\filbreak
+\mainKey{Coordinate Removal:} All removed coordinate values must be 1.
+
+\filbreak
+\mainKey{Coordinate Splitting:} A None value is split into (None, None).
+An integer value $c$ splits into $(1, c)$ if $c < f$; otherwise, it splits into $(\frac{c}{f}, f)$.
+If the results are not integers, the domain completion fails.
+
+\filbreak
+If we were accepting unaligned thread collectives, collective unit domain completion (as an unintended side-effect) makes the collective unit stricter, as some unaligned thread collectives will no longer form valid boxes in the new domain.
+Domain completion won't affect matching of aligned thread collectives.
+
+\end{document}
