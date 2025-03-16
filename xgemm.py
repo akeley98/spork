@@ -84,21 +84,22 @@ def xgemm_cuda(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B: f32[K
                 for k1 in seq(0, K / K0 + 1):
                     if k1 < K / K0:
                         with CudaAsync(Sm80_cp_async):
-                            # Load A tile
-                            for m1 in seq(0, M1 / 64):
-                                for m0 in cuda_threads(0, 64, unit=4 * cuda_thread):
-                                    for k0 in cuda_threads(0, 4, unit=cuda_thread):
-                                        tmp_cpAsync16B_f32(A_smem[k1 % 2, m1 * 64 + m0, 4 * k0 : 4 * k0 + 4],
-                                                           A[m2 * M1 + m1 * 64 + m0,
-                                                             k1 * K0 + k0 * 4 : k1 * K0 + k0 * 4 + 4])
-
-                            # Load B tile
-                            for k0_seq in seq(0, 4):
-                                for k0_par in cuda_threads(0, 4, unit=64 * cuda_thread):
-                                    for n0 in cuda_threads(0, 64, unit=cuda_thread):
-                                        tmp_cpAsync16B_f32(B_smem[k1 % 2, k0_seq * 4 + k0_par, 4 * n0 : 4 * n0 + 4],
-                                                           B[k1 * K0 + k0_seq * 4 + k0_par,
-                                                             n2 * N1 + 4 * n0 : n2 * N1 + 4 * n0 + 4])
+                            with CudaWarps(0, 4):
+                                # Load A tile
+                                for m1 in seq(0, M1 / 32):
+                                    for m0 in cuda_threads(0, 32, unit=4 * cuda_thread):
+                                        for k0 in cuda_threads(0, 4, unit=cuda_thread):
+                                            tmp_cpAsync16B_f32(A_smem[k1 % 2, m1 * 32 + m0, 4 * k0 : 4 * k0 + 4],
+                                                               A[m2 * M1 + m1 * 32 + m0,
+                                                                 k1 * K0 + k0 * 4 : k1 * K0 + k0 * 4 + 4])
+                            with CudaWarps(4, 8):
+                                # Load B tile
+                                for k0_seq in seq(0, 8):
+                                    for k0_par in cuda_threads(0, 2, unit=64 * cuda_thread):
+                                        for n0 in cuda_threads(0, 64, unit=cuda_thread):
+                                            tmp_cpAsync16B_f32(B_smem[k1 % 2, k0_seq * 2 + k0_par, 4 * n0 : 4 * n0 + 4],
+                                                               B[k1 * K0 + k0_seq * 2 + k0_par,
+                                                                 n2 * N1 + 4 * n0 : n2 * N1 + 4 * n0 + 4])
                         # end CudaAsync(Sm80_cp_async)
                 # for-k1 (K tiles) loop continues
                     if k1 > 0:

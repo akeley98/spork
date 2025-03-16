@@ -81,6 +81,7 @@ int main()
     else {
         sized_tests(7680, 3072, 16384, true, true);
         sized_tests(768, 3072, 3072, true, true);
+        sized_tests(3072, 768, 3072, true, true);
     }
 
     cudaDeviceSynchronize();
