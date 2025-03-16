@@ -164,6 +164,7 @@ struct TiledMultiplier
         unsigned tile_fill_bits : RING_BUFFER_SIZE = 0;
         unsigned tile_read_bits : RING_BUFFER_SIZE = 0;
 
+        unsigned skip_iter_counter : 5 = 0;
         unsigned consumer_ring_idx : 5 = 0;
         unsigned producer_ring_idx : 5 = 0;
         static_assert(RING_BUFFER_SIZE < 32);
@@ -178,10 +179,16 @@ struct TiledMultiplier
 
         DEVICE_INLINE void tile_read_wait_ring(SmemLayout& shared)
         {
-            const uint32_t i = producer_ring_idx;
-            assert(i < RING_BUFFER_SIZE);
-            mbar_wait(shared.tile_read_mbar[i], (tile_read_bits >> i) & 1u);
-            tile_read_bits ^= 1u << i;
+            // Don't wait on tile_read_mbar for first RING_BUFFER_SIZE iterations.
+            if (skip_iter_counter < RING_BUFFER_SIZE) {
+                skip_iter_counter++;
+            }
+            else {
+                const uint32_t i = producer_ring_idx;
+                assert(i < RING_BUFFER_SIZE);
+                mbar_wait(shared.tile_read_mbar[i], (tile_read_bits >> i) & 1u);
+                tile_read_bits ^= 1u << i;
+            }
         }
 
         static DEVICE_INLINE void mbar_wait(mbarrier_t& mbar, uint32_t parity)
@@ -370,10 +377,7 @@ struct TiledMultiplier
 
         for (uint32_t k_iter = 0; k_iter < k_iter_count; ++k_iter) {
             if (k_iter < k_blk_dim) {
-                if (k_iter >= RING_BUFFER_SIZE) {
-                    // Don't wait on tile_read_mbar for first RING_BUFFER_SIZE iterations.
-                    ring.tile_read_wait_ring(smem);
-                }
+                ring.tile_read_wait_ring(smem);
                 cta_async_load_block(smem.buffers[ring.producer_ring_idx],
                                      cta_i_offset, cta_j_offset, k_iter * SMEM_K);
                 mbar_arrive_cp_async(smem.tile_fill_mbar[ring.producer_ring_idx]);
@@ -383,10 +387,7 @@ struct TiledMultiplier
                 // Accumulate smem buffer filled RING_BUFFER_LAG iterations ago.
                 ring.tile_fill_wait_ring(smem);
                 warp_accum_block(accum, smem.buffers[ring.consumer_ring_idx]);
-                if (k_iter + RING_BUFFER_SIZE < k_iter_count) {
-                    // Don't signal tile_read_mbar on last RING_BUFFER_SIZE many iterations, to match producer skip.
-                    mbar_arrive_classic(smem.tile_read_mbar[ring.consumer_ring_idx]);
-                }
+                mbar_arrive_classic(smem.tile_read_mbar[ring.consumer_ring_idx]);
                 ring.advance_consumer_ring_idx();
             }
         }
