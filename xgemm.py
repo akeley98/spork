@@ -52,7 +52,7 @@ def tmp_zero_d(rmem: [f32][16,8] @ Sm80_RmemMatrixD):
             rmem[m,n] = 0
 
 @proc
-def xgemm_cuda(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B: f32[K,N] @ CudaGmemLinear, C: f32[M,N] @ CudaGmemLinear):
+def xgemm_cuda_fence(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B: f32[K,N] @ CudaGmemLinear, C: f32[M,N] @ CudaGmemLinear):
     assert M % M1 == 0
     assert N % N1 == 0
     assert K % K0 == 0
@@ -139,14 +139,13 @@ def xgemm_cuda(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B: f32[K
                                               n2 * N1 + nw * Nw + n_seq * 8 : n2 * N1 + nw * Nw + (n_seq+1) * 8],
                                             D_rmem[mw,nw,m_seq,n_seq,:,:])
 
-xgemm_cuda = simplify(xgemm_cuda)
+xgemm_cuda_fence = simplify(xgemm_cuda_fence)
 
-"""
 RING = 3
 LAG = 1
 
 @proc
-def xgemm_cuda(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B: f32[K,N] @ CudaGmemLinear, C: f32[M,N] @ CudaGmemLinear):
+def xgemm_cuda_mbarrier(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B: f32[K,N] @ CudaGmemLinear, C: f32[M,N] @ CudaGmemLinear):
     assert M % M1 == 0
     assert N % N1 == 0
     assert K % K0 == 0
@@ -239,5 +238,7 @@ def xgemm_cuda(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B: f32[K
                                               n2 * N1 + nw * Nw + n_seq * 8 : n2 * N1 + nw * Nw + (n_seq+1) * 8],
                                             D_rmem[mw,nw,m_seq,n_seq,:,:])
 
-xgemm_cuda = simplify(xgemm_cuda)
-"""
+xgemm_cuda_mbarrier = simplify(xgemm_cuda_mbarrier)
+
+xgemm_cuda_mbarrier = rename(xgemm_cuda_mbarrier, "xgemm_cuda")
+
