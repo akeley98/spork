@@ -126,8 +126,14 @@ def xgemm_cuda_fence(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B:
                                                     B_rmem[k_seq,n_seq,:,:])
 
                     # Sm80_generic actor kind = (cuda_classic | Sm80_cp_async)
-                    # NB codegen=... is a hack, should be removed once barrier lowering is implemented.
-                    Fence(Sm80_generic, Sm80_generic)
+                    # Fence(Sm80_generic, Sm80_generic)
+                    for tid in cuda_threads(0, 256):
+                        cg : cuda_commit_group
+                        Arrive(Sm80_cp_async, cg)
+                        Await(cg, cuda_classic)
+                        # Fence(Sm80_generic, Sm80_generic)
+                    Fence(cuda_classic, Sm80_generic)
+
                 # for-k1 (K tiles) loop ends
 
                 # Write out accumulator
@@ -240,5 +246,7 @@ def xgemm_cuda_mbarrier(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear,
 
 xgemm_cuda_mbarrier = simplify(xgemm_cuda_mbarrier)
 
-xgemm_cuda_mbarrier = rename(xgemm_cuda_mbarrier, "xgemm_cuda")
-
+if True:
+    xgemm_cuda_mbarrier = rename(xgemm_cuda_mbarrier, "xgemm_cuda")
+else:
+    xgemm_cuda_fence = rename(xgemm_cuda_fence, "xgemm_cuda")
