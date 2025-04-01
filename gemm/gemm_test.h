@@ -17,7 +17,8 @@ enum class AlgorithmCode
 {
     cublas,
     cutlass,
-    exo,
+    exo_sm_80_fence,
+    exo_sm_80_mbarrier,
     mine_sm_80,
     mine_output_stationary,
     mine_split_k_inner,
@@ -52,8 +53,10 @@ inline const char* algorithm_name(AlgorithmCode code)
         return "mine (stream k early TMA)";
       case AlgorithmCode::mine_stream_k_late_tma:
         return "mine (stream k late TMA)";
-      case AlgorithmCode::exo:
-        return "exo";
+      case AlgorithmCode::exo_sm_80_fence:
+        return "exo_sm_80_fence";
+      case AlgorithmCode::exo_sm_80_mbarrier:
+        return "exo_sm_80_mbarrier";
     }
     return "unknown";
 }

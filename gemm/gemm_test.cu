@@ -9,7 +9,7 @@
 #include "gemm_baseline.h"
 #include "gemm_sm80.h"
 #include "gemm_sm90.h"
-#include "../xgemm/xgemm.h"
+#include "../xgemm_Sm80/xgemm_Sm80.h"
 
 #include "cutlass/arch/synclog.hpp"
 
@@ -270,13 +270,17 @@ void gemm_test(TestParams params, cudaStream_t stream)
             if (algo == AlgorithmCode::cublas) {
                 run_cublas(d_c_tested);
             }
-            else if (algo == AlgorithmCode::exo) {
-                assert(stream == 0);
-                xgemm_cuda(nullptr, int(params.M), int(params.N), int(params.K), d_a, d_b, d_c_tested);
-            }
             else if (algo == AlgorithmCode::mine_sm_80) {
                 GPU_Tensors t{params.M, params.N, params.K, d_a, d_bCol, d_c_tested, 0, 1, 0};
                 matmul_sm80(t, stream);
+            }
+            else if (algo == AlgorithmCode::exo_sm_80_fence) {
+                assert(stream == 0);
+                xgemm_Sm80_fence(nullptr, int(params.M), int(params.N), int(params.K), d_a, d_b, d_c_tested);
+            }
+            else if (algo == AlgorithmCode::exo_sm_80_mbarrier) {
+                assert(stream == 0);
+                xgemm_Sm80_mbarrier(nullptr, int(params.M), int(params.N), int(params.K), d_a, d_b, d_c_tested);
             }
             else {
                 GPU_Tensors t{params.M, params.N, params.K, d_a, d_bCol, d_c_tested, 0, 1, 0};
@@ -334,7 +338,8 @@ void gemm_test(TestParams params, cudaStream_t stream)
               case AlgorithmCode::mine_sm_80:
                 color_code = 33;
                 break;
-              case AlgorithmCode::exo:
+              case AlgorithmCode::exo_sm_80_fence:
+              case AlgorithmCode::exo_sm_80_mbarrier:
                 color_code = 36;
                 break;
               case AlgorithmCode::mine_split_k_inner: case AlgorithmCode::mine_split_k_outer:

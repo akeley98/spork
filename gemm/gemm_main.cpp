@@ -42,7 +42,8 @@ int main()
             }
         }
         if (exo) {
-            params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::exo);
+            params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::exo_sm_80_fence);
+            params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::exo_sm_80_mbarrier);
         }
 
         if (!nontrivial_only) {

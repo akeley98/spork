@@ -5,6 +5,8 @@ from exo.stdlib.scheduling import *
 from exo.spork.cuda_memory import *
 
 Sm80_cp_async = actor_kinds.Sm80_cp_async  # Maybe crappy, fixme
+wgmma_async = actor_kinds.wgmma_async
+tma_to_smem_async = actor_kinds.tma_to_smem_async
 
 Mw = 96
 Nw = 64
@@ -52,7 +54,7 @@ def tmp_zero_d(rmem: [f32][16,8] @ Sm80_RmemMatrixD):
             rmem[m,n] = 0
 
 @proc
-def xgemm_cuda_fence(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B: f32[K,N] @ CudaGmemLinear, C: f32[M,N] @ CudaGmemLinear):
+def xgemm_Sm80_fence(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B: f32[K,N] @ CudaGmemLinear, C: f32[M,N] @ CudaGmemLinear):
     assert M % M1 == 0
     assert N % N1 == 0
     assert K % K0 == 0
@@ -145,13 +147,13 @@ def xgemm_cuda_fence(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B:
                                               n2 * N1 + nw * Nw + n_seq * 8 : n2 * N1 + nw * Nw + (n_seq+1) * 8],
                                             D_rmem[mw,nw,m_seq,n_seq,:,:])
 
-xgemm_cuda_fence = simplify(xgemm_cuda_fence)
+xgemm_Sm80_fence = simplify(xgemm_Sm80_fence)
 
 RING = 3
 LAG = 1
 
 @proc
-def xgemm_cuda_mbarrier(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B: f32[K,N] @ CudaGmemLinear, C: f32[M,N] @ CudaGmemLinear):
+def xgemm_Sm80_mbarrier(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B: f32[K,N] @ CudaGmemLinear, C: f32[M,N] @ CudaGmemLinear):
     assert M % M1 == 0
     assert N % N1 == 0
     assert K % K0 == 0
@@ -244,9 +246,4 @@ def xgemm_cuda_mbarrier(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear,
                                               n2 * N1 + nw * Nw + n_seq * 8 : n2 * N1 + nw * Nw + (n_seq+1) * 8],
                                             D_rmem[mw,nw,m_seq,n_seq,:,:])
 
-xgemm_cuda_mbarrier = simplify(xgemm_cuda_mbarrier)
-
-if True:
-    xgemm_cuda_mbarrier = rename(xgemm_cuda_mbarrier, "xgemm_cuda")
-else:
-    xgemm_cuda_fence = rename(xgemm_cuda_fence, "xgemm_cuda")
+xgemm_Sm80_mbarrier = simplify(xgemm_Sm80_mbarrier)
