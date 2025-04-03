@@ -4,6 +4,7 @@ from exo import *
 from exo.stdlib.scheduling import *
 from exo.spork.cuda_memory import *
 
+
 Sm80_cp_async = actor_kinds.Sm80_cp_async  # Maybe crappy, fixme
 wgmma_async = actor_kinds.wgmma_async
 tma_to_smem_async = actor_kinds.tma_to_smem_async
@@ -27,6 +28,29 @@ def tmp_load_a(rmem: [f32][16,8] @ Sm80_RmemMatrixA, smem: [f32][16,8] @ CudaSme
     for m in seq(0, 16):
         for k in seq(0, 8):
             rmem[m,k] = smem[m,k]
+
+def get_tmp_load_a_cls():
+    sixteen = 16
+
+    @instr
+    class tmp_load_a_cls:
+        def behavior(K: size, rmem: [f32][sixteen,K] @ Sm80_RmemMatrixA, smem: [f32][sixteen,K] @ CudaSmemLinear):
+            for m in seq(0, sixteen):
+                for k in seq(0, K):
+                    rmem[m,k] = smem[m,k]
+
+        def instance(self, K):
+            self.instance_impl(K)
+
+        def instance_impl(self, K):
+            if K != 8:
+                raise ValueError("Require K = 8")
+            self.instr_format = "exo_Sm80_tmp_load_a({rmem_data}, &{smem_data}, {smem_layout});"
+
+    return tmp_load_a_cls
+
+tmp_load_a_cls = get_tmp_load_a_cls()
+tmp_load_a = tmp_load_a_cls(K=8)
 
 @instr("exo_Sm80_tmp_load_b({rmem_data}, &{smem_data}, {smem_layout});")
 def tmp_load_b(rmem: [f32][8,8] @ Sm80_RmemMatrixB, smem: [f32][8,8] @ CudaSmemLinear):
