@@ -46,6 +46,9 @@ def get_tmp_load_a_cls():
             if K != 8:
                 raise ValueError("Require K = 8")
             self.instr_format = "exo_Sm80_tmp_load_a({rmem_data}, &{smem_data}, {smem_layout});"
+            self.actor_kind = actor_kinds.cuda_classic
+            self.access_info["rmem"].actor_signature = actor_kinds.sig_cuda_classic
+            self.access_info["smem"].actor_signature = actor_kinds.sig_cuda_classic
 
     return tmp_load_a_cls
 
