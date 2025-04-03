@@ -1211,6 +1211,7 @@ struct TiledMultiplier
                 cudaFuncAttributes attr;
                 cudaFuncGetAttributes(&attr, kernel);
                 fprintf(stderr, "numRegs: %i\n", attr.numRegs);
+                fprintf(stderr, "clusterDim: %u\n", CLUSTER_NUM_CTA);
                 fprintf(stderr, "\n");
             }
         });
@@ -1252,7 +1253,8 @@ void matmul_impl(GPU_Tensors t, gemm_sm90_k_mode k_mode, cudaStream_t stream)
     assert(t.K % 4 == 0);
 
     constexpr uint32_t cluster_m = 256;
-    constexpr uint32_t cluster_n = 256;
+    // constexpr uint32_t cluster_n = 256;
+    constexpr uint32_t cluster_n = 128;
     constexpr uint32_t smem_m = 256;
     constexpr uint32_t smem_n = 128;
     constexpr uint32_t smem_k = 32;
