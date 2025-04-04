@@ -143,10 +143,10 @@ def xgemm_Sm80_fence(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B:
                                     # Load A matrix tiles needed for m iteration
                                     A_rmem : f32[K0/8, 16, 8] @ Sm80_RmemMatrixA
                                     for k_seq in seq(0, K0 / 8, pragma_unroll=0):
-                                        tmp_load_a(A_rmem[k_seq,:,:],
-                                                   A_smem[1 - k1 % 2,
-                                                          mw*Mw + m_seq*16 : mw*Mw + (m_seq+1)*16,
-                                                          k_seq*8:(k_seq+1)*8])
+                                        tmp_load_a_cls(A_rmem[k_seq,:,:],
+                                                       A_smem[1 - k1 % 2,
+                                                              mw*Mw + m_seq*16 : mw*Mw + (m_seq+1)*16,
+                                                              k_seq*8:(k_seq+1)*8], K=8)
                                     # Accumulate to tile of warp tiles owned by warp.
                                     for n_seq in seq(0, Nw / 8, pragma_unroll=0):
                                         for k_seq in seq(0, K0 / 8, pragma_unroll=0):
@@ -175,6 +175,7 @@ def xgemm_Sm80_fence(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B:
                                             D_rmem[mw,nw,m_seq,n_seq,:,:])
 
 xgemm_Sm80_fence = simplify(xgemm_Sm80_fence)
+print(xgemm_Sm80_fence)
 
 RING = 3
 LAG = 1
