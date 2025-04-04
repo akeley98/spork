@@ -16,69 +16,104 @@ M1 = 192
 N1 = 256  # Does not change gracefully
 
 K0 = 16
+MMA_K = 8
 
-@instr("exo_Sm80_cpAsync16B(&{smem_data}, &{gmem_data});")
-def tmp_cpAsync16B_f32(smem: [f32][4] @ CudaSmemLinear, gmem: [f32][4] @ CudaGmemLinear):
-    assert stride(smem, 0) == 1
-    for i in seq(0, 4):
-        smem[i] = gmem[i]
 
-@instr("exo_Sm80_tmp_load_a({rmem_data}, &{smem_data}, {smem_layout});")
-def tmp_load_a(rmem: [f32][16,8] @ Sm80_RmemMatrixA, smem: [f32][16,8] @ CudaSmemLinear):
-    for m in seq(0, 16):
-        for k in seq(0, 8):
-            rmem[m,k] = smem[m,k]
+@instr
+class tmp_cpAsync16B_f32:
+    def behavior(smem: [f32][4] @ CudaSmemLinear, gmem: [f32][4] @ CudaGmemLinear):
+        assert stride(smem, 0) == 1
+        for i in seq(0, 4):
+            smem[i] = gmem[i]
 
-def get_tmp_load_a_cls():
-    sixteen = 16
+    def instance(self):
+        self.instr_format = "exo_Sm80_cpAsync16B(&{smem_data}, &{gmem_data});"
+        self.actor_kind = actor_kinds.Sm80_cp_async
+        self.access_info["smem"].actor_signature = actor_kinds.sig_Sm80_cp_async
+        self.access_info["gmem"].actor_signature = actor_kinds.sig_Sm80_cp_async
 
-    @instr
-    class tmp_load_a_cls:
-        def behavior(K: size, rmem: [f32][sixteen,K] @ Sm80_RmemMatrixA, smem: [f32][sixteen,K] @ CudaSmemLinear):
-            for m in seq(0, sixteen):
+
+@instr
+class tmp_load_a:
+    def behavior(K: size, rmem: [f32][16,K] @ Sm80_RmemMatrixA, smem: [f32][16,K] @ CudaSmemLinear):
+        for m in seq(0, 16):
+            for k in seq(0, K):
+                rmem[m,k] = smem[m,k]
+
+    def instance(self, K):
+        if K != 8:
+            raise ValueError("Require K = 8")
+        self.instr_format = "exo_Sm80_tmp_load_a({rmem_data}, &{smem_data}, {smem_layout});"
+        self.actor_kind = actor_kinds.cuda_classic
+        self.access_info["rmem"].actor_signature = actor_kinds.sig_cuda_classic
+        self.access_info["smem"].actor_signature = actor_kinds.sig_cuda_classic
+        self.coll_unit = cuda_warp
+
+
+@instr
+class tmp_load_b:
+    def behavior(K: size, rmem: [f32][K,8] @ Sm80_RmemMatrixB, smem: [f32][K,8] @ CudaSmemLinear):
+        for k in seq(0, K):
+            for n in seq(0, 8):
+                rmem[k,n] = smem[k,n]
+
+    def instance(self, K):
+        if K != 8:
+            raise ValueError("Require K = 8")
+        self.instr_format = "exo_Sm80_tmp_load_b({rmem_data}, &{smem_data}, {smem_layout});"
+        self.actor_kind = actor_kinds.cuda_classic
+        self.access_info["rmem"].actor_signature = actor_kinds.sig_cuda_classic
+        self.access_info["smem"].actor_signature = actor_kinds.sig_cuda_classic
+        self.coll_unit = cuda_warp
+
+
+@instr
+class tmp_mma:
+    def behavior(K: size, D: [f32][16,8] @ Sm80_RmemMatrixD, A: [f32][16,K] @ Sm80_RmemMatrixA, B: [f32][K,8] @ Sm80_RmemMatrixB):
+        for m in seq(0, 16):
+            for n in seq(0, 8):
                 for k in seq(0, K):
-                    rmem[m,k] = smem[m,k]
+                    D[m,n] += A[m,k] * B[k,n]
 
-        def instance(self, K):
-            self.instance_impl(K)
+    def instance(self, K):
+        if K != 8:
+            raise ValueError("Require K = 8")
+        self.instr_format = "exo_Sm80_tmp_mma({D_data}, {A_data}, {B_data});"
+        self.actor_kind = actor_kinds.cuda_classic
+        self.access_info["D"].actor_signature = actor_kinds.sig_cuda_classic
+        self.access_info["A"].actor_signature = actor_kinds.sig_cuda_classic
+        self.access_info["B"].actor_signature = actor_kinds.sig_cuda_classic
+        self.coll_unit = cuda_warp
 
-        def instance_impl(self, K):
-            if K != 8:
-                raise ValueError("Require K = 8")
-            self.instr_format = "exo_Sm80_tmp_load_a({rmem_data}, &{smem_data}, {smem_layout});"
-            self.actor_kind = actor_kinds.cuda_classic
-            self.access_info["rmem"].actor_signature = actor_kinds.sig_cuda_classic
-            self.access_info["smem"].actor_signature = actor_kinds.sig_cuda_classic
 
-    return tmp_load_a_cls
+@instr
+class tmp_store_d:
+    def behavior(gmem: [f32][16,8] @ CudaDeviceVisibleLinear, rmem: [f32][16,8] @ Sm80_RmemMatrixD):
+        for m in seq(0, 16):
+            for n in seq(0, 8):
+                gmem[m,n] = rmem[m,n]
 
-tmp_load_a_cls = get_tmp_load_a_cls()
-tmp_load_a = tmp_load_a_cls(K=8)
+    def instance(self):
+        self.instr_format = "exo_Sm80_tmp_store_d(&{gmem_data}, {rmem_data}, {gmem_layout});"
+        self.actor_kind = actor_kinds.cuda_classic
+        self.access_info["gmem"].actor_signature = actor_kinds.sig_cuda_classic
+        self.access_info["rmem"].actor_signature = actor_kinds.sig_cuda_classic
+        self.coll_unit = cuda_warp
 
-@instr("exo_Sm80_tmp_load_b({rmem_data}, &{smem_data}, {smem_layout});")
-def tmp_load_b(rmem: [f32][8,8] @ Sm80_RmemMatrixB, smem: [f32][8,8] @ CudaSmemLinear):
-    for k in seq(0, 8):
-        for n in seq(0, 8):
-            rmem[k,n] = smem[k,n]
 
-@instr("exo_Sm80_tmp_mma({D_data}, {A_data}, {B_data});")
-def tmp_mma(D: [f32][16,8] @ Sm80_RmemMatrixD, A: [f32][16,8] @ Sm80_RmemMatrixA, B: [f32][8,8] @ Sm80_RmemMatrixB):
-    for m in seq(0, 16):
-        for n in seq(0, 8):
-            for k in seq(0, 8):
-                D[m,n] += A[m,k] * B[k,n]
+@instr
+class tmp_zero_d:
+    def behavior(rmem: [f32][16,8] @ Sm80_RmemMatrixD):
+        for m in seq(0, 16):
+            for n in seq(0, 8):
+                rmem[m,n] = 0
 
-@instr("exo_Sm80_tmp_store_d(&{gmem_data}, {rmem_data}, {gmem_layout});")
-def tmp_store_d(gmem: [f32][16,8] @ CudaDeviceVisibleLinear, rmem: [f32][16,8] @ Sm80_RmemMatrixD):
-    for m in seq(0, 16):
-        for n in seq(0, 8):
-            gmem[m,n] = rmem[m,n]
+    def instance(self):
+        self.instr_format = "exo_Sm80_tmp_zero_d({rmem_data});"
+        self.actor_kind = actor_kinds.cuda_classic
+        self.access_info["rmem"].actor_signature = actor_kinds.sig_cuda_classic
+        self.coll_unit = cuda_warp
 
-@instr("exo_Sm80_tmp_zero_d({rmem_data});")
-def tmp_zero_d(rmem: [f32][16,8] @ Sm80_RmemMatrixD):
-    for m in seq(0, 16):
-        for n in seq(0, 8):
-            rmem[m,n] = 0
 
 @proc
 def xgemm_Sm80_fence(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B: f32[K,N] @ CudaGmemLinear, C: f32[M,N] @ CudaGmemLinear):
@@ -137,22 +172,22 @@ def xgemm_Sm80_fence(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B:
                                         tmp_load_b(B_rmem[k_seq,n_seq,:,:],
                                                    B_smem[1 - k1 % 2,
                                                           k_seq*8:(k_seq+1)*8,
-                                                          nw*Nw + n_seq*8 : nw*Nw + (n_seq+1)*8])
+                                                          nw*Nw + n_seq*8 : nw*Nw + (n_seq+1)*8], K=MMA_K)
 
                                 for m_seq in seq(0, Mw / 16, pragma_unroll=0):
                                     # Load A matrix tiles needed for m iteration
                                     A_rmem : f32[K0/8, 16, 8] @ Sm80_RmemMatrixA
                                     for k_seq in seq(0, K0 / 8, pragma_unroll=0):
-                                        tmp_load_a_cls(A_rmem[k_seq,:,:],
+                                        tmp_load_a(A_rmem[k_seq,:,:],
                                                        A_smem[1 - k1 % 2,
                                                               mw*Mw + m_seq*16 : mw*Mw + (m_seq+1)*16,
-                                                              k_seq*8:(k_seq+1)*8], K=8)
+                                                              k_seq*8:(k_seq+1)*8], K=MMA_K)
                                     # Accumulate to tile of warp tiles owned by warp.
                                     for n_seq in seq(0, Nw / 8, pragma_unroll=0):
                                         for k_seq in seq(0, K0 / 8, pragma_unroll=0):
                                             tmp_mma(D_rmem[mw,nw,m_seq,n_seq,:,:],
                                                     A_rmem[k_seq,:,:],
-                                                    B_rmem[k_seq,n_seq,:,:])
+                                                    B_rmem[k_seq,n_seq,:,:], K=MMA_K)
 
                     # Sm80_generic actor kind = (cuda_classic | Sm80_cp_async)
                     # Fence(Sm80_generic, Sm80_generic)
@@ -245,7 +280,7 @@ def xgemm_Sm80_mbarrier(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear,
                                         tmp_load_b(B_rmem[k_seq,n_seq,:,:],
                                                    B_smem[(k1 - LAG) % RING,
                                                           k_seq*8:(k_seq+1)*8,
-                                                          nw*Nw + n_seq*8 : nw*Nw + (n_seq+1)*8])
+                                                          nw*Nw + n_seq*8 : nw*Nw + (n_seq+1)*8], K=MMA_K)
 
                                 for m_seq in seq(0, Mw / 16, pragma_unroll=0):
                                     # Load A matrix tiles needed for m iteration
@@ -254,13 +289,13 @@ def xgemm_Sm80_mbarrier(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear,
                                         tmp_load_a(A_rmem[k_seq,:,:],
                                                    A_smem[(k1 - LAG) % RING,
                                                           mw*Mw + m_seq*16 : mw*Mw + (m_seq+1)*16,
-                                                          k_seq*8:(k_seq+1)*8])
+                                                          k_seq*8:(k_seq+1)*8], K=MMA_K)
                                     # Accumulate to tile of warp tiles owned by warp.
                                     for n_seq in seq(0, Nw / 8, pragma_unroll=0):
                                         for k_seq in seq(0, K0 / 8, pragma_unroll=0):
                                             tmp_mma(D_rmem[mw,nw,m_seq,n_seq,:,:],
                                                     A_rmem[k_seq,:,:],
-                                                    B_rmem[k_seq,n_seq,:,:])
+                                                    B_rmem[k_seq,n_seq,:,:], K=MMA_K)
                         # Signal that it's safe to overwrite ring buffer entry
                         ReverseArrive(cuda_classic, ringbar)
                 # for-k1 (K tiles) loop ends
