@@ -27,48 +27,119 @@ class tmp_cpAsync16B_f32:
             smem[i] = gmem[i]
 
     def instance(self):
-        self.instr_format = "exo_Sm80_cpAsync16B(&{smem_data}, &{gmem_data});"
+        self.instr_format = "exo_CudaUtil::Sm80_cpAsync16B(&{smem_data}, &{gmem_data});"
         self.actor_kind = actor_kinds.Sm80_cp_async
         self.access_info["smem"].actor_signature = actor_kinds.sig_Sm80_cp_async
         self.access_info["gmem"].actor_signature = actor_kinds.sig_Sm80_cp_async
+        self.cu_util = self.cu_util_src
+
+    cu_util_src = """
+EXO_CUDA_INLINE void Sm80_cpAsync16B(void* smem_ptr, const void* gmem_ptr) {
+  const int BYTES = 16;
+  uint32_t smem = exo_smemU32(smem_ptr);
+  asm volatile(
+      "cp.async.cg.shared.global [%0], [%1], %2;" ::"r"(smem),
+      "l"(gmem_ptr),
+      "n"(BYTES) : "memory");
+}
+"""
+
+
+Sm80_cu_util = r"""
+EXO_CUDA_INLINE void Sm80_load_a(unsigned rmem[4], const float* gmem, cuda::std::array<int_fast32_t, 2> element_strides)
+{
+  const unsigned row_stride = element_strides[0];
+  const unsigned col_stride = element_strides[1];
+  const unsigned warp_lane = threadIdx.x % 32u;
+  const float* gmem_thread_baseaddr = &gmem[warp_lane / 4u * row_stride + warp_lane % 4u * col_stride];
+  rmem[0] = __float_as_uint(gmem_thread_baseaddr[0]);
+  rmem[1] = __float_as_uint(gmem_thread_baseaddr[8 * row_stride]);
+  rmem[2] = __float_as_uint(gmem_thread_baseaddr[4 * col_stride]);
+  rmem[3] = __float_as_uint(gmem_thread_baseaddr[8 * row_stride + 4 * col_stride]);
+}
+
+EXO_CUDA_INLINE void Sm80_load_b(unsigned rmem[2], const float* gmem, cuda::std::array<int_fast32_t, 2> element_strides)
+{
+  const unsigned row_stride = element_strides[0];
+  const unsigned col_stride = element_strides[1];
+  const unsigned warp_lane = threadIdx.x % 32u;
+  const float* gmem_thread_baseaddr = &gmem[warp_lane % 4u * row_stride + warp_lane / 4u * col_stride];
+  rmem[0] = __float_as_uint(gmem_thread_baseaddr[0]);
+  rmem[1] = __float_as_uint(gmem_thread_baseaddr[4 * row_stride]);
+}
+
+EXO_CUDA_INLINE void Sm80_store_d(float* gmem, const unsigned rmem[4], cuda::std::array<int_fast32_t, 2> element_strides)
+{
+  const unsigned row_stride = element_strides[0];
+  const unsigned col_stride = element_strides[1];
+  const unsigned warp_lane = threadIdx.x % 32u;
+  float* gmem_thread_baseaddr = &gmem[(warp_lane / 4u) * row_stride + (warp_lane % 4u) * 2u * col_stride];
+  gmem_thread_baseaddr[0] = __uint_as_float(rmem[0]);
+  gmem_thread_baseaddr[col_stride] = __uint_as_float(rmem[1]);
+  gmem_thread_baseaddr[8 * row_stride] = __uint_as_float(rmem[2]);
+  gmem_thread_baseaddr[8 * row_stride + col_stride] = __uint_as_float(rmem[3]);
+}
+
+EXO_CUDA_INLINE void Sm80_zero_d(unsigned rmem[4])
+{
+  rmem[0] = 0;
+  rmem[1] = 0;
+  rmem[2] = 0;
+  rmem[3] = 0;
+}
+
+EXO_CUDA_INLINE void Sm80_mma(unsigned d[4], const unsigned a[4], const unsigned b[2])
+{
+  asm("mma.sync.aligned.m16n8k8.row.col.f32.tf32.tf32.f32\n\t"
+      "{%0,%1,%2,%3},\n\t"
+      "{%4,%5,%6,%7},\n\t"
+      "{%8,%9},\n\t"
+      "{%10,%11,%12,%13};" : "=r"(d[0]), "=r"(d[1]), "=r"(d[2]), "=r"(d[3])
+      : "r"(a[0]), "r"(a[1]), "r"(a[2]), "r"(a[3]), "r"(b[0]), "r"(b[1]), "r"(d[0]), "r"(d[1]), "r"(d[2]), "r"(d[3]));
+}
+"""
+
+class mma_instr_base:
+    def instance_common(self):
+        for v in self.access_info.values():
+            v.actor_signature = actor_kinds.sig_cuda_classic
+        self.actor_kind = actor_kinds.cuda_classic
+        self.coll_unit = cuda_warp
+        self.cu_includes = ["cuda/std/array"]
+        self.cu_util = Sm80_cu_util
 
 
 @instr
-class tmp_load_a:
+class tmp_load_a(mma_instr_base):
     def behavior(K: size, rmem: [f32][16,K] @ Sm80_RmemMatrixA, smem: [f32][16,K] @ CudaSmemLinear):
         for m in seq(0, 16):
             for k in seq(0, K):
                 rmem[m,k] = smem[m,k]
 
     def instance(self, K):
+        self.instance_common()
         if K != 8:
             raise ValueError("Require K = 8")
-        self.instr_format = "exo_Sm80_tmp_load_a({rmem_data}, &{smem_data}, {smem_layout});"
-        self.actor_kind = actor_kinds.cuda_classic
-        self.access_info["rmem"].actor_signature = actor_kinds.sig_cuda_classic
-        self.access_info["smem"].actor_signature = actor_kinds.sig_cuda_classic
-        self.coll_unit = cuda_warp
+        self.instr_format = "exo_CudaUtil::Sm80_load_a({rmem_data}, &{smem_data}, {smem_layout});"
 
 
 @instr
-class tmp_load_b:
+class tmp_load_b(mma_instr_base):
     def behavior(K: size, rmem: [f32][K,8] @ Sm80_RmemMatrixB, smem: [f32][K,8] @ CudaSmemLinear):
         for k in seq(0, K):
             for n in seq(0, 8):
                 rmem[k,n] = smem[k,n]
 
     def instance(self, K):
+        self.instance_common()
         if K != 8:
             raise ValueError("Require K = 8")
-        self.instr_format = "exo_Sm80_tmp_load_b({rmem_data}, &{smem_data}, {smem_layout});"
-        self.actor_kind = actor_kinds.cuda_classic
-        self.access_info["rmem"].actor_signature = actor_kinds.sig_cuda_classic
-        self.access_info["smem"].actor_signature = actor_kinds.sig_cuda_classic
-        self.coll_unit = cuda_warp
+        self.instr_format = "exo_CudaUtil::Sm80_load_b({rmem_data}, &{smem_data}, {smem_layout});"
+
 
 
 @instr
-class tmp_mma:
+class tmp_mma(mma_instr_base):
     def behavior(K: size, D: [f32][16,8] @ Sm80_RmemMatrixD, A: [f32][16,K] @ Sm80_RmemMatrixA, B: [f32][K,8] @ Sm80_RmemMatrixB):
         for m in seq(0, 16):
             for n in seq(0, 8):
@@ -76,43 +147,34 @@ class tmp_mma:
                     D[m,n] += A[m,k] * B[k,n]
 
     def instance(self, K):
+        self.instance_common()
         if K != 8:
             raise ValueError("Require K = 8")
-        self.instr_format = "exo_Sm80_tmp_mma({D_data}, {A_data}, {B_data});"
-        self.actor_kind = actor_kinds.cuda_classic
-        self.access_info["D"].actor_signature = actor_kinds.sig_cuda_classic
-        self.access_info["A"].actor_signature = actor_kinds.sig_cuda_classic
-        self.access_info["B"].actor_signature = actor_kinds.sig_cuda_classic
-        self.coll_unit = cuda_warp
+        self.instr_format = "exo_CudaUtil::Sm80_mma({D_data}, {A_data}, {B_data});"
 
 
 @instr
-class tmp_store_d:
+class tmp_store_d(mma_instr_base):
     def behavior(gmem: [f32][16,8] @ CudaDeviceVisibleLinear, rmem: [f32][16,8] @ Sm80_RmemMatrixD):
         for m in seq(0, 16):
             for n in seq(0, 8):
                 gmem[m,n] = rmem[m,n]
 
     def instance(self):
-        self.instr_format = "exo_Sm80_tmp_store_d(&{gmem_data}, {rmem_data}, {gmem_layout});"
-        self.actor_kind = actor_kinds.cuda_classic
-        self.access_info["gmem"].actor_signature = actor_kinds.sig_cuda_classic
-        self.access_info["rmem"].actor_signature = actor_kinds.sig_cuda_classic
-        self.coll_unit = cuda_warp
+        self.instance_common()
+        self.instr_format = "exo_CudaUtil::Sm80_store_d(&{gmem_data}, {rmem_data}, {gmem_layout});"
 
 
 @instr
-class tmp_zero_d:
+class tmp_zero_d(mma_instr_base):
     def behavior(rmem: [f32][16,8] @ Sm80_RmemMatrixD):
         for m in seq(0, 16):
             for n in seq(0, 8):
                 rmem[m,n] = 0
 
     def instance(self):
-        self.instr_format = "exo_Sm80_tmp_zero_d({rmem_data});"
-        self.actor_kind = actor_kinds.cuda_classic
-        self.access_info["rmem"].actor_signature = actor_kinds.sig_cuda_classic
-        self.coll_unit = cuda_warp
+        self.instance_common()
+        self.instr_format = "exo_CudaUtil::Sm80_zero_d({rmem_data});"
 
 
 @proc
