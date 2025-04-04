@@ -16,7 +16,7 @@ M1 = 192
 N1 = 256  # Does not change gracefully
 
 K0 = 16
-MMA_K = 8
+MMA_K = 4
 
 
 @instr
@@ -46,7 +46,7 @@ EXO_CUDA_INLINE void Sm80_cpAsync16B(void* smem_ptr, const void* gmem_ptr) {
 
 
 Sm80_cu_util = r"""
-EXO_CUDA_INLINE void Sm80_load_a(unsigned rmem[4], const float* gmem, cuda::std::array<int_fast32_t, 2> element_strides)
+EXO_CUDA_INLINE void Sm80_load_a_k8(unsigned rmem[4], const float* gmem, cuda::std::array<int_fast32_t, 2> element_strides)
 {
   const unsigned row_stride = element_strides[0];
   const unsigned col_stride = element_strides[1];
@@ -58,7 +58,17 @@ EXO_CUDA_INLINE void Sm80_load_a(unsigned rmem[4], const float* gmem, cuda::std:
   rmem[3] = __float_as_uint(gmem_thread_baseaddr[8 * row_stride + 4 * col_stride]);
 }
 
-EXO_CUDA_INLINE void Sm80_load_b(unsigned rmem[2], const float* gmem, cuda::std::array<int_fast32_t, 2> element_strides)
+EXO_CUDA_INLINE void Sm80_load_a_k4(unsigned rmem[2], const float* gmem, cuda::std::array<int_fast32_t, 2> element_strides)
+{
+  const unsigned row_stride = element_strides[0];
+  const unsigned col_stride = element_strides[1];
+  const unsigned warp_lane = threadIdx.x % 32u;
+  const float* gmem_thread_baseaddr = &gmem[warp_lane / 4u * row_stride + warp_lane % 4u * col_stride];
+  rmem[0] = __float_as_uint(gmem_thread_baseaddr[0]);
+  rmem[1] = __float_as_uint(gmem_thread_baseaddr[8 * row_stride]);
+}
+
+EXO_CUDA_INLINE void Sm80_load_b_k8(unsigned rmem[2], const float* gmem, cuda::std::array<int_fast32_t, 2> element_strides)
 {
   const unsigned row_stride = element_strides[0];
   const unsigned col_stride = element_strides[1];
@@ -66,6 +76,15 @@ EXO_CUDA_INLINE void Sm80_load_b(unsigned rmem[2], const float* gmem, cuda::std:
   const float* gmem_thread_baseaddr = &gmem[warp_lane % 4u * row_stride + warp_lane / 4u * col_stride];
   rmem[0] = __float_as_uint(gmem_thread_baseaddr[0]);
   rmem[1] = __float_as_uint(gmem_thread_baseaddr[4 * row_stride]);
+}
+
+EXO_CUDA_INLINE void Sm80_load_b_k4(unsigned rmem[1], const float* gmem, cuda::std::array<int_fast32_t, 2> element_strides)
+{
+  const unsigned row_stride = element_strides[0];
+  const unsigned col_stride = element_strides[1];
+  const unsigned warp_lane = threadIdx.x % 32u;
+  const float* gmem_thread_baseaddr = &gmem[warp_lane % 4u * row_stride + warp_lane / 4u * col_stride];
+  rmem[0] = __float_as_uint(gmem_thread_baseaddr[0]);
 }
 
 EXO_CUDA_INLINE void Sm80_store_d(float* gmem, const unsigned rmem[4], cuda::std::array<int_fast32_t, 2> element_strides)
@@ -88,7 +107,7 @@ EXO_CUDA_INLINE void Sm80_zero_d(unsigned rmem[4])
   rmem[3] = 0;
 }
 
-EXO_CUDA_INLINE void Sm80_mma(unsigned d[4], const unsigned a[4], const unsigned b[2])
+EXO_CUDA_INLINE void Sm80_mma_k8(unsigned d[4], const unsigned a[4], const unsigned b[2])
 {
   asm("mma.sync.aligned.m16n8k8.row.col.f32.tf32.tf32.f32\n\t"
       "{%0,%1,%2,%3},\n\t"
@@ -96,6 +115,16 @@ EXO_CUDA_INLINE void Sm80_mma(unsigned d[4], const unsigned a[4], const unsigned
       "{%8,%9},\n\t"
       "{%10,%11,%12,%13};" : "=r"(d[0]), "=r"(d[1]), "=r"(d[2]), "=r"(d[3])
       : "r"(a[0]), "r"(a[1]), "r"(a[2]), "r"(a[3]), "r"(b[0]), "r"(b[1]), "r"(d[0]), "r"(d[1]), "r"(d[2]), "r"(d[3]));
+}
+
+EXO_CUDA_INLINE void Sm80_mma_k4(unsigned d[4], const unsigned a[2], const unsigned b[1])
+{
+  asm("mma.sync.aligned.m16n8k4.row.col.f32.tf32.tf32.f32\n\t"
+      "{%0,%1,%2,%3},\n\t"
+      "{%4,%5},\n\t"
+      "{%6},\n\t"
+      "{%7,%8,%9,%10};" : "=r"(d[0]), "=r"(d[1]), "=r"(d[2]), "=r"(d[3])
+      : "r"(a[0]), "r"(a[1]), "r"(b[0]), "r"(d[0]), "r"(d[1]), "r"(d[2]), "r"(d[3]));
 }
 """
 
@@ -118,9 +147,9 @@ class tmp_load_a(mma_instr_base):
 
     def instance(self, K):
         self.instance_common()
-        if K != 8:
-            raise ValueError("Require K = 8")
-        self.instr_format = "exo_CudaUtil::Sm80_load_a({rmem_data}, &{smem_data}, {smem_layout});"
+        if K != 4 and K != 8:
+            raise ValueError("Require K=4 or K=8")
+        self.instr_format = "exo_CudaUtil::Sm80_load_a_k" + str(K) + "({rmem_data}, &{smem_data}, {smem_layout});"
 
 
 @instr
@@ -132,9 +161,9 @@ class tmp_load_b(mma_instr_base):
 
     def instance(self, K):
         self.instance_common()
-        if K != 8:
-            raise ValueError("Require K = 8")
-        self.instr_format = "exo_CudaUtil::Sm80_load_b({rmem_data}, &{smem_data}, {smem_layout});"
+        if K != 4 and K != 8:
+            raise ValueError("Require K=4 or K=8")
+        self.instr_format = "exo_CudaUtil::Sm80_load_b_k" + str(K) + "({rmem_data}, &{smem_data}, {smem_layout});"
 
 
 
@@ -148,9 +177,9 @@ class tmp_mma(mma_instr_base):
 
     def instance(self, K):
         self.instance_common()
-        if K != 8:
-            raise ValueError("Require K = 8")
-        self.instr_format = "exo_CudaUtil::Sm80_mma({D_data}, {A_data}, {B_data});"
+        if K != 4 and K != 8:
+            raise ValueError("Require K=4 or K=8")
+        self.instr_format = "exo_CudaUtil::Sm80_mma_k" + str(K) + "({D_data}, {A_data}, {B_data});"
 
 
 @instr
@@ -228,25 +257,25 @@ def xgemm_Sm80_fence(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B:
                         for mw in cuda_threads(0, M1 / Mw, unit=(N1/Nw) * cuda_warp):
                             for nw in cuda_threads(0, N1 / Nw, unit=cuda_warp):
                                 # Load all B matrix tiles ahead of time
-                                B_rmem : f32[K0/8, Nw/8, 8, 8] @ Sm80_RmemMatrixB
+                                B_rmem : f32[K0/MMA_K, Nw/8, MMA_K, 8] @ Sm80_RmemMatrixB
                                 for n_seq in seq(0, Nw / 8, pragma_unroll=0):
-                                    for k_seq in seq(0, K0 / 8, pragma_unroll=0):
+                                    for k_seq in seq(0, K0 / MMA_K, pragma_unroll=0):
                                         tmp_load_b(B_rmem[k_seq,n_seq,:,:],
                                                    B_smem[1 - k1 % 2,
-                                                          k_seq*8:(k_seq+1)*8,
+                                                          k_seq*MMA_K:(k_seq+1)*MMA_K,
                                                           nw*Nw + n_seq*8 : nw*Nw + (n_seq+1)*8], K=MMA_K)
 
                                 for m_seq in seq(0, Mw / 16, pragma_unroll=0):
                                     # Load A matrix tiles needed for m iteration
-                                    A_rmem : f32[K0/8, 16, 8] @ Sm80_RmemMatrixA
-                                    for k_seq in seq(0, K0 / 8, pragma_unroll=0):
+                                    A_rmem : f32[K0/MMA_K, 16, MMA_K] @ Sm80_RmemMatrixA
+                                    for k_seq in seq(0, K0 / MMA_K, pragma_unroll=0):
                                         tmp_load_a(A_rmem[k_seq,:,:],
                                                        A_smem[1 - k1 % 2,
                                                               mw*Mw + m_seq*16 : mw*Mw + (m_seq+1)*16,
-                                                              k_seq*8:(k_seq+1)*8], K=MMA_K)
+                                                              k_seq*MMA_K:(k_seq+1)*MMA_K], K=MMA_K)
                                     # Accumulate to tile of warp tiles owned by warp.
                                     for n_seq in seq(0, Nw / 8, pragma_unroll=0):
-                                        for k_seq in seq(0, K0 / 8, pragma_unroll=0):
+                                        for k_seq in seq(0, K0 / MMA_K, pragma_unroll=0):
                                             tmp_mma(D_rmem[mw,nw,m_seq,n_seq,:,:],
                                                     A_rmem[k_seq,:,:],
                                                     B_rmem[k_seq,n_seq,:,:], K=MMA_K)
@@ -336,25 +365,25 @@ def xgemm_Sm80_mbarrier(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear,
                         for mw in cuda_threads(0, M1 / Mw, unit=(N1/Nw) * cuda_warp):
                             for nw in cuda_threads(0, N1 / Nw, unit=cuda_warp):
                                 # Load all B matrix tiles ahead of time
-                                B_rmem : f32[K0/8, Nw/8, 8, 8] @ Sm80_RmemMatrixB
+                                B_rmem : f32[K0/MMA_K, Nw/8, MMA_K, 8] @ Sm80_RmemMatrixB
                                 for n_seq in seq(0, Nw / 8, pragma_unroll=0):
-                                    for k_seq in seq(0, K0 / 8, pragma_unroll=0):
+                                    for k_seq in seq(0, K0 / MMA_K, pragma_unroll=0):
                                         tmp_load_b(B_rmem[k_seq,n_seq,:,:],
                                                    B_smem[(k1 - LAG) % RING,
-                                                          k_seq*8:(k_seq+1)*8,
+                                                          k_seq*MMA_K:(k_seq+1)*MMA_K,
                                                           nw*Nw + n_seq*8 : nw*Nw + (n_seq+1)*8], K=MMA_K)
 
                                 for m_seq in seq(0, Mw / 16, pragma_unroll=0):
                                     # Load A matrix tiles needed for m iteration
-                                    A_rmem : f32[K0/8, 16, 8] @ Sm80_RmemMatrixA
-                                    for k_seq in seq(0, K0 / 8, pragma_unroll=0):
+                                    A_rmem : f32[K0/MMA_K, 16, MMA_K] @ Sm80_RmemMatrixA
+                                    for k_seq in seq(0, K0 / MMA_K, pragma_unroll=0):
                                         tmp_load_a(A_rmem[k_seq,:,:],
                                                    A_smem[(k1 - LAG) % RING,
                                                           mw*Mw + m_seq*16 : mw*Mw + (m_seq+1)*16,
-                                                          k_seq*8:(k_seq+1)*8], K=MMA_K)
+                                                          k_seq*MMA_K:(k_seq+1)*MMA_K], K=MMA_K)
                                     # Accumulate to tile of warp tiles owned by warp.
                                     for n_seq in seq(0, Nw / 8, pragma_unroll=0):
-                                        for k_seq in seq(0, K0 / 8, pragma_unroll=0):
+                                        for k_seq in seq(0, K0 / MMA_K, pragma_unroll=0):
                                             tmp_mma(D_rmem[mw,nw,m_seq,n_seq,:,:],
                                                     A_rmem[k_seq,:,:],
                                                     B_rmem[k_seq,n_seq,:,:], K=MMA_K)
