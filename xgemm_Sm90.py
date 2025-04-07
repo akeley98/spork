@@ -24,6 +24,9 @@ def xgemm_Sm90(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B: f32[K
     assert N % N1 == 0
     assert K % K0 == 0
 
+    A_tensorMap = A[:,:] @ Sm90_tensorMap(0, M1, K0)
+    B_tensorMap = B[:,:] @ Sm90_tensorMap(0, K0, N1)
+
     with CudaDeviceFunction(blockDim = 384, blocks_per_sm = 1):
         for m2 in cuda_tasks(0, M / M1):
             for n2 in cuda_tasks(0, N / N1):
@@ -45,30 +48,44 @@ def xgemm_Sm90(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B: f32[K
 
                 # K tiles loop, double buffered
                 for k1 in seq(0, K / K0):
-                    # with CudaWarps(8, 12):
-                    with CudaWarps(8, 12):
-                        # Producer warpgroup
-                        with CudaAsync(Sm80_cp_async):
-                            # Wait for ring buffer to be consumed; don't wait for first RING-many iterations
-                            ReverseAwait(ringbar, Sm80_cp_async, RING)
+                    if True:
+                        with CudaWarps(8, 9):
+                            with CudaAsync(tma_to_smem_async):
+                                # Wait for ring buffer to be consumed; don't wait for first RING-many iterations
+                                ReverseAwait(ringbar, tma_to_smem_async, RING)
+                                Sm90_copy_tensor_to_smem_linear_2f32(A_smem[k1 % RING,:,:],
+                                                                     A_tensorMap[m2 * M1 : m2 * M1 + M1,
+                                                                                 k1 * K0 : k1 * K0 + K0],
+                                                                     box0=M1, box1=K0)
+                                Sm90_copy_tensor_to_smem_linear_2f32(B_smem[k1 % RING,:,:],
+                                                                     B_tensorMap[k1 * K0 : k1 * K0 + K0,
+                                                                                 n2 * N1 : n2 * N1 + N1],
+                                                                     box0=K0, box1=N1)
+                                Arrive(tma_to_smem_async, ringbar)
+                    else:
+                        with CudaWarps(8, 12):
+                            # Producer warpgroup
+                            with CudaAsync(Sm80_cp_async):
+                                # Wait for ring buffer to be consumed; don't wait for first RING-many iterations
+                                ReverseAwait(ringbar, Sm80_cp_async, RING)
 
-                            # Load A tile
-                            for m1 in seq(0, M1 / 32):
-                                for m0 in cuda_threads(0, 32, unit=4 * cuda_thread):
-                                    for k0 in cuda_threads(0, 4, unit=cuda_thread):
-                                        Sm80_cp_async_f32(A_smem[k1 % RING, m1 * 32 + m0, 4 * k0 : 4 * k0 + 4],
-                                                          A[m2 * M1 + m1 * 32 + m0,
-                                                          k1 * K0 + k0 * 4 : k1 * K0 + k0 * 4 + 4], size=4)
+                                # Load A tile
+                                for m1 in seq(0, M1 / 32):
+                                    for m0 in cuda_threads(0, 32, unit=4 * cuda_thread):
+                                        for k0 in cuda_threads(0, 4, unit=cuda_thread):
+                                            Sm80_cp_async_f32(A_smem[k1 % RING, m1 * 32 + m0, 4 * k0 : 4 * k0 + 4],
+                                                              A[m2 * M1 + m1 * 32 + m0,
+                                                              k1 * K0 + k0 * 4 : k1 * K0 + k0 * 4 + 4], size=4)
 
-                            # Load B tile
-                            for k0_seq in seq(0, 8):
-                                for k0_par in cuda_threads(0, 2, unit=64 * cuda_thread):
-                                    for n0 in cuda_threads(0, 64, unit=cuda_thread):
-                                        Sm80_cp_async_f32(B_smem[k1 % RING, k0_seq * 2 + k0_par, 4 * n0 : 4 * n0 + 4],
-                                                          B[k1 * K0 + k0_seq * 2 + k0_par,
-                                                          n2 * N1 + 4 * n0 : n2 * N1 + 4 * n0 + 4], size=4)
-                            Arrive(Sm80_cp_async, ringbar)
-                        # end CudaAsync(Sm80_cp_async)
+                                # Load B tile
+                                for k0_seq in seq(0, 8):
+                                    for k0_par in cuda_threads(0, 2, unit=64 * cuda_thread):
+                                        for n0 in cuda_threads(0, 64, unit=cuda_thread):
+                                            Sm80_cp_async_f32(B_smem[k1 % RING, k0_seq * 2 + k0_par, 4 * n0 : 4 * n0 + 4],
+                                                              B[k1 * K0 + k0_seq * 2 + k0_par,
+                                                              n2 * N1 + 4 * n0 : n2 * N1 + 4 * n0 + 4], size=4)
+                                Arrive(Sm80_cp_async, ringbar)
+                            # end CudaAsync(Sm80_cp_async)
 
                     with CudaWarps(0, 8):
                         # Consumer warpgroup

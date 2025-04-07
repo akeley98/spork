@@ -10,6 +10,7 @@
 #include "gemm_sm80.h"
 #include "gemm_sm90.h"
 #include "../xgemm_Sm80/xgemm_Sm80.h"
+#include "../xgemm_Sm90/xgemm_Sm90.h"
 
 #include "cutlass/arch/synclog.hpp"
 
@@ -283,6 +284,10 @@ void gemm_test(TestParams params, cudaStream_t stream)
                 xgemm_Sm80_mbarrier(nullptr, int(params.M), int(params.N), int(params.K), d_a, d_b, d_c_tested);
                 // xgemm_Sm80_split(nullptr, int(params.M), int(params.N), int(params.K), d_a, d_b, d_c_tested);
             }
+            else if (algo == AlgorithmCode::exo_sm_90) {
+                assert(stream == 0);
+                xgemm_Sm90(nullptr, int(params.M), int(params.N), int(params.K), d_a, d_b, d_c_tested);
+            }
             else {
                 GPU_Tensors t{params.M, params.N, params.K, d_a, d_bCol, d_c_tested, 0, 1, 0};
                 if (algo == AlgorithmCode::mine_output_stationary) {
@@ -341,6 +346,7 @@ void gemm_test(TestParams params, cudaStream_t stream)
                 break;
               case AlgorithmCode::exo_sm_80_fence:
               case AlgorithmCode::exo_sm_80_mbarrier:
+              case AlgorithmCode::exo_sm_90:
                 color_code = 36;
                 break;
               case AlgorithmCode::mine_split_k_inner: case AlgorithmCode::mine_split_k_outer:

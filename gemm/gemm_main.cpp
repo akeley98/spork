@@ -44,6 +44,9 @@ int main()
         if (exo) {
             params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::exo_sm_80_fence);
             params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::exo_sm_80_mbarrier);
+            if (is_h100) {
+                params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::exo_sm_90);
+            }
         }
 
         if (!nontrivial_only) {

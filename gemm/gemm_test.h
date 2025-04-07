@@ -19,6 +19,7 @@ enum class AlgorithmCode
     cutlass,
     exo_sm_80_fence,
     exo_sm_80_mbarrier,
+    exo_sm_90,
     mine_sm_80,
     mine_output_stationary,
     mine_split_k_inner,
@@ -57,6 +58,8 @@ inline const char* algorithm_name(AlgorithmCode code)
         return "exo_sm_80_fence";
       case AlgorithmCode::exo_sm_80_mbarrier:
         return "exo_sm_80_mbarrier";
+      case AlgorithmCode::exo_sm_90:
+        return "exo_sm_90";
     }
     return "unknown";
 }
