@@ -95,6 +95,30 @@ __global__ void device_init_test_data(T* d_tensor, uint32_t rows, uint32_t cols,
     }
 }
 
+
+template <typename TA, typename TB>
+__device__ void print_tensor_neighborhood(const TA* d_a, const TB* d_b, uint32_t rows, uint32_t cols,
+                                          uint32_t y, uint32_t x)
+{
+    uint32_t y_min = y < 2 ? 0u : y - 2;
+    uint32_t y_max = y + 2 >= rows ? rows - 1u : y + 2;
+    uint32_t x_min = x < 2 ? 0u : x - 2;
+    uint32_t x_max = x + 2 >= cols ? cols - 1u : x + 2;
+
+    for (uint32_t cy = y_min; cy <= y_max; cy++) {
+        for (uint32_t cx = x_min; cx <= x_max; cx++) {
+            if (cy == y && cx == x) {
+                printf("\x1b[1m");
+            }
+            printf("[%6g, %5g]  ", static_cast<float>(d_a[cy*cols + cx]), static_cast<float>(d_b[cy*cols + cx]));
+            if (cy == y && cx == x) {
+                printf("\x1b[0m");
+            }
+        }
+        printf("\n");
+    }
+}
+
 __global__ void device_compare_tensor_test_init_bitfield(unsigned long long* d_bitfield)
 {
     *d_bitfield = UINT64_MAX;
@@ -141,26 +165,12 @@ __global__ void device_compare_tensor_test_print(TestParams test_params,
     if (x < cols && y < rows) {
         const float a = static_cast<float>(d_a[y * cols + x]);
         const float b = static_cast<float>(d_b[y * cols + x]);
-        printf("TestParams{%u,%u,%u, %i,%i} [%u,%u] %g != %g\n", test_params.M, test_params.N, test_params.K,
+        printf("TestParams{%u,%u,%u, %i,%i} \x1b[1m[%u,%u]\x1b[0m %g != %g\n",
+               test_params.M, test_params.N, test_params.K,
                static_cast<int>(test_params.test_data_code_A), static_cast<int>(test_params.test_data_code_B),
                y, x, a, b);
-        uint32_t y_min = y < 2 ? 0u : y - 2;
-        uint32_t y_max = y + 2 >= rows ? rows - 1u : y + 2;
-        uint32_t x_min = x < 2 ? 0u : x - 2;
-        uint32_t x_max = x + 2 >= cols ? cols - 1u : x + 2;
 
-        for (uint32_t cy = y_min; cy <= y_max; cy++) {
-            for (uint32_t cx = x_min; cx <= x_max; cx++) {
-                if (cy == y && cx == x) {
-                    printf("\x1b[1m");
-                }
-                printf("[%6g, %5g]  ", static_cast<float>(d_a[cy*cols + cx]), static_cast<float>(d_b[cy*cols + cx]));
-                if (cy == y && cx == x) {
-                    printf("\x1b[0m");
-                }
-            }
-            printf("\n");
-        }
+        print_tensor_neighborhood(d_a, d_b, rows, cols, y, x);
     }
 }
 
@@ -174,6 +184,15 @@ void launch_device_compare_tensor(TestParams test_params,
     device_compare_tensor_test_init_bitfield<<<1, 1, 0, stream>>>(d_bitfield);
     device_compare_tensor_test<<<grid, block, 0, stream>>>(d_a, d_b, rows, cols, d_bitfield);
     device_compare_tensor_test_print<<<1, 1, 0, stream>>>(test_params, d_a, d_b, rows, cols, d_bitfield);
+}
+
+template <typename TA, typename TB>
+__global__ void device_print_tensor_neighborhood(const TA* d_a, const TB* d_b, uint32_t rows, uint32_t cols,
+                                                 uint32_t y, uint32_t x)
+{
+    if (threadIdx.x == 0 && blockIdx.x == 0) {
+        print_tensor_neighborhood(d_a, d_b, rows, cols, y, x);
+    }
 }
 
 #define CUBLAS_CHECK(x) if (auto _cublas_status = x; _cublas_status != CUBLAS_STATUS_SUCCESS) { fprintf(stderr, "%s:%i cublas status %i\n", __FILE__, __LINE__, (int)_cublas_status); }
@@ -286,7 +305,7 @@ void gemm_test(TestParams params, cudaStream_t stream)
             }
             else if (algo == AlgorithmCode::exo_sm_90) {
                 assert(stream == 0);
-                xgemm_Sm90(nullptr, int(params.M), int(params.N), int(params.K), d_a, d_b, d_c_tested);
+                xgemm_Sm90_wgmma(nullptr, int(params.N), int(params.M), int(params.K), d_bCol, d_a, d_c_tested);
             }
             else {
                 GPU_Tensors t{params.M, params.N, params.K, d_a, d_bCol, d_c_tested, 0, 1, 0};
@@ -314,8 +333,10 @@ void gemm_test(TestParams params, cudaStream_t stream)
             }
             test_events[test_i + 1] = new_event();
         }
+        // device_print_tensor_neighborhood<<<1, 1, 0, stream>>>(d_c_baseline, d_c_tested, params.M, params.N, 0, 65);
         launch_device_compare_tensor(params, d_c_baseline, d_c_tested, params.M, params.N, d_bitfield, stream);
         cudaStreamSynchronize(stream);
+
         for (uint32_t test_i = 0; test_i < test_count; ++test_i) {
             cudaEventElapsedTime(&test_times[test_i], test_events[test_i], test_events[test_i + 1]);
             cudaEventDestroy(test_events[test_i]);
@@ -361,7 +382,6 @@ void gemm_test(TestParams params, cudaStream_t stream)
                params.M, params.N, params.K,
                static_cast<int>(params.test_data_code_A), static_cast<int>(params.test_data_code_B),
                samples_ms / sample_count, flops * 1e-12, bold, color_code, algorithm_name(algo));
-        launch_device_compare_tensor(params, d_c_baseline, d_c_tested, params.M, params.N, d_bitfield, stream);
     };
 
     for (uint32_t bit_index = 0; bit_index < algorithm_count; ++bit_index) {
@@ -381,6 +401,7 @@ void gemm_test(TestParams params, cudaStream_t stream)
     cudaFreeAsync(d_bCol, stream);
     cudaFreeAsync(d_c_baseline, stream);
     cudaFreeAsync(d_c_tested, stream);
+    cudaFreeAsync(d_bitfield, stream);
 
     cudaStreamSynchronize(stream);
     if (const cudaError_t err = cudaGetLastError()) {
