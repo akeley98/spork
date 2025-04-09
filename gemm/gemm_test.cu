@@ -11,6 +11,7 @@
 #include "gemm_sm90.h"
 #include "../xgemm_Sm80/xgemm_Sm80.h"
 #include "../xgemm_Sm90/xgemm_Sm90.h"
+#include "../edited_xgemm_Sm90/edited.h"
 
 #include "cutlass/arch/synclog.hpp"
 
@@ -307,6 +308,10 @@ void gemm_test(TestParams params, cudaStream_t stream)
                 assert(stream == 0);
                 xgemm_Sm90_wgmma(nullptr, int(params.N), int(params.M), int(params.K), d_bCol, d_a, d_c_tested);
             }
+            else if (algo == AlgorithmCode::edited_exo_sm_90) {
+                assert(stream == 0);
+                edited_Sm90_wgmma(nullptr, int(params.N), int(params.M), int(params.K), d_bCol, d_a, d_c_tested);
+            }
             else {
                 GPU_Tensors t{params.M, params.N, params.K, d_a, d_bCol, d_c_tested, 0, 1, 0};
                 if (algo == AlgorithmCode::mine_output_stationary) {
@@ -363,6 +368,7 @@ void gemm_test(TestParams params, cudaStream_t stream)
                 color_code = 32;
                 break;
               case AlgorithmCode::mine_sm_80:
+              case AlgorithmCode::edited_exo_sm_90:
                 color_code = 33;
                 break;
               case AlgorithmCode::exo_sm_80_fence:
