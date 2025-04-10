@@ -426,8 +426,9 @@ exo_Cuda0_edited_Sm90_wgmma::exo_deviceTask(char* exo_smem, exo_SyncState& exo_s
   exo_Sm90_RmemMatrixD<float> D_rmem_1;
   auto& A_smem = reinterpret_cast<Sm90_SmemMatrices_SW128 (&)[]>(exo_smem[128]);
   auto& B_smem = reinterpret_cast<Sm90_SmemMatrices_SW128 (&)[]>(exo_smem[131200]);
-  bool scale_d = false;
-  for (int num_k_iters = ((exo_deviceArgs.K) / (32)), k_iter = 0; k_iter < num_k_iters; k_iter++) {
+
+  auto loop_iter = [&] (int k_iter, int num_k_iters, bool zero_accum)
+  {
     if (IsProducer && threadIdx.x % 128 < 32) {
       {
         exo_syncState.ReverseAwait0_ringbar(exo_smem);
@@ -456,34 +457,52 @@ exo_Cuda0_edited_Sm90_wgmma::exo_deviceTask(char* exo_smem, exo_SyncState& exo_s
         asm("wgmma.fence.sync.aligned;");
         for (int k_mma = 0; k_mma < 4; k_mma++) {
           exo_CudaUtil::exo_wgmma_mma_async_m64n128k8_f32_tf32<1, 1>(
-                D_rmem_0, scale_d,
+                D_rmem_0, !(zero_accum && k_mma == 0),
                 &A_smem[((k_iter % 4) * (8192) + (8 * 0 + 16 * wg) * (256) + 8 * k_mma) / 256].byte_offset((8 * k_mma) * 4),
                 &B_smem[((k_iter % 4) * (4096) + 8 * k_mma) / 256].byte_offset((8 * k_mma) * 4),
                 1024, 1024, 0);
           exo_CudaUtil::exo_wgmma_mma_async_m64n128k8_f32_tf32<1, 1>(
-                D_rmem_1, scale_d,
+                D_rmem_1, !(zero_accum && k_mma == 0),
                 &A_smem[((k_iter % 4) * (8192) + (8 * 1 + 16 * wg) * (256) + 8 * k_mma) / 256].byte_offset((8 * k_mma) * 4),
                 &B_smem[((k_iter % 4) * (4096) + 8 * k_mma) / 256].byte_offset((8 * k_mma) * 4),
                 1024, 1024, 0);
-          scale_d = true;
+        }
+
+        if (k_iter == 0) {
+            asm("// first wgmma iteration");
+        }
+        else {
+            asm("// subsequent wgmma iteration");
         }
 
         asm("wgmma.commit_group.sync.aligned;");
 
+#if 1
         if (k_iter >= 1) {
           asm("wgmma.wait_group.sync.aligned 1;");
           exo_syncState.ReverseArrive0_ringbar(exo_smem, true);
         }
-        if (k_iter == num_k_iters - 1) {
-          asm("wgmma.wait_group.sync.aligned 0;");
-          exo_syncState.ReverseArrive0_ringbar(exo_smem, true);
-        }
-        // asm("wgmma.wait_group.sync.aligned 0;");
-        // exo_syncState.ReverseArrive0_ringbar(exo_smem, true);
+        // if (k_iter == num_k_iters - 1) {
+        //   asm("wgmma.wait_group.sync.aligned 0;");
+        //   exo_syncState.ReverseArrive0_ringbar(exo_smem, true);
+        // }
+#else
+        asm("wgmma.wait_group.sync.aligned 0;");
+        exo_syncState.ReverseArrive0_ringbar(exo_smem, true);
+#endif
       }
     }
+  };
+
+  int num_k_iters = ((exo_deviceArgs.K) / (32));
+  loop_iter(0, num_k_iters, true);
+  for (int k_iter = 1; k_iter < num_k_iters; k_iter++) {
+    loop_iter(k_iter, num_k_iters, false);
   }
+
   if constexpr (!IsProducer) {
+    asm("wgmma.wait_group.sync.aligned 0;");
+    exo_syncState.ReverseArrive0_ringbar(exo_smem, true);
     if ([[maybe_unused]] int wg = (threadIdx.x / 128); 1) {
       exo_CudaUtil::exo_Sm90_store_d<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * 0 + 128 * wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem_0);
       exo_CudaUtil::exo_Sm90_store_d<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * 1 + 128 * wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem_1);
@@ -497,13 +516,41 @@ __device__ __forceinline__ void
 exo_Cuda0_edited_Sm90_wgmma::exo_deviceMainLoop(char* exo_smem, const exo_DeviceArgs& exo_deviceArgs)
 {
   exo_SyncState exo_syncState{};
-  unsigned exo_taskIndex = 0;
-  for (int exo_task_n_task = 0; exo_task_n_task < ((exo_deviceArgs.N) / (128)); exo_task_n_task++) {
-    for (int exo_task_m_task = 0; exo_task_m_task < ((exo_deviceArgs.M) / (256)); exo_task_m_task++) {
-      if (exo_taskIndex++ % (gridDim.x / exo_clusterDim) == blockIdx.x / exo_clusterDim) {
-        exo_Task task { exo_task_m_task, exo_task_n_task };
-        exo_deviceTask<IsProducer>(exo_smem, exo_syncState, exo_deviceArgs, task);
-      }
+
+  // unsigned exo_taskIndex = 0;
+  // for (int exo_task_n_task = 0; exo_task_n_task < ((exo_deviceArgs.N) / (128)); exo_task_n_task++) {
+  //   for (int exo_task_m_task = 0; exo_task_m_task < ((exo_deviceArgs.M) / (256)); exo_task_m_task++) {
+  //     if (exo_taskIndex++ % (gridDim.x / exo_clusterDim) == blockIdx.x / exo_clusterDim) {
+  //       exo_Task task { exo_task_m_task, exo_task_n_task };
+  //       exo_deviceTask<IsProducer>(exo_smem, exo_syncState, exo_deviceArgs, task);
+  //     }
+  //   }
+  // }
+
+  const auto CLUSTER_M = 256u;
+  const auto CLUSTER_N = 128u;
+  const auto cluster_rows = exo_deviceArgs.M / CLUSTER_M;
+  const auto cluster_cols = exo_deviceArgs.N / CLUSTER_N;
+  const auto CLUSTER_MODULUS = 4u;
+  for (unsigned tile_idx = blockIdx.x; tile_idx < cluster_rows * cluster_cols; tile_idx += gridDim.x) {
+    const uint32_t cluster_col_remainder = cluster_cols % CLUSTER_MODULUS;
+    const uint32_t superblock_count = cluster_cols / CLUSTER_MODULUS;
+    const uint32_t superblock_cluster_count = cluster_rows * CLUSTER_MODULUS;
+    const uint32_t superblock_idx = tile_idx / superblock_cluster_count;
+    const uint32_t cluster_idx_in_superblock = tile_idx % superblock_cluster_count;
+
+    uint32_t cluster_m_idx, cluster_n_idx;
+
+    if (superblock_idx < superblock_count) {
+        cluster_m_idx = cluster_idx_in_superblock / CLUSTER_MODULUS;
+        cluster_n_idx = cluster_idx_in_superblock % CLUSTER_MODULUS + CLUSTER_MODULUS * superblock_idx;
     }
+    else {
+        cluster_m_idx = cluster_idx_in_superblock / cluster_col_remainder;
+        cluster_n_idx = cluster_idx_in_superblock % cluster_col_remainder + CLUSTER_MODULUS * superblock_idx;
+    }
+
+    exo_Task task{cluster_m_idx, cluster_n_idx};
+    exo_deviceTask<IsProducer>(exo_smem, exo_syncState, exo_deviceArgs, task);
   }
 }

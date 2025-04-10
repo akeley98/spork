@@ -868,6 +868,13 @@ struct TiledMultiplier
                 }
                 asm volatile("wgmma.commit_group.sync.aligned;  // GMMA");
 
+                if (k_iter == k_pad_iter) {
+                    asm("// first wgmma iteration");
+                }
+                else {
+                    asm("// subsequent wgmma iteration");
+                }
+
                 // Wait for previous iteration's wgmma to retire, then signal that the tiles read from
                 // the previous iteration may be overwritten by the full cluster.
                 if (k_iter >= k_pad_iter + 1) {
