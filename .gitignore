@@ -26,3 +26,9 @@ ninja
 xgemm_Sm80/*
 xgemm_Sm90/*
 *.d
+*.ii
+*.cubin
+*.cudafe*
+*.fatbin*
+*.module_id
+*.ptx
