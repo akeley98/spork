@@ -76,5 +76,7 @@ def xgemm_Sm90_wgmma(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B:
                                 D_rmem[wg,m_mma,:,:],
                                 n=wg_n)
 
+                Fence(cuda_classic, cuda_classic)
+
 
 xgemm_Sm90_wgmma = simplify(xgemm_Sm90_wgmma)
