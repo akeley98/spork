@@ -27,10 +27,10 @@ int main()
         if (is_h100) {
             params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::cutlass);
             params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::mine_output_stationary);
-            params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::mine_split_k_inner);
-            params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::mine_split_k_outer);
+            // params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::mine_split_k_inner);
+            // params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::mine_split_k_outer);
             // params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::mine_stream_k_early_tma);
-            params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::mine_stream_k_late_tma);
+            // params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::mine_stream_k_late_tma);
         }
         {
             GPU_Tensors t{};

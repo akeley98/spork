@@ -32,3 +32,4 @@ xgemm_Sm90/*
 *.fatbin*
 *.module_id
 *.ptx
+elf.o

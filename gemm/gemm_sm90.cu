@@ -1274,6 +1274,12 @@ void matmul_impl(GPU_Tensors t, gemm_sm90_k_mode k_mode, cudaStream_t stream)
         Multiplier::launch(stream, size_m, size_n, size_k, t.a, t.b, t.c);
         return;
       }
+      default:
+      {
+        fprintf(stderr, "non-output-stationary disabled\n");
+        assert(0);
+      }
+#if 0
       case gemm_sm90_k_mode::split_k_outer:
       {
         using Multiplier = TiledMultiplier<cluster_m, cluster_n, smem_m, smem_n, smem_k, wg_m, wg_n, wg_k,
@@ -1311,6 +1317,7 @@ void matmul_impl(GPU_Tensors t, gemm_sm90_k_mode k_mode, cudaStream_t stream)
         Multiplier::launch(stream, size_m, size_n, size_k, t.a, t.b, t.c);
         return;
       }
+#endif
     }
 
     assert(0);

@@ -4,15 +4,10 @@
 
 
 #ifdef __cplusplus
-template <typename T, unsigned RegCount>
-struct exo_Sm90_RmemMatrixA
-{
-    T a[RegCount];
-};
-template <typename T, unsigned RegCount>
+template <typename T>
 struct exo_Sm90_RmemMatrixD
 {
-    T d[RegCount];
+    T d0, d1, d2, d3, d4, d5, d6, d7, d8, d9, d10, d11, d12, d13, d14, d15, d16, d17, d18, d19, d20, d21, d22, d23, d24, d25, d26, d27, d28, d29, d30, d31, d32, d33, d34, d35, d36, d37, d38, d39, d40, d41, d42, d43, d44, d45, d46, d47, d48, d49, d50, d51, d52, d53, d54, d55, d56, d57, d58, d59, d60, d61, d62, d63;
 };
 #endif
 
@@ -211,7 +206,6 @@ namespace exo_CudaUtil_edited_Sm90 {
 EXO_CUDA_INLINE void
 exo_Sm90_tma_to_smem_2d(void* dst, const CUtensorMap& tensorMap, cuda::std::array<unsigned, 2> exo_offsets,
                         uint32_t exo_tma_mbarrier, uint32_t n_bytes)
-
 {
     // cute::elect_one_sync
     uint32_t pred = 0;
@@ -257,7 +251,7 @@ EXO_CUDA_INLINE uint64_t exo_matrix_descriptor(const void* smem_ptr, uint32_t mn
 /* Required by Sm90_mma_async_tf32(d,a,b,n=128) */
 template <unsigned swizzle_bits_a, unsigned swizzle_bits_b>
 EXO_CUDA_INLINE void exo_wgmma_mma_async_m64n128k8_f32_tf32(
-        exo_Sm90_RmemMatrixD<float, 64>& d, unsigned scale_d, const void* smem_a, const void* smem_b,
+        exo_Sm90_RmemMatrixD<float>& d, unsigned scale_d, const void* smem_a, const void* smem_b,
         unsigned m_matrix_stride, unsigned n_matrix_stride, unsigned k_matrix_stride)
 {
     auto desc_a = exo_matrix_descriptor<swizzle_bits_a>(smem_a, m_matrix_stride, k_matrix_stride);
@@ -266,32 +260,29 @@ EXO_CUDA_INLINE void exo_wgmma_mma_async_m64n128k8_f32_tf32(
                 "{ // exo_wgmma_mma_async_m64n128k8_f32_tf32 \n"
                   ".reg .pred p;\n"
                   "setp.ne.b32 p, %66, 0;\n"
-                  "wgmma.mma_async.sync.aligned.m64n128k8.f32.tf32.tf32 "
-                  "{%0, %1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13, %14, %15, %16, %17, %18, %19, %20, %21, %22, %23, %24, %25, %26, %27, %28, %29, %30, %31, %32, %33, %34, %35, %36, %37, %38, %39, %40, %41, %42, %43, %44, %45, %46, %47, %48, %49, %50, %51, %52, %53, %54, %55, %56, %57, %58, %59, %60, %61, %62, %63}, "
+                  "wgmma.mma_async.sync.aligned.m64n128k8.f32.tf32.tf32\n\t"
+                  "{%0, %1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13, %14, %15, %16, %17, %18, %19, %20, %21, %22, %23, %24, %25, %26, %27, %28, %29, %30, %31, %32, %33, %34, %35, %36, %37, %38, %39, %40, %41, %42, %43, %44, %45, %46, %47, %48, %49, %50, %51, %52, %53, %54, %55, %56, %57, %58, %59, %60, %61, %62, %63},\n\t"
                   " %64,"
                   " %65,"
                   " p,    1,  1;\n"
                 "}\n"
-                  : "+f"(d.d[0]), "+f"(d.d[1]), "+f"(d.d[2]), "+f"(d.d[3]), "+f"(d.d[4]), "+f"(d.d[5]), "+f"(d.d[6]), "+f"(d.d[7]), "+f"(d.d[8]), "+f"(d.d[9]), "+f"(d.d[10]), "+f"(d.d[11]), "+f"(d.d[12]), "+f"(d.d[13]), "+f"(d.d[14]), "+f"(d.d[15]), "+f"(d.d[16]), "+f"(d.d[17]), "+f"(d.d[18]), "+f"(d.d[19]), "+f"(d.d[20]), "+f"(d.d[21]), "+f"(d.d[22]), "+f"(d.d[23]), "+f"(d.d[24]), "+f"(d.d[25]), "+f"(d.d[26]), "+f"(d.d[27]), "+f"(d.d[28]), "+f"(d.d[29]), "+f"(d.d[30]), "+f"(d.d[31]), "+f"(d.d[32]), "+f"(d.d[33]), "+f"(d.d[34]), "+f"(d.d[35]), "+f"(d.d[36]), "+f"(d.d[37]), "+f"(d.d[38]), "+f"(d.d[39]), "+f"(d.d[40]), "+f"(d.d[41]), "+f"(d.d[42]), "+f"(d.d[43]), "+f"(d.d[44]), "+f"(d.d[45]), "+f"(d.d[46]), "+f"(d.d[47]), "+f"(d.d[48]), "+f"(d.d[49]), "+f"(d.d[50]), "+f"(d.d[51]), "+f"(d.d[52]), "+f"(d.d[53]), "+f"(d.d[54]), "+f"(d.d[55]), "+f"(d.d[56]), "+f"(d.d[57]), "+f"(d.d[58]), "+f"(d.d[59]), "+f"(d.d[60]), "+f"(d.d[61]), "+f"(d.d[62]), "+f"(d.d[63])
+                  : "+f"(d.d0), "+f"(d.d1), "+f"(d.d2), "+f"(d.d3), "+f"(d.d4), "+f"(d.d5), "+f"(d.d6), "+f"(d.d7), "+f"(d.d8), "+f"(d.d9), "+f"(d.d10), "+f"(d.d11), "+f"(d.d12), "+f"(d.d13), "+f"(d.d14), "+f"(d.d15), "+f"(d.d16), "+f"(d.d17), "+f"(d.d18), "+f"(d.d19), "+f"(d.d20), "+f"(d.d21), "+f"(d.d22), "+f"(d.d23), "+f"(d.d24), "+f"(d.d25), "+f"(d.d26), "+f"(d.d27), "+f"(d.d28), "+f"(d.d29), "+f"(d.d30), "+f"(d.d31), "+f"(d.d32), "+f"(d.d33), "+f"(d.d34), "+f"(d.d35), "+f"(d.d36), "+f"(d.d37), "+f"(d.d38), "+f"(d.d39), "+f"(d.d40), "+f"(d.d41), "+f"(d.d42), "+f"(d.d43), "+f"(d.d44), "+f"(d.d45), "+f"(d.d46), "+f"(d.d47), "+f"(d.d48), "+f"(d.d49), "+f"(d.d50), "+f"(d.d51), "+f"(d.d52), "+f"(d.d53), "+f"(d.d54), "+f"(d.d55), "+f"(d.d56), "+f"(d.d57), "+f"(d.d58), "+f"(d.d59), "+f"(d.d60), "+f"(d.d61), "+f"(d.d62), "+f"(d.d63)
                   :  "l"(desc_a), "l"(desc_b), "r"(scale_d));
 }
 
 /* Required by Sm90_mma_write_d_col_major_tf32(dst,src,n=128) */
-template <bool ColumnMajor, typename Window, typename Reg, unsigned RegCount>
-EXO_CUDA_INLINE void exo_Sm90_store_d(Window dst, const exo_Sm90_RmemMatrixD<Reg, RegCount>& src)
+template <bool ColumnMajor, typename Window, typename Reg>
+EXO_CUDA_INLINE void exo_Sm90_store_d(Window dst, const exo_Sm90_RmemMatrixD<Reg>& src)
 {
     const uint32_t tid = threadIdx.x % 128u;
     const uint32_t r_base = (tid / 32u) * 16u + (tid % 32u) / 4u;
     const uint32_t c_base = (tid % 4u) * 2u;
-    #pragma unroll
-    for (uint32_t reg_index = 0; reg_index < RegCount; ++reg_index) {
-        const uint32_t r = r_base + ((reg_index % 4u) / 2u) * 8u;
-        const uint32_t c = c_base + (reg_index / 4u) * 8 + (reg_index % 2u);
-        // Strict aliasing violation, but we have essentially no choice.
-        auto dst_ptr = reinterpret_cast<uint32_t*>(
-                &dst.data[c * dst.strides[!ColumnMajor] + r * dst.strides[ColumnMajor]]);
-        *dst_ptr = reinterpret_cast<const uint32_t&>(src.d[reg_index]);
+    #define X(reg_index) { \
+        const uint32_t r = r_base + ((reg_index % 4u) / 2u) * 8u; \
+        const uint32_t c = c_base + (reg_index / 4u) * 8 + (reg_index % 2u); \
+        dst.data[c * dst.strides[!ColumnMajor] + r * dst.strides[ColumnMajor]] = src.d##reg_index; \
     }
+    X(0) X(1) X(2) X(3) X(4) X(5) X(6) X(7) X(8) X(9) X(10) X(11) X(12) X(13) X(14) X(15) X(16) X(17) X(18) X(19) X(20) X(21) X(22) X(23) X(24) X(25) X(26) X(27) X(28) X(29) X(30) X(31) X(32) X(33) X(34) X(35) X(36) X(37) X(38) X(39) X(40) X(41) X(42) X(43) X(44) X(45) X(46) X(47) X(48) X(49) X(50) X(51) X(52) X(53) X(54) X(55) X(56) X(57) X(58) X(59) X(60) X(61) X(62) X(63)
 }
 
 }  // end namespace
@@ -390,6 +381,7 @@ struct exo_Cuda0_edited_Sm90_wgmma
   static __device__ __forceinline__ void
   exo_deviceSetup(char* exo_smem, const exo_DeviceArgs& exo_deviceArgs);
 
+  template <bool IsProducer>
   static __device__ __forceinline__ void
   exo_deviceMainLoop(char* exo_smem, const exo_DeviceArgs& exo_deviceArgs);
 
@@ -430,25 +422,16 @@ exo_Cuda0_edited_Sm90_wgmma::exo_deviceTask(char* exo_smem, exo_SyncState& exo_s
 {
   namespace exo_CudaUtil = exo_CudaUtil_edited_Sm90;
   // Scope of named barrier ringbar
-  exo_Sm90_RmemMatrixD<float, 64> D_rmem[2];
+  exo_Sm90_RmemMatrixD<float> D_rmem_0;
+  exo_Sm90_RmemMatrixD<float> D_rmem_1;
   auto& A_smem = reinterpret_cast<Sm90_SmemMatrices_SW128 (&)[]>(exo_smem[128]);
   auto& B_smem = reinterpret_cast<Sm90_SmemMatrices_SW128 (&)[]>(exo_smem[131200]);
-  // if (int tmp = threadIdx.x; tmp < 256) {
-  //   if ([[maybe_unused]] int wg = (threadIdx.x / 128); 1) {
-  //     for (int m_mma = 0; m_mma < 2; m_mma++) {
-  //       D_rmem[m_mma].scale_d = 0;
-  //     }
-  //   }
-  // }
-  unsigned scale_d = 0;
+  bool scale_d = false;
   for (int num_k_iters = ((exo_deviceArgs.K) / (32)), k_iter = 0; k_iter < num_k_iters; k_iter++) {
-    if constexpr (IsProducer) {
+    if (IsProducer && threadIdx.x % 128 < 32) {
       {
-        // CudaAsync(tma_to_smem_async)
-        // Fence(empty_actor_kind, empty_actor_kind)
-        const uint32_t exo_tma_mbarrier = exo_syncState.Arrive0_ringbar(exo_smem, false);
-        // ReverseAwait(ringbar, tma_to_smem_async, 4)
         exo_syncState.ReverseAwait0_ringbar(exo_smem);
+        const uint32_t exo_tma_mbarrier = exo_syncState.Arrive0_ringbar(exo_smem, false);
         exo_CudaUtil::exo_Sm90_tma_to_smem_2d(
                     &A_smem[((k_iter % 4) * (8192)) / 256].byte_offset((0) * 4),
                     exo_deviceArgs.exo_data_A_tensorMap,
@@ -470,27 +453,24 @@ exo_Cuda0_edited_Sm90_wgmma::exo_deviceTask(char* exo_smem, exo_SyncState& exo_s
       exo_syncState.Await0_ringbar(exo_smem);
       {
         const int wg = (threadIdx.x / 128);
-        // Scope of named barrier cg
-        {
-          // CudaAsync(wgmma_async)
-          // Fence(wgmma_fence_1, wgmma_fence_2)
-          asm("wgmma.fence.sync.aligned;");
-          #pragma unroll
-          for (int k_mma = 0; k_mma < 4; k_mma++) {
-            #pragma unroll
-            for (int m_mma = 0; m_mma < 2; m_mma++) {
-              exo_CudaUtil::exo_wgmma_mma_async_m64n128k8_f32_tf32<1, 1>(
-                    D_rmem[m_mma], scale_d,
-                    &A_smem[((k_iter % 4) * (8192) + (8 * m_mma + 16 * wg) * (256) + 8 * k_mma) / 256].byte_offset((8 * k_mma) * 4),
-                    &B_smem[((k_iter % 4) * (4096) + 8 * k_mma) / 256].byte_offset((8 * k_mma) * 4),
-                    1024, 1024, 0);
-            }
-            scale_d = 1;
-          }
-          // Arrive(wgmma_async, cg)
-          asm("wgmma.commit_group.sync.aligned;");
+        asm("wgmma.fence.sync.aligned;");
+        for (int k_mma = 0; k_mma < 4; k_mma++) {
+          exo_CudaUtil::exo_wgmma_mma_async_m64n128k8_f32_tf32<1, 1>(
+                D_rmem_0, scale_d,
+                &A_smem[((k_iter % 4) * (8192) + (8 * 0 + 16 * wg) * (256) + 8 * k_mma) / 256].byte_offset((8 * k_mma) * 4),
+                &B_smem[((k_iter % 4) * (4096) + 8 * k_mma) / 256].byte_offset((8 * k_mma) * 4),
+                1024, 1024, 0);
+          exo_CudaUtil::exo_wgmma_mma_async_m64n128k8_f32_tf32<1, 1>(
+                D_rmem_1, scale_d,
+                &A_smem[((k_iter % 4) * (8192) + (8 * 1 + 16 * wg) * (256) + 8 * k_mma) / 256].byte_offset((8 * k_mma) * 4),
+                &B_smem[((k_iter % 4) * (4096) + 8 * k_mma) / 256].byte_offset((8 * k_mma) * 4),
+                1024, 1024, 0);
+          scale_d = true;
         }
-        if (k_iter > 0) {
+
+        asm("wgmma.commit_group.sync.aligned;");
+
+        if (k_iter >= 1) {
           asm("wgmma.wait_group.sync.aligned 1;");
           exo_syncState.ReverseArrive0_ringbar(exo_smem, true);
         }
@@ -498,37 +478,31 @@ exo_Cuda0_edited_Sm90_wgmma::exo_deviceTask(char* exo_smem, exo_SyncState& exo_s
           asm("wgmma.wait_group.sync.aligned 0;");
           exo_syncState.ReverseArrive0_ringbar(exo_smem, true);
         }
+        // asm("wgmma.wait_group.sync.aligned 0;");
+        // exo_syncState.ReverseArrive0_ringbar(exo_smem, true);
       }
     }
   }
   if constexpr (!IsProducer) {
     if ([[maybe_unused]] int wg = (threadIdx.x / 128); 1) {
-      #pragma unroll
-      for (int m_mma = 0; m_mma < 2; m_mma++) {
-        exo_CudaUtil::exo_Sm90_store_d<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * m_mma + 128 * wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[m_mma]);
-      }
+      exo_CudaUtil::exo_Sm90_store_d<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * 0 + 128 * wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem_0);
+      exo_CudaUtil::exo_Sm90_store_d<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * 1 + 128 * wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem_1);
     }
   }
+  asm("barrier.cta.sync 0;");
 }
+
+template <bool IsProducer>
 __device__ __forceinline__ void
 exo_Cuda0_edited_Sm90_wgmma::exo_deviceMainLoop(char* exo_smem, const exo_DeviceArgs& exo_deviceArgs)
 {
   exo_SyncState exo_syncState{};
   unsigned exo_taskIndex = 0;
-  for (int exo_task_m_task = 0; exo_task_m_task < ((exo_deviceArgs.M) / (256)); exo_task_m_task++) {
-    for (int exo_task_n_task = 0; exo_task_n_task < ((exo_deviceArgs.N) / (128)); exo_task_n_task++) {
+  for (int exo_task_n_task = 0; exo_task_n_task < ((exo_deviceArgs.N) / (128)); exo_task_n_task++) {
+    for (int exo_task_m_task = 0; exo_task_m_task < ((exo_deviceArgs.M) / (256)); exo_task_m_task++) {
       if (exo_taskIndex++ % (gridDim.x / exo_clusterDim) == blockIdx.x / exo_clusterDim) {
         exo_Task task { exo_task_m_task, exo_task_n_task };
-        if (threadIdx.x >= 256) {
-          asm("setmaxnreg.dec.sync.aligned.u32 40;");
-          if (threadIdx.x % 128 < 32) {
-            exo_deviceTask<true>(exo_smem, exo_syncState, exo_deviceArgs, task);
-          }
-        }
-        if (threadIdx.x < 256) {
-          asm("setmaxnreg.inc.sync.aligned.u32 232;");
-          exo_deviceTask<false>(exo_smem, exo_syncState, exo_deviceArgs, task);
-        }
+        exo_deviceTask<IsProducer>(exo_smem, exo_syncState, exo_deviceArgs, task);
       }
     }
   }

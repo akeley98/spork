@@ -7,7 +7,14 @@ exo_deviceFunction0_edited_Sm90_wgmma(__grid_constant__ const struct exo_CudaDev
 {
   extern __shared__ char exo_smem[];
   exo_Cuda0_edited_Sm90_wgmma::exo_deviceSetup(exo_smem, exo_deviceArgs);
-  exo_Cuda0_edited_Sm90_wgmma::exo_deviceMainLoop(exo_smem, exo_deviceArgs);
+  if (threadIdx.x >= 256) {
+    asm("setmaxnreg.dec.sync.aligned.u32 40;");
+    exo_Cuda0_edited_Sm90_wgmma::exo_deviceMainLoop<true>(exo_smem, exo_deviceArgs);
+  }
+  else {
+    asm("setmaxnreg.inc.sync.aligned.u32 232;");
+    exo_Cuda0_edited_Sm90_wgmma::exo_deviceMainLoop<false>(exo_smem, exo_deviceArgs);
+  }
 }
 
 void
