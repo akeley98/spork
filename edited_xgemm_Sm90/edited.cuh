@@ -201,6 +201,12 @@ struct exo_win_3f32c_Sm90_SmemSwizzled_128{
 #include <cuda/std/array>
 
 namespace exo_CudaUtil_edited_Sm90 {
+
+EXO_CUDA_INLINE void prefetch_tensormap(const CUtensorMap* tensorMap)
+{
+    asm volatile("prefetch.tensormap [%0];" :: "l"(reinterpret_cast<uint64_t>(tensorMap)) : "memory");
+}
+
 /* Required by Sm90_copy_tensor_to_smem_swizzled_2f32(dst,src,box0=256, box1=32) */
 /* Required by Sm90_copy_tensor_to_smem_swizzled_2f32(dst,src,box0=128, box1=32) */
 EXO_CUDA_INLINE void
@@ -280,7 +286,9 @@ EXO_CUDA_INLINE void exo_Sm90_store_d(Window dst, const exo_Sm90_RmemMatrixD<Reg
     #define X(reg_index) { \
         const uint32_t r = r_base + ((reg_index % 4u) / 2u) * 8u; \
         const uint32_t c = c_base + (reg_index / 4u) * 8 + (reg_index % 2u); \
-        dst.data[c * dst.strides[!ColumnMajor] + r * dst.strides[ColumnMajor]] = src.d##reg_index; \
+        if (r < 999999 && c < 999999) { \
+            dst.data[c * dst.strides[!ColumnMajor] + r * dst.strides[ColumnMajor]] = src.d##reg_index; \
+        } \
     }
     X(0) X(1) X(2) X(3) X(4) X(5) X(6) X(7) X(8) X(9) X(10) X(11) X(12) X(13) X(14) X(15) X(16) X(17) X(18) X(19) X(20) X(21) X(22) X(23) X(24) X(25) X(26) X(27) X(28) X(29) X(30) X(31) X(32) X(33) X(34) X(35) X(36) X(37) X(38) X(39) X(40) X(41) X(42) X(43) X(44) X(45) X(46) X(47) X(48) X(49) X(50) X(51) X(52) X(53) X(54) X(55) X(56) X(57) X(58) X(59) X(60) X(61) X(62) X(63)
 }
@@ -401,7 +409,10 @@ exo_Cuda0_edited_Sm90_wgmma::exo_cudaLaunch(cudaStream_t exo_cudaStream, const e
 __device__ __forceinline__ void
 exo_Cuda0_edited_Sm90_wgmma::exo_deviceSetup(char* exo_smem, const exo_DeviceArgs& exo_deviceArgs)
 {
+    namespace exo_CudaUtil = exo_CudaUtil_edited_Sm90;
     if (threadIdx.x == 0) {
+      exo_CudaUtil::prefetch_tensormap(&exo_deviceArgs.exo_data_A_tensorMap);
+      exo_CudaUtil::prefetch_tensormap(&exo_deviceArgs.exo_data_B_tensorMap);
       const auto mbarrier_u32 = exo_smemU32(exo_smem);
       for (int i = 0; i < 4; ++i) {
         asm volatile("mbarrier.init.shared::cta.b64 [%0], 32;"::
@@ -422,8 +433,7 @@ exo_Cuda0_edited_Sm90_wgmma::exo_deviceTask(char* exo_smem, exo_SyncState& exo_s
 {
   namespace exo_CudaUtil = exo_CudaUtil_edited_Sm90;
   // Scope of named barrier ringbar
-  exo_Sm90_RmemMatrixD<float> D_rmem_0;
-  exo_Sm90_RmemMatrixD<float> D_rmem_1;
+  exo_Sm90_RmemMatrixD<float> D_rmem[2];
   auto& A_smem = reinterpret_cast<Sm90_SmemMatrices_SW128 (&)[]>(exo_smem[128]);
   auto& B_smem = reinterpret_cast<Sm90_SmemMatrices_SW128 (&)[]>(exo_smem[131200]);
 
@@ -457,12 +467,12 @@ exo_Cuda0_edited_Sm90_wgmma::exo_deviceTask(char* exo_smem, exo_SyncState& exo_s
         asm("wgmma.fence.sync.aligned;");
         for (int k_mma = 0; k_mma < 4; k_mma++) {
           exo_CudaUtil::exo_wgmma_mma_async_m64n128k8_f32_tf32<1, 1>(
-                D_rmem_0, !(zero_accum && k_mma == 0),
+                D_rmem[0], !(zero_accum && k_mma == 0),
                 &A_smem[((k_iter % 4) * (8192) + (8 * 0 + 16 * wg) * (256) + 8 * k_mma) / 256].byte_offset((8 * k_mma) * 4),
                 &B_smem[((k_iter % 4) * (4096) + 8 * k_mma) / 256].byte_offset((8 * k_mma) * 4),
                 1024, 1024, 0);
           exo_CudaUtil::exo_wgmma_mma_async_m64n128k8_f32_tf32<1, 1>(
-                D_rmem_1, !(zero_accum && k_mma == 0),
+                D_rmem[1], !(zero_accum && k_mma == 0),
                 &A_smem[((k_iter % 4) * (8192) + (8 * 1 + 16 * wg) * (256) + 8 * k_mma) / 256].byte_offset((8 * k_mma) * 4),
                 &B_smem[((k_iter % 4) * (4096) + 8 * k_mma) / 256].byte_offset((8 * k_mma) * 4),
                 1024, 1024, 0);
@@ -504,8 +514,8 @@ exo_Cuda0_edited_Sm90_wgmma::exo_deviceTask(char* exo_smem, exo_SyncState& exo_s
     asm("wgmma.wait_group.sync.aligned 0;");
     exo_syncState.ReverseArrive0_ringbar(exo_smem, true);
     if ([[maybe_unused]] int wg = (threadIdx.x / 128); 1) {
-      exo_CudaUtil::exo_Sm90_store_d<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * 0 + 128 * wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem_0);
-      exo_CudaUtil::exo_Sm90_store_d<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * 1 + 128 * wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem_1);
+      exo_CudaUtil::exo_Sm90_store_d<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * 0 + 128 * wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[0]);
+      exo_CudaUtil::exo_Sm90_store_d<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * 1 + 128 * wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[1]);
     }
   }
   asm("barrier.cta.sync 0;");

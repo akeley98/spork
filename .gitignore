@@ -33,3 +33,4 @@ xgemm_Sm90/*
 *.module_id
 *.ptx
 elf.o
+*.sass
