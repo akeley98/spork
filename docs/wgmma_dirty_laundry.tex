@@ -1,0 +1,194 @@
+% xelatex </dev/null wgmma_dirty_laundry.tex
+
+\input{whitepaper_common.tex}
+
+\begin{document}
+
+\mainSub{``abstract''}
+
+To generate optimal code, \lighttt{ptxas} has to be able to \textit{statically} verify that your usage of wgmma is correct.
+How \lighttt{ptxas} does this isn't documented.
+I sarcastically try to explain what \lighttt{ptxas}'s expectations are.
+I don't work for NVIDIA (anymore), so this is all based on personal experience and comes with NO WARRANTY OF MERCHANTABILITY, et cetera.
+
+\myTitle{wgmma (sm\_90a MMA) and its Dirty Laundry}
+
+\hfill\textsf{(How do you \textit{really} program an H100 with PTX?!!?)}
+
+Let's just say hypothetically that you're creating your own PL targetting tensor cores (wgmma) on the H100, so you have to program with PTX and can't take NVIDIA's self-serving advice to ``strongly [prefer] that device kernels utilize this complex feature set through CUTLASS, a collection of CUDA C++ template abstractions...''.
+This advice is self-serving because it gives NVIDIA an excuse to poorly document PTX.
+You may think you can read the PTX guide to understand how to generate wgmma code.
+\lightsf{WRONG}.
+
+If you are like me, you may follow all the requirements specified by the PTX doc, and still quickly run into issues where \lighttt{ptxas} generates this warning:
+
+\filbreak
+\lighttt{Potential Performance Loss: \redBox{wgmma.mma\_async instructions are serialized due to} non wgmma instructions defining accumulator registers of a wgmma between start and end of the pipeline stage in the function ...}
+
+(other reasons may also be given)
+
+and if you look at the SASS (\lighttt{cuobjdump --dump-sass my-file.o > my-file.sass}), you will see performance-killing \lighttt{WARPGROUP.DEPBAR} and \lighttt{WARPGROUP.ARRIVE} instructions for each \lighttt{HGMMA} (wgmma) instruction.
+
+\filbreak
+I will not be covering swizzling (yet) in this document, which is a topic numerous people have complained about.
+Instead I'll be addressing the above warning.
+
+\filbreak
+\mainSub{Trivial Fixes}
+
+You will find hits for the above warning that suggest these fixes; this may be enough to fix your problem, but was not enough for mine:
+\begin{itemize}
+  \item Use nvcc 12.3 or higher due to 12.1 and 12.2 compiler bugs
+  \item Enable the optimizer with \lighttt{-O2} (you don't say...)
+  \item Define \lighttt{NDEBUG}
+\end{itemize}
+Furthermore, if the reason for the serialized instructions mentions ``insufficient register resources'', the problem is fundamentally different from what I'm about to describe, and you have little choice but to cut register usage.
+
+\filbreak
+\myTitle{Background: Why is this happening?}
+
+\mainSub{Pipeline Stage}
+
+Most messages mention a ``pipeline stage''; this crucial concept is seemingly not documented.
+A ``pipeline stage'' consists of
+\begin{itemize}
+  \item \lighttt{wgmma.fence.sync.aligned;} [begin pipeline stage]
+  \item A (hopefully unrolled) loop of \lighttt{wgmma.mma\_async} instructions
+  \item \lighttt{wgmma.commit\_group.sync.aligned;} [end pipeline stage]
+\end{itemize}
+The compiler must be able to \textit{statically} recognize this pipeline stage pattern.
+
+\filbreak
+\minorSub{Big Problem 1/2: Register Allocation (Optional Reading)}
+
+If your pipeline stage pattern is correct, and you don't alter the accumulator registers between the pipeline stage begin and end, then the warning that there are ``non wgmma instructions defining accumulator registers of a wgmma between start and end of the pipeline stage'' acts as a misleading catch-all warning that ``static analysis failed somewhere''.
+
+\filbreak
+The core expectations fail here, in my opinion, is that when you program at an ISA/assembly level, typically, the consequences for violating correct usage is that your program has incorrect behavior (e.g. for wgmma, incorrect usage could be a race condition on a wgmma register operand).
+In other words, as long as your program \textit{dynamically} uses the ISA as documented, things will work correctly, even if it's not proven that usage is correct (i.e. statically proven to be correct).
+
+\filbreak
+However, PTX is not an ISA, SASS is, and the consequences of using wgmma ``incorrectly'' (as defined by \lighttt{ptxas}'s static analysis) is that \lighttt{ptxas} generates a suboptimal binary (with the \lighttt{WARPGROUP.ARRIVE}), as opposed to an incorrect binary.
+I \textbf{speculate} this static analysis is needed because of register allocation. \lighttt{ptxas} has to be able to reason about the full lifetime (including usage by not-yet-retired asynchronous instructions) of each virtual PTX register in order to allocate values to physical registers, and if \lighttt{ptxas} can't statically analyze your usage pattern, it would risk causing a race condition on a physical register that does not occur at the PTX level.
+
+\filbreak
+\minorSub{Big Problem 2/2: scale-d is a LIE (Optional Reading)}
+
+Another hugely misleading feature is the \lighttt{scale-d} operand to \lighttt{wgmma.mma\_async}.
+This controls whether zero-initialization occurs:
+\begin{align*}
+  & D = AB & \lightsf{(scale-d = 0)} \\
+  & D = AB + D & \lightsf{(scale-d = 1)}
+\end{align*}
+where the expected dependency chain is that we start with a single \lightsf{scale-d=0} \lighttt{wgmma.mma\_async} instruction that initializes the accumulator, then we accumulate with \lightsf{scale-d=1}.
+
+\filbreak
+This \lighttt{scale-d} operand is given as a PTX predicate, which makes it look cheap.
+This is not the case.
+In reality, the two cases lower to different SASS instructions (examples operands given):
+\begin{align*}
+  & \lighttt{HGMMA.64x128x8.F32.TF32 \blueBox{R88}, gdesc[UR12], \redBox{RZ}, !UPT ;} & \lightsf{(scale-d = 0)} \\
+  & \lighttt{HGMMA.64x128x8.F32.TF32 \blueBox{R88}, gdesc[UR12], \blueBox{R88} ;} & \lightsf{(scale-d = 1)}
+\end{align*}
+As a result, \lighttt{ptxas} seems to give the (100\% misleading) ``non wgmma instructions defining blah blah blah'' warning when it's unable to validate either of these two conditions:
+\begin{itemize}
+  \item It's not able to resolve \lightsf{scale-d} to a constant.
+  \item It's unable to prove that the \lightsf{scale-d = 0} case (i.e. the usage of \redBox{\texttt{RZ}}) only occurs as the first instruction in a dependency chain of \lighttt{wgmma.mma\_async} instructions.
+\end{itemize}
+The latter condition isn't even required by the PTX docs and seems to be an entirely undocumented expectation.
+
+\filbreak
+\myTitle{Failure Modes \& Fixes}
+
+I catalog all ``wgmma.mma\_async instructions are serialized'' failures I've encountered and suggested fixes.
+This is based on analyzing this code: \webText{cutlass/include/cutlass/gemm/collective/sm90\_mma\_tma\_gmma\_ss\_warpspecialized.hpp}{https://github.com/NVIDIA/cutlass/blob/main/include/cutlass/gemm/collective/sm90_mma_tma_gmma_ss_warpspecialized.hpp}.
+
+\filbreak
+\mainSub{Arrays are Evil}
+
+(This section only applies if you are using inline PTX in C++)
+
+wgmma requires a huge number of registers.
+It's tempting to e.g. define a tile of 128 registers as\\
+\lighttt{struct D\_Matrix \{ float d[128]; \} d; }\\
+and then pass the tile as\\
+\lighttt{asm volatile ("wgmma.mma\_async ..." :: "+f"(d.d[0]), "+f"(d.d[1]), ...);}
+
+\filbreak
+With this approach, I experienced that nvcc would materialize the array in local memory, and generate loads and stores as needed to populate the register operands for \lighttt{wgmma.mma\_async}.
+In this case, the compiler's accusation that ``non wgmma instructions [define] accumulator registers...'' is accurate at the PTX level, but not obvious at the C++ level.
+
+\filbreak
+If you are authoring the entire PTX file and not just using inline \lighttt{asm}, then this can't happen to you (unknowingly).
+Otherwise, to fix this, write out each register manually...\\
+\lighttt{struct D\_Matrix \{ float d0, d1, d2, ..., d127; \} d; }\\
+\lighttt{asm volatile ("wgmma.mma\_async ..." :: "+f"(d.d0), "+f"(d.d1), ...);}
+
+\filbreak
+It doesn't seem like CuTe and CUTLASS follow my proposed rule 100\%, but at least for me, this was necessary.
+Why take an unnecessary risk?
+
+\filbreak
+\textbf{\redBox{Caveat:}} I noticed this change (array to scalars) also has an effect on how the accumulator tile is written from registers to GMEM.
+I am not sure if this is good.
+There may be ways to use C++ arrays and not trigger the code lowering issue, but I am not sure how (\lighttt{pragma unroll}-ing everything wasn't enough, at least for me).
+
+\filbreak
+\mainSub{Special Casing Iteration 0}
+
+Because of the issue with \lightsf{scale-d} and the \redBox{\texttt{RZ}} register, pseudocode of the form
+{\color{lightttColor}
+\begin{verbatim}
+m, n = ...
+scale_d = 0
+for k1 in seq(0, SIZE_K/K1):
+    wgmma.fence.sync.aligned()
+    for k0 in seq(0, K1/K0):
+        k = k1 * K1 + k0 * K0
+        wgmma.mma_async(D[m:,n:], A[m:,k:], B[n:,k:], scale_d)
+        scale_d = 1
+    wgmma.commit_group.sync.aligned()
+\end{verbatim}
+}
+\textbf{should} be transformed such that the initial iteration of the outer (\lighttt{k1}) loop is handled specially:
+{\color{lightttColor}
+\begin{verbatim}
+m, n = ...
+scale_d = 0
+if True:                                # Special case for k1 = 0
+    k1 = 0
+    wgmma.fence.sync.aligned()
+    for k0 in seq(0, K1/K0):            # Compiler knows scale_d = 0 iff k0 == 0
+        k = k1 * K1 + k0 * K0           # Unrolling allows compiler to lower special RZ case
+        wgmma.mma_async(D[m:,n:], A[m:,k:], B[n:,k:], scale_d)
+        scale_d = 1
+    wgmma.commit_group.sync.aligned()   # Compiler knows scale_d is always 1 now
+
+for k1 in seq(1, SIZE_K/K1):            # Main loop for k1 >= 1
+    wgmma.fence.sync.aligned()
+    for k0 in seq(0, K1/K0):            # Unrolled, no usage of RZ
+        k = k1 * K1 + k0 * K0
+        wgmma.mma_async(D[m:,n:], A[m:,k:], B[n:,k:], scale_d)
+        scale_d = 1
+    wgmma.commit_group.sync.aligned()
+\end{verbatim}
+}
+
+I say ``\textbf{should}'' because I've noticed nvcc will try to do this optimization implicitly, but only sometimes, causing code to mysteriously fail for no clear reason if you didn't know about this requirement.
+It's better to just do it yourself (and, if you're authoring raw PTX, you have no choice but to do this yourself anyway).
+
+\filbreak
+\mainSub{Mandatory wait\_group 0}
+
+The \lighttt{wgmma.wait\_group.sync.aligned \textit{N}} instruction waits for the $N^{th}$ prior executed wgmma pipeline stage to finish.
+($N = 0$ waits for the just-executed \lighttt{wgmma.commit\_group.sync.aligned}).
+Typically $N > 0$ so that you actually get asynchrony, and you don't issue this for the first $N$-many wgmma pipeline stages.
+If $N = 1$, this special case may be combined with the special case for \lightsf{scale-d = 0}, but don't conflate the two problems.
+
+\filbreak
+At the end of the accumulation, though, you will probably isuse a \lighttt{wgmma.wait\_group.sync.aligned \textbf{0}} instruction to wait for the final result.
+This needs to be done in a completely straightforward fashion -- \lighttt{ptxas} needs to be 110\% assured that all wgmma instructions have retired.
+So don't do something clever like putting ``if this is the final k iteration, then wait-group 0'' inside your k-loop.
+Just slap it down in unconditional code at the end of your loop.
+
+\end{document}
