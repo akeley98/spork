@@ -852,7 +852,10 @@ struct TiledMultiplier
         std::conditional_t<IS_CONSUMER, WG_Accum, char> accum;
         bool zero_accum = true;
 
-        for (uint32_t k_iter = k_pad_iter; k_iter < k_num_iters; ++k_iter) {
+        // Special case for initial iteration of consumer loop, so that zero_accum can be statically analyzed.
+        // It's not documented, but nvcc will generate bad code if you don't do this.
+        {
+            const uint32_t k_iter = k_pad_iter;
             if constexpr (IS_CONSUMER) {
                 state.tile_fill_wait_ring(shared);
 
@@ -860,6 +863,28 @@ struct TiledMultiplier
                 const uint32_t wg_m_offset = get_wg_m_idx() * WG_M;
                 const uint32_t wg_n_offset = get_wg_n_idx() * WG_N;
 
+                #pragma unroll
+                for (uint32_t wg_k_idx = 0; wg_k_idx < SMEM_K / WG_K; ++wg_k_idx) {
+                    const uint32_t wg_k_offset = wg_k_idx * WG_K;
+                    wg_accum_tile(accum, shared.aliased_input_ring_buffer[state.consumer_ring_idx],
+                                  wg_m_offset, wg_n_offset, wg_k_offset, zero_accum);
+                    zero_accum = false;
+                }
+                asm volatile("wgmma.commit_group.sync.aligned;  // GMMA");
+            }
+            producer_on_k_iter(k_iter);
+        }
+
+        for (uint32_t k_iter = k_pad_iter + 1; k_iter < k_num_iters; ++k_iter) {
+            if constexpr (IS_CONSUMER) {
+                state.advance_consumer_ring_idx();
+                state.tile_fill_wait_ring(shared);
+
+                asm volatile("wgmma.fence.sync.aligned;  // GMMA");
+                const uint32_t wg_m_offset = get_wg_m_idx() * WG_M;
+                const uint32_t wg_n_offset = get_wg_n_idx() * WG_N;
+
+                #pragma unroll
                 for (uint32_t wg_k_idx = 0; wg_k_idx < SMEM_K / WG_K; ++wg_k_idx) {
                     const uint32_t wg_k_offset = wg_k_idx * WG_K;
                     wg_accum_tile(accum, shared.aliased_input_ring_buffer[state.consumer_ring_idx],
@@ -870,22 +895,20 @@ struct TiledMultiplier
 
                 // Wait for previous iteration's wgmma to retire, then signal that the tiles read from
                 // the previous iteration may be overwritten by the full cluster.
-                if (k_iter >= k_pad_iter + 1) {
-                    static_assert(RING_BUFFER_SIZE >= 2);
-                    asm volatile("wgmma.wait_group.sync.aligned 1;  // GMMA");
-                    const unsigned prev_ring_idx = state.consumer_ring_idx == 0
-                                                     ? RING_BUFFER_SIZE - 1 : state.consumer_ring_idx - 1u;
-                    mbar_arrive_cluster_broadcast(shared.tile_read_mbar[prev_ring_idx]);
-                }
-                // On last iteration, wait for all wgmma to retire, and signal again.
-                if (k_iter == k_num_iters - 1u) {
-                    asm volatile("wgmma.wait_group.sync.aligned 0;  // GMMA");
-                    mbar_arrive_cluster_broadcast(shared.tile_read_mbar[state.consumer_ring_idx]);
-                }
-                state.advance_consumer_ring_idx();
+                static_assert(RING_BUFFER_SIZE >= 2);
+                asm volatile("wgmma.wait_group.sync.aligned 1;  // GMMA");
+                const unsigned prev_ring_idx = state.consumer_ring_idx == 0
+                                                 ? RING_BUFFER_SIZE - 1 : state.consumer_ring_idx - 1u;
+                mbar_arrive_cluster_broadcast(shared.tile_read_mbar[prev_ring_idx]);
             }
-
             producer_on_k_iter(k_iter);
+        }
+
+        // Wait for all wgmma to retire (note 0 input to wait_group) and signal that tiles read can be overwritten.
+        if constexpr (IS_CONSUMER) {
+            asm volatile("wgmma.wait_group.sync.aligned 0;  // GMMA");
+            mbar_arrive_cluster_broadcast(shared.tile_read_mbar[state.consumer_ring_idx]);
+            state.advance_consumer_ring_idx();
         }
 
         // Conditions written so as to allow static removal of TMA code for TmaMode::never_reduce.
