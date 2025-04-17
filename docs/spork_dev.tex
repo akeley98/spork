@@ -13,7 +13,7 @@
 \tikzstyle{arrow} = [thick,->,>=stealth]
 \tikzstyle{line} = [thick]
 
-{ \LARGE Exo Dev 2025-01-15 \hfill \textbf{\textsf{Project Spork: EXO GPU}}}
+{ \LARGE Exo Dev 2025-01-15 } \yellowBox{(updated 2025-04-17)} \hfill { \LARGE \textbf{\textsf{Spork: EXO GPU}}}
 
 \includegraphics[width=\linewidth]{usda_spork.jpg}
 
@@ -26,7 +26,8 @@
 \begin{itemize}
 \item Generate \myKey{mixed CPU and CUDA} code
 \item Support asynchronous CUDA accelerator instructions
-\item \myKey{Minimal change} to the core Exo language; avoid huge changes to analysis and rewrite
+\item \myKey{Minimal change} to the core Exo language; avoid huge changes to analysis and rewrite\\
+(\yellowBox{update:} may have to make changes)
 \item Support basic synchronization, e.g. \texttt{\_\_syncthreads}
 \begin{itemize}
   \item (scoped all $\leftrightarrow$ all threads sync)
@@ -52,9 +53,8 @@
   \begin{itemize}
     \item Open CUDA block in CPU code
     \item Open async CUDA block
-    \item Kenneth: we need to discuss overloading
   \end{itemize}
-  \item \texttt{for i in cuda\_\{thread/warp/etc.\}(lo,hi)}\\ = distribute work across threads/warps/etc.
+  \item \texttt{for i in cuda\_threads(lo,hi,unit=...)}\\ = distribute work across (grouped) threads
   \item Add new \texttt{Fence}, \texttt{Arrive}, \texttt{Await} statements and \texttt{barrier} type for synchronization.
   \item Need to extend \texttt{Memory} and \texttt{@instr} to handle new CUDA memory types and async instructions.
 \end{itemize}
@@ -65,7 +65,7 @@ Key idea: most of Exo will still treat the code \textit{as if it were not parall
 
 \begin{itemize}
   \item \texttt{with} = \texttt{if True:}
-  \item \texttt{for i in cuda\_\{thread/warp/etc.\}(lo,hi)}\\ = sequential for loop
+  \item \texttt{for i in cuda\_threads(lo,hi)}\\ = sequential for loop
   \item \texttt{Fence}, \texttt{Arrive}, \texttt{Await} = nothing
   \item Async \texttt{instr} = sync \texttt{instr}
 \end{itemize}
@@ -91,7 +91,7 @@ I call these \myKey{``collective units''} (includes base case, one thread), abus
 
 Core ``unit of parallelism'': \myKeyB{CTA}
 \begin{itemize}
-  \item Easy to synchronize within CTAs; hard between CTAs (Exo won't model this)
+  \item Easy to synchronize within CTAs; hard between CTAs (no Exo support except clusters)
   \item Sub-collectives (thread, warp, warpgroup) within CTA can split and coalesce easily
   \item Different collective unit needed for different operations; programmer handles manually!
   \item \myKeyB{Frequent} communication \myKeyB{within} blocks
@@ -255,7 +255,7 @@ wgmma synchronization only occurs within a single warpgroup, with MMAs pipelined
 \item \texttt{wgmma.commit\_group} ends a pipeline stage
 \item ptxas f's you if it can't recognize the pattern  % fun fact: "f's" is used because no other verb fits without forcing a line break
 \end{itemize}
-\texttt{wgmma.wait\_group N} waits for the MMAs of the $N^{th}$ prior pipeline stage (0-indexed)
+\texttt{wgmma.wait\_group N} waits for the MMAs of all but the last $N$-many commit-groups
 
 \end{minipage}
 
@@ -461,60 +461,49 @@ Future work could build on this syntax to target non-CUDA accelerators.
 \end{minipage}
 \hfill
 \begin{minipage}[t]{0.48\textwidth}\fixminipage
-We define parallel for loops for each level of the CUDA thread hierarchy;
-\texttt{for \_ in cuda\_\{units\}:}
+We define two levels of parallel for loops:
 \begin{itemize}
-  \item i.e. each \myKey{collective unit}
-  \item \texttt{\{units\}} = \redBox{\texttt{clusters}}, \texttt{blocks}, \texttt{warpgroups}, \texttt{warps}, \texttt{threads} {\small (TODO clusters need thought)}
-  \item Generalize \texttt{seq}, \texttt{par} to \myKey{loop mode}
-\end{itemize}
-Must be \myKey{strictly nested} (except \redBox{clusters}?)
-\begin{itemize}
-  \item levels except \texttt{blocks} may be skipped
-  \item exception: \myKey{multidimensional} iteration\\(defined by directly nested same-unit loops)
-\end{itemize}
-Each iteration executed by a \myKey{collective lane}
+  \item \texttt{for \_ in cuda\_tasks(lo, hi):}\\assign ``tasks'' to CTAs or clusters
 
-Parallel for loops + hardware resources define \myKey{collective scope} (formerly parlane, parscope)
+  For now, we launch as many clusters as will fit the device, and assign tasks to clusters by round-robin scheduling (persistent kernel)
 
-\begin{verbatim}
-with CudaDeviceFunction(blockDim=256):
-    for b in cuda_blocks(...):
-        for y in cuda_threads(0, 16):
-            for x in cuda_threads(0, 16):
-                # 16 x 16 iteration space
-                # mapped to 256 threads
-                with CudaAsync(...):
-                    # Async instructions
-\end{verbatim}
+  \item \texttt{for \_ in cuda\_threads(lo, hi, unit):}\\assign loop iterations to different \myKeyA{collective lanes} within the cluster/CTA
+
+  The number of threads and ``shape'' of the collective lane is defined by the (collective) \texttt{unit}
+\end{itemize}
+
+\yellowBox{TODO:} consider standardizing on Descend ``execution resource \{type\}'' terminology?
+
+\yellowBox{TODO:} precise specification of how the \texttt{unit} parameter works.
+In particular, complications from the fact that clusters introduce non-hierarchical work decomposition, e.g., we could execute some code with 1 warp chosen from each CTA of a cluster.
+
 \end{minipage}
 \newpage
-\myTitle{Exo Syntax -- SpecializeCollective (warp specialization)}
+\myTitle{Exo Syntax -- SpecializeCollective (warp specialization) \hfill \yellowBox{(OUT OF DATE)}}
 
 Parallel for loops map the work over all available hardware resources of the parent collective lane:
 \begin{verbatim}
 with CudaDeviceFunction(blockDim = 5 * 128):
-    for b in cuda_blocks(0, block_count):
-        # collective scope is block_count-many blocks
+    for b in cuda_tasks(...):
         # collective lane is 1 block of blockDim = 5 * 128 threads
 
-        for wg in cuda_warpgroups(0, 5):
+        for wg in cuda_threads(0, 5, unit=128*cuda_thread):
             # 5 iterations mapped to 5 warpgroups available in block
             # collective lane is now a warpgroup
 
-            for w in cuda_warps(0, 4):
+            for w in cuda_threads(0, 4, unit=32*cuda_thread):
                 # 4 iterations mapped to 4 warps available in warpgroup
 \end{verbatim}
-Nest inside \myKey{\texttt{with SpecializeCollective}} to override this; assign \myKey{different work} to \myKey{different warps}
+Nest inside \myKey{\texttt{with CudaWarps(lo, hi)}} to override this; assign \myKey{different work} to \myKey{different warps}
 \begin{verbatim}
 with CudaDeviceFunction(blockDim = 5 * 128):
-    for b in cuda_blocks(0, block_count):
-        with SpecializeCollective(cuda_warpgroup, 0, 1):        # Overloaded with statement
-            for wg in cuda_warpgroups(0, 1):
+    for b in cuda_tasks(...):
+        with CudaWarps(0, 4):        # Overloaded with statement
+            for wg in cuda_threads(0, 1, unit=128*cuda_threads):
                 # This code mapped to warpgroup 0
-        with SpecializeCollective(cuda_warpgroup, 1, 5):        # Overloaded with statement
-            for n_wg in cuda_warpgroup(0, 2):
-                for m_wg in cuda_warpgroup(0, 2):
+        with CudaWarps(4, 20):
+            for n_wg in cuda_threads(0, 2, unit=256*cuda_threads):
+                for m_wg in cuda_warpgroup(0, 2, unit=128*cuda_threads):
                     # 2 x 2 space mapped to warpgroups 1, 2, 3, 4
 \end{verbatim}
 
@@ -525,31 +514,31 @@ with CudaDeviceFunction(blockDim = 5 * 128):
 The simplest category of barrier is what I term a \myKey{Fence}; this specifies that all threads in the executing \myKey{collective lane} wait for each other.
 
 \begin{verbatim}
-with CudaDeviceFunction(...):
-    for b in cuda_blocks(...):
-        # Executing collective lane is block
-
+with CudaDeviceFunction(blockDim=256):
+    for b in cuda_tasks(...):
+        # Executing collective lane is CTA
         for t in cuda_threads(...):
             do_something_A()
 
         # __syncthreads()
-        Fence(cuda_sync, cuda_generic)
+        Fence(cuda_classic, cuda_classic)
 
-        for w in cuda_warps(...):
+        for w in cuda_threads(0, 8,
+                 unit=32 * cuda_thread):
             for t in cuda_threads(0, 32):
                 do_something_B()
             # Executing collective lane is warp
             # so this Fence is __syncwarp()
-            Fence(cuda_sync, cuda_generic)
+            Fence(cuda_classic, cuda_classic)
             do_something_warp()
 
         # __syncthreads()
-        Fence(cuda_sync, cuda_generic)
+        Fence(cuda_classic, cuda_classic)
 \end{verbatim}
 \end{minipage}
 \hfill
 \begin{minipage}[t]{0.48\textwidth}\fixminipage
-Ignore \texttt{cuda\_sync, cuda\_generic} for now (actor kinds, to be explained)
+Ignore \texttt{cuda\_classic} for now (actor kind, to be explained)
 
 One block of CUDA C++ could map to multiple blocks of Exo
 \begin{itemize}
@@ -590,7 +579,7 @@ Top level code:
 
 \texttt{with CudaDeviceFunction(...):}
 \begin{itemize}
-  \item \texttt{cuda\_sync}
+  \item \texttt{cuda\_classic}
   \begin{itemize}
     \item Synchronous CUDA instructions
   \end{itemize}
@@ -599,7 +588,7 @@ Top level code:
 
 \texttt{with CudaAsync(\textit{actor\_kind}):}
 \begin{itemize}
-  \item \texttt{non\_bulk\_cp\_async}
+  \item \texttt{Sm80\_cp\_async}
   \begin{itemize}
     \item Ampere async copy\\(uses generic proxy; not discussed)
   \end{itemize}
@@ -616,9 +605,9 @@ Parameterize with actor kind
 \begin{verbatim}
   Fence(A1, A2)
 \end{verbatim}
-Within the executing collective lane, prior actions of actor kind \texttt{A1} happen before subsequent actions of actor kind \texttt{A2}
+Within the executing collective lane, prior actions of actor kind \texttt{A1} are visible to subsequent actions of actor kind \texttt{A2}
 
-\mySub{Split Barrier}
+\mySub{Split Barrier} \yellowBox{(somewhat out of date)}
 
 Declare variable of \texttt{barrier} type
 \begin{verbatim}
@@ -627,14 +616,14 @@ Declare variable of \texttt{barrier} type
   Await(<barrier var>, A2)
 \end{verbatim}
 
-Actions of actor kind \texttt{A1} prior to the $N^{th}$ arrive happen before actions of actor kind \texttt{A2} subsequent to the $N^{th}$ await.
+Actions of actor kind \texttt{A1} prior to the $N^{th}$ arrive are visible to actions of actor kind \texttt{A2} subsequent to the $N^{th}$ await.
 
 We use orthogonal syntax but \myKey{not all} collective unit + actor kind combinations supported.
 
 \mySub{Synthetic Actor Kind}
 
 Additional actor kinds only used to parameterize synchronization,
-e.g. \texttt{cuda\_all} (all CUDA instructions), \texttt{cuda\_generic} (generic proxy)
+e.g. \texttt{Sm80\_generic} (generic proxy)
 
 \end{minipage}
 
@@ -647,7 +636,7 @@ Syntax, \texttt{with CudaAsync(\textit{actor\_kind}): \textit{body}}
 
 \begin{itemize}
   \item Nested in \texttt{with CudaDeviceFunction} block
-  \item Changes actor kind from \texttt{cuda\_sync} to \texttt{\textit{actor\_kind}}
+  \item Changes actor kind from \texttt{cuda\_classic} to \texttt{\textit{actor\_kind}}
 \end{itemize}
 Often, there is \myKey{nontrivial interaction} between the async instructions and related synchronization
 \begin{itemize}
@@ -670,8 +659,8 @@ which the backend will compile non-trivially with respect to the async block's c
 with CudaAsync(wgmma_async):
     # Prologue synchronization
     # wgmma.fence
-    # NB wgmma_rmem is a synthetic actor kind
-    Fence(wgmma_rmem, wgmma_rmem_async)
+    # NB synthetic actor kinds
+    Fence(wgmma_fence_1, wgmma_fence_2)
 
     # ... MMA instr ...
 
@@ -694,33 +683,33 @@ with CudaAsync(tma_to_smem_async):
 \end{verbatim}
 \end{minipage}
 
-\newpage
-\myTitleExtra{Extra Info: Syntax Example}
-\begin{verbatim}
-with CudaDeviceFunction(blockDim=384):
-    # blockDim 384 = 3 warpgroups
+%% \newpage
+%% \myTitleExtra{Extra Info: Syntax Example}
+%% \begin{verbatim}
+%% with CudaDeviceFunction(blockDim=384):
+%%     # blockDim 384 = 3 warpgroups
 
-    for yo in cuda_blocks(0, 24):
-        for xo in cuda_blocks(0, 36):
-        # Grid of 36 x 24 blocks (CTAs)
+%%     for yo in cuda_blocks(0, 24):
+%%         for xo in cuda_blocks(0, 36):
+%%         # Grid of 36 x 24 blocks (CTAs)
 
-        with SpecializeCollective(cuda_warpgroup, 1, 3):
-            for w in cuda_warpgroups(0, 2):
-                # Skipped warpgroup 0 (specialize); 2 iters mapped to warpgroups 1 and 2
-                bar: Barrier
+%%         with SpecializeCollective(cuda_warpgroup, 1, 3):
+%%             for w in cuda_warpgroups(0, 2):
+%%                 # Skipped warpgroup 0 (specialize); 2 iters mapped to warpgroups 1 and 2
+%%                 bar: Barrier
 
-                for yi in cuda_threads(0, 16):
-                      for xi in cuda_threads(0, 8):
-                          # 8 x 16 iteration space, each iter mapped to 1 of 128 threads
+%%                 for yi in cuda_threads(0, 16):
+%%                       for xi in cuda_threads(0, 8):
+%%                           # 8 x 16 iteration space, each iter mapped to 1 of 128 threads
 
-                with CudaAsync(wgmma_async):
-                    # Now targetting wgmma; this is at warpgroup scope
-                    # since wgmma requires coalesced warpgroups
-                    Fence(wgmma_rmem, wgmma_async_rmem)  # prologue synchronization
-                    for k in seq(0, 8):                  # ordinary sequential loop
-                        wgmma_mma(...)
-                    Arrive(bar, wgmma_async)             # epilogue synchronization
-\end{verbatim}
+%%                 with CudaAsync(wgmma_async):
+%%                     # Now targetting wgmma; this is at warpgroup scope
+%%                     # since wgmma requires coalesced warpgroups
+%%                     Fence(wgmma_rmem, wgmma_async_rmem)  # prologue synchronization
+%%                     for k in seq(0, 8):                  # ordinary sequential loop
+%%                         wgmma_mma(...)
+%%                     Arrive(bar, wgmma_async)             # epilogue synchronization
+%% \end{verbatim}
 
 \newpage
 \myTitleExtra{Extra Info: Contrast with prior work: Triton}
@@ -811,6 +800,7 @@ $\Sigma^S$ will track, for each variable
 \node(sync) [normalnode, below=of SM, draw=blueBoxFg, fill=blueBoxBg, text=blueBoxFg] {Synchronization Checking};
 \node(spork) [normalnode, below=of toCuda, draw=blueBoxFg, fill=blueBoxBg, text=blueBoxFg] {Spork Compiler};
 \node(note) [above=of SM, draw=redBoxFg, fill=redBoxBg, text=redBoxFg] {Physically same proc, \textbf{different interpretation}};
+\node(caption) [widenode, left=of note] {``chain of equivalence''};
 
 \draw [line, draw=blueBoxFg] (exo) -- (proc0);
 \draw [line, draw=blueBoxFg] (exo) -- (proc1);
@@ -844,7 +834,7 @@ Imagine a dynamic trace of an Exo-GPU proc
 \myKey{Actor Kind}
 \begin{itemize}
   \item Informal: classification of instructions
-  \item Formal: \myKey{set} of allowed \myKey{actor signatures}
+  \item Formal: \myKey{set} of allowed \myKey{actor signatures}\\\yellowBox{(out of date: more complicated)}
   \item 1-to-many: a single accelerator can perform accesses with different sync requirements
 \end{itemize}
 
@@ -867,27 +857,35 @@ Example: actor kind \texttt{wgmma\_async}
   \item ``Signs'' each action done in a dynamic trace
 \end{itemize}
 \vspace{2mm}
+\begin{mdframed}[style=MyFrame, backgroundcolor=greenBoxBg]
+\color{greenBoxFg}
 \begin{verbatim}
 for tid in cuda_threads(0, 1):
     # Only thread 0 does TMA (pseudocode)
     with CudaAsync(tma_to_smem_async):
         SMEM[0:N] = GMEM[c:c+N]
+\end{verbatim}
+\end{mdframed}
+\begin{mdframed}[style=MyFrame, backgroundcolor=violetBoxBg]
+\color{violetBoxFg}
+\begin{verbatim}
 # ...
 for tid in cuda_threads(0, N):
     Y[tid] = SMEM[tid]
 \end{verbatim}
+\end{mdframed}
 \vspace{-4mm}
 \begin{align*}
-    & {\color{blueBoxFg}\textit{[[ thread 0 kicks off TMA ]]}} \\
+    & \greenBox{\textit{[[ thread 0 kicks off TMA ]]}} \\
     \text{SMEM[$0$]} & \xleftarrow{\text{(0, sig\_tma\_to\_smem)}} \text{GMEM[$c+0$]} \\
     \text{SMEM[$1$]} & \xleftarrow{\text{(0, sig\_tma\_to\_smem)}} \text{GMEM[$c+1$]} \\
     & ... \\
     \text{SMEM[$N-1$]} & \xleftarrow{\text{(0, sig\_tma\_to\_smem)}} \text{GMEM[$c+N-1$]} \\
-    & {\color{blueBoxFg}\textit{[[ thread $x$ reads SMEM[$x$] ]]}} \\
-    \text{Y[$0$]} & \xleftarrow{\text{(0, sig\_cuda\_sync)}} \text{SMEM[$0$]} \\
-    \text{Y[$1$]} & \xleftarrow{\text{(1, sig\_cuda\_sync)}} \text{SMEM[$1$]} \\
+    & \violetBox{\textit{[[ thread $x$ reads SMEM[$x$] ]]}} \\
+    \text{Y[$0$]} & \xleftarrow{\text{(0, sig\_cuda\_classic)}} \text{SMEM[$0$]} \\
+    \text{Y[$1$]} & \xleftarrow{\text{(1, sig\_cuda\_classic)}} \text{SMEM[$1$]} \\
     & ... \\
-    \text{Y[$N-1$]} & \xleftarrow{\text{(N-1, sig\_cuda\_sync)}} \text{SMEM[$N-1$]} \\
+    \text{Y[$N-1$]} & \xleftarrow{\text{(N-1, sig\_cuda\_classic)}} \text{SMEM[$N-1$]} \\
 \end{align*}
 \end{minipage}
 \newpage
@@ -952,11 +950,11 @@ Stateful, simulation mindset?
 \mySub{Code Inset}
 
 \begin{verbatim}
-for b in cuda_blocks(...):
+for b in cuda_tasks(...):
     for i in cuda_threads(...):
         stuff_before_fence()
     # __syncthreads()
-    Fence(cuda_sync, cuda_generic)
+    Fence(cuda_classic, cuda_classic)
     for i in cuda_threads(...):
         stuff_after_fence()
 \end{verbatim}
@@ -987,7 +985,7 @@ The SyncEnv associates \myKey{visibility records} with variables, containing sta
 
 With $(t: \mathsf{thread\_index}, a: \mathsf{actor\_signature})$ being the sigthread doing the access, \myKey{initialize}
 \begin{itemize}
-  \item $V_S$ = $\{(t,a)\}$ if the instruction is synchronous, otherwise $\{\}$
+  \item $V_S$ = $\{(t,a)\}$ if the instruction's access is synchronous, otherwise $\{\}$
   \item $V_A$ = $\{(t,a)\}$
   \item $A_O$ = $a$
   \item Invariant: $V_S \subseteq V_A$
@@ -1091,7 +1089,7 @@ Recall that actor kinds are a set of actor signatures, hence the typing is corre
 \vspace{6mm}
 \mySub{Split Barriers (Arrive/Await)}
 \begin{itemize}
-  \item See spork.pdf
+  \item \yellowBox{TODO} specify correctness requirements
   \item Essentially, \texttt{Arrive} gives $V_1$, \texttt{Await} gives $V_2$
 \end{itemize}
 \end{minipage}
@@ -1114,8 +1112,8 @@ Really expensive if interpreted literally!
 \myKey{Block 1}: threads $T = [256, 511]$
 
 \begin{verbatim}
-with CudaDeviceFunction(256):
-    for b in cuda_blocks(0, 2):
+with CudaDeviceFunction(blockDim=256):
+    for b in cuda_tasks(0, 2):
         smem : f32[256] @ CudaSmem
         for i in cuda_threads(0, 256):
             smem[i] = gmemRead[i]
@@ -1123,7 +1121,7 @@ with CudaDeviceFunction(256):
 \begin{mdframed}[style=MyFrame, backgroundcolor=violetBoxBg]
 \color{violetBoxFg}
 \begin{verbatim}
-        Fence(cuda_sync, cuda_generic)
+        Fence(cuda_classic, cuda_classic)
 \end{verbatim}
 \end{mdframed}
 
@@ -1133,10 +1131,10 @@ with CudaDeviceFunction(256):
 \end{itemize}
 
 For block 1 ($b = 1$), let's sketch before and after
-\violetBox{\texttt{Fence(cuda\_sync, cuda\_generic)}}
+\violetBox{\texttt{Fence(cuda\_classic, cuda\_classic)}}
 \begin{itemize}
-  \item $V_1 = [256, 511] \times \texttt{cuda\_sync}$
-  \item $V_2 = [256, 511] \times \texttt{cuda\_generic}$
+  \item $V_1 = [256, 511] \times \texttt{cuda\_classic}$
+  \item $V_2 = [256, 511] \times \texttt{cuda\_classic}$
 \end{itemize}
 \end{minipage}
 \hfill
@@ -1149,11 +1147,11 @@ For block 1 ($b = 1$), let's sketch before and after
 \node(smem0) [normalnode, below=of gmem255] {\texttt{smem[0]}};
 \node(smem255) [normalnode, below=of smem0, yshift=-3mm] {\texttt{smem[255]}};
 
-\node(b0) [widenode, right=of gmem0, xshift=6mm, fill=redBoxBg, draw=redBoxFg, text=redBoxFg] {$V_S,V_A = [0,255] \times \texttt{cuda\_generic}$\\\textit{\color{lightttColor}reads from previous iter $b=0$}};
-\node(r256) [widenode, below=of b0, fill=redBoxBg, draw=redBoxFg, text=redBoxFg] {$V_S,V_A = \{ (256, \texttt{sig\_cuda\_sync}) \}$};
-\node(r511) [widenode, below=of r256, fill=redBoxBg, draw=redBoxFg, text=redBoxFg] {$V_S,V_A = \{ (511, \texttt{sig\_cuda\_sync}) \}$};
-\node(w256) [widenode, below=of r511, fill=blueBoxBg, draw=blueBoxFg, text=blueBoxFg] {$V_S,V_A = \{ (256, \texttt{sig\_cuda\_sync}) \}$};
-\node(w511) [widenode, below=of w256, fill=blueBoxBg, draw=blueBoxFg, text=blueBoxFg] {$V_S,V_A = \{ (511, \texttt{sig\_cuda\_sync}) \}$};
+\node(b0) [widenode, right=of gmem0, xshift=6mm, fill=redBoxBg, draw=redBoxFg, text=redBoxFg] {$V_S,V_A = [0,255] \times \texttt{cuda\_classic}$\\\textit{\color{lightttColor}reads from previous iter $b=0$}};
+\node(r256) [widenode, below=of b0, fill=redBoxBg, draw=redBoxFg, text=redBoxFg] {$V_S,V_A = \{ (256, \texttt{sig\_cuda\_classic}) \}$};
+\node(r511) [widenode, below=of r256, fill=redBoxBg, draw=redBoxFg, text=redBoxFg] {$V_S,V_A = \{ (511, ''~'') \}$};
+\node(w256) [widenode, below=of r511, fill=blueBoxBg, draw=blueBoxFg, text=blueBoxFg] {$V_S,V_A = \{ (256, ''~'') \}$};
+\node(w511) [widenode, below=of w256, fill=blueBoxBg, draw=blueBoxFg, text=blueBoxFg] {$V_S,V_A = \{ (511, ''~'') \}$};
 
 \draw[dotted] (gmem0) -- (gmem255);
 \draw[dotted] (smem0) -- (smem255);
@@ -1173,9 +1171,9 @@ For block 1 ($b = 1$), let's sketch before and after
 \node(smem0) [normalnode, below=of gmem255] {\texttt{smem[0]}};
 \node(smem255) [normalnode, below=of smem0, yshift=-3mm] {\texttt{smem[255]}};
 
-\node(b0) [widenode, right=of gmem0, xshift=6mm, fill=redBoxBg, draw=redBoxFg, text=redBoxFg] {$V_S,V_A = [0,255] \times \texttt{cuda\_generic}$\\\textit{\color{lightttColor}unchanged as $V_A \cap V_1$ empty}};
-\node(r256) [widenode, below=of b0, fill=redBoxBg, draw=redBoxFg, text=redBoxFg] {$V_S,V_A = [256, 511] \times \texttt{cuda\_generic}$\\\textit{\color{lightttColor}read visibility set unioned with $V_2$}};
-\node(w256) [widenode, below=of r256, fill=blueBoxBg, draw=blueBoxFg, text=blueBoxFg] {$V_S,V_A = [256, 511] \times \texttt{cuda\_generic}$\\\textit{\color{lightttColor}write visibility set unioned with $V_2$}};
+\node(b0) [widenode, right=of gmem0, xshift=6mm, fill=redBoxBg, draw=redBoxFg, text=redBoxFg] {$V_S,V_A = [0,255] \times \texttt{cuda\_classic}$\\\textit{\color{lightttColor}unchanged as $V_A \cap V_1$ empty}};
+\node(r256) [widenode, below=of b0, fill=redBoxBg, draw=redBoxFg, text=redBoxFg] {$V_S,V_A = [256, 511] \times \texttt{cuda\_classic}$\\\textit{\color{lightttColor}read visibility set unioned with $V_2$}};
+\node(w256) [widenode, below=of r256, fill=blueBoxBg, draw=blueBoxFg, text=blueBoxFg] {$V_S,V_A = [256, 511] \times \texttt{cuda\_classic}$\\\textit{\color{lightttColor}write visibility set unioned with $V_2$}};
 
 \draw [dotted] (gmem0) -- (gmem255);
 \draw [dotted] (smem0) -- (smem255);
@@ -1195,12 +1193,12 @@ Suppose the block continues on to uses \texttt{smem} to stage a\\
 \myKeyB{SMEM}$\to$\myKey{GMEM} TMA copy
 
 \begin{verbatim}
-with CudaDeviceFunction(256):
-    for b in cuda_blocks(0, 2):
+with CudaDeviceFunction(blockDim=256):
+    for b in cuda_tasks(0, 2):
         smem : f32[256] @ CudaSmem
         for i in cuda_threads(0, 256):
             smem[i] = gmemRead[i]
-        Fence(cuda_sync, cuda_generic)
+        Fence(cuda_classic, cuda_classic)
 
 \end{verbatim}
 \begin{mdframed}[style=MyFrame, backgroundcolor=greenBoxBg]
@@ -1214,7 +1212,7 @@ with CudaDeviceFunction(256):
 \color{violetBoxFg}
 \begin{verbatim}
             # fence.proxy.async
-            Fence(cuda_sync, tma_to_gmem_async)
+            Fence(cuda_classic, tma_to_gmem_async)
 \end{verbatim}
 \end{mdframed}
 \begin{mdframed}[style=MyFrame, backgroundcolor=greenBoxBg]
@@ -1227,13 +1225,13 @@ with CudaDeviceFunction(256):
 \end{mdframed}
 
 For block \texttt{b=1}, \texttt{blockDim=256},\\
-\violetBox{\texttt{Fence(cuda\_sync, tma\_to\_gmem\_async)}} has
+\violetBox{\texttt{Fence(cuda\_classic, tma\_to\_gmem\_async)}} has
 \begin{itemize}
-  \item $V_1 = \{(256, \texttt{sig\_cuda\_sync})\}$
+  \item $V_1 = \{(256, \texttt{sig\_cuda\_classic})\}$
   \item $V_2 = \{(\mathbf{256}, \textbf{\texttt{sig\_tma\_to\_gmem}})\}$
-  \item Note, \texttt{sig\_cuda\_sync} $\in$ \texttt{cuda\_generic}
+  \item Note, \texttt{sig\_cuda\_classic} $\in$ \texttt{cuda\_classic}
 \end{itemize}
-\blueBox{$(256, \texttt{sig\_cuda\_sync}) \in [256, 511] \times \texttt{cuda\_generic}$}
+\blueBox{$(256, \texttt{sig\_cuda\_classic}) \in [256, 511] \times \texttt{cuda\_classic}$}
 \end{minipage}
 \hfill
 \begin{minipage}[t]{0.43\textwidth}\fixminipage
@@ -1302,12 +1300,12 @@ Suppose immediately after the TMA, we issue another \violetBox{\texttt{Fence}}.
 Then, all threads in the block write to \texttt{smem} again.
 
 \begin{verbatim}
-with CudaDeviceFunction(256):
-    for b in cuda_blocks(0, 2):
+with CudaDeviceFunction(blockDim=256):
+    for b in cuda_tasks(0, 2):
         # ...
         for i in cuda_threads(0, 1):
             # fence.proxy.async
-            Fence(cuda_sync, tma_to_gmem_async)
+            Fence(cuda_classic, tma_to_gmem_async)
             with CudaAsync(tma_to_gmem_async):
                 # (placeholder) TMA instr
                 gmemWrite[...] = smem[0:256]
@@ -1316,7 +1314,7 @@ with CudaDeviceFunction(256):
 \color{violetBoxFg}
 \begin{verbatim}
             # Inadequate Fence! (1 thread only)
-            Fence(tma_to_gmem_async, cuda_sync)
+            Fence(tma_to_gmem_async, cuda_classic)
 \end{verbatim}
 \end{mdframed}
 \hfill\textit{$\Sigma^S$ shown for this location}
@@ -1333,7 +1331,7 @@ This \myKey{should fail} synchronization checking, since all but one thread fail
 
 \begin{itemize}
   \item $V_1 = \{(256, \texttt{sig\_tma\_to\_gmem})\}$
-  \item $V_2 = \{(\mathbf{256}, \textbf{\texttt{sig\_cuda\_sync}})\}$
+  \item $V_2 = \{(\mathbf{256}, \textbf{\texttt{sig\_cuda\_classic}})\}$
 \end{itemize}
 Recall we're analyzing block $b=1$, i.e. threads $[256, 511]$\\
 (but $T = \{256\}$ alone for the thread-scoped Fence)
@@ -1347,14 +1345,14 @@ Recall we're analyzing block $b=1$, i.e. threads $[256, 511]$\\
 \node(smem255) [normalnode, right=of smem0, xshift=8mm] {\texttt{smem[255]}};
 \draw[dotted] (smem0) to node(smemdots){} (smem255);
 
-\node(incoming256) [normalnode, above=of smem0, yshift=6mm, fill=greenBoxBg] {Incoming write\\$(t,a) = (256,$\\\texttt{sig\_cuda\_sync})};
-\node(incoming511) [normalnode, above=of smem255, yshift=6mm, fill=greenBoxBg] {Incoming write\\$(t,a) = (511,$\\\texttt{sig\_cuda\_sync})};
+\node(incoming256) [normalnode, text width=4cm, above=of smem0, yshift=6mm, fill=greenBoxBg] {Incoming write\\$(t,a) = (256,$\\\texttt{sig\_cuda\_classic}$)$};
+\node(incoming511) [normalnode, above=of smem255, yshift=6mm, fill=greenBoxBg] {Incoming write\\$(t,a) = (511,$``~''$)$};
 
 \draw[dotted] (incoming256) to (incoming511);
 \draw[arrow] (incoming256) to (smem0);
 \draw[arrow] (incoming511) to (smem255);
 
-\node(rtma) [widenode, below=of smemdots, fill=redBoxBg, draw=redBoxFg, text=redBoxFg, yshift=-10mm] {$V_S = \{(\mathbf{256}, \textbf{\texttt{sig\_cuda\_sync}})\}$\\$V_A=\{(256, \texttt{sig\_tma\_to\_gmem}),$ $(\mathbf{256}, \textbf{\texttt{sig\_cuda\_sync}})\}$\\\textit{\color{lightttColor}$V_A,V_S$ unioned with $V_2$}};
+\node(rtma) [widenode, below=of smemdots, fill=redBoxBg, draw=redBoxFg, text=redBoxFg, yshift=-10mm] {$V_S = \{(\mathbf{256}, \textbf{\texttt{sig\_cuda\_classic}})\}$\\$V_A=\{(256, \texttt{sig\_tma\_to\_gmem}),$ $(\mathbf{256}, \textbf{\texttt{sig\_cuda\_classic}})\}$\\\textit{\color{lightttColor}$V_A,V_S$ unioned with $V_2$}};
 \node(w256) [widenode, minimum width=8cm, text width=8cm, below=of rtma, fill=blueBoxBg, draw=blueBoxFg, text=blueBoxFg] {$V_S,V_A = [256, 511] \times \texttt{cuda\_generic} \cup \{(256, \texttt{sig\_tma\_to\_gmem})\}$};
 
 \draw[line, draw=redBoxFg] (smem0) -- (rtma);
@@ -1372,7 +1370,7 @@ $\forall t \in [256, 511]$,\\\greenBox{$(t,a)$} $\in$ \blueBox{$[256, 511] \time
 
 Fails for $t \ge 257$
 
-\greenBox{$(t,a)$} $\notin$ \redBox{$\{(256, \texttt{sig\_cuda\_sync})\}$}\\
+\greenBox{$(t,a)$} $\notin$ \redBox{$\{(256, \texttt{sig\_cuda\_classic})\}$}\\
 (read visibility record's $V_S$)
 \end{minipage}
 
@@ -1384,14 +1382,14 @@ Fails for $t \ge 257$
   \item Wrap CUDA code with \myKey{\texttt{with CudaDeviceFunction}}
   \item Within CUDA code, change the \myKey{\texttt{LoopMode}} of loops to convert from \texttt{seq} to CUDA parallel for
   \begin{itemize}
-    \item Top-level loops within \texttt{CudaDeviceFunction} block must be \myKey{\texttt{cuda\_blocks}} or \myKey{\texttt{cuda\_clusters}}
+    \item Top-level loops within \texttt{CudaDeviceFunction} block must be \myKey{\texttt{cuda\_tasks}}
   \end{itemize}
   \item Replace memory types
   \item Wrap async code with \myKey{\texttt{with CudaAsync($A:\textsf{actor-kind}$)}} and substitute TMA or wgmma \texttt{instr}
   \begin{itemize}
     \item $A$ = \texttt{wgmma\_async}: wgmma (tiled matrix multiply-accumulate)
     \item $A$ = \texttt{tma\_to\_smem\_async}, \texttt{tma\_to\_gmem\_async}: TMA (tiled async matrix copy)
-    \item $A$ = \texttt{non\_bulk\_cp\_async}: Ampere async memcopy
+    \item $A$ = \texttt{Sm80\_cp\_async}: Ampere async memcopy
   \end{itemize}
   \item Insert sufficient synchronization statements: \texttt{Fence($A_1$, $A_2$)}, \texttt{Arrive($A_1$, bar)}, \texttt{Await(bar, $A_2$)}
   \begin{itemize}
@@ -1439,16 +1437,9 @@ Basically, we now have 3 ``categories'' of actions: reads, atomic reduce (ignore
 \end{itemize}
 
 \newpage
-\myTitleExtra{Extra Discussion Slide: Memory Types \& Kernel Launch}
+\myTitleExtra{Extra Discussion Slide: Memory Types \& Kernel Launch} \hfill \yellowBox{(OUT OF DATE)}
 
 \begin{minipage}[t]{0.48\textwidth}\fixminipage
-Exo \texttt{instr}s expect a specific memory type
-
-Too inflexible for the GPU; generalize?
-
-\mySub{Memory Property}
-
-An \texttt{instr} requirement like \myKey{device visible} may apply to multiple memories, e.g. GMEM, SMEM, grid constant, pinned memory (CPU visible)
 
 \mySub{Memory Layout}
 
@@ -1500,117 +1491,120 @@ Model as \texttt{GridConstant} \myKey{memory property}?
 \end{itemize}
 Also in other APIs (e.g. push constants)
 \end{minipage}
-\newpage
-\myTitleExtra{Extra Discussion Slide: Distributed Memory}
 
-\begin{minipage}[t]{0.48\textwidth}\fixminipage
+%% \newpage
+%% \myTitleExtra{Extra Discussion Slide: Distributed Memory}
 
-A single logical array may have its values distributed across collective lanes, e.g.
-\begin{itemize}
-  \item wgmma $A$ or $D$ matrix -- distributed among warpgroups's 128 threads' registers
-  \item user may also want to define their own tiles split across thread registers
-  \item distributed shared memory -- cluster-scope allocation distributed among blocks
-\end{itemize}
+%% \begin{minipage}[t]{0.48\textwidth}\fixminipage
 
-Poses correctness and implementation challenges
-\begin{itemize}
-  \item Must be transparent to \myKey{S-semantics}
-  \begin{itemize}
-    \item Ordinary array as far as it's concerned
-  \end{itemize}
-  \item Changes read/write syntax
-  \item Need to check each collective lane doesn't access another lane's values
-  \begin{itemize}
-    \item \myKey{S-semantics}: most of Exo is blind to this, so hard to forbid this \textit{a priori}
-  \end{itemize}
-  \item Limited communication across collective lanes may be possible (shuffles, multicast)
-\end{itemize}
+%% A single logical array may have its values distributed across collective lanes, e.g.
+%% \begin{itemize}
+%%   \item wgmma $A$ or $D$ matrix -- distributed among warpgroups's 128 threads' registers
+%%   \item user may also want to define their own tiles split across thread registers
+%%   \item distributed shared memory -- cluster-scope allocation distributed among blocks
+%% \end{itemize}
 
-\end{minipage}
-\hfill
-\begin{minipage}[t]{0.48\textwidth}\fixminipage
-\begin{itemize}
-  \item Could make it a \myKey{memory property}?
-  \item ... but user may want custom tiling?
-  \item \myKey{collective assignment} (next slide)?
-\end{itemize}
+%% Poses correctness and implementation challenges
+%% \begin{itemize}
+%%   \item Must be transparent to \myKey{S-semantics}
+%%   \begin{itemize}
+%%     \item Ordinary array as far as it's concerned
+%%   \end{itemize}
+%%   \item Changes read/write syntax
+%%   \item Need to check each collective lane doesn't access another lane's values
+%%   \begin{itemize}
+%%     \item \myKey{S-semantics}: most of Exo is blind to this, so hard to forbid this \textit{a priori}
+%%   \end{itemize}
+%%   \item Limited communication across collective lanes may be possible (shuffles, multicast)
+%% \end{itemize}
 
-\mySub{Common Use Case}
+%% \end{minipage}
+%% \hfill
+%% \begin{minipage}[t]{0.48\textwidth}\fixminipage
+%% \begin{itemize}
+%%   \item Could make it a \myKey{memory property}?
+%%   \item ... but user may want custom tiling?
+%%   \item \myKey{collective assignment} (next slide)?
+%% \end{itemize}
 
-Even without wgmma, we need distributed memory due to scoping and fences
+%% \mySub{Common Use Case}
 
-\begin{verbatim}
-# At block (CTA) scope
-matrix_tile: f32[64, 64] @ CudaRmem
-for ko in seq(0, num_k):
-    for yi in cuda_threads(0, 16):
-        for xi in cuda_threads(0, 16):
-            # Stage SMEM
-    Fence(cuda_sync, cuda_generic)
-    for yi in cuda_threads(0, 16):
-        for xi in cuda_threads(0, 16):
-            # Accum matrix_tile
-    Fence(cuda_sync, cuda_generic)
-\end{verbatim}
+%% Even without wgmma, we need distributed memory due to scoping and fences
 
-The $64 \times 64$ tile could be split into $4 \times 4$ register tiles distributed into $16 \times 16$ threads
+%% \begin{verbatim}
+%% # At block (CTA) scope
+%% matrix_tile: f32[64, 64] @ CudaRmem
+%% for ko in seq(0, num_k):
+%%     for yi in cuda_threads(0, 16, unit=16*...):
+%%         for xi in cuda_threads(0, 16):
+%%             # Stage SMEM
+%%     Fence(cuda_classic, cuda_classic)
+%%     for yi in cuda_threads(0, 16, unit=16*...):
+%%         for xi in cuda_threads(0, 16):
+%%             # Accum matrix_tile
+%%     Fence(cuda_classic, cuda_classic)
+%% \end{verbatim}
 
-Can't just declare a $4 \times 4$ tile at \texttt{cuda\_threads} scope -- alloc must persist across block-scoped \texttt{Fence} stmts
-\end{minipage}
+%% The $64 \times 64$ tile could be split into $4 \times 4$ register tiles distributed into $16 \times 16$ threads
 
-\newpage
-\myTitleExtra{Extra Discussion Slide: Collective Assignment}
+%% Can't just declare a $4 \times 4$ tile at \texttt{cuda\_threads} scope -- alloc must persist across block-scoped \texttt{Fence} stmts
+%% \end{minipage}
 
-\begin{minipage}[t]{0.48\textwidth}\fixminipage
-Crazy Idea: mapping between N-dimensional iteration space and 2-tuple:
-\begin{itemize}
-  \item (\myKeyB{collective coordinate},
-  \item \myKey{non-collective coordinate})
-\end{itemize}
+%% \newpage
+%% \myTitleExtra{Extra Discussion Slide: Collective Assignment}
 
-(I didn't want to re-implement CuTe but humor me)
+%% \begin{minipage}[t]{0.48\textwidth}\fixminipage
+%% Crazy Idea: mapping between N-dimensional iteration space and 2-tuple:
+%% \begin{itemize}
+%%   \item (\myKeyB{collective coordinate},
+%%   \item \myKey{non-collective coordinate})
+%% \end{itemize}
 
-Concept appears in a variety of contexts:
+%% (I didn't want to re-implement CuTe but humor me)
 
-\mySub{Distributed Memory}
+%% Concept appears in a variety of contexts:
 
-Register tiles need a mapping between tensor coordinates and 2-tuples
-\begin{itemize}
-  \item (\myKeyB{collective coord}: relative thread index,
-  \item \myKey{non-collective coord}: register index)
-\end{itemize}
+%% \mySub{Distributed Memory}
 
-We restrict each thread to accessing only tensor coordinates with matching \myKeyB{collective coordinate}
+%% Register tiles need a mapping between tensor coordinates and 2-tuples
+%% \begin{itemize}
+%%   \item (\myKeyB{collective coord}: relative thread index,
+%%   \item \myKey{non-collective coord}: register index)
+%% \end{itemize}
 
-Similar logic for other collective units (e.g. the \myKeyB{collective coordinate} for distributed shared memory is the cluster-relative block index)
+%% We restrict each thread to accessing only tensor coordinates with matching \myKeyB{collective coordinate}
 
-\end{minipage}
-\hfill
-\begin{minipage}[t]{0.48\textwidth}\fixminipage
-\mySub{Parallel-for Work Distribution}
+%% Similar logic for other collective units (e.g. the \myKeyB{collective coordinate} for distributed shared memory is the cluster-relative block index)
 
-The order that logical per-block tasks are executed by physical blocks can make a \myKey{huge difference} to speed (L2 utilization)
+%% \end{minipage}
+%% \hfill
+%% \begin{minipage}[t]{0.48\textwidth}\fixminipage
+%% \mySub{Parallel-for Work Distribution}
 
-Strategy depends on runtime matrix size -- hard to statically tile.
-Map \texttt{cuda\_blocks} iteration space to
-\begin{itemize}
-  \item (\myKeyB{collective coord}: physical block index,
-  \item \myKey{non-collective coord}: time)
-\end{itemize}
+%% The order that logical per-block tasks are executed by physical blocks can make a \myKey{huge difference} to speed (L2 utilization)
 
-\mySub{Parview -- Parallel View}
+%% Strategy depends on runtime matrix size -- hard to statically tile.
+%% Map \texttt{cuda\_tasks} iteration space to
+%% \begin{itemize}
+%%   \item (\myKeyB{collective coord}: physical block index,
+%%   \item \myKey{non-collective coord}: time)
+%% \end{itemize}
 
-We may need to add some annotations to help static analysis (borrowed concept from \textit{Descend})
+%% Currently just round-robin.
 
-Could define a \textit{partial} mapping from tensor coordinates to
-\begin{itemize}
-  \item (\myKeyB{collective coord}: collective lane index,
-  \item \myKey{non-collective coord}: unused)
-\end{itemize}
-Collective lanes may only write to tensor coordinates assigned to themselves
+%% \mySub{Parview -- Parallel View}
 
-Collective lanes may only read from unmapped tensor coordinates
-\end{minipage}
+%% We may need to add some annotations to help static analysis (borrowed concept from \textit{Descend})
+
+%% Could define a \textit{partial} mapping from tensor coordinates to
+%% \begin{itemize}
+%%   \item (\myKeyB{collective coord}: collective lane index,
+%%   \item \myKey{non-collective coord}: unused)
+%% \end{itemize}
+%% Collective lanes may only write to tensor coordinates assigned to themselves
+
+%% Collective lanes may only read from unmapped tensor coordinates
+%% \end{minipage}
 
 \newpage
 \myTitleExtra{Extra Discussion Slide: Rewrite Rule Issues (special cases for value 0)}
@@ -1621,7 +1615,7 @@ Collective lanes may only read from unmapped tensor coordinates
 \texttt{divide\_loop} if guard causes issues:
 
 \begin{verbatim}
-for io in cuda_blocks(0, ...):  # outer loop
+for io in cuda_tasks(0, ...):  # outer loop
     for ii in seq(0, TileSize): # inner loop
         if <boundscheck>:
             Read(...)
@@ -1632,7 +1626,7 @@ for io in cuda_blocks(0, ...):  # outer loop
 With \greenBox{TMA} predication, we want to fission the inner loop (\texttt{ii}) and the bounds check, but then eliminate the bounds check from the \redBox{arithmetic}
 
 \begin{verbatim}
-for io in cuda_blocks(0, ...):
+for io in cuda_tasks(0, ...):
 \end{verbatim}
 \begin{mdframed}[style=MyFrame, backgroundcolor=greenBoxBg]
 \begin{verbatim}
