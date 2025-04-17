@@ -7,7 +7,6 @@
 int main()
 {
     cudaSetDevice(0);
-    cutlass_synclog_setup();
 
     int cuda_cc_major{}, cuda_cc_minor{};
     cudaDeviceGetAttribute(&cuda_cc_major, cudaDevAttrComputeCapabilityMajor, 0);
@@ -92,5 +91,4 @@ int main()
     }
 
     cudaDeviceSynchronize();
-    cutlass_synclog_print();
 }

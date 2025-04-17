@@ -1,6 +1,7 @@
 #include "gemm_test.h"
 
 #include <algorithm>
+#include <cassert>
 #include <stdlib.h>
 #include <stdio.h>
 #include <vector>
@@ -12,8 +13,6 @@
 #include "../xgemm_Sm80/xgemm_Sm80.h"
 #include "../xgemm_Sm90/xgemm_Sm90.h"
 #include "../edited_xgemm_Sm90/edited.h"
-
-#include "cutlass/arch/synclog.hpp"
 
 #ifndef CUBLAS_TEST_ENABLED
 #define CUBLAS_TEST_ENABLED 1
@@ -420,11 +419,6 @@ void gemm_test(TestParams params, cudaStream_t stream)
 #endif
 }
 
-__global__ void device_synclog_print()
-{
-    cutlass::arch::synclog_print();
-}
-
 }  // end namespace
 
 void gemm_test(TestParams params, cudaStream_t stream)
@@ -432,13 +426,3 @@ void gemm_test(TestParams params, cudaStream_t stream)
     gemm_test_impl::gemm_test(params, stream);
 }
 
-void cutlass_synclog_setup()
-{
-    cutlass::arch::synclog_setup();
-}
-
-void cutlass_synclog_print()
-{
-    gemm_test_impl::device_synclog_print<<<1, 32, 0, cudaStreamLegacy>>>();
-    cudaStreamSynchronize(cudaStreamLegacy);
-}
