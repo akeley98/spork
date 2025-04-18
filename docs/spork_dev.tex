@@ -479,7 +479,7 @@ In particular, complications from the fact that clusters introduce non-hierarchi
 
 \end{minipage}
 \newpage
-\myTitle{Exo Syntax -- SpecializeCollective (warp specialization) \hfill \yellowBox{(OUT OF DATE)}}
+\myTitle{Exo Syntax -- Warp Specialization}
 
 Parallel for loops map the work over all available hardware resources of the parent collective lane:
 \begin{verbatim}
@@ -503,7 +503,7 @@ with CudaDeviceFunction(blockDim = 5 * 128):
                 # This code mapped to warpgroup 0
         with CudaWarps(4, 20):
             for n_wg in cuda_threads(0, 2, unit=256*cuda_threads):
-                for m_wg in cuda_warpgroup(0, 2, unit=128*cuda_threads):
+                for m_wg in cuda_threads(0, 2, unit=128*cuda_threads):
                     # 2 x 2 space mapped to warpgroups 1, 2, 3, 4
 \end{verbatim}
 
