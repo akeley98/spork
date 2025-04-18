@@ -19,6 +19,7 @@ ring = 4
 def xgemm_Sm90_wgmma(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B: f32[N,K] @ CudaGmemLinear, C: f32[N,M] @ CudaGmemLinear):
     assert M % smem_m == 0
     assert N % smem_n == 0
+    assert K % smem_k == 0
 
     A_tensorMap = A[:,:] @ Sm90_tensorMap(128, smem_m, smem_k)
     B_tensorMap = B[:,:] @ Sm90_tensorMap(128, smem_n, smem_k)
@@ -36,11 +37,11 @@ def xgemm_Sm90_wgmma(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B:
                         for m_mma in seq(0, wg_m / 64):
                             Sm90_zero_scale_d_tf32(D_rmem[wg,m_mma,:,:], n=wg_n)
 
-                for k_iter in seq(0, K/smem_k):
+                for k_iter in seq(0, K/smem_k):  # This loop should be cut at 1
                     with CudaWarps(8, 9):
                         # TMA producer warp
                         with CudaAsync(tma_to_smem_async):
-                            ReverseAwait(ringbar, tma_to_smem_async, ring)
+                            ReverseAwait(ringbar, tma_to_smem_async, ~ring)
                             Sm90_copy_tensor_to_smem_swizzled_2f32(
                                 A_smem[k_iter % ring,:,:,:],
                                 A_tensorMap[m_task * smem_m:(m_task+1)* smem_m, k_iter * smem_k:(k_iter+1) * smem_k],
@@ -49,11 +50,11 @@ def xgemm_Sm90_wgmma(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B:
                                 B_smem[k_iter % ring,:,:,:],
                                 B_tensorMap[n_task * smem_n:(n_task+1)* smem_n, k_iter * smem_k:(k_iter+1) * smem_k],
                                 box0=smem_n, box1=smem_k)
-                            Arrive(tma_to_smem_async, ringbar)
+                            Arrive(tma_to_smem_async, ringbar, 1)
 
                     with CudaWarps(0, 8):
                         # Producer warpgroups
-                        Await(ringbar, wgmma_async)
+                        Await(ringbar, wgmma_async, ~0)
                         for wg in cuda_threads(0, 2, unit=cuda_warpgroup):
                             cg : cuda_commit_group  # XXX not as good as native
                             with CudaAsync(wgmma_async):
@@ -63,9 +64,9 @@ def xgemm_Sm90_wgmma(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B:
                                         Sm90_mma_async_tf32(D_rmem[wg,m_mma,:,:],
                                             A_smem[k_iter % ring,wg*16+m_mma*8:wg*16+m_mma*8+8,:,k_mma*8:k_mma*8+8],
                                             B_smem[k_iter % ring,:,:,k_mma*8:k_mma*8+8], n=wg_n)
-                                Arrive(wgmma_async, cg)
-                            Await(cg, cuda_classic)
-                        ReverseArrive(cuda_classic, ringbar)
+                                Arrive(wgmma_async, cg, 1)
+                            Await(cg, cuda_classic, 0)
+                        ReverseArrive(cuda_classic, ringbar, 1)
 
                 with CudaWarps(0, 8):
                     for wg in cuda_threads(0, 2, unit=cuda_warpgroup):
@@ -80,3 +81,5 @@ def xgemm_Sm90_wgmma(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B:
 
 
 xgemm_Sm90_wgmma = simplify(xgemm_Sm90_wgmma)
+# xgemm_Sm90_wgmma = cut_loop(xgemm_Sm90_wgmma, xgemm_Sm90_wgmma.find_loop("k_iter"), 1)
+# print(xgemm_Sm90_wgmma)
