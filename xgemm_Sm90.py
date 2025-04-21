@@ -69,11 +69,10 @@ def xgemm_Sm90_wgmma(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B:
                                 Arrive(wgmma_async, cg, 1)
                             if k_iter > 0:
                                 Await(cg, cuda_classic, 1)
-                            if k_iter == K/smem_k - 1:
-                                Await(cg, cuda_classic, 0)
                         if k_iter > 0:
                             ReverseArrive(cuda_classic, ringbar, 1)
 
+                Fence(wgmma_async, cuda_classic, lowered=['asm("wgmma.wait_group.sync.aligned 0;");'])
                 ReverseArrive(cuda_classic, ringbar, 1)
 
                 with CudaWarps(0, 8):
