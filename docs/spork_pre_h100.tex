@@ -202,4 +202,90 @@ I just have special detection where the with-context is relevant, and also in \l
 \filbreak
 \myTitle{Roadmap \& Time Management}
 
+We're finally at the point where I have at least the skeleton of all Exo-GPU features implemented and lowered to CUDA code, so the handwave-y whiteboarding phase is over and we can study real examples.
+The focus now will be on expanding the feature set, adding safety checks, and fixing issues where GPU code isn't meshing well with Exo's language design.
+Also, dealing with the consequences of transitioning from ``prototype'' code to ``potentially forever'' code.
+
+\filbreak
+I predict I have four months (May-August, inclusive) to get solid work done without being derailed by classes.
+My current hope is to get Exo-GPU fully implemented by then (for certain definitions of ``fully''), and just have to split my attention between paper writing and classes afterwards.
+Likely, I'll have to put my senior engineer hat on, and make some needed tradeoffs to get this project delivered in time.
+
+\filbreak
+I anticipate four major blocks of work.
+
+\filbreak
+\mainSub{Mechanical Issues (Object Language Features)}
+
+\begin{itemize}
+  \item Clarify collective units and collective tilings: these make sense in my head, but the implementation is pretty obscure right now, and I don't have good error messages.
+  \filbreak
+  \item Similar issues exist with ``distributed memory'', where different slices of a tensor are physically stored in different thread collectives (e.g. a tensor distributed among the threads of a CTA).
+  \filbreak
+  \item Fix issues with windowing.
+  \filbreak
+  \item Fix issues with wgmma.
+  \filbreak
+  \item Support clusters and multicast.
+\end{itemize}
+
+\filbreak
+\mainSub{Simple Synchronization Checking}
+
+I already have a simulator for the synchronization model (SyncEnv) I proposed, which tracks the history of each read and write done.
+The simulator is in C++ and for performance and sanity reasons, I'd like to keep it so.
+
+\filbreak
+The model needs improvements:
+\begin{itemize}
+  \item Reason about atomic reductions.
+  \filbreak
+  \item Reason about ``temporal only'' synchronization for write-after-read hazards, where we do not need to issue a memory fence as no actual value is communicated.
+\end{itemize}
+\filbreak
+From there my plan is to compile Exo into an IR of sorts and feed it to the simulator, run on specific test cases.
+As Exo currently exists, the actual data doesn't matter, so the test cases would consist only of sizes.
+However, one of the benefits of this simple simulator is that it should be adaptible to relaxed restrictions on Exo programs.
+
+\filbreak
+Alternatively, I could interpret Exo using the JS backend .. if it can interface with C++.
+Compile the simulator to asm.js, perhaps?
+
+\filbreak
+\minorSub{Abstracted Synchronization Checking (Optional?)}
+
+Honestly, there is a high chance that this will be cut entirely from the schedule, with four months invested only in the previous two tasks.
+But my original hope was to learn more about formal methods and use the simple synchronization model only as the basis for a more static-analysis-like system.
+(I mean that was the original motivation of going to grad school, to improve my brain and learn skills and such).
+
+\filbreak
+There are some features that may make static analysis almost intractible.
+In particular, split barriers may be difficult to model, as what values they protect are a function of the execution path at runtime.
+Something jrk suggested was to evolve from the simple checking model, where common patterns are identified and simplified to code summaries that can be ``simulated'' much faster.
+
+\filbreak
+Another problem with this goal is that it interacts poorly with the goal of making Exo more expressive and moving away from restrictive rules about data/index value separation, etc.
+
+\filbreak
+If I pursue abstracted synchronization checking at all, I might give the simulator two interfaces:
+\begin{itemize}
+  \item A memory listener interface, allowing per-memory-access simulation suitable for any program.
+  \item An IR-based interface, which the simulator could simplify, but would only support the subset of programs compilable to the restricted IR.
+\end{itemize}
+
+\filbreak
+\mainSub{Paper Issues}
+
+This is work I anticipate doing end of this year, overlapped with taking classes.
+
+\mainKey{Replicating Algorithms:} Probably a painstaking process of reverse engineering existing algorithms (cutlass GEMM, FlashAttention-3, etc.) and scheduling an Exo program to match them exactly.
+I may have to create some instrumentation system (or re-use Cutlass SyncLog) to understand how the algorithms work, and check that my Exo versions perform the same steps exactly.
+
+\mainKey{Semantics \& Formal Stuff:} I have to learn to speak this language.
+
+\mainKey{Related Work:} I kept saying I would look into this (CuTe, cuTile, Descend, Hoare Logic for GPUs, and so on) but never did...
+
+\filbreak
+\myTitle{Discussion Issues}
+
 \end{document}
