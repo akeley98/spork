@@ -1,0 +1,205 @@
+\input{whitepaper_common.tex}
+
+\tikzstyle{smallnode} = [rectangle, minimum width=1.25cm, minimum height=1cm, text centered, text width=1.25cm, draw=black, fill=white]
+\tikzstyle{smallishnode} = [rectangle, minimum width=2cm, minimum height=1cm, text centered, text width=2cm, draw=black, fill=white]
+\tikzstyle{normalnode} = [rectangle, minimum width=3cm, minimum height=1cm, text centered, text width=3cm, draw=black, fill=white]
+\tikzstyle{widenode} = [rectangle, minimum width=62mm, minimum height=8mm, text centered, text width=62mm, draw=black, fill=white]
+\tikzstyle{bignode} = [rectangle, minimum width=3.5cm, minimum height=2cm, text centered, text width=3cm, draw=black, fill=white]
+\tikzstyle{smemnode} = [rectangle, minimum width=3cm, minimum height=1cm, text centered, text width=3cm, draw=keyColorB, fill=white]
+\tikzstyle{gmemnode} = [rectangle, minimum width=3cm, minimum height=1cm, text centered, text width=3cm, draw=keyColorA, fill=white]
+\tikzstyle{smallishsmemnode} = [rectangle, minimum width=2cm, minimum height=1cm, text centered, text width=2cm, draw=keyColorB, fill=white]
+\tikzstyle{arrow} = [thick,->,>=stealth]
+\tikzstyle{line} = [thick]
+
+\begin{document}
+\myTitle{Exo GPU (Spork) Status 2025-04-22}
+
+As of today, I have a pretty much working prototype of Exo-GPU that supports A100 (sm\_80) features (non-bulk async copies of 4, 8, or 16 bytes, and warp-level tensor cores).
+It is ``working'' to the extent that it's able to compile correct programs, but there is no synchronization checking, and limited checking for other kinds of mistakes.
+
+The prototype's support for H100 (sm\_90a) features (TMA and wgmma.mma\_async) is fairly broken right now.
+I'm able to compile a basic gemm for H100, but its performance is much worse than hand-written code.
+
+\filbreak
+\mainSub{GPU-specific Features Implemented}
+
+\mainKey{Nascent Type Systems:} Nothing formal or anything, but the Exo CUDA backend is able to statically analyze for each statement:
+\begin{itemize}
+  \item \myKeyA{Collective Unit (coll\_unit):} arrangement of cooperating threads, e.g. \lighttt{cuda\_warp} (32 aligned threads); \lighttt{cuda\_warpgroup} (128 aligned threads).
+  A single instance of a collective unit is a \myKeyA{thread collective}.
+  \item \myKeyA{Collective Tiling (CollTiling):} tiling of thread collectives across threads of the cluster/CTA; may be non-trivial due to masked-out threads (warp specialization).
+  \item \myKeyA{Actor Kind:} cpu, cuda\_classic, or one of the CudaAsync actor kinds.
+  \item \myKeyA{Actor Signature:} Each read/write is annotated with an actor signature.
+\end{itemize}
+
+\filbreak
+We enforce actor kind and collective unit requirements:
+\begin{itemize}
+  \item Memory types specify read, write, and allocation permissions per actor kind.
+  \item Non-\lighttt{instr} writes and reduces must use a single thread.
+  \item An \lighttt{instr} specifies its own custom requirements, and an \myKeyA{actor signature} per parameter.
+\end{itemize}
+
+\filbreak
+\mainKey{CudaDeviceFunction Block:} Subtree compiled to a CUDA device function, with \lighttt{blockDim}, \lighttt{clusterDim}, and \lighttt{blocks\_per\_sm} (occupancy) specified.
+The LoopIR-to-C compiler automatically handles compiling a CUDA device function, and passing arguments from host code to device code.
+This changes the \myKeyA{actor kind} from CPU to cuda\_classic for child statements.
+
+\filbreak
+\mainKey{Grid Constants:} Scalars or fixed-size arrays copied from the CPU to the device function.
+
+\filbreak
+\mainKey{Shared Memory:} SMEM requires special compiler support to allocate.
+I currently have a stack allocator, where allocate/free means increment/decrement the stack pointer (with special handling for the case that frees aren't in LIFO order).
+The compiler deduces the maximum SMEM usage and requests that amount at CUDA device function launch time.
+We will have to consider the synchronization challenges this poses -- shared memory must not be freed until all usages have retired.
+
+\filbreak
+\mainKey{CudaAsync Blocks:} Changes the actor kind from cuda\_classic to one of the async actor kinds.
+
+\filbreak
+\mainKey{cuda\_tasks Loops:} Distribute independent work items across clusters or CTAs.
+
+\filbreak
+\mainKey{cuda\_threads Loops:} Subdivide thread collective into child thread collectives with the specified collective unit.
+This changes the \myKeyA{collective tiling} of child statements.
+
+\filbreak
+\mainKey{Split Barriers:} I can lower \lighttt{Arrive} and \lighttt{Await} statements to \myKeyA{commit group} or \myKeyA{mbarrier} synchronization, for both sm\_80 and sm\_90a features.
+
+\filbreak
+\mainKey{sm\_80 (A100) Features:} Non-bulk \lighttt{cp.async} and warp-level MMA.
+I have a working gemm for sm\_80 using these features and \myKeyA{mbarrier}.
+
+\filbreak
+\mainKey{sm\_90a (H100) Features:} \lighttt{cp.async.bulk} (TMA) and \lighttt{wgmma.mma\_async}.
+I only have a tiny subset of instructions (just for tf32) implemented.
+TMA mostly works okay (minus required error checking), wgmma not so much.
+I have a rant (wgmma\_dirty\_laundry.pdf) about some of the wgmma problems.
+
+\filbreak
+\mainKey{New Output Files:} If any CUDA device functions are compiled, the compiler additionally emits \lighttt{.cu} and \lighttt{.cuh} files.
+The implementation of the CUDA device functions goes into the \lighttt{.cuh} (header) file, so the user may extract and re-use the generated device functions as they see fit, independent of Exo-generated CPU code
+(dynamic linking support for CUDA is very poor).
+In the likely case that the user doesn't want to DIY, they may rely on stub code in the \lighttt{.c} and \lighttt{.cu} files to launch the CUDA device functions for them.
+
+\filbreak
+\minorSub{Non-GPU-specific Features Implemented (Optional Reading)}
+
+These features were added to support Exo-GPU, but conceivably could be useful in other contexts.
+
+\filbreak
+\minorKey{Loop Mode Object:} The binary \lighttt{seq}/\lighttt{par} choice for loop mode is generalized and externalized as \lighttt{LoopMode} objects, which themselves can be parameterized (e.g. the \lighttt{unit} for \lighttt{cuda\_threads} loops).
+
+\filbreak
+\minorKey{Pragma Unroll:} Building off the above feature, \lighttt{Seq} loop modes may have an optional \lighttt{pragma\_unroll} parameter, which causes the generated loop to include \lighttt{\#pragma unroll}.
+
+\filbreak
+\minorKey{Per-Memory Window Type:} Exo 1 generated window structs for each (primitive type $\times$ dimensionality $\times$ mutability) combination.
+For example, for (f32, 2D, read-only), it generates:
+{\color{lightttColor}
+\begin{verbatim}
+struct exo_win_2f32c{
+    const float * const data;
+    const int_fast32_t strides[2];
+};
+\end{verbatim}
+}
+\filbreak
+Essentially, Exo 1 assumes all memory can be addressed with a C pointer (I call this the window \myKeyA{dataptr}) and freely-specified strides (I call this the window \myKeyA{layout}).
+This assumption breaks down for the GPU, and is even invalid for Exo 1 (e.g. for AVX).
+
+\filbreak
+I made an effort to allow memory types to generate their own custom window structs (defining both a \myKeyA{dataptr} and a \myKeyA{layout}).
+Memory and window definitions are put in the header (\lighttt{.h}) file iff the memory type is exposed in the header file; otherwise, the definitions go into implementation files (\lighttt{.c} and \lighttt{.cuh}).
+
+\filbreak
+\minorKey{Separate windowptr:} Custom window types may specify that the dataptr and layout be created as separate variables, instead of together as a struct.
+We need this for CUtensorMap windows: the CUtensorMap needs to be in grid constant memory, while associated layout information needs to be in registers (local variables).
+This is a bit fragile: it's a rarely used feature, and the C backend has to be aware of this possibility everywhere.
+
+\filbreak
+\minorKey{SpecialWindow:} Memory types are now generalized to MemWin types (Memory or SpecialWindow).
+A SpecialWindow type is like a Memory type in that it's used to constrain the parameters for an \lighttt{instr}.
+However, variables constructed as a SpecialWindow must be created from existing allocations as a window statement (TBD replace WindowStmt?), instead of allocated.
+
+\filbreak
+This exists for now to support CUtensorMap, as in the following example:
+{\color{lightttColor}
+\begin{verbatim}
+@proc
+def xgemm_Sm90_wgmma(M: size, N: size, K: size,
+                     A: f32[M,K] @ CudaGmemLinear,
+                     B: f32[N,K] @ CudaGmemLinear,
+                     C: f32[N,M] @ CudaGmemLinear):
+    A_tensorMap = A[:,:] @ Sm90_tensorMap(128, smem_m, smem_k)
+    B_tensorMap = B[:,:] @ Sm90_tensorMap(128, smem_n, smem_k)
+    # ...
+\end{verbatim}
+}
+
+\filbreak
+Note the \lighttt{@ Sm90\_tensorMap(...)} annotation distinguishes this case from an ordinary WindowStmt, which does not override the MemWin type.
+Similar to memory types, there are per-actor-kind creation, read, and write permissions.
+The CUtensorMap can only be created in CPU code, and read and written through TMA code.
+
+\filbreak
+\minorKey{MemWin Template:} You can now define parameterized MemWin types with functions that return an inner MemWin class.
+For example, the above \lighttt{Sm90\_tensorMap} example is defined as
+{\color{lightttColor}
+\begin{verbatim}
+@memwin_template
+def Sm90_tensorMap(swizzle, *smem_box):
+    # ...
+    class CUtensorMap(SpecialWindow):
+        # define MemWin class as usual
+    return CUtensorMap
+\end{verbatim}
+}
+Where in the earlier example, \lighttt{swizzle = 128} and \lighttt{smem\_box = (smem\_m, smem\_k)} or \lighttt{(smem\_n, smem\_k)}.
+This is cached: identically parameterized MemWins will be identical Python types.
+
+\filbreak
+\minorKey{Instr Classes:} Since CUDA instructions have so many parameters (e.g. per-parameter actor signatures), and we may have to generate a large number of similar instructions for different permutations of matrix sizes, I've implemented an alternative class-based interface for \lighttt{@instr}.
+The class defines two meaningful functions:
+\begin{enumerate}
+  \item \lighttt{behavior}: This is parsed as Exo code, defining the body of the \lighttt{instr} proc, in the same manner as the current function-based \lighttt{@instr} interface.
+  \filbreak
+  \item \lighttt{instance}: This is an executed Python member function, taking \lighttt{self} and a subset of parameters used in \lighttt{behavior}.
+\end{enumerate}
+
+\filbreak
+All parameters for \lighttt{instance} must be constants in Exo object code.
+The \lighttt{instance} function defines
+\begin{enumerate}
+  \item The Python format string for the C instruction, and C globals (pre-existing \lighttt{@instr} functionality)
+  \filbreak
+  \item Required include files and utility code for \lighttt{.cuh} file
+  \filbreak
+  \item Instruction required collective unit \& actor kind
+  \filbreak
+  \item Per-parameter MemWin type and actor signature
+\end{enumerate}
+
+\filbreak
+See \lighttt{LoopIR.InstrInfo}.
+
+\filbreak
+\minorKey{With Context:} Overloaded \lighttt{with <ctx>:} statement.
+For metaprogramming, we reserve \lighttt{with python:} and \lighttt{with exo:};
+anything else is evaluated as a with-context object, which could be \lighttt{CudaDeviceFunction}, \lighttt{CudaWarps}, or \lighttt{CudaAsync}.
+
+\filbreak
+There is currently no LoopIR node for this.
+Maybe we should add one, but that would entail auditing a huge amount of WIP code (e.g. the new analysis).
+
+\filbreak
+What I do for now is wrap the with-context object inside a \lighttt{LoopIR.Const}, which is wrapped as the \lighttt{cond} of \lighttt{LoopIR.If}.
+I detect this arrangement with the special helper \lighttt{is\_if\_holding\_with}.
+This hack works because all with-context objects are truthy, and most of the code treats this as \lighttt{if True}.
+I just have special detection where the with-context is relevant, and also in \lighttt{simplify}, so the ``redundant'' \lighttt{if True} isn't simplified away.
+
+\filbreak
+\myTitle{Roadmap \& Time Management}
+
+\end{document}
