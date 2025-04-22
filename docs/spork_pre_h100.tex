@@ -456,4 +456,50 @@ Strides are already a bit messy for AVX (since the underlying C code strides in 
 \filbreak
 \mainSub{Synchronization Issues}
 
+The design for synchronization statements (\lighttt{Fence}, \lighttt{\{Reverse\}Arrive}, \lighttt{\{Reverse\}Await}) is unlike the rest of Exo in that they're really declarative and rely on a monolithic (non-extensible) compiler to lower correctly.
+The user specifies the \textit{intent} of the synchronization via the \myKeyA{actor kind} parameters, and the (implicit) \myKeyA{thread collective} used to execute the synchronization statements.
+
+\filbreak
+The idea is that working at this level makes synchronization checking feasible, in a way it maybe wouldn't be for analyzing raw CUDA synchronization primitives (which are not really defined in any formal, precise manner).
+However, this leaves some issues:
+
+\filbreak
+\begin{itemize}
+  \item Practical issue: Convincing people this is not bogus, and actually maps to the hardware reality.
+  \filbreak
+  \item What I really care about: Convincing myself that codegen is correct, and actually implements what I intend for all supported combinations of actor kind and collective units (and not just for a few simple test cases).
+  Unsupported cases must be clearly rejected.
+  \filbreak
+  \item Meta-synchronization: My proposed synchronization checking only reasons about whether numerical \textit{values} are synchronized correctly, and doesn't reason at all that access to synchronization primitives are themselves synchronized correctly.
+    It's the Exo-GPU compiler's job to follow requirements such as ``For each phase of the mbarrier object, at least one test\_wait or try\_wait operation must be performed which returns \lighttt{True} for \lighttt{waitComplete} before an arrive-on operation in the subsequent phase'' which is a non-trivial requirements when separate pools of threads are performing the arrive-on and wait operations.
+    This will require some reasoning on my part, and likely some restrictions on synchronization patterns.
+\end{itemize}
+
+\filbreak
+I'll have to figure out how to address these issues in a paper.
+
+\filbreak
+Finally, I'm really depressed about how it's \textit{actually impossible} to guarantee correct usage of wgmma through C++, which somewhat undermines the point of a USL.
+The main issue is that wgmma is defined to operate on registers asynchronously, but nvcc knows nothing of this, and may generate PTX code that accesses wgmma registers without synchronization, e.g.:
+
+\filbreak
+\lighttt{~~~~mov.b32 	\redBox{\%f1854}, \yellowBox{\%r55};}\\
+\lighttt{~~~~wgmma.mma\_async.sync.aligned.m64n128k8.f32.tf32.tf32 \{\redBox{\%f1854}, ...}\\
+\lighttt{~~~~mov.b32 	\yellowBox{\%r276}, \redBox{\%f1854};}
+
+\filbreak
+Here the C++ compiler for whatever reason migrated a single C++ variable from \lighttt{\yellowBox{\%r55}} to \lighttt{\redBox{\%f1854}} to \lighttt{\yellowBox{\%r276}}.
+
+\filbreak
+The PTX-to-SASS compiler recognizes this failure mode and conservatively inserts syncs, so supposedly your code will still run correctly (just much more slowly).
+This also can impact seemingly correct code, which is a separate issue.
+
+\filbreak
+However, recently I've had some code with fail to work entirely, and I'm not sure if it's my fault somewhere else, or a failure in the compiler's conservative synchronization.
+This fills me with paranoia.
+I'm trying (rather angrily) to get some understanding of how the C++-to-PTX compiler works and how to avoid its failure modes, but in the end, I can't give a guarantee of correctness.
+
+\filbreak
+This would potentially be solvable if we generated PTX directly (instead of going through CUDA C++) but I highly doubt this is reasonably in-scope for this project.
+
 \end{document}
