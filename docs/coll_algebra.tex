@@ -75,7 +75,7 @@ Jumping ahead somewhat, physical threads are arranged in the domain grid by the 
 For a CUDA cluster, these expressions are (\lighttt{blockIdx.x \% clusterDim}, \lighttt{threadIdx.x}).
 
 \filbreak
-\mainSub{Domain Completion}
+\minorSub{Domain Completion (Detail)}
 
 Collective units and collective tilings are described in terms of their domain.
 Often, their domains are not the same.
@@ -88,19 +88,19 @@ Whenever we modify the $n^{th}$ coordinate of a domain, we modify in parallel th
 We'll describe this later.
 
 \filbreak
-\mainKey{Partial Prepend:} If the source domain is partial, we prepend $\frac{t}{s}$, where $t$ is the thread count of the full domain and $s$ is the thread count of the partial domain.
+\minorKey{Partial Prepend:} If the source domain is partial, we prepend $\frac{t}{s}$, where $t$ is the thread count of the full domain and $s$ is the thread count of the partial domain.
 If this is not an integer, this step fails.
 
 Side note, this is the main place where the left-most $\equiv$ ``most significant'' assumption is made.
 
 \filbreak
-\mainKey{Coordinate Removal:} Each domain coordinate that's 1 is removed.
+\minorKey{Coordinate Removal:} Each domain coordinate that's 1 is removed.
 
 \filbreak
-\mainKey{Coordinate Splitting:} Domain coordinate values $c$ may be split into two consecutive coordinates $(\frac{c}{f}, f)$, where $f$ is the \myKeyA{splitting factor}.
+\minorKey{Coordinate Splitting:} Domain coordinate values $c$ may be split into two consecutive coordinates $(\frac{c}{f}, f)$, where $f$ is the \myKeyA{splitting factor}.
 
 \filbreak
-\mainSub{Domain Completion Example}
+\minorSub{Domain Completion Example}
 
 Let's say we have two domains
 
@@ -111,7 +111,7 @@ with \textbf{A} being a \myKeyA{partial domain} ($s = 1024$ threads) and \textbf
 This is not very realistic for the CUDA use case; it's just for illustration.
 
 \filbreak
-\mainKey{Partial Prepend:} Since \textbf{A} is a partial domain, we prepend $2 = \frac{t}{s}$.
+\minorKey{Partial Prepend:} Since \textbf{A} is a partial domain, we prepend $2 = \frac{t}{s}$.
 
 $\downarrow$ {\color{grayttColor} (1, 64, 16)} \\
 \textbf{A:} (\blueBox{2}, 1, 64, 16)
@@ -120,7 +120,7 @@ $\downarrow$ {\color{grayttColor} (16, 128)} \\
 \textbf{B:} (16, 128)
 
 \filbreak
-\mainKey{Coordinate Removal:} Remove the redundant 1 in \textbf{A}.
+\minorKey{Coordinate Removal:} Remove the redundant 1 in \textbf{A}.
 
 $\downarrow$ {\color{grayttColor} (2, \redBox{1}, 64, 16)} \\
 \textbf{A:} (2, 64, 16)
@@ -129,7 +129,7 @@ $\downarrow$ {\color{grayttColor} (16, 128)} \\
 \textbf{B:} (16, 128)
 
 \filbreak
-\mainKey{Coordinate Splitting:} Multiple splits are required to reconcile \textbf{A} and \textbf{B}.
+\minorKey{Coordinate Splitting:} Multiple splits are required to reconcile \textbf{A} and \textbf{B}.
 
 $\downarrow$ {\color{grayttColor} (2, \violetBox{64}, 16)} \\
 \textbf{A:} (2, \violetBox{8, 8}, 16) \\
@@ -201,31 +201,43 @@ This is (almost) equivalent to the warp given in the example.
 \node(t363) [bluesmallnode, right=of t334, xshift=4mm] {3,63};
 \draw [dotted] (t334) -- (t363);
 
-\node(legend) [smallnode, text width=8cm, draw=none, above=of t032] {\lighttt{(blockIdx.x \% clusterDim, threadIdx.x)}};
+\node(legend) [smallnode, text width=15cm, draw=none, above=of t032] {intra-box exprs = \blacktt{(blockIdx.x \% clusterDim, threadIdx.x)}};
 \end{tikzpicture}
 \caption{With \lighttt{clusterDim = 4}, \lighttt{blockDim = 64}, and domain = $(4, 64)$, we highlight examples of thread collectives with collective units \redBox{single warp} (box $(1, 32)$) and \blueBox{warp per CTA} (box $(\lighttt{clusterDim}, 32)$). Note a single row of this grid corresponds to one CTA in a cluster.}
 \label{fig:units}
 \end{figure*}
 
 \filbreak
-\mainSub{Collective Unit Domain Completion}
+\minorSub{Box Domain Completion}
 
 When doing domain completion, the corresponding steps for the box attribute are:
 
 \filbreak
-\mainKey{Partial Prepend:} If we are matching collective units (e.g. to enforce an \lighttt{instr}'s requirements), prepend 1.
+\minorKey{Partial Prepend:} If we are matching collective units (e.g. to enforce an \lighttt{instr}'s requirements), prepend 1.
 Otherwise, prepend None.
 
 \filbreak
-\mainKey{Coordinate Removal:} All removed coordinate values must be 1.
+\minorKey{Coordinate Removal:} All removed coordinate values must be 1.
 
 \filbreak
-\mainKey{Coordinate Splitting:} A None value is split into (None, None).
+\minorKey{Coordinate Splitting:} A None value is split into (None, None).
 An integer value $c$ splits into $(1, c)$ if $c < f$; otherwise, it splits into $(\frac{c}{f}, f)$.
 If the results are not integers, the domain completion fails.
 
 \filbreak
 If we were accepting unaligned thread collectives, collective unit domain completion (as an unintended side-effect) makes the collective unit stricter, as some unaligned thread collectives will no longer form valid boxes in the new domain.
 Domain completion won't affect matching of aligned thread collectives.
+
+\filbreak
+\mainSub{Collective Unit Code Details}
+
+The implemented \lighttt{CollUnit} object differs from the above description:
+
+\filbreak
+\begin{itemize}
+\item The box cannot contain None (be agnostic) initially. This should only arise due to domain completion.
+\filbreak
+\item The domain and box are tuples of \lighttt{CollSizeExpr}, which are converted to integers by looking up the \myKeyA{collective environment}, which maps \lighttt{clusterDim} and \lighttt{blockDim} to concrete values.
+\end{itemize}
 
 \end{document}
