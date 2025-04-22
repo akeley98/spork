@@ -161,7 +161,7 @@ This is cached: identically parameterized MemWins will be identical Python types
 
 \filbreak
 \minorKey{Instr Classes:} Since CUDA instructions have so many parameters (e.g. per-parameter actor signatures), and we may have to generate a large number of similar instructions for different permutations of matrix sizes, I've implemented an alternative class-based interface for \lighttt{@instr}.
-The class defines two meaningful functions:
+The class defines two special functions:
 \begin{enumerate}
   \item \lighttt{behavior}: This is parsed as Exo code, defining the body of the \lighttt{instr} proc, in the same manner as the current function-based \lighttt{@instr} interface.
   \filbreak
@@ -278,14 +278,182 @@ If I pursue abstracted synchronization checking at all, I might give the simulat
 
 This is work I anticipate doing end of this year, overlapped with taking classes.
 
+\filbreak
 \mainKey{Replicating Algorithms:} Probably a painstaking process of reverse engineering existing algorithms (cutlass GEMM, FlashAttention-3, etc.) and scheduling an Exo program to match them exactly.
 I may have to create some instrumentation system (or re-use Cutlass SyncLog) to understand how the algorithms work, and check that my Exo versions perform the same steps exactly.
 
+\filbreak
 \mainKey{Semantics \& Formal Stuff:} I have to learn to speak this language.
+I'm particularly worried about convincing people (including myself) that my system of representing barriers in Exo-GPU even works.
 
-\mainKey{Related Work:} I kept saying I would look into this (CuTe, cuTile, Descend, Hoare Logic for GPUs, and so on) but never did...
+\filbreak
+\mainKey{Related Work:} I kept saying I would look into this (CuTe, cuTile, Cypress, Descend, Hoare Logic for GPUs, and so on) but never did ... in truth I should probably not put this off until the end, although I feel a lot of implicit time pressure for the project.
 
 \filbreak
 \myTitle{Discussion Issues}
+
+\mainSub{Distributed Memory}
+
+Each tensor allocation has two important \myKeyA{collective units}
+\begin{itemize}
+  \item The \myKeyA{alloc unit}: the collective unit for the alloc statement
+  \item The \myKeyA{native unit}: collective unit physically needed to allocate the memory type (defined by \lighttt{MemWin} sub-class).
+\end{itemize}
+If these are not matched, we need to deduce 1 or more of the left-most dimensions as \myKeyA{distributed dimensions}.
+The remaining dimensions describe the size of the tensor allocated in each native thread collective.
+These \myKeyA{distributed slices} allocated by each native thread collective together comprise the full logical tensor.
+
+\filbreak
+The distributed dimensions are deduced from usage. Example from xgemm\_Sm80:
+
+\filbreak
+\blacktt{with CudaDeviceFunction(\yellowBox{blockDim=256}):}\\
+\blacktt{~~for m2 in cuda\_tasks(0, M / 192):}\\
+\blacktt{~~~~for n2 in cuda\_tasks(0, N / 256):}\\
+\graytt{~~~~~~\# Each CTA generates a (192, 256) tile of C}\\
+\blacktt{~~~~~~A\_smem: f32[3, 192, 16] @ \blueBox{CudaSmemLinear}}\\
+\blacktt{~~~~~~B\_smem: f32[3, 16, 256] @ \blueBox{CudaSmemLinear}}\\
+\blacktt{~~~~~~D\_rmem: f32[\greenBox{2}, \violetBox{4}, 6, 8, 16, 8] @ Sm80\_RmemMatrixD}\graytt{~~\# sm\_80 warp matrix}\\
+\graytt{~~~~~~\# Each warp zeros its accumulators}\\
+\blacktt{~~~~~~for \greenBox{mw} in cuda\_threads(0, 2, \greenBox{unit=4 * cuda\_warp}):}\graytt{~~\#~\greenBox{128} threads}\\
+\blacktt{~~~~~~~~for \violetBox{nw} in cuda\_threads(0, 4, \violetBox{unit=cuda\_warp}):}\graytt{~~~~\#~\violetBox{32} threads}\\
+\blacktt{~~~~~~~~~~for m\_seq in seq(0, 6):}\\
+\blacktt{~~~~~~~~~~~~for n\_seq in seq(0, 8):}\\
+\blacktt{~~~~~~~~~~~~~~Sm80\_mma\_zero\_d\_tf32(D\_rmem[\greenBox{mw}, \violetBox{nw}, m\_seq, n\_seq, 0:16, 0:8])}\\
+
+\filbreak
+The alloc unit for \lighttt{A\_smem} and \lighttt{B\_smem} (one CTA of \yellowBox{256} threads) matches the native unit for \texttt{\blueBox{CudaSmemLinear}}, so no dimensions are distributed.
+However, the native unit for \lighttt{D\_rmem} is a warp.
+The \greenBox{\texttt{mw}}, \violetBox{\texttt{nw}} loops divide the CTA into a $2 \times 4$ grid of warps ($2 \times 4 \times 32 = \yellowBox{256}$).
+One distributed slice of size \lighttt{[6, 8, 16, 8]} is allocated in each warp.
+
+\filbreak
+If multiple usages of the memory occur (as is the case for the full gemm algorithm), then each distributed slice must be accessed consistently by the same thread collective.
+I have code for this, although it's extremely restrictive, and doesn't handle the full generality that I intend.
+
+\filbreak
+In the current design, the distributed dimensions are not explicitly encoded in Exo object code; it's deduced by the compiler.
+This means we have to clearly describe how the language deduces these distributed dimensions, and be able to give clear messages when this deduction fails.
+I feel there's something that could be produced from the following two requirements:
+
+\begin{itemize}
+\item Each indexing variable is generated as an expression of \lighttt{threadIdx} or \lighttt{blockIdx}.
+In the above example, \lighttt{\greenBox{mw} = threadIdx.x / 128}, and \lighttt{\violetBox{nw} = (threadIdx.x \% 128) / 32}.
+So to enforce the ``consistent thread collective'' requirement, we need to check the index expressions are always logically (but not necessarily syntactically) equivalent.
+Note that the expressions are \textit{not} used in the lowered code (at least not here).
+\filbreak
+\item We can view each index variable as a ``tiling operator'' that takes a larger number of threads and divides it into a smaller number of threads.
+From the usage (e.g. \lighttt{[\greenBox{mw}, \violetBox{nw}, ...]}), the compiler needs to deduce a valid ``chain'' of tiling operators converting from the alloc unit to the native unit.
+In this case, \yellowBox{256}, \greenBox{mw: $256 \to 128$}, \violetBox{nw: $128 \to 32$}.
+\end{itemize}
+
+\filbreak
+We ought to be able to do this even if the operators are out of order, as in the following example yielding
+\yellowBox{256}, \violetBox{nw: $128 \to 32$}, \greenBox{mw: $256 \to 128$}:
+
+\blacktt{~~~~~~D\_rmem: f32[\violetBox{4}, \greenBox{2}, 6, 8, 16, 8] @ Sm80\_RmemMatrixD}\graytt{~~\# sm\_80 warp matrix}\\
+\graytt{~~~~~~\# Each warp zeros its accumulators}\\
+\blacktt{~~~~~~for \greenBox{mw} in cuda\_threads(0, 2, \greenBox{unit=4 * cuda\_warp}):}\graytt{~~\#~\greenBox{128} threads}\\
+\blacktt{~~~~~~~~for \violetBox{nw} in cuda\_threads(0, 4, \violetBox{unit=cuda\_warp}):}\graytt{~~~~\#~\violetBox{32} threads}\\
+\blacktt{~~~~~~~~~~for m\_seq in seq(0, 6):}\\
+\blacktt{~~~~~~~~~~~~for n\_seq in seq(0, 8):}\\
+\blacktt{~~~~~~~~~~~~~~Sm80\_mma\_zero\_d\_tf32(D\_rmem[\violetBox{nw}, \greenBox{mw}, m\_seq, n\_seq, 0:16, 0:8])}\\
+
+\filbreak
+\minorSub{(Optional) Distributed Memory Additional Notes}
+
+In the previous example, the distributed dimensions were deduced from a window expression passed to an \lighttt{instr}, \lighttt{Sm80\_mma\_zero\_d\_tf32}.
+This works because the collective unit for the \lighttt{instr} (\lighttt{cuda\_warp}) matches the native unit for the allocation.
+This won't be the case for multicast and swizzling instructions, which will take windows containing distributed fragments from multiple native thread collectives (for example, 1 SMEM tile from each CTA in the cluster).
+I haven't figured out how to handle this yet.
+
+An alternative design would be to encode distributed memory information directly.
+The current deduction-based design may be an artificial challenge, but I currently don't want to move to explicit typing because of the differing usage patterns for existing Exo scheduling (S-semantics) and synchronization checking (M-semantics):
+\begin{itemize}
+  \item Normal Exo scheduling requires that each scheduling operation is correct in isolation under S-semantics (so the full chain of equivalence is preserved). In particular, the program \textit{always typechecks} after each scheduling operation.
+  \item For parallelism checking, we only check equivalence between S-semantics and M-semantics for the final scheduled proc. Intermediate procs are never checked for correctness.
+\end{itemize}
+If we encoded distributed dimensions -- which is fundamentally a parallelism concept -- as part of the LoopIR type system, it'll break the \textit{always typechecks} invariant, as intermediate procs won't have correct parallelism.
+So currently, I propose we don't.
+
+\filbreak
+I freely admit this rationale may be bogus though; the other reason is just that this lightens the cognitive load for scheduling in the common case.
+
+\filbreak
+\mainSub{Window Improvements}
+
+This is a bit of a tough topic, because the original Exo window system was so overfit to hard-wired (C pointer, strides)-based windows, which isn't scaling that well to Exo-GPU.
+At the same time, doing a ``perfect job'' could be a huge time sink that I can't afford.
+I'm hoping to farm up some pragmatic ideas for addressing these issues:
+
+\filbreak
+\mainKey{window() Callback:} The most surface-level issue is just that the \lighttt{MemWin.window()} callback is really limited, operating mainly on C strings, and being originally designed to only support the case of offseting a pointer.
+It also exposes a raw undocumented \lighttt{LoopIR} type to the user (\lighttt{basetyp}) which is needed to special-case on the value of \lighttt{basetype.is\_win()}.
+I perceive similar C-string limitations for the \lighttt{str.format} based \lighttt{instr} code generation.
+
+\filbreak
+\mainKey{Dense Dimensions:} For certain usages, we need to be able to enforce that up to N-many rightmost dimensions of a window are tightly packed.
+Currently, this only seems to be possible for $N=0$ or $N=1$.
+
+\filbreak
+\mainKey{Alignment:} We need to be able to reason globally about the alignment of pointers.
+For example, the f32 \lighttt{instr} for \lighttt{cp.async} is defined to copy 1, 2, or 4 f32 values:
+{\color{lightttColor}
+\begin{verbatim}
+@instr
+class Sm80_cp_async_f32(cp_async_impl):
+    def behavior(size: size, smem: [f32][size] @ CudaSmemLinear,
+                 gmem: [f32][size] @ CudaGmemLinear):
+        assert stride(smem, 0) == 1
+        for i in seq(0, size):
+            smem[i] = gmem[i]
+
+    def instance(self, size):
+        self.instance_impl(4 * size)  # Omitted, codegen 4, 8, or 16 byte cp.async
+\end{verbatim}
+}
+The 8 or 16 byte cp.async versions won't work if the generated pointers are not 8 or 16 byte aligned, but we currently have no way to enforce that (e.g. we crash if we issue \lighttt{Sm80\_cp\_async\_f32(smem[\redBox{2:6}], gmem[0:4], size=4)}).
+
+\filbreak
+\mainKey{Hardware Vectors:} Related to the density and alignment issues, we will more commonly see a pattern where the rightmost dimensions of a tensor correspond to ``hardware vectors'', which map to fixed-size vectors/matrices supported by hardware accelerators.
+We already support this with AVX, e.g. the following code
+
+\blacktt{~~~~foo: f32[2, 4, \blueBox{8}] @ AVX2}
+
+lowers to
+
+\blacktt{~~~~\blueBox{\_\_m256} f32[2][4];}
+
+where the final \blueBox{8} dimension is mapped to the lanes of the \lighttt{\_\_m256} register.
+
+\filbreak
+Similarly, the previous example of the \lighttt{D\_rmem} accumulator
+
+\blacktt{~~~~D\_rmem: f32[\violetBox{4}, \greenBox{2}, 6, 8, \blueBox{16, 8}] @ Sm80\_RmemMatrixD}\graytt{~~\# sm\_80 warp matrix}
+
+lowers to
+
+\blacktt{~~~~unsigned D\_rmem[6][8]\blueBox{[4]};}\graytt{~~// Quirk: tf32 values stored bit-cast to u32}
+
+where the dimensions of the Exo \lighttt{D\_rmem} tensor are categorized, from left-to-right, as
+
+\filbreak
+\begin{itemize}
+  \item \myKeyA{Distributed Dimensions:} \lighttt{[\violetBox{4}, \greenBox{2},...}, which are absent in the lowered code.
+  \filbreak
+  \item \myKeyA{Ordinary Dimensions:} \lighttt{...6, 8, ...}, which are lowered directly.
+  \filbreak
+  \item \myKeyA{Hardware Vector Dimensions:} \lighttt{..., \blueBox{16, 8}]}, which are lowered to a hardware-defined vector. In this case, it's lowered to 4 32-bit registers. sm\_80 tensor cores distribute the 128 values of a $16 \times 8$ tile across 32 threads of a warp, so $128 / 32 = 4$ registers are used.
+\end{itemize}
+
+\filbreak
+We may want to add support for this hardware vector pattern to core Exo, rather than enforce this over and over again as asserts and other checks placed into MemWin code.
+In particular, hardware vectors actually sort of don't interact well with \lighttt{stride} expressions (another case where window = \{C pointer + strides\} is baked into the Exo language) which we would otherwise use to implement these checks.
+
+\filbreak
+Strides are already a bit messy for AVX (since the underlying C code strides in units of AVX vectors -- 16 or 32 bytes -- and not scalars), but it breaks down even more for CUDA warp/warpgroup matrices, where values are stored in different registers across different threads (neither concept matches \lighttt{stride} well, as these are not addressible).
+
+\filbreak
+\mainSub{Synchronization Issues}
 
 \end{document}
