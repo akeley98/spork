@@ -3,8 +3,19 @@
 \input{whitepaper_common.tex}
 
 \tikzstyle{redsmallnode} = [rectangle, minimum width=1.25cm, minimum height=1cm, text centered, text width=1.25cm, draw=redBoxFg, fill=redBoxBg, text=redBoxFg]
+\tikzstyle{yellowsmallnode} = [rectangle, minimum width=1.25cm, minimum height=1cm, text centered, text width=1.25cm, draw=yellowBoxFg, fill=yellowBoxBg, text=yellowBoxFg]
+\tikzstyle{greensmallnode} = [rectangle, minimum width=1.25cm, minimum height=1cm, text centered, text width=1.25cm, draw=greenBoxFg, fill=greenBoxBg, text=greenBoxFg]
 \tikzstyle{bluesmallnode} = [rectangle, minimum width=1.25cm, minimum height=1cm, text centered, text width=1.25cm, draw=blueBoxFg, fill=blueBoxBg, text=blueBoxFg]
+\tikzstyle{violetsmallnode} = [rectangle, minimum width=1.25cm, minimum height=1cm, text centered, text width=1.25cm, draw=violetBoxFg, fill=violetBoxBg, text=violetBoxFg]
 \tikzstyle{smallnode} = [rectangle, minimum width=1.25cm, minimum height=1cm, text centered, text width=1.25cm, draw=black, fill=white]
+
+\tikzstyle{colltiling} = [rectangle, minimum width=16mm, minimum height=1.6cm, text width=16mm, draw=black, fill=white, text=black]
+\tikzstyle{redcolltiling} = [rectangle, minimum width=16mm, minimum height=1.6cm, text width=16mm, draw=redBoxFg, fill=redBoxBg, text=redBoxFg]
+\tikzstyle{yellowcolltiling} = [rectangle, minimum width=16mm, minimum height=1.6cm, text width=16mm, draw=yellowBoxFg, fill=yellowBoxBg, text=yellowBoxFg]
+\tikzstyle{greencolltiling} = [rectangle, minimum width=16mm, minimum height=1.6cm, text width=16mm, draw=greenBoxFg, fill=greenBoxBg, text=greenBoxFg]
+\tikzstyle{bluecolltiling} = [rectangle, minimum width=16mm, minimum height=1.6cm, text width=16mm, draw=blueBoxFg, fill=blueBoxBg, text=blueBoxFg]
+\tikzstyle{violetcolltiling} = [rectangle, minimum width=16mm, minimum height=1.6cm, text width=16mm, draw=violetBoxFg, fill=violetBoxBg, text=violetBoxFg]
+
 \tikzstyle{smallishnode} = [rectangle, minimum width=2cm, minimum height=1cm, text centered, text width=2cm, draw=black, fill=white]
 \tikzstyle{normalnode} = [rectangle, minimum width=3cm, minimum height=1cm, text centered, text width=3cm, draw=black, fill=white]
 \tikzstyle{widenode} = [rectangle, minimum width=62mm, minimum height=8mm, text centered, text width=62mm, draw=black, fill=white]
@@ -135,15 +146,15 @@ $\downarrow$ {\color{grayttColor} (2, \violetBox{64}, 16)} \\
 \textbf{A:} (2, \violetBox{8, 8}, 16) \\
 Splitting factor: \violetBox{8}
 
-$\downarrow$ {\color{grayttColor} (\blueBox{16}, \greenBox{128})} \\
-\textbf{B:} (\blueBox{2, 8}, \greenBox{8, 16}) \\
-Splitting factors: \blueBox{8}, \greenBox{16}
+$\downarrow$ {\color{grayttColor} (\yellowBox{16}, \greenBox{128})} \\
+\textbf{B:} (\yellowBox{2, 8}, \greenBox{8, 16}) \\
+Splitting factors: \yellowBox{8}, \greenBox{16}
 
 \filbreak
 \myTitle{Collective Unit}
 
 A collective unit consists of a \myKeyA{domain} and \myKeyA{box} size.
-The box is \lighttt{Optional[int]}-valued and has the same dimension as the domain.
+The box is $\textit{Optional}[\mathbb{Z}]^N$-valued, where $N$ is the dimension of the domain.
 If the box contains a None coordinate, it's said to be \myKeyA{agnostic} on that dimension, and can't match any real thread collective.
 
 \filbreak
@@ -168,10 +179,10 @@ This is (almost) equivalent to the warp given in the example.
 \node(t063) [bluesmallnode, right=of t034, xshift=4mm] {0,63};
 \draw [dotted] (t034) -- (t063);
 
-\node(t100) [redsmallnode, below=of t000] {1,0};
-\node(t101) [redsmallnode, right=of t100] {1,1};
-\node(t102) [redsmallnode, right=of t101] {1,2};
-\node(t131) [redsmallnode, right=of t102, xshift=4mm] {1,31};
+\node(t100) [greensmallnode, below=of t000] {1,0};
+\node(t101) [greensmallnode, right=of t100] {1,1};
+\node(t102) [greensmallnode, right=of t101] {1,2};
+\node(t131) [greensmallnode, right=of t102, xshift=4mm] {1,31};
 \draw [dotted] (t102) -- (t131);
 \node(t132) [bluesmallnode, right=of t131] {1,32};
 \node(t133) [bluesmallnode, right=of t132] {1,33};
@@ -203,7 +214,7 @@ This is (almost) equivalent to the warp given in the example.
 
 \node(legend) [smallnode, text width=15cm, draw=none, above=of t032] {intra-box exprs = \blacktt{(blockIdx.x \% clusterDim, threadIdx.x)}};
 \end{tikzpicture}
-\caption{With \lighttt{clusterDim = 4}, \lighttt{blockDim = 64}, and domain = $(4, 64)$, we highlight examples of thread collectives with collective units \redBox{single warp} (box $(1, 32)$) and \blueBox{warp per CTA} (box $(\lighttt{clusterDim}, 32)$). Note a single row of this grid corresponds to one CTA in a cluster.}
+\caption{With \lighttt{clusterDim = 4}, \lighttt{blockDim = 64}, and domain = $(4, 64)$, we highlight examples of thread collectives with collective units \greenBox{single warp} (box $(1, 32)$) and \blueBox{warp per CTA} (box $(\lighttt{clusterDim}, 32)$). Note a single row of this grid corresponds to one CTA in a cluster.}
 \label{fig:units}
 \end{figure*}
 
@@ -214,7 +225,7 @@ When doing domain completion, the corresponding steps for the box attribute are:
 
 \filbreak
 \minorKey{Partial Prepend:} If we are matching collective units (e.g. to enforce an \lighttt{instr}'s requirements), prepend 1.
-Otherwise, prepend None.
+Otherwise, prepend None (agnostic dimension).
 
 \filbreak
 \minorKey{Coordinate Removal:} All removed coordinate values must be 1.
@@ -239,5 +250,216 @@ The implemented \lighttt{CollUnit} object differs from the above description:
 \filbreak
 \item The domain and box are tuples of \lighttt{CollSizeExpr}, which are converted to integers by looking up the \myKeyA{collective environment}, which maps \lighttt{clusterDim} and \lighttt{blockDim} to concrete values.
 \end{itemize}
+
+\filbreak
+\myTitle{Collective Tiling}
+
+The \lighttt{CollTiling} describes which threads in the top-level collective (cluster/CTA) are active and how they are arranged into thread collectives.
+Each \lighttt{cuda\_threads} loop and \lighttt{with CudaWarps} statement defines a new collective tiling for its body.
+Summarizing for now, the collective tiling contains:
+\begin{itemize}
+  \item \myKeyA{Domain:} $\mathbb{Z}^N_+$, as described; this is always a complete domain
+  \item \myKeyA{Box:} $\mathbb{Z}^N_+$, ``shape'' of active threads comprising thread collectives
+\end{itemize}
+\filbreak
+which together describe the (not-necessarily-aligned) \myKeyA{collective unit} of the thread collectives; further contains
+\begin{itemize}
+  \item \myKeyA{Parent:} \lighttt{Optional[CollTiling]}, the source of thread collectives that are subdivided to yield the new thread collectives (None indicates top-level collective)
+  \filbreak
+  \item \myKeyA{Tile:} $\mathbb{Z}^N_+$, subdivision tile size
+  \filbreak
+  \item \myKeyA{Offset:} $\mathbb{Z}^N_{\ge 0}$, location of box (of active threads) within the tile
+  \filbreak
+  \item \myKeyA{Tile Count:} $\mathbb{Z}_{\ge 0}$
+\end{itemize}
+which together define the repeating pattern of active/non-active threads; finally, the collective tiling contains
+\filbreak
+\begin{itemize}
+  \item \myKeyA{Intra-Box Exprs:} \lighttt{CollIndexExpr}$^N$
+\end{itemize}
+which defines a bijective mapping between active threads and the integer coordinates within the box (for CUDA, this is a function of \lighttt{threadIdx.x} and \lighttt{blockIdx.x}).
+
+\filbreak
+\mainSub{Parallel Loop Behavior}
+
+I'll describe how a collective tiling assigns physical threads to ``iterations'' of a \lighttt{for j in cuda\_tasks(0, c)} loop, and which are masked out (inactive).
+
+\filbreak
+\mainKey{Invariants:} Let $T$ be the \myKeyA{tile} size of this collective tiling, and $B^P$ the \myKeyA{box} size of the \textit{parent} collective tiling.
+In the non-degenerate case, there is exactly one dimension index that is the \myKeyA{tiled dimension} $d$, where $T_d \ne B^P_d$.
+The tile count is $c$ (loop iteration count), with $c \le B^P_d / T_d$.
+In the degenerate case, $T = B^P$, and $c = 0$ or $c = 1$.
+
+\filbreak
+Further, let $B$ and $O$ be the \myKeyA{box} and \myKeyA{offset} of this collective tiling.\\
+For all dimensions $x$, $0 < B_x \le B_x + O_x \le T_x$.
+
+\filbreak
+(Assume for now that \minorKey{domain completion} was done, so the dimensionality of $T$, $B$, $O$, $B^P$ match).
+
+\filbreak
+\mainKey{Tiling Pattern:} Let $I^P$ be the intra-box exprs of threads in the parent box.
+Then the tile index of a thread is $j = \lfloor I^P_d / T_d \rfloor$ ($j = 0$ for the degenerate case).
+Threads, if not disabled by the rules below, are assigned to execute iteration $i$.
+
+\filbreak
+\mainKey{Specialization:} The box $B$ and offset $O$ together define the subset of threads that are active in each tile.
+We define the intra-box exprs of this collective tiling $I$ from that of the parent collective tiling $I^P$ as
+\begin{itemize}
+  \item $I_x = I^P_x - O_x$ for $x \ne d$ (all coordinates in degenerate case).
+  \item $I_d = I^P_d~\%~T_d - O_d$
+\end{itemize}
+If, for any dimension $x$, $I_x < 0$ or $I_x \ge B_x$, then the thread with that intra-box expr is disabled
+\textbf{(figure \ref{fig:cta_tiling})}.
+
+\filbreak
+\mainKey{Excess Threads:} Threads with $j \ge c$ are disabled \textbf{(figure \ref{fig:warp_tiling})}.
+
+\begin{figure*}[!b]
+\sffamily
+\begin{tikzpicture}[node distance=2mm]
+\node(t00L) [colltiling] {$I^P$=0,0\\$I$=0,\redBox{-64}\\$j$=0};
+\node(t00R) [colltiling, right=of t00L, xshift=4mm] {$I^P$=0,31\\$I$=0,\redBox{-33}\\$j$=0};
+\draw [dotted] (t00L) -- (t00R);
+\node(t01L) [colltiling, right=of t00R] {$I^P$=0,32\\$I$=0,\redBox{-32}\\$j$=0};
+\node(t01R) [colltiling, right=of t01L, xshift=4mm] {$I^P$=0,63\\$I$=0,\redBox{-1}\\$j$=0};
+\draw [dotted] (t01L) -- (t01R);
+\node(t02L) [yellowcolltiling, right=of t01R] {$I^P$=0,64\\$I$=0,0\\$j$=0};
+\node(t02R) [yellowcolltiling, right=of t02L, xshift=4mm] {$I^P$=0,95\\$I$=0,31\\$j$=0};
+\draw [dotted] (t02L) -- (t02R);
+\node(t03L) [colltiling, right=of t02R] {$I^P$=0,96\\$I$=0,\redBox{32}\\$j$=0};
+\node(t03R) [colltiling, right=of t03L, xshift=4mm] {$I^P$=0,127\\$I$=0,\redBox{63}\\$j$=0};
+\draw [dotted] (t03L) -- (t03R);
+
+\node(t10L) [colltiling, below=of t00L] {$I^P$=1,0\\$I$=0,\redBox{-64}\\$j$=1};
+\node(t10R) [colltiling, right=of t10L, xshift=4mm] {$I^P$=1,31\\$I$=0,\redBox{-33}\\$j$=1};
+\draw [dotted] (t10L) -- (t10R);
+\node(t11L) [colltiling, right=of t10R] {$I^P$=1,32\\$I$=0,\redBox{-32}\\$j$=1};
+\node(t11R) [colltiling, right=of t11L, xshift=4mm] {$I^P$=1,63\\$I$=0,\redBox{-1}\\$j$=1};
+\draw [dotted] (t11L) -- (t11R);
+\node(t12L) [greencolltiling, right=of t11R] {$I^P$=1,64\\$I$=0,0\\$j$=1};
+\node(t12R) [greencolltiling, right=of t12L, xshift=4mm] {$I^P$=1,95\\$I$=0,31\\$j$=1};
+\draw [dotted] (t12L) -- (t12R);
+\node(t13L) [colltiling, right=of t12R] {$I^P$=1,96\\$I$=0,\redBox{32}\\$j$=1};
+\node(t13R) [colltiling, right=of t13L, xshift=4mm] {$I^P$=1,127\\$I$=0,\redBox{63}\\$j$=1};
+\draw [dotted] (t13L) -- (t13R);
+
+\node(t20L) [colltiling, below=of t10L] {$I^P$=2,0\\$I$=0,\redBox{-64}\\$j$=2};
+\node(t20R) [colltiling, right=of t20L, xshift=4mm] {$I^P$=2,31\\$I$=0,\redBox{-33}\\$j$=2};
+\draw [dotted] (t20L) -- (t20R);
+\node(t21L) [colltiling, right=of t20R] {$I^P$=2,32\\$I$=0,\redBox{-32}\\$j$=2};
+\node(t21R) [colltiling, right=of t21L, xshift=4mm] {$I^P$=2,63\\$I$=0,\redBox{-1}\\$j$=2};
+\draw [dotted] (t21L) -- (t21R);
+\node(t22L) [yellowcolltiling, right=of t21R] {$I^P$=2,64\\$I$=0,0\\$j$=2};
+\node(t22R) [yellowcolltiling, right=of t22L, xshift=4mm] {$I^P$=2,95\\$I$=0,31\\$j$=2};
+\draw [dotted] (t22L) -- (t22R);
+\node(t23L) [colltiling, right=of t22R] {$I^P$=2,96\\$I$=0,\redBox{32}\\$j$=2};
+\node(t23R) [colltiling, right=of t23L, xshift=4mm] {$I^P$=2,127\\$I$=0,\redBox{63}\\$j$=2};
+\draw [dotted] (t23L) -- (t23R);
+
+\node(t30L) [colltiling, below=of t20L] {$I^P$=3,0\\$I$=0,\redBox{-64}\\$j$=3};
+\node(t30R) [colltiling, right=of t30L, xshift=4mm] {$I^P$=3,31\\$I$=0,\redBox{-33}\\$j$=3};
+\draw [dotted] (t30L) -- (t30R);
+\node(t31L) [colltiling, right=of t30R] {$I^P$=3,32\\$I$=0,\redBox{-32}\\$j$=3};
+\node(t31R) [colltiling, right=of t31L, xshift=4mm] {$I^P$=3,63\\$I$=0,\redBox{-1}\\$j$=3};
+\draw [dotted] (t31L) -- (t31R);
+\node(t32L) [greencolltiling, right=of t31R] {$I^P$=3,64\\$I$=0,0\\$j$=3};
+\node(t32R) [greencolltiling, right=of t32L, xshift=4mm] {$I^P$=3,95\\$I$=0,31\\$j$=3};
+\draw [dotted] (t32L) -- (t32R);
+\node(t33L) [colltiling, right=of t32R] {$I^P$=3,96\\$I$=0,\redBox{32}\\$j$=3};
+\node(t33R) [colltiling, right=of t33L, xshift=4mm] {$I^P$=3,127\\$I$=0,\redBox{63}\\$j$=3};
+\draw [dotted] (t33L) -- (t33R);
+
+\node(legend) [smallnode, text width=15cm, draw=none, above=of t01R] {\texttt{for j in cuda\_threads(0, 4, unit=cuda\_cta): with CudaWarps(2, 3):}};
+\end{tikzpicture}
+\caption{Example collective tiling: With the parent box being $B^P=(4, 128)$, we tile along the CTA dimension ($d = 0$), and specialize so only warp 2 of 4 is active. We have $T = (1, 128)$, $B = (1, 32)$ (one warp), and $O = (0, 64)$.
+$I = (I^P_0~\%~1, I^P_1 - 64)$, $j = I^P_0$, and we deactivate threads that don't satisfy $0 \le I_1 < 32$ (shown in \redBox{pink/red}).
+}
+\label{fig:cta_tiling}
+\end{figure*}
+
+\begin{figure*}[!b]
+\sffamily
+\begin{tikzpicture}[node distance=2mm]
+\node(t00L) [yellowcolltiling] {$I^P$=0,0\\$I$=0,0\\$j$=0};
+\node(t00R) [yellowcolltiling, right=of t00L, xshift=4mm] {$I^P$=0,31\\$I$=0,31\\$j$=0};
+\draw [dotted] (t00L) -- (t00R);
+\node(t01L) [greencolltiling, right=of t00R] {$I^P$=0,32\\$I$=0,0\\$j$=1};
+\node(t01R) [greencolltiling, right=of t01L, xshift=4mm] {$I^P$=0,63\\$I$=0,31\\$j$=1};
+\draw [dotted] (t01L) -- (t01R);
+\node(t02L) [colltiling, right=of t01R] {$I^P$=0,64\\$I$=0,0\\\redBox{$j$=2}};
+\node(t02R) [colltiling, right=of t02L, xshift=4mm] {$I^P$=0,95\\$I$=0,31\\\redBox{$j$=2}};
+\draw [dotted] (t02L) -- (t02R);
+\node(t03L) [colltiling, right=of t02R] {$I^P$=0,96\\$I$=0,0\\\redBox{$j$=3}};
+\node(t03R) [colltiling, right=of t03L, xshift=4mm] {$I^P$=0,127\\$I$=0,31\\\redBox{$j$=3}};
+\draw [dotted] (t03L) -- (t03R);
+
+\node(t10L) [yellowcolltiling, below=of t00L] {$I^P$=1,0\\$I$=1,0\\$j$=0};
+\node(t10R) [yellowcolltiling, right=of t10L, xshift=4mm] {$I^P$=1,31\\$I$=1,31\\$j$=0};
+\draw [dotted] (t10L) -- (t10R);
+\node(t11L) [greencolltiling, right=of t10R] {$I^P$=1,32\\$I$=1,0\\$j$=1};
+\node(t11R) [greencolltiling, right=of t11L, xshift=4mm] {$I^P$=1,63\\$I$=1,31\\$j$=1};
+\draw [dotted] (t11L) -- (t11R);
+\node(t12L) [colltiling, right=of t11R] {$I^P$=1,64\\$I$=1,0\\\redBox{$j$=2}};
+\node(t12R) [colltiling, right=of t12L, xshift=4mm] {$I^P$=1,95\\$I$=1,31\\\redBox{$j$=2}};
+\draw [dotted] (t12L) -- (t12R);
+\node(t13L) [colltiling, right=of t12R] {$I^P$=1,96\\$I$=1,0\\\redBox{$j$=3}};
+\node(t13R) [colltiling, right=of t13L, xshift=4mm] {$I^P$=1,127\\$I$=1,31\\\redBox{$j$=3}};
+\draw [dotted] (t13L) -- (t13R);
+
+\node(t20L) [yellowcolltiling, below=of t10L] {$I^P$=2,0\\$I$=2,0\\$j$=0};
+\node(t20R) [yellowcolltiling, right=of t20L, xshift=4mm] {$I^P$=2,31\\$I$=2,31\\$j$=0};
+\draw [dotted] (t20L) -- (t20R);
+\node(t21L) [greencolltiling, right=of t20R] {$I^P$=2,32\\$I$=2,0\\$j$=1};
+\node(t21R) [greencolltiling, right=of t21L, xshift=4mm] {$I^P$=2,63\\$I$=2,31\\$j$=1};
+\draw [dotted] (t21L) -- (t21R);
+\node(t22L) [colltiling, right=of t21R] {$I^P$=2,64\\$I$=2,0\\\redBox{$j$=2}};
+\node(t22R) [colltiling, right=of t22L, xshift=4mm] {$I^P$=2,95\\$I$=2,31\\\redBox{$j$=2}};
+\draw [dotted] (t22L) -- (t22R);
+\node(t23L) [colltiling, right=of t22R] {$I^P$=2,96\\$I$=2,0\\\redBox{$j$=3}};
+\node(t23R) [colltiling, right=of t23L, xshift=4mm] {$I^P$=2,127\\$I$=2,31\\\redBox{$j$=3}};
+\draw [dotted] (t23L) -- (t23R);
+
+\node(t30L) [yellowcolltiling, below=of t20L] {$I^P$=3,0\\$I$=3,0\\$j$=0};
+\node(t30R) [yellowcolltiling, right=of t30L, xshift=4mm] {$I^P$=3,31\\$I$=3,31\\$j$=0};
+\draw [dotted] (t30L) -- (t30R);
+\node(t31L) [greencolltiling, right=of t30R] {$I^P$=3,32\\$I$=3,0\\$j$=1};
+\node(t31R) [greencolltiling, right=of t31L, xshift=4mm] {$I^P$=3,63\\$I$=3,31\\$j$=1};
+\draw [dotted] (t31L) -- (t31R);
+\node(t32L) [colltiling, right=of t31R] {$I^P$=3,64\\$I$=3,0\\\redBox{$j$=2}};
+\node(t32R) [colltiling, right=of t32L, xshift=4mm] {$I^P$=3,95\\$I$=3,31\\\redBox{$j$=2}};
+\draw [dotted] (t32L) -- (t32R);
+\node(t33L) [colltiling, right=of t32R] {$I^P$=3,96\\$I$=3,0\\\redBox{$j$=3}};
+\node(t33R) [colltiling, right=of t33L, xshift=4mm] {$I^P$=3,127\\$I$=3,31\\\redBox{$j$=3}};
+\draw [dotted] (t33L) -- (t33R);
+
+\node(legend) [smallnode, text width=15cm, draw=none, above=of t01R] {\texttt{for j in cuda\_threads(0, 2, unit=cuda\_warp):}};
+\end{tikzpicture}
+\caption{Example collective tiling: With the parent box being $B^P=(4, 128)$, we tile along the threads dimension ($d = 1$) in units of 32 threads (1 warp). Only 2 of 4 warps are used due to the loop bounds \lighttt{(0, 2)}.
+We have $T = (4, 32)$, $B = (4, 32)$ (one warp per CTA), and $O = (0, 0)$.
+$I = (I^P_0, I^P_1~\%~32)$, $j = \lfloor I^P_1 / 32 \rfloor$, and we deactivate threads that don't satisfy $j < c = 2$ (shown in \redBox{pink/red}).
+The resulting collective unit is a group of 4 warps cooperating along the CTA-in-cluster dimension.
+}
+\label{fig:warp_tiling}
+\end{figure*}
+
+\filbreak
+\minorSub{Collective Tiling Domain Completion}
+
+The domain and box are completed the same as a collective unit, except we don't have to handle the partial prepend step, as the domain is always complete.
+The tile is completed in the same way as the box.
+The offset and intra-box expr are completed differently.
+
+\filbreak
+\minorKey{Offset Coordinate Removal:} All removed offset coordinate values must be 0.
+
+\filbreak
+\minorKey{Offset Coordinate Splitting:} Recall $f$ is the splitting factor. An integer value $c$ splits into $(\frac{c}{f}, 0)$, and fails if $c$ is not a multiple of $f$.
+
+\filbreak
+\minorKey{Intra-box Expr Coordinate Removal}: All removed coordinate values must be 0.
+
+\filbreak
+\minorKey{Intra-box Expr Coordinate Splitting}: Each coordinate $e$ of the expression splits into $(\frac{e}{f}, e~\%f)$.
 
 \end{document}
