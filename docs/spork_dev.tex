@@ -405,7 +405,7 @@ Parallelizing blocks on $C$ tiles requires reductions between thread blocks.
 
 \node(c10) [smallnode, below=of c00, fill=redBoxBg, draw=redBoxFg, text=redBoxFg] {$C_{1,0}$};
 \node(c11) [smallnode, below=of c01, fill=redBoxBg, draw=redBoxFg, text=redBoxFg] {$C_{1,1}$};
-\node(c12) [smallnode, below=of c02, fill=violetBoxBg, draw=violet, text=violet] {$C_{1,2}$};  % cheating at my color scheme a bit
+\node(c12) [smallnode, below=of c02, fill=violetBoxBg, draw=violetBoxFg, text=violetBoxFg] {$C_{1,2}$};
 \node(c1N) [smallnode, below=of c0N, fill=redBoxBg, draw=redBoxFg, text=redBoxFg] {$C_{1,no-1}$};
 
 \node(cM0) [smallnode, below=of c10, yshift=-4mm] {$C_{mo-1,0}$};
@@ -1629,6 +1629,7 @@ With \greenBox{TMA} predication, we want to fission the inner loop (\texttt{ii})
 for io in cuda_tasks(0, ...):
 \end{verbatim}
 \begin{mdframed}[style=MyFrame, backgroundcolor=greenBoxBg]
+\color{greenBoxFg}
 \begin{verbatim}
     for ii in seq(0, TileSize):
         if <boundscheck>:  # boundscheck
