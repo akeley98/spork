@@ -92,7 +92,7 @@ def xgemm_Sm80_fence(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B:
                     # Sm80_generic actor kind = (cuda_classic | Sm80_cp_async)
                     # Fence(Sm80_generic, Sm80_generic)
                     for tid in cuda_threads(0, 256):
-                        cg : cuda_commit_group
+                        cg : barrier @ CudaCommitGroup
                         Arrive(Sm80_cp_async, cg, 1)
                         Await(cg, cuda_classic, 0)
                         # Fence(Sm80_generic, Sm80_generic)
@@ -126,7 +126,7 @@ def xgemm_Sm80_mbarrier(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear,
         for m2 in cuda_tasks(0, M / M1):
             for n2 in cuda_tasks(0, N / N1):
                 # Per CTA code
-                ringbar: cuda_mbarrier
+                ringbar: barrier @ CudaMbarrier
 
                 # Tiles (double buffered)
                 A_smem : f32[RING, M1, K0] @ CudaSmemLinear
@@ -228,7 +228,7 @@ def xgemm_Sm80_split(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B:
         for m2 in cuda_tasks(0, M / M1):
             for n2 in cuda_tasks(0, N / N1):
                 # Per CTA code
-                ringbar: cuda_mbarrier
+                ringbar: barrier @ CudaMbarrier
 
                 # Tiles (double buffered)
                 A_smem : f32[RING, M1, K0] @ CudaSmemLinear

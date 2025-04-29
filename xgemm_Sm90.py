@@ -27,7 +27,7 @@ def xgemm_Sm90_wgmma(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B:
     with CudaDeviceFunction(blockDim = 384, blocks_per_sm = 1):
         for m_task in cuda_tasks(0, M / smem_m):
             for n_task in cuda_tasks(0, N / smem_n):
-                ringbar : cuda_mbarrier
+                ringbar : barrier @ CudaMbarrier
                 D_rmem : f32[2, wg_m / 64, 64, wg_n] @ Sm90_RmemMatrixD
                 A_smem : f32[ring, smem_m / 8, 8, smem_k] @ Sm90_SmemSwizzled(128)
                 B_smem : f32[ring, smem_n / 8, 8, smem_k] @ Sm90_SmemSwizzled(128)
@@ -56,7 +56,7 @@ def xgemm_Sm90_wgmma(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B:
                         # Producer warpgroups
                         Await(ringbar, wgmma_async, ~0)
                         for wg in cuda_threads(0, 2, unit=cuda_warpgroup):
-                            cg : cuda_commit_group  # XXX not as good as native
+                            cg : barrier @ CudaCommitGroup  # XXX not as good as native
                             with CudaAsync(wgmma_async):
                                 Fence(wgmma_fence_1, wgmma_fence_2)
                                 for k_mma in seq(0, smem_k / wg_k):
