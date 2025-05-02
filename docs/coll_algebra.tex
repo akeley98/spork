@@ -300,7 +300,7 @@ For all dimensions $x$, $0 < B_x \le B_x + O_x \le T_x$.
 \filbreak
 \mainKey{Tiling Pattern:} Let $I^P$ be the intra-box exprs of threads in the parent box.
 Then the tile index of a thread is $j = \lfloor I^P_d / T_d \rfloor$ ($j = 0$ for the degenerate case).
-Threads, if not disabled by the rules below, are assigned to execute iteration $i$.
+Threads, if not disabled by the rules below, are assigned to execute iteration $j$.
 
 \filbreak
 \mainKey{Specialization:} The box $B$ and offset $O$ together define the subset of threads that are active in each tile.
