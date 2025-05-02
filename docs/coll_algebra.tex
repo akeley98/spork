@@ -70,7 +70,7 @@ The word ``collective'' is too long, and if we don't create an official abbrevia
 The first thing we'll do is arrange the threads of the top-level collective into an N-dimensional ``domain grid''.
 The \myKeyA{full domain} describes the size along each dimension of this grid.
 For a CUDA cluster, this is (\lighttt{clusterDim}, \lighttt{blockDim}).
-This could generalize to non-CUDA APIs, but there's a built-in assumption that the left-most dimension is the ``most significant''.
+This could generalize to non-CUDA APIs, but there's a built-in assumption that the left-most dimension is the ``most significant'', so we \myKeyA{linearize} thread indices in lexicographical order.
 
 A domain must consist only of positive integers, and \textit{should} contain only values at least 2.
 However, 1 values may result when substituting parameters (as would occur in the common case that \lighttt{clusterDim = 1}).
@@ -316,6 +316,11 @@ If, for any dimension $x$, $I_x < 0$ or $I_x \ge B_x$, then the thread with that
 \mainKey{Excess Threads:} Threads with $j \ge c$ are disabled \textbf{(figure \ref{fig:warp_tiling})}.
 Note this is inevitable if $T_d$ does not evenly divide $B^P_d$ (not shown in figure).
 
+\filbreak
+\mainKey{Thread Pitch:} This is the offset, in number of (linearized) threads, between the 0th thread of a thread collective and the 0th thread of the adjacent thread collective in a tiling.
+For degenerate tilings, or tilings with no more than 1 tile, this is defined to be 0.
+Otherwise, this is $T_d \times D_{d+1} \times ... \times D_{N-1}$
+
 \begin{figure*}[!b]
 \sffamily
 \begin{tikzpicture}[node distance=2mm]
@@ -325,7 +330,7 @@ Note this is inevitable if $T_d$ does not evenly divide $B^P_d$ (not shown in fi
 \node(t01L) [colltiling, right=of t00R] {$I^P$=0,32\\$I$=0,\redBox{-32}\\$j$=0};
 \node(t01R) [colltiling, right=of t01L, xshift=4mm] {$I^P$=0,63\\$I$=0,\redBox{-1}\\$j$=0};
 \draw [dotted] (t01L) -- (t01R);
-\node(t02L) [yellowcolltiling, right=of t01R] {$I^P$=0,64\\$I$=0,0\\$j$=0};
+\node(t02L) [yellowcolltiling, right=of t01R] {$I^P$=\blueBox{0,64}\\$I$=0,0\\$j$=0};
 \node(t02R) [yellowcolltiling, right=of t02L, xshift=4mm] {$I^P$=0,95\\$I$=0,31\\$j$=0};
 \draw [dotted] (t02L) -- (t02R);
 \node(t03L) [colltiling, right=of t02R] {$I^P$=0,96\\$I$=0,\redBox{32}\\$j$=0};
@@ -338,7 +343,7 @@ Note this is inevitable if $T_d$ does not evenly divide $B^P_d$ (not shown in fi
 \node(t11L) [colltiling, right=of t10R] {$I^P$=1,32\\$I$=0,\redBox{-32}\\$j$=1};
 \node(t11R) [colltiling, right=of t11L, xshift=4mm] {$I^P$=1,63\\$I$=0,\redBox{-1}\\$j$=1};
 \draw [dotted] (t11L) -- (t11R);
-\node(t12L) [greencolltiling, right=of t11R] {$I^P$=1,64\\$I$=0,0\\$j$=1};
+\node(t12L) [greencolltiling, right=of t11R] {$I^P$=\blueBox{1,64}\\$I$=0,0\\$j$=1};
 \node(t12R) [greencolltiling, right=of t12L, xshift=4mm] {$I^P$=1,95\\$I$=0,31\\$j$=1};
 \draw [dotted] (t12L) -- (t12R);
 \node(t13L) [colltiling, right=of t12R] {$I^P$=1,96\\$I$=0,\redBox{32}\\$j$=1};
@@ -375,6 +380,7 @@ Note this is inevitable if $T_d$ does not evenly divide $B^P_d$ (not shown in fi
 \end{tikzpicture}
 \caption{Example collective tiling: With the parent box being $B^P=(4, 128)$, we tile along the CTA dimension ($d = 0$), and specialize so only warp 2 of 4 is active. We have $T = (1, 128)$, $B = (1, 32)$ (one warp), and $O = (0, 64)$.
 $I = (I^P_0~\%~1, I^P_1 - 64)$, $j = I^P_0$, and we deactivate threads that don't satisfy $0 \le I_1 < 32$ (shown in \redBox{pink/red}).
+The \blueBox{thread pitch} is $T_0 D_1 = 128$.
 }
 \label{fig:cta_tiling}
 \end{figure*}
@@ -382,10 +388,10 @@ $I = (I^P_0~\%~1, I^P_1 - 64)$, $j = I^P_0$, and we deactivate threads that don'
 \begin{figure*}[!b]
 \sffamily
 \begin{tikzpicture}[node distance=2mm]
-\node(t00L) [yellowcolltiling] {$I^P$=0,0\\$I$=0,0\\$j$=0};
+\node(t00L) [yellowcolltiling] {$I^P$=\blueBox{0,0}\\$I$=0,0\\$j$=0};
 \node(t00R) [yellowcolltiling, right=of t00L, xshift=4mm] {$I^P$=0,31\\$I$=0,31\\$j$=0};
 \draw [dotted] (t00L) -- (t00R);
-\node(t01L) [greencolltiling, right=of t00R] {$I^P$=0,32\\$I$=0,0\\$j$=1};
+\node(t01L) [greencolltiling, right=of t00R] {$I^P$=\blueBox{0,32}\\$I$=0,0\\$j$=1};
 \node(t01R) [greencolltiling, right=of t01L, xshift=4mm] {$I^P$=0,63\\$I$=0,31\\$j$=1};
 \draw [dotted] (t01L) -- (t01R);
 \node(t02L) [colltiling, right=of t01R] {$I^P$=0,64\\$I$=0,0\\\redBox{$j$=2}};
@@ -440,6 +446,7 @@ $I = (I^P_0~\%~1, I^P_1 - 64)$, $j = I^P_0$, and we deactivate threads that don'
 We have $T = (4, 32)$, $B = (4, 32)$ (one warp per CTA), and $O = (0, 0)$.
 $I = (I^P_0, I^P_1~\%~32)$, $j = \lfloor I^P_1 / 32 \rfloor$, and we deactivate threads that don't satisfy $j < c = 2$ (shown in \redBox{pink/red}).
 The resulting collective unit is a group of 4 warps cooperating along the CTA-in-cluster dimension.
+The \blueBox{thread pitch} is $T_1 = 32$.
 }
 \label{fig:warp_tiling}
 \end{figure*}
