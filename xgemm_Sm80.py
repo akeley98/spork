@@ -91,10 +91,11 @@ def xgemm_Sm80_fence(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B:
 
                     # Sm80_generic actor kind = (cuda_classic | Sm80_cp_async)
                     # Fence(Sm80_generic, Sm80_generic)
-                    for tid in cuda_threads(0, 256):
+                    for w in cuda_threads(0, 8, unit=cuda_warp):
                         cg : barrier @ CudaCommitGroup
-                        Arrive(Sm80_cp_async, cg, 1)
-                        Await(cg, cuda_classic, 0)
+                        for tid in cuda_threads(0, 32):
+                            Arrive(Sm80_cp_async, cg[tid], 1)
+                            Await(cg[tid], cuda_classic, 0)
                         # Fence(Sm80_generic, Sm80_generic)
                     Fence(cuda_classic, Sm80_generic)
 
