@@ -69,7 +69,7 @@ The word ``collective'' is too long, and if we don't create an official abbrevia
 
 The first thing we'll do is arrange the threads of the top-level collective into an N-dimensional ``domain grid''.
 The \myKeyA{full domain} describes the size along each dimension of this grid.
-For a CUDA cluster, this is (\lighttt{clusterDim}, \lighttt{blockDim}).
+For a CUDA cluster, this is $D = (\lighttt{clusterDim}, \lighttt{blockDim})$.
 This could generalize to non-CUDA APIs, but there's a built-in assumption that the left-most dimension is the ``most significant'', so we \myKeyA{linearize} thread indices in lexicographical order.
 
 A domain must consist only of positive integers, and \textit{should} contain only values at least 2.
@@ -319,7 +319,7 @@ Note this is inevitable if $T_d$ does not evenly divide $B^P_d$ (not shown in fi
 \filbreak
 \mainKey{Thread Pitch:} This is the offset, in number of (linearized) threads, between the 0th thread of a thread collective and the 0th thread of the adjacent thread collective in a tiling.
 For degenerate tilings, or tilings with no more than 1 tile, this is defined to be 0.
-Otherwise, this is $T_d \times D_{d+1} \times ... \times D_{N-1}$
+Otherwise, this is $T_d \times D_{d+1} \times ... \times D_{N-1}$ where $D$ is the domain.
 
 \begin{figure*}[!b]
 \sffamily
@@ -380,7 +380,7 @@ Otherwise, this is $T_d \times D_{d+1} \times ... \times D_{N-1}$
 \end{tikzpicture}
 \caption{Example collective tiling: With the parent box being $B^P=(4, 128)$, we tile along the CTA dimension ($d = 0$), and specialize so only warp 2 of 4 is active. We have $T = (1, 128)$, $B = (1, 32)$ (one warp), and $O = (0, 64)$.
 $I = (I^P_0~\%~1, I^P_1 - 64)$, $j = I^P_0$, and we deactivate threads that don't satisfy $0 \le I_1 < 32$ (shown in \redBox{pink/red}).
-The \blueBox{thread pitch} is $T_0 D_1 = 128$.
+The \blueBox{thread pitch} is $T_0 D_1 = \mathit{blockDim}$.
 }
 \label{fig:cta_tiling}
 \end{figure*}
