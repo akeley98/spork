@@ -7,10 +7,10 @@ from exo.platforms.Sm80 import *
 from exo.platforms.Sm90 import *
 
 smem_m = 256
-smem_n = 128
+smem_n = 96
 smem_k = 32
 wg_m = 128
-wg_n = 128
+wg_n = 96
 wg_k = 8
 ring = 4
 
@@ -66,10 +66,15 @@ def xgemm_Sm90_wgmma(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B:
                                             A_smem[k_iter % ring,wg*16+m_mma*8:wg*16+m_mma*8+8,:,k_mma*8:k_mma*8+8],
                                             B_smem[k_iter % ring,:,:,k_mma*8:k_mma*8+8], n=wg_n)
                                 Arrive(wgmma_async, cg[wg], 1)
-                            Await(cg[wg], cuda_classic, 0)
-                            #     Arrive(wgmma_async, cg, 1)
-                            # Await(cg, cuda_classic, 0)
-                        ReverseArrive(cuda_classic, ringbar, 1)
+                            if k_iter >= 1:
+                                Await(cg[wg], cuda_classic, 1)
+                        if k_iter >= 1:
+                            ReverseArrive(cuda_classic, ringbar, 1)
+
+                with CudaWarps(0, 8):
+                    for wg in cuda_threads(0, 2, unit=cuda_warpgroup):
+                        Await(cg[wg], cuda_classic, 0)
+                    ReverseArrive(cuda_classic, ringbar, ~0)
 
                 with CudaWarps(0, 8):
                     for wg in cuda_threads(0, 2, unit=cuda_warpgroup):
