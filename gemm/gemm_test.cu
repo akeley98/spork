@@ -305,7 +305,7 @@ void gemm_test(TestParams params, cudaStream_t stream)
             }
             else if (algo == AlgorithmCode::exo_tmp_test) {
                 assert(stream == 0);
-                gemm_ring(nullptr, int(params.N), int(params.M), int(params.K), d_bCol, d_a, d_c_tested);
+                gemm_tma(nullptr, int(params.N), int(params.M), int(params.K), d_bCol, d_a, d_c_tested);
             }
             else if (algo == AlgorithmCode::exo_sm_90) {
                 assert(stream == 0);

@@ -23,7 +23,6 @@ int main()
 
         params.algorithm_code_bits = 0;
         params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::cublas);
-        params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::exo_tmp_test);
         if (is_h100) {
             params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::cutlass);
             params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::mine_output_stationary);
@@ -46,6 +45,7 @@ int main()
             params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::exo_sm_80_fence);
             params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::exo_sm_80_mbarrier);
             if (is_h100) {
+                params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::exo_tmp_test);
                 params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::exo_sm_90);
                 params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::edited_exo_sm_90);
             }
