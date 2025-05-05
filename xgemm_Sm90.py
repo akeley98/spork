@@ -57,7 +57,6 @@ def xgemm_Sm90_wgmma(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B:
                         # Producer warpgroups
                         Await(ringbar, wgmma_async, ~0)
                         for wg in cuda_threads(0, 2, unit=cuda_warpgroup):
-                            # cg : barrier @ CudaCommitGroup  # XXX not as good as native
                             with CudaAsync(wgmma_async):
                                 Fence(wgmma_fence_1, wgmma_fence_2)
                                 for k_mma in seq(0, smem_k / wg_k):
