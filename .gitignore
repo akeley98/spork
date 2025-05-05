@@ -12,12 +12,14 @@ compile_commands.json
 *.aux
 docs/spork_2024.pdf
 docs/spork_dev.pdf
+docs/spork_gemm.pdf
 docs/spork.pdf
 docs/SpecialWindow.pdf
 docs/spork_mini.pdf
 docs/coll_algebra.pdf
 docs/wgmma_dirty_laundry.pdf
 docs/spork_pre_h100.pdf
+docs/gemms_tex
 gemm/gemm
 attn
 libattn.so
