@@ -42,7 +42,7 @@ def xgemm_Sm90_wgmma(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B:
                     with CudaWarps(8, 9):
                         # TMA producer warp
                         with CudaAsync(tma_to_smem_async):
-                            ReverseAwait(ringbar, tma_to_smem_async, ~ring)
+                            ReverseAwait(ringbar, cuda_temporal, ~ring)
                             Sm90_copy_tensor_to_smem_swizzled_2f32(
                                 A_smem[k_iter % ring,:,:,:],
                                 A_tensorMap[m_task * smem_m:(m_task+1)* smem_m, k_iter * smem_k:(k_iter+1) * smem_k],
