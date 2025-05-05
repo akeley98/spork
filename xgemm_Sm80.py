@@ -323,3 +323,148 @@ def xgemm_Sm80_split(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B:
                 Fence(cuda_classic, cuda_classic)
 
 xgemm_Sm80_split = simplify(xgemm_Sm80_split)
+
+
+# Gemms for presentation
+
+@proc
+def gemm_one_per_thread(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B: f32[N,K] @ CudaGmemLinear, C: f32[N,M] @ CudaGmemLinear):
+    with CudaDeviceFunction(blockDim=256):
+        for m2 in cuda_tasks(0, M / 16):
+            for n2 in cuda_tasks(0, N / 16):
+                for m1 in cuda_threads(0, 16, unit=16 * cuda_thread):
+                    for n1 in cuda_threads(0, 16, unit=cuda_thread):
+                        accum: f32 @ CudaRmem
+                        accum = 0
+                        for k in seq(0, K):
+                            accum += A[m2*16 + m1, k] * B[n2*16 + n1, k]
+                        C[n2*16 + n1, m2*16 + m1] = accum
+
+@proc
+def gemm_tile_per_thread(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B: f32[N,K] @ CudaGmemLinear, C: f32[N,M] @ CudaGmemLinear):
+    with CudaDeviceFunction(blockDim=256):
+        for m2 in cuda_tasks(0, M / 128):
+            for n2 in cuda_tasks(0, N / 256):
+                for m1 in cuda_threads(0, 16, unit=16 * cuda_thread):
+                    for n1 in cuda_threads(0, 16, unit=cuda_thread):
+                        accum: f32[8, 16] @ CudaRmem
+                        for m0 in seq(0, 8):
+                            for n0 in seq(0, 16):
+                                accum[m0, n0] = 0
+                        for k in seq(0, K):
+                            for m0 in seq(0, 8):
+                                for n0 in seq(0, 16):
+                                    accum[m0, n0] += A[m2*128 + m1*8 + m0, k] * B[n2*256 + n1*16 + n0, k]
+                        for m0 in seq(0, 8):
+                            for n0 in seq(0, 16):
+                                C[n2*256 + n1*16 + n0, m2*128 + m1*8 + m0] = accum[m0, n0]
+
+@proc
+def gemm_tile_per_cta(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B: f32[N,K] @ CudaGmemLinear, C: f32[N,M] @ CudaGmemLinear):
+    with CudaDeviceFunction(blockDim=256):
+        for m2 in cuda_tasks(0, M / 128):
+            for n2 in cuda_tasks(0, N / 256):
+                accum: f32[16, 16, 8, 16] @ CudaRmem
+                for m1 in cuda_threads(0, 16, unit=16 * cuda_thread):
+                    for n1 in cuda_threads(0, 16, unit=cuda_thread):
+                        for m0 in seq(0, 8):
+                            for n0 in seq(0, 16):
+                                accum[m1, n1, m0, n0] = 0
+                        for k in seq(0, K):
+                            for m0 in seq(0, 8):
+                                for n0 in seq(0, 16):
+                                    accum[m1, n1, m0, n0] += A[m2*128 + m1*8 + m0, k] * B[n2*256 + n1*16 + n0, k]
+                        for m0 in seq(0, 8):
+                            for n0 in seq(0, 16):
+                                C[n2*256 + n1*16 + n0, m2*128 + m1*8 + m0] = accum[m1, n1, m0, n0]
+
+
+@proc
+def gemm_simple_smem(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B: f32[N,K] @ CudaGmemLinear, C: f32[N,M] @ CudaGmemLinear):
+    with CudaDeviceFunction(blockDim=256):
+        for m2 in cuda_tasks(0, M / 128):
+            for n2 in cuda_tasks(0, N / 256):
+                A_smem: f32[128, 32] @ CudaSmemLinear
+                B_smem: f32[256, 32] @ CudaSmemLinear
+                accum: f32[16, 16, 8, 16] @ CudaRmem
+
+                for m1 in cuda_threads(0, 16, unit=16 * cuda_thread):
+                    for n1 in cuda_threads(0, 16, unit=cuda_thread):
+                        for m0 in seq(0, 8):
+                            for n0 in seq(0, 16):
+                                accum[m1, n1, m0, n0] = 0
+
+                for k1 in seq(0, K / 32):
+                    for m1 in seq(0, 16):
+                        for m0 in cuda_threads(0, 8, unit=32*cuda_thread):
+                            for k0 in cuda_threads(0, 32):
+                                A_smem[m1*8 + m0, k0] = A[m2*128 + m1*8 + m0, k1*32 + k0]
+                    for n1 in seq(0, 32):
+                        for n0 in cuda_threads(0, 8, unit=32*cuda_thread):
+                            for k0 in cuda_threads(0, 32):
+                                B_smem[n1*8 + n0, k0] = B[n2*256 + n1*8 + n0, k1*32 + k0]
+
+                    Fence(cuda_classic, cuda_classic)
+
+                    for m1 in cuda_threads(0, 16, unit=16 * cuda_thread):
+                        for n1 in cuda_threads(0, 16, unit=cuda_thread):
+                            for k0 in seq(0, 32):
+                                for m0 in seq(0, 8):
+                                    for n0 in seq(0, 16):
+                                        accum[m1, n1, m0, n0] += A_smem[m1*8 + m0, k0] * B_smem[n1*16 + n0, k0]
+
+                    Fence(cuda_classic, cuda_classic)
+
+                for m1 in cuda_threads(0, 16, unit=16 * cuda_thread):
+                    for n1 in cuda_threads(0, 16, unit=cuda_thread):
+                        for m0 in seq(0, 8):
+                            for n0 in seq(0, 16):
+                                C[n2*256 + n1*16 + n0, m2*128 + m1*8 + m0] = accum[m1, n1, m0, n0]
+
+
+RING = 2
+
+@proc
+def gemm_ring(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B: f32[N,K] @ CudaGmemLinear, C: f32[N,M] @ CudaGmemLinear):
+    with CudaDeviceFunction(blockDim=384):
+        for m2 in cuda_tasks(0, M / 128):
+            for n2 in cuda_tasks(0, N / 256):
+                A_smem: f32[RING, 128, 32] @ CudaSmemLinear
+                B_smem: f32[RING, 256, 32] @ CudaSmemLinear
+                accum: f32[16, 16, 8, 16] @ CudaRmem
+                ringbar: barrier @ CudaMbarrier
+
+                for m1 in cuda_threads(0, 16, unit=16 * cuda_thread):
+                    for n1 in cuda_threads(0, 16, unit=cuda_thread):
+                        for m0 in seq(0, 8):
+                            for n0 in seq(0, 16):
+                                accum[m1, n1, m0, n0] = 0
+
+                for k1 in seq(0, K / 32):
+                    with CudaWarps(8, 12):
+                        ReverseAwait(ringbar, cuda_temporal, ~RING)
+                        for m1 in seq(0, 32):
+                            for m0 in cuda_threads(0, 4, unit=32*cuda_thread):
+                                for k0 in cuda_threads(0, 32):
+                                    A_smem[k1%RING, m1*4 + m0, k0] = A[m2*128 + m1*4 + m0, k1*32 + k0]
+                        for n1 in seq(0, 64):
+                            for n0 in cuda_threads(0, 4, unit=32*cuda_thread):
+                                for k0 in cuda_threads(0, 32):
+                                    B_smem[k1%RING, n1*4 + n0, k0] = B[n2*256 + n1*4 + n0, k1*32 + k0]
+                        Arrive(cuda_classic, ringbar, 1)
+
+                    with CudaWarps(0, 8):
+                        Await(ringbar, cuda_classic, ~0)
+                        for m1 in cuda_threads(0, 16, unit=16 * cuda_thread):
+                            for n1 in cuda_threads(0, 16, unit=cuda_thread):
+                                for k0 in seq(0, 32):
+                                    for m0 in seq(0, 8):
+                                        for n0 in seq(0, 16):
+                                            accum[m1, n1, m0, n0] += A_smem[k1%RING, m1*8 + m0, k0] * B_smem[k1%RING, n1*16 + n0, k0]
+                        ReverseArrive(cuda_classic, ringbar, 1)
+
+                for m1 in cuda_threads(0, 16, unit=16 * cuda_thread):
+                    for n1 in cuda_threads(0, 16, unit=cuda_thread):
+                        for m0 in seq(0, 8):
+                            for n0 in seq(0, 16):
+                                C[n2*256 + n1*16 + n0, m2*128 + m1*8 + m0] = accum[m1, n1, m0, n0]

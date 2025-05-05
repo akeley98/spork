@@ -12,6 +12,7 @@ enum class TestDataCode
 
 enum class AlgorithmCode
 {
+    exo_tmp_test,
     cublas,
     cutlass,
     exo_sm_80_fence,
@@ -36,6 +37,8 @@ inline uint32_t algorithm_code_bit(AlgorithmCode code)
 inline const char* algorithm_name(AlgorithmCode code)
 {
     switch (code) {
+      case AlgorithmCode::exo_tmp_test:
+        return "exo_tmp_test";
       case AlgorithmCode::mine_output_stationary:
         return "mine (output stationary)";
       case AlgorithmCode::cublas:

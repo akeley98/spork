@@ -23,6 +23,7 @@ int main()
 
         params.algorithm_code_bits = 0;
         params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::cublas);
+        params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::exo_tmp_test);
         if (is_h100) {
             params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::cutlass);
             params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::mine_output_stationary);
