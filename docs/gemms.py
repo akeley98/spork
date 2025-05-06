@@ -413,3 +413,108 @@ def gemm_broken_smem(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B:
                         for m0 in seq(0, 8):
                             for n0 in seq(0, 16):
                                 C[n2*256 + n1*16 + n0, m2*128 + m1*8 + m0] = accum[m0, n0]
+
+
+# TeX: version working_smem 3
+
+@proc
+def gemm_simple_smem(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B: f32[N,K] @ CudaGmemLinear, C: f32[N,M] @ CudaGmemLinear):
+    with CudaDeviceFunction(blockDim=256):
+        for m2 in cuda_tasks(0, M / 128):
+            for n2 in cuda_tasks(0, N / 256):
+                # TeX: begin working_smem
+                # TeX: remark! working_smem[0]
+                # Per-CTA allocations
+                # TeX: color remark working_smem[0]
+                # yyyy
+                # SMEM allocations: not distributed, as SMEM expects to be allocated by a CTA
+                # TeX: color line *
+                #                      yyyyyyyyyyyyyy
+                A_smem: f32[128, 32] @ CudaSmemLinear
+                # TeX: color line *
+                #                      yyyyyyyyyyyyyy
+                B_smem: f32[256, 32] @ CudaSmemLinear
+                # TeX: color remark working_smem[0]
+                # rrrr
+                # RMEM allocation: distributed, as registers are allocated per-thread
+                # TeX: color line *
+                #          gg  vv           rrrrrrrr
+                accum: f32[16, 16, 8, 16] @ CudaRmem
+                # TeX: end working_smem
+
+                for m1 in cuda_threads(0, 16, unit=16 * cuda_thread):
+                    for n1 in cuda_threads(0, 16, unit=cuda_thread):
+                        for m0 in seq(0, 8):
+                            for n0 in seq(0, 16):
+                                # TeX: summary
+                                # Zero per-thread accumulators
+                                accum[m1, n1, m0, n0] = 0
+                
+                # TeX: begin working_smem
+                # TeX: color line *
+                #   bb
+                for k1 in seq(0, K / 32):
+                    # TeX: end working_smem
+                    # TeX: begin working_smem[1]
+                    for m1 in seq(0, 16):
+                        for m0 in cuda_threads(0, 8, unit=32*cuda_thread):
+                            for k0 in cuda_threads(0, 32):
+                                # TeX: summary
+                                # Load A_smem
+                                # TeX: color line *
+                               #yyyyyyy             y
+                                A_smem[m1*8 + m0, k0] = A[m2*128 + m1*8 + m0, k1*32 + k0]
+                    for n1 in seq(0, 32):
+                        for n0 in cuda_threads(0, 8, unit=32*cuda_thread):
+                            for k0 in cuda_threads(0, 32):
+                                # TeX: summary
+                                # Load B_smem
+                                # TeX: color line *
+                               #yyyyyyy             y
+                                B_smem[n1*8 + n0, k0] = B[n2*256 + n1*8 + n0, k1*32 + k0]
+                    # TeX: end working_smem[1]
+
+                    # TeX: begin working_smem
+                    Fence(cuda_classic, cuda_classic)  # __syncthreads()
+                    # TeX: end working_smem
+
+                    # TeX: begin working_smem
+                    # TeX: color line *
+                    #   gg
+                    for m1 in cuda_threads(0, 16, unit=16 * cuda_thread):
+                        # TeX: color line *
+                        #   vv
+                        for n1 in cuda_threads(0, 16, unit=cuda_thread):
+                            # TeX: end working_smem
+                            # TeX: begin working_smem[2]
+                            for k0 in seq(0, 32):
+                                for m0 in seq(0, 8):
+                                    for n0 in seq(0, 16):
+                                        # TeX: summary
+                                        # accum += A_smem @ B_smem
+                                        # TeX: color line *
+                                       #rrrrrrgg  vv        r    yyyyyyy             y
+                                        accum[m1, n1, m0, n0] += A_smem[m1*8 + m0, k0] \
+                                        # TeX: color line *
+                                        #                              yyyyyyy              y
+                                                                     * B_smem[n1*16 + n0, k0]
+                            # TeX: end working_smem[2]
+
+                    # TeX: begin working_smem
+                    Fence(cuda_classic, cuda_classic)  # __syncthreads()
+                # TeX: color line *
+                #     bb
+                # End k1 loop
+                # TeX: end working_smem
+                for m1 in cuda_threads(0, 16, unit=16 * cuda_thread):
+                    for n1 in cuda_threads(0, 16, unit=cuda_thread):
+                        for m0 in seq(0, 8):
+                            for n0 in seq(0, 16):
+                                # TeX: summary
+                                # Each thread writes out accumulators
+# TeX: begin working_smem
+# TeX: color line *
+#                                                                            rrrrrrgg  vv        r
+                                C[n2*256 + n1*16 + n0, m2*128 + m1*8 + m0] = accum[m1, n1, m0, n0]
+# TeX: end working_smem
+
