@@ -22,6 +22,14 @@
 \tikzstyle{Mnode} = [greennode, text width=55mm, minimum width=55mm, minimum height=7mm]
 \tikzstyle{Nnode} = [violetnode, text width=7mm, minimum width=7mm, minimum height=7mm]
 
+\tikzstyle{producer} = [yellownode, text width=64mm, minimum width=64mm, minimum height=14mm]
+\tikzstyle{consumer} = [greennode, text width=20mm, minimum width=20mm, minimum height=14mm]
+\tikzstyle{smallproducer} = [yellownode, text width=20mm, minimum width=20mm, minimum height=14mm]
+\tikzstyle{copylatency} = [rednode, text width=84mm, minimum width=84mm, minimum height=8mm]
+\tikzstyle{ring} = [rednode, text width=16mm, minimum width=1mm, minimum height=14mm]
+\newcommand{\consumerBox}[1]{{\color{greenBoxFg}\colorbox{greenBoxBg}{#1}}}
+\newcommand{\producerBox}[1]{{\color{yellowBoxFg}\colorbox{yellowBoxBg}{#1}}}
+
 { \LARGE Exo Dev 2025-05-06 } \hfill { \LARGE \textbf{\textsf{Spork: GEMM Samples}}}
 
 \includegraphics[width=\linewidth]{usda_spork.jpg}
@@ -179,6 +187,115 @@ Distributed dimensions (\blacktt{f32[\greenBox{16}, \violetBox{16}, ...]}) are e
 \myTitle{Working SMEM Example 2}
 
 \input{gemms_tex/working_smem.2.tex}
+
+\newpage
+\myTitle{Ring Buffer -- Why}
+
+Hardware underutilized -- strictly separate memory (``produce'': load SMEM) and compute (``consume'': accumulate) workloads.
+
+\begin{tikzpicture}[node distance=2mm]
+\node (produce0) [producer] {Produce \texttt{k1 = 0}};
+\node (consume0) [consumer, right=of produce0] {Consume \texttt{k1 = 0}};
+\node (produce1) [producer, right=of consume0] {Produce \texttt{k1 = 1}};
+\node (consume1) [consumer, right=of produce1] {Consume \texttt{k1 = 1}};
+\end{tikzpicture}
+
+Overlap produce and consume workloads
+
+\begin{tikzpicture}[node distance=2mm]
+\node (produce0) [producer] {Produce \texttt{k1 = 0}};
+\node (consume0) [consumer, right=of produce0] {Consume \texttt{k1 = 0}};
+\node (produce1) [producer, below=of produce0, xshift=24mm] {Produce \texttt{k1 = 1}};
+\node (consume1) [consumer, right=of produce1] {Consume \texttt{k1 = 1}};
+\node (produce2) [producer, below=of produce1, xshift=24mm] {Produce \texttt{k1 = 2}};
+\node (consume2) [consumer, right=of produce2] {Consume \texttt{k1 = 2}};
+\node (produce3) [producer, below=of produce2, xshift=24mm] {Produce \texttt{k1 = 3}};
+\node (consume3) [consumer, right=of produce3] {Consume \texttt{k1 = 3}};
+\node (produce4) [producer, below=of produce3, xshift=24mm] {Produce \texttt{k1 = 4}};
+\node (consume4) [consumer, right=of produce4] {Consume \texttt{k1 = 4}};
+\end{tikzpicture}
+
+\newpage
+\myTitle{Ring Buffer -- Why}
+
+Latency of \producerBox{producer} (memory) workloads is very long compared to \consumerBox{consumer} workloads.
+
+We need a deep ring buffer to hide latency.
+Many copies are in flight simultaneously.
+
+\begin{tikzpicture}[node distance=2mm]
+\node (produce0) [producer] {Produce \texttt{k1 = 0}};
+\node (consume0) [consumer, right=of produce0] {Consume \texttt{k1 = 0}};
+\node (produce1) [producer, below=of produce0, xshift=24mm] {Produce \texttt{k1 = 1}};
+\node (consume1) [consumer, right=of produce1] {Consume \texttt{k1 = 1}};
+\node (produce2) [producer, below=of produce1, xshift=24mm] {Produce \texttt{k1 = 2}};
+\node (consume2) [consumer, right=of produce2] {Consume \texttt{k1 = 2}};
+\node (produce3) [producer, below=of produce2, xshift=24mm] {Produce \texttt{k1 = 3}};
+\node (consume3) [consumer, right=of produce3] {Consume \texttt{k1 = 3}};
+\node (produce4) [producer, right=of consume0] {Produce \texttt{k1 = 4}};
+\node (consume4) [consumer, right=of produce4] {Consume \texttt{k1 = 4}};
+\node (produce5) [producer, right=of consume1] {Produce \texttt{k1 = 5}};
+\node (consume5) [consumer, right=of produce5] {Consume \texttt{k1 = 5}};
+\node (produce6) [producer, right=of consume2] {Produce \texttt{k1 = 6}};
+\node (produce7) [producer, right=of consume3] {Produce \texttt{k1 = 7}};
+\node (ring0) [ring, left=of produce0] {Buffer 0};
+\node (ring1) [ring, below=of ring0] {Buffer 1};
+\node (ring2) [ring, below=of ring1] {Buffer 2};
+\node (ring3) [ring, below=of ring2] {Buffer 3};
+\draw [arrow] (produce0) to[out=45, in=135] node [above] (forward) {\violetBox{Arrive/Await}} (consume0);
+\draw [arrow] (consume0) to[out=45, in=135] node [above] (forward) {\violetBox{ReverseArrive/ReverseAwait}} (produce4);
+\end{tikzpicture}
+
+Forward synchronization: Consumer \consumerBox{\texttt{k1 = N}} waits for producer \producerBox{\texttt{k1 = N}}\\
+(RAW hazard: we need to wait for the SMEM tiles to be filled)
+
+Reverse synchronization: Producer \producerBox{\texttt{k1 = N}} waits for consumer \consumerBox{\texttt{k1 = N - 4}}\\
+(WAR hazard: we need to not overwrite SMEM tiles before they're fully consumed)
+
+\newpage
+\myTitle{Warp Specialization}
+
+Dedicate some warps (32-thread groups) to be \producerBox{producers} and some to be \consumerBox{consumers}.
+
+\begin{tikzpicture}[node distance=2mm]
+\node (produce0) [smallproducer] {Copy instr \texttt{k1 = 0}};
+\node (produce1) [smallproducer, right=of produce0] {Copy instr \texttt{k1 = 1}};
+\node (produce2) [smallproducer, right=of produce1] {Copy instr \texttt{k1 = 2}};
+\node (produce3) [smallproducer, right=of produce2] {Copy instr \texttt{k1 = 3}};
+\node (produce4) [smallproducer, right=of produce3] {Copy instr \texttt{k1 = 4}};
+\node (produce5) [smallproducer, right=of produce4] {Copy instr \texttt{k1 = 5}};
+\node (produce6) [smallproducer, right=of produce5] {Copy instr \texttt{k1 = 6}};
+\node (produce7) [smallproducer, right=of produce6] {Copy instr \texttt{k1 = 7}};
+\node (producers) [text width=19mm, left=of produce0] {Threads [256, 383]};
+\node (copy0) [copylatency, below=of produce0, xshift=32mm] {Copy latency (to buffer 0)};
+\node (copy1) [copylatency, below=of copy0, xshift=25mm] {Copy latency (to buffer 1)};
+\node (copy2) [copylatency, below=of copy1, xshift=25mm] {Copy latency (to buffer 2)};
+\node (copy3) [copylatency, below=of copy2, xshift=25mm] {Copy latency (to buffer 3)};
+\node (copy4) [copylatency, right=of copy0, xshift=11mm] {Copy latency (to buffer 0)};
+\node (copy5) [copylatency, below=of copy4, xshift=25mm] {Copy latency (to buffer 1)};
+\node (copy6) [copylatency, below=of copy5, xshift=25mm] {Copy latency (to buffer 2)};
+\node (copy7) [copylatency, below=of copy6, xshift=25mm] {Copy latency (to buffer 3)};
+\node (consume0) [consumer, below=of copy3, xshift=-18mm] {Consume \texttt{k1 = 0}};
+\node (consume1) [consumer, right=of consume0] {Consume \texttt{k1 = 1}};
+\node (consume2) [consumer, right=of consume1] {Consume \texttt{k1 = 2}};
+\node (consume3) [consumer, right=of consume2] {Consume \texttt{k1 = 3}};
+\node (consume4) [consumer, right=of consume3] {Consume \texttt{k1 = 4}};
+\node (consumer) [text width=19mm, left=of consume0] {Threads [0, 255]};
+
+%% \draw[arrow, dotted] (produce0.south) to[out=270, in=135] (copy0.west);
+%% \draw[arrow, dotted] (produce1.south) to[out=270, in=135] (copy1.west);
+%% \draw[arrow, dotted] (produce2.south) to[out=270, in=135] (copy2.west);
+%% \draw[arrow, dotted] (produce3.south) to[out=270, in=135] (copy3.west);
+%% \draw[arrow, dotted] (produce4.south) to[out=270, in=135] (copy4.west);
+%% \draw[arrow, dotted] (produce5.south) to[out=270, in=135] (copy5.west);
+%% \draw[arrow, dotted] (produce6.south) to[out=270, in=135] (copy6.west);
+%% \draw[arrow, dotted] (produce7.south) to[out=270, in=135] (copy7.west);
+
+\draw[arrow, dotted] (copy0.east) to[out=315, in=90] (consume0.north);
+\draw[arrow, dotted] (copy1.east) to[out=315, in=90] (consume1.north);
+\draw[arrow, dotted] (copy2.east) to[out=315, in=90] (consume2.north);
+\draw[arrow, dotted] (copy3.east) to[out=315, in=90] (consume3.north);
+\end{tikzpicture}
 
 \newpage
 \myTitle{Ring Buffer 0}

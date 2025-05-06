@@ -558,8 +558,8 @@ def gemm_simple_smem(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B:
 def gemm_ring(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B: f32[N,K] @ CudaGmemLinear, C: f32[N,M] @ CudaGmemLinear):
     # TeX: begin ring[0]
     # TeX: color line ring[0]
-    #                                yyy
-    with CudaDeviceFunction(blockDim=384):  # We added 128 more threads (4 warps)
+    #                                yyy                   yyyyyyyy
+    with CudaDeviceFunction(blockDim=384):  # We added 128 producer threads (4 warps)
         for m2 in cuda_tasks(0, M / 128):
             for n2 in cuda_tasks(0, N / 256):
                 # TeX: end ring[0]
@@ -589,7 +589,7 @@ def gemm_ring(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B: f32[N,
                 #   bb
                 for k1 in seq(0, K / 32):
                     # TeX: color line ring[:3]
-                    #    yyyyyyyyyyyyyyyy
+                    #    yyyyyyyyyyyyyyyy     yyyyyyyyy
                     with CudaWarps(8, 12):  # Producer: threads [256, 383]
                 # TeX: end ring
                 # TeX: begin ring[:2]
@@ -604,6 +604,10 @@ def gemm_ring(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B: f32[N,
                 # TeX: end ring
                 # TeX: begin ring[1]
                         for m1 in seq(0, 32):
+                            # TeX: begin ring[3]
+                            # TeX: remark! ring[3]
+                            # We want to use TMA here
+                            # TeX: end ring[3]
                             # TeX: summary!
                             # Fill A_smem[k1 % 4]
                             for m0 in cuda_threads(0, 4, unit=32*cuda_thread):
@@ -628,7 +632,7 @@ def gemm_ring(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B: f32[N,
 
                     # TeX: begin ring
                     # TeX: color line ring[:3]
-                    #    yyyyyyyyyyyyyyy
+                    #    ggggggggggggggg     ggggggggg
                     with CudaWarps(0, 8):  # Consumer: threads [0, 255]
                     # TeX: end ring
                     # TeX: begin ring[0] ring[2] ring[3]
@@ -796,10 +800,10 @@ def gemm_tma(M: size, N: size, K: size,
                     # TeX: end tma[:2] prep_tma
                         # TeX: begin wgmma
                         # TeX: color line wgmma
-                        #              yyyyyyyyyyy
+                        #              ggggggggggg
                         Await(ringbar, wgmma_async, ~0)
                         # TeX: color line wgmma
-                        #              yyyyyyyyyyy
+                        #              ggggggggggg
                         with CudaAsync(wgmma_async):
                                 # TeX: remark! wgmma
                                 # Next step: fill in wgmma (async tensor core) instructions here
