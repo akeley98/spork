@@ -30,16 +30,16 @@ def gemm_one_per_thread(M: size, N: size, K: size,
                 #                                yyy                  gg   vv
                 # Per-CTA code here; each CTA of 256 threads computes 16 x 16 output tile
                 # TeX: color line intro[2] par
-                #   rr                        vvvvvvvvvvvvvvvvvvvvv
+                #   rr                        ggggggggggggggggggggg
                 for m1 in cuda_threads(0, 16, unit=16 * cuda_thread):
                     # TeX: color remark intro[2] par
-                    #        yyy                              vv
+                    #        yyy                              gg
                     # CTA of 256 threads splits into teams of 16 threads
                     # TeX: color line intro[2] par
-                    #   bb                        gggggggggggggggg
+                    #   bb                        vvvvvvvvvvvvvvvv
                     for n1 in cuda_threads(0, 16, unit=cuda_thread):
                         # TeX: color remark intro[2] par
-                        #                                gggggg
+                        #                                vvvvvv
                         # Teams of 16 threads split into single threads
                         # Per-thread code
                         # TeX: remark intro[0]
@@ -65,10 +65,10 @@ def gemm_one_per_thread(M: size, N: size, K: size,
 
                 # Lowered C++
                 # TeX: color line *
-                #       rrrrrrrrrrrr   vvvvvvvvvvvvvvvvvv
+                #       rrrrrrrrrrrr   gggggggggggggggggg
                 if (int exo_16thr_m1 = (threadIdx.x / 16); 1) {
                   # TeX: color line *
-                  #       bbbbbbbbbbb   gggggggggggggggggg
+                  #       bbbbbbbbbbb   vvvvvvvvvvvvvvvvvv
                   if (int exo_1thr_n1 = (threadIdx.x % 16); 1) {
                     float accum;
 # TeX: end par
@@ -522,10 +522,10 @@ def gemm_simple_smem(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B:
                             # TeX: end working_smem
                             # TeX: begin working_smem[2]
                             for k0 in seq(0, 32):
+                                # TeX: summary!
+                                # accum += A_smem @ B_smem
                                 for m0 in seq(0, 8):
                                     for n0 in seq(0, 16):
-                                        # TeX: summary!
-                                        # accum += A_smem @ B_smem
                                         # TeX: color line *
                                        #rrrrrrgg  vv        r    yyyyyyy             y
                                         accum[m1, n1, m0, n0] += A_smem[m1*8 + m0, k0] \
@@ -552,7 +552,7 @@ def gemm_simple_smem(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B:
                                 C[n2*256 + n1*16 + n0, m2*128 + m1*8 + m0] = accum[m1, n1, m0, n0]
 # TeX: end working_smem
 
-# TeX: version ring 3
+# TeX: version ring 4
 
 @proc
 def gemm_ring(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B: f32[N,K] @ CudaGmemLinear, C: f32[N,M] @ CudaGmemLinear):
@@ -571,7 +571,7 @@ def gemm_ring(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B: f32[N,
                 #           r                               rrrrrr
                 B_smem: f32[4, 256, 32] @ CudaSmemLinear  # 4-deep ring buffer of 2D tiles
                 accum: f32[16, 16, 8, 16] @ CudaRmem
-                # TeX: color line ring
+                # TeX: color line ring[:3]
                #vvvvvvv            vvvvvvvvvvvv
                 ringbar: barrier @ CudaMbarrier
                 # TeX: end ring
@@ -588,9 +588,9 @@ def gemm_ring(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B: f32[N,
                 # TeX: color line *
                 #   bb
                 for k1 in seq(0, K / 32):
-                    # TeX: color line ring
+                    # TeX: color line ring[:3]
                     #    yyyyyyyyyyyyyyyy
-                    with CudaWarps(8, 12):  # Threads [256, 383]
+                    with CudaWarps(8, 12):  # Producer: threads [256, 383]
                 # TeX: end ring
                 # TeX: begin ring[:2]
                         # TeX: color line *
@@ -598,62 +598,62 @@ def gemm_ring(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B: f32[N,
                         # Wait for ReverseArrive, 4 iteration delay
                 # TeX: end ring[:2]
                 # TeX: begin ring
-                        # TeX: color line *
+                        # TeX: color line ring[:3]
                         #            vvvvvvv                 rr
                         ReverseAwait(ringbar, cuda_temporal, ~4)
                 # TeX: end ring
                 # TeX: begin ring[1]
                         for m1 in seq(0, 32):
+                            # TeX: summary!
+                            # Fill A_smem[k1 % 4]
                             for m0 in cuda_threads(0, 4, unit=32*cuda_thread):
                                 for k0 in cuda_threads(0, 32):
-                                    # TeX: summary!
-                                    # Fill A_smem[k1 % 4]
                                     # TeX: color line *
                                     #      rrrr
                                     A_smem[k1%4, m1*4 + m0, k0] = A[m2*128 + m1*4 + m0, k1*32 + k0]
                         for n1 in seq(0, 64):
+                            # TeX: summary!
+                            # Fill B_smem[k1 % 4]
                             for n0 in cuda_threads(0, 4, unit=32*cuda_thread):
                                 for k0 in cuda_threads(0, 32):
-                                    # TeX: summary!
-                                    # Fill B_smem[k1 % 4]
                                     # TeX: color line *
                                     #      rrrr
                                     B_smem[k1%4, n1*4 + n0, k0] = B[n2*256 + n1*4 + n0, k1*32 + k0]
                 # TeX: end ring[1]
                         # TeX: begin ring
-                        # TeX: color line ring
+                        # TeX: color line ring[:3]
                         #                    vvvvvvv
                         Arrive(cuda_classic, ringbar, 1)
                         # TeX: end ring
 
                     # TeX: begin ring
-                    # TeX: color line *
+                    # TeX: color line ring[:3]
                     #    yyyyyyyyyyyyyyy
-                    with CudaWarps(0, 8):  # Threads [0, 256]
+                    with CudaWarps(0, 8):  # Consumer: threads [0, 255]
                     # TeX: end ring
-                    # TeX: begin ring[0] ring[2]
-                        # TeX: color line ring
+                    # TeX: begin ring[0] ring[2] ring[3]
+                        # TeX: color line ring[:3]
                         #     vvvvvvv
                         Await(ringbar, cuda_classic, ~0)  # Wait for Arrive, 0 iteration delay
-                    # TeX: end ring[0]
+                    # TeX: end ring[0] ring[3]
                         for m1 in cuda_threads(0, 16, unit=16 * cuda_thread):
                             for n1 in cuda_threads(0, 16, unit=cuda_thread):
+                                # TeX: summary!
+                                # accum += A_smem[k1 % 4] @ B_smem[k1 % 4]
                                 for k0 in seq(0, 32):
                                     for m0 in seq(0, 8):
                                         for n0 in seq(0, 16):
-                                            # TeX: summary!
-                                            # accum += A_smem[k1 % 4] @ B_smem[k1 % 4]
                                             # TeX: color line *
                                             #                               rrrr
                                             accum[m1, n1, m0, n0] += A_smem[k1%4, m1*8 + m0, k0] \
                                             # TeX: color line *
                                             #                                 rrrr
                                                                      * B_smem[k1%4, n1*16 + n0, k0]
-                        # TeX: begin ring[0]
-                        # TeX: color line ring
+                        # TeX: begin ring[0] ring[3]
+                        # TeX: color line ring[:3]
                         #                           vvvvvvv
                         ReverseArrive(cuda_classic, ringbar, 1)
-                        # TeX: end ring[0] ring[2]
+                        # TeX: end ring[0] ring[2] ring[3]
                 # TeX: begin ring
                 # TeX: color line *
                 #     bb
@@ -666,51 +666,171 @@ def gemm_ring(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B: f32[N,
                             for n0 in seq(0, 16):
                                 # TeX: summary
                                 # Threads write out accumulators
-                                # TeX: begin ring[0]
+                                # TeX: begin ring[0] ring[3]
                                 C[n2*256 + n1*16 + n0, m2*128 + m1*8 + m0] = accum[m1, n1, m0, n0]
-                                # TeX: end ring[0]
+                                # TeX: end ring[0] ring[3]
 
 
+# TeX: version wgmma 1
+# TeX: version prep_tma 4
+# TeX: version tma 4
+
+# TeX: begin tma[2:]
 @proc
-def gemm_tma(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B: f32[N,K] @ CudaGmemLinear, C: f32[N,M] @ CudaGmemLinear):
-
-    A_tensorMap = A[:,:] @ Sm90_tensorMap(0, 128, 32)
-    B_tensorMap = B[:,:] @ Sm90_tensorMap(0, 256, 32)
-
+def gemm_tma(M: size, N: size, K: size,
+             A: f32[M,K] @ CudaGmemLinear,
+             B: f32[N,K] @ CudaGmemLinear,
+             C: f32[N,M] @ CudaGmemLinear):
+    # TeX: color remark! tma[2]
+    #                                            gggggggggggggggggg
+    # tensorMap constructed in CPU code (outside CudaDeviceFunction)
+    # TeX: remark tma[2]
+    # ``window'' (alias) to global memory A and B
+    # TeX: color remark! tma[3]
+    #                                     vvvvvvvvvvvvv
+    # Window annotated with parameterized SpecialWindow type
+    # TeX: color line tma[2]
+   #yyyyyyyyyyy
+    # TeX: color line tma[3]
+   #yyyyyyyyyyy                              vvvvvvv
+    A_tensorMap = A[:,:] @ Sm90_tensorMap(0, 128, 32)  # (swizzle, tile M/N, tile K)
+    # TeX: color line tma[2]
+   #yyyyyyyyyyy
+    # TeX: color line tma[3]
+   #yyyyyyyyyyy                              vvvvvvv
+    B_tensorMap = B[:,:] @ Sm90_tensorMap(0, 256, 32)  # 0 means no swizzling (ignore this)
+    # TeX: color line tma[2]
+    #    gggggggggggggggggg
     with CudaDeviceFunction(blockDim=384):
         for m2 in cuda_tasks(0, M / 128):
             for n2 in cuda_tasks(0, N / 256):
-                A_smem: f32[RING, 128, 32] @ CudaSmemLinear
-                B_smem: f32[RING, 256, 32] @ CudaSmemLinear
+# TeX: end tma[2:]
+                # TeX: begin tma[:2] prep_tma wgmma
+                # TeX: color line *
+                #           r
+                A_smem: f32[4, 128, 32] @ CudaSmemLinear
+                # TeX: color line *
+                #           r                               rrrrrr
+                B_smem: f32[4, 256, 32] @ CudaSmemLinear  # 4-deep ring buffer of 2D tiles
                 accum: f32[16, 16, 8, 16] @ CudaRmem
                 ringbar: barrier @ CudaMbarrier
+                # TeX: end tma[:2] prep_tma wgmma
 
                 for m1 in cuda_threads(0, 16, unit=16 * cuda_thread):
                     for n1 in cuda_threads(0, 16, unit=cuda_thread):
                         for m0 in seq(0, 8):
                             for n0 in seq(0, 16):
+                                # TeX: summary
+                                # Zero per-thread accumulators
                                 accum[m1, n1, m0, n0] = 0
 
+                # TeX: begin tma prep_tma wgmma
+                # TeX: color line *
+                #   bb
                 for k1 in seq(0, K / 32):
-                    with CudaWarps(8, 9):
+                    with CudaWarps(8, 9):  # Producer
+                        # TeX: remark! prep_tma[0]
+                        # Wrap producer code in CudaAsync block. Informs the compiler that the
+                        # TeX: color remark! prep_tma[0]
+                        #                                                 yyyyyyyyyyyyyyyyy
+                        # body will contain only instrs with actor kind = tma_to_smem_async.
+                        # TeX: color line prep_tma[:2]
+                        #    yyyyyyyyyyyyyyyyyyyyyyyyyyyy
                         with CudaAsync(tma_to_smem_async):
-                            ReverseAwait(ringbar, cuda_temporal, ~RING)
-                            Sm90_copy_tensor_to_smem_linear_2f32(A_smem[k1%RING,:,:], A_tensorMap[m2*128:(m2+1)*128, k1*32:(k1+1)*32], box0=128, box1=32)
-                            Sm90_copy_tensor_to_smem_linear_2f32(B_smem[k1%RING,:,:], B_tensorMap[n2*256:(n2+1)*256, k1*32:(k1+1)*32], box0=256, box1=32)
+                            # TeX: remark! prep_tma[3]
+                            # Write-after-read (WAR) hazard: Producer will not issue instructions
+                            # TeX: color remark! prep_tma[3]
+                            #                vvvvvvvvvvvv                   b bb
+                            # until consumer cuda_classic instructions from 4 k1 iterations ago finish.
+                            # TeX: color remark prep_tma[3]
+                            #  ggggggggggggg
+                            # (cuda_temporal actor kind avoids memory fences; redundant for WAR hazard)
+                            # TeX: color line *
+                            #                                    rr
+                            # TeX: color line prep_tma[3]
+                            #                     ggggggggggggg  bb
+                            ReverseAwait(ringbar, cuda_temporal, ~4)
+                            # TeX: end tma prep_tma wgmma
+                            # TeX: begin tma[0]
+                            # TeX: summary!
+                            # TMA instrs: fill A_smem[k1 % 4], B_smem[k1 % 4]
+                            # TeX: begin tma[1:4]
+                            # TeX: remark! tma[1]
+                            # What are these tensorMaps?
+                            # TeX: color remark! tma[3]
+                            #     yyyyyyyyy                vvvvv
+# TMA instructions require opaque tensorMap blob to encode sizes, etc., of the copied tile
+                            # TeX: color line *
+                            #                                           rrrr
+                            Sm90_copy_tensor_to_smem_linear_2f32(A_smem[k1%4,:,:],
+                            # TeX: color line tma[1:4]
+                            #       yyyyyyyyyyy
+                                    A_tensorMap[m2*128:(m2+1)*128, k1*32:(k1+1)*32], box0=128, box1=32)
+                            # TeX: color line *
+                            #                                           rrrr
+                            Sm90_copy_tensor_to_smem_linear_2f32(B_smem[k1%4,:,:],
+                            # TeX: color line tma[1:4]
+                            #       yyyyyyyyyyy
+                                    B_tensorMap[n2*256:(n2+1)*256, k1*32:(k1+1)*32], box0=256, box1=32)
+                            # TeX: end tma[0:4]
+                            # TeX: begin tma prep_tma wgmma
+                            # TeX: remark! prep_tma[1]
+                            # Change Arrive actor kind
+                            # TeX: color line prep_tma[1:4]
+                            #      yyyyyyyyyyyyyyyyy
                             Arrive(tma_to_smem_async, ringbar, 1)
+                            # TeX: end tma prep_tma wgmma
 
-                    with CudaWarps(0, 8):
+                    # TeX: begin tma[:2] prep_tma wgmma
+                    with CudaWarps(0, 8):  # Consumer
+                    # TeX: end wgmma
+                        # TeX: color remark! prep_tma[2]
+                        #          vvvvvvvvvvvv                                yyyyyyyyyyyyyyyyy
+                        # Consumer cuda_classic instructions wait for producer tma_to_smem_async
+                        # TeX: color remark! prep_tma[2]
+                        #                            bbbb bb
+                        # instructions issued in the same k1 iteration.
+                        # TeX: color line prep_tma[2]
+                        #              vvvvvvvvvvvv  bb
                         Await(ringbar, cuda_classic, ~0)
+                    # TeX: end tma[:2] prep_tma
+                        # TeX: begin wgmma
+                        # TeX: color line wgmma
+                        #              yyyyyyyyyyy
+                        Await(ringbar, wgmma_async, ~0)
+                        # TeX: color line wgmma
+                        #              yyyyyyyyyyy
+                        with CudaAsync(wgmma_async):
+                                # TeX: remark! wgmma
+                                # Next step: fill in wgmma (async tensor core) instructions here
+                                # TeX: remark! wgmma
+                                # This is way too much to fit on these slides, so this is the end of the talk.
+                        # TeX: end wgmma
+
                         for m1 in cuda_threads(0, 16, unit=16 * cuda_thread):
                             for n1 in cuda_threads(0, 16, unit=cuda_thread):
+                                # TeX: summary!
+                                # accum += A_smem[k1 % 4] @ B_smem[k1 % 4]
                                 for k0 in seq(0, 32):
                                     for m0 in seq(0, 8):
                                         for n0 in seq(0, 16):
-                                            accum[m1, n1, m0, n0] += A_smem[k1%RING, m1*8 + m0, k0] * B_smem[k1%RING, n1*16 + n0, k0]
+                                            accum[m1, n1, m0, n0] += A_smem[k1%4, m1*8 + m0, k0] * B_smem[k1%4, n1*16 + n0, k0]
+                                # TeX: end prep_tma[4]
+                        # TeX: begin tma[:2] prep_tma wgmma
+                        # TeX: color line prep_tma[3]
+                        #             vvvvvvvvvvvv
                         ReverseArrive(cuda_classic, ringbar, 1)
+                # TeX: color line *
+                #     bb
+                # End k1 loop
+                # TeX: end tma[:2] prep_tma wgmma
 
                 for m1 in cuda_threads(0, 16, unit=16 * cuda_thread):
                     for n1 in cuda_threads(0, 16, unit=cuda_thread):
                         for m0 in seq(0, 8):
                             for n0 in seq(0, 16):
+                                # TeX: summary
+                                # Threads write out accumulators
+                                # TeX: begin tma[0] prep_tma
                                 C[n2*256 + n1*16 + n0, m2*128 + m1*8 + m0] = accum[m1, n1, m0, n0]
+                                # TeX: end tma[0] prep_tma
