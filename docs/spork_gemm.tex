@@ -313,6 +313,59 @@ Dedicate some warps (32-thread groups) to be \producerBox{producers} and some to
 \input{gemms_tex/ring.2.tex}
 
 \newpage
+\myTitle{Problem With Copies}
+
+\input{gemms_tex/sync_copy.0.tex}
+
+\newpage
+\myTitle{TMA (Bulk Copy) Instructions}
+
+\begin{minipage}[t]{0.48\textwidth}\fixminipage
+\begin{itemize}
+\item A single \texttt{cp.bulk.async} instruction can copy a large 1D-5D tile \myKey{GMEM}$\leftrightarrow$\myKeyB{SMEM}
+\item \myKeyB{SMEM} tile: densely packed C-order matrix
+\begin{itemize}
+  \item 128 byte alignment
+\end{itemize}
+\item \myKey{GMEM} tile: tile from big C-order matrix
+\begin{itemize}
+  \item \myKey{Predicated} and strided
+  \item 16 byte aligned memory and strides
+\end{itemize}
+\end{itemize}
+
+\begin{tikzpicture}[node distance=5mm]
+\node (smem) [smemnode] {\myKeyB{SMEM tile}};
+\node (gmembig) [bignode, right=of smem, yshift=-3mm] {};
+\node (gmem) [gmemnode, right=of smem, xshift=9mm] {\myKey{GMEM tile}};
+\draw [arrow] ($(smem.east)-(0,0.2)$) -- ($(gmem.west)-(0,0.2)$);
+\draw [arrow] ($(gmem.west)+(0,0.2)$) -- ($(smem.east)+(0,0.2)$);
+\end{tikzpicture}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.48\textwidth}\fixminipage
+\mySub{Contrast with synchronous copy instructions}
+\begin{itemize}
+  \item Copies large tiles instead of only 4/8/16 bytes at a time.
+  \item Bypasses registers
+  \item Async copy: execution continues \textit{without waiting for copy to finish}
+  \item Async copies don't interact with normal synchronization, e.g. \texttt{\_\_syncthreads();}
+\end{itemize}
+
+\mySub{Actor Kind}
+
+Exo-GPU will categorize instructions based on \myKeyA{actor kind}; essentially, instructions that operate on different timelines have different actor kinds.
+\begin{itemize}
+  \item \texttt{cpu}: CPU instructions
+  \item \texttt{cuda\_classic}: CUDA non-async instr
+  \item \texttt{tma\_to\_smem\_async}: async copies to SMEM
+  \item \texttt{wgmma\_async}: Async H100 tensor core
+  \item ...
+\end{itemize}
+Parameterize sync statements (Fence/Arrive/Await) with \myKeyA{actor kind}; lowers to barriers that target a specific instruction category.
+\end{minipage}
+
+\newpage
 \myTitle{Before TMA}
 
 \input{gemms_tex/ring.3.tex}
