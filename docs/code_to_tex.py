@@ -138,6 +138,7 @@ class EndDirective(BaseFilterImpl):
 class SummaryDirective:
     text: str
     color_letters: str
+    bold: bool
     lineno: int
 
 @dataclass(slots=True)
@@ -245,7 +246,12 @@ def file_to_lines_directives(f):
                     text = eat_next_line()
                     if len(args) != 0:
                         raise ValueError("Summary expects no filters")
-                    result.append(SummaryDirective(text, color_letters, lineno))
+                    result.append(SummaryDirective(text, color_letters, False, lineno))
+                elif directive == "summary!":
+                    text = eat_next_line()
+                    if len(args) != 0:
+                        raise ValueError("Summary expects no filters")
+                    result.append(SummaryDirective(text, color_letters, True, lineno))
                 elif directive == "remark":
                     text = eat_next_line()
                     result.append(RemarkDirective(parse_filters(version_names, args), text, color_letters, False, lineno))
@@ -290,7 +296,7 @@ def lines_directives_to_tex(lines_directives, name, version_number):
                 if refcnt < 0:
                     raise ValueError(f"Line {directive.lineno}: end without begin for {name}.{version_number}")
         elif isinstance(directive, SummaryDirective):
-            tex_lines.append(TexLine(directive.lineno, refcnt == 0, False, directive.text, directive.color_letters))
+            tex_lines.append(TexLine(directive.lineno, refcnt == 0, False, directive.text, directive.color_letters, refcnt > 0 and directive.bold))
         elif isinstance(directive, RemarkDirective):
             if refcnt > 0:
                 if directive.passes_filter(name, version_number):

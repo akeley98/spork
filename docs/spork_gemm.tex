@@ -18,16 +18,16 @@
 \includegraphics[width=\linewidth]{usda_spork.jpg}
 
 \newpage
-\myTitle{Foo Bar}
+\myTitle{Intro 0}
 
 \input{gemms_tex/intro.0.tex}
 \newpage
-\myTitle{Foo Bar 1}
+\myTitle{Intro 1}
 
 \input{gemms_tex/intro.1.tex}
 
 \newpage
-\myTitle{Foo Bar 2}
+\myTitle{Intro 2}
 
 \input{gemms_tex/intro.2.tex}
 
@@ -112,6 +112,9 @@
 \mySub{After}
 
 \input{gemms_tex/dmem_after.0.tex}
+
+\vspace{4mm}
+Distributed dimensions (\blacktt{f32[\greenBox{16}, \violetBox{16}, ...]}) are elided in the generated C++ code.
 \end{minipage}
 
 \newpage
@@ -127,5 +130,20 @@
 \myTitle{Working SMEM Example 2}
 
 \input{gemms_tex/working_smem.2.tex}
+
+\newpage
+\myTitle{Ring Buffer 0}
+
+\input{gemms_tex/ring.0.tex}
+
+\newpage
+\myTitle{Ring Buffer 1}
+
+\input{gemms_tex/ring.1.tex}
+
+\newpage
+\myTitle{Ring Buffer 2}
+
+\input{gemms_tex/ring.2.tex}
 
 \end{document}

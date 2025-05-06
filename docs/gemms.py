@@ -196,10 +196,12 @@ def gemm_tile_per_thread(M: size, N: size, K: size,
 
 @proc
 def gemm_tile_per_cta(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B: f32[N,K] @ CudaGmemLinear, C: f32[N,M] @ CudaGmemLinear):
-# TeX: begin dmem
+# TeX: begin dmem[0]
     with CudaDeviceFunction(blockDim=256):
         for m2 in cuda_tasks(0, M / 128):
             for n2 in cuda_tasks(0, N / 256):
+# TeX: end dmem[0]
+# TeX: begin dmem
                 # TeX: remark! dmem[0] dmem[4]
                 # Tensor allocated by 256 threads (``alloc unit'')
                 # TeX: remark! dmem[0] dmem[4]
@@ -225,12 +227,20 @@ def gemm_tile_per_cta(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B
                 # TeX: remark! dmem[4]
                 # Goal met: remaining dimensions are not distributed
                 accum: f32[16, 16, 8, 16] @ CudaRmem
+                # TeX: remark dmem[1:]
+                # collective unit = 256 threads here
                 # TeX: color line dmem[2:4]
                 #   gg                             gggggggggggggggg
                 for m1 in cuda_threads(0, 16, unit=16 * cuda_thread):
+                    # TeX: remark dmem[1:]
+                    # collective unit = 16 threads here
                     # TeX: color line dmem[3]
                     #   vv                             vvvvvvvvvvv
                     for n1 in cuda_threads(0, 16, unit=cuda_thread):
+                        # TeX: remark dmem[1:]
+                        # collective unit = 1 thread here
+# TeX: end dmem
+# TeX: begin dmem[:4]
                         for m0 in seq(0, 8):
                             for n0 in seq(0, 16):
                                 # TeX: color line dmem[2]
@@ -239,14 +249,18 @@ def gemm_tile_per_cta(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B
                                 #     gg  vv
                                 accum[m1, n1, m0, n0] = 0
                         for k in seq(0, K):
+                            # TeX: summary
+                            # Each thread accumulates to accum[m1, n1, :, :]
                             for m0 in seq(0, 8):
                                 for n0 in seq(0, 16):
                                     # TeX: color line dmem[2]
                                     #     gg
                                     # TeX: color line dmem[3]
                                     #     gg  vv
+                            # TeX: begin dmem
                                     accum[m1, n1, m0, n0] += A[m2*128 + m1*8 + m0, k] \
                                                              * B[n2*256 + n1*16 + n0, k]
+                            # TeX: end dmem
                         for m0 in seq(0, 8):
                             for n0 in seq(0, 16):
                                 C[n2*256 + n1*16 + n0, m2*128 + m1*8 + m0] = \
@@ -255,7 +269,27 @@ def gemm_tile_per_cta(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B
                                     # TeX: color line dmem[3]
                                     #     gg  vv
                                     accum[m1, n1, m0, n0]
-# TeX: end dmem
+# TeX: end dmem[:4]
+# TeX: begin dmem[4]
+                # Deduced assignments
+                # TeX: color line *
+                #     g  v  bbbb
+                accum[0, 0, :, :] -> threadIdx.x = 0
+                # TeX: color line *
+                #     g  v  bbbb
+                accum[0, 1, :, :] -> threadIdx.x = 1
+                # TeX: color line *
+                #     g  v  bbbb
+                accum[0, 2, :, :] -> threadIdx.x = 2
+                ...
+                # TeX: color line *
+                #     g  v  bbbb
+                accum[1, 0, :, :] -> threadIdx.x = 16
+                ...
+                # TeX: color line *
+                #     gg  vv  bbbb
+                accum[15, 15, :, :] -> threadIdx.x = 255
+# TeX: end dmem[4]
 
 # TeX: version dmem_before 1
 # TeX: version dmem_after 1
@@ -361,13 +395,13 @@ def gemm_broken_smem(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B:
                     for m1 in seq(0, 16):
                         for m0 in cuda_threads(0, 8, unit=32*cuda_thread):
                             for k0 in cuda_threads(0, 32):
-                                # TeX: summary
+                                # TeX: summary!
                                 # Fill 128 x 32 tile of A_smem
                                 A_smem[m1*8 + m0, k0] = A[m2*128 + m1*8 + m0, k1*32 + k0]
                     for n1 in seq(0, 32):
                         for n0 in cuda_threads(0, 8, unit=32*cuda_thread):
                             for k0 in cuda_threads(0, 32):
-                                # TeX: summary
+                                # TeX: summary!
                                 # Fill 256 x 32 tile of B_smem
                                 B_smem[n1*8 + n0, k0] = B[n2*256 + n1*8 + n0, k1*32 + k0]
 
@@ -394,7 +428,7 @@ def gemm_broken_smem(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B:
                             for k0 in seq(0, 32):  # Divide outer/inner k loop by 32
                                 for m0 in seq(0, 8):
                                     for n0 in seq(0, 16):
-                                        # TeX: summary
+                                        # TeX: summary!
                                         # Accumulate A_smem @ B_smem
                                         accum[m0, n0] += A_smem[m1*8 + m0, k0] * B_smem[n1*16 + n0, k0]
                            # TeX: color remark broken_smem[1]
@@ -449,7 +483,7 @@ def gemm_simple_smem(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B:
                                 # TeX: summary
                                 # Zero per-thread accumulators
                                 accum[m1, n1, m0, n0] = 0
-                
+
                 # TeX: begin working_smem
                 # TeX: color line *
                 #   bb
@@ -459,7 +493,7 @@ def gemm_simple_smem(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B:
                     for m1 in seq(0, 16):
                         for m0 in cuda_threads(0, 8, unit=32*cuda_thread):
                             for k0 in cuda_threads(0, 32):
-                                # TeX: summary
+                                # TeX: summary!
                                 # Load A_smem
                                 # TeX: color line *
                                #yyyyyyy             y
@@ -467,7 +501,7 @@ def gemm_simple_smem(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B:
                     for n1 in seq(0, 32):
                         for n0 in cuda_threads(0, 8, unit=32*cuda_thread):
                             for k0 in cuda_threads(0, 32):
-                                # TeX: summary
+                                # TeX: summary!
                                 # Load B_smem
                                 # TeX: color line *
                                #yyyyyyy             y
@@ -490,7 +524,7 @@ def gemm_simple_smem(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B:
                             for k0 in seq(0, 32):
                                 for m0 in seq(0, 8):
                                     for n0 in seq(0, 16):
-                                        # TeX: summary
+                                        # TeX: summary!
                                         # accum += A_smem @ B_smem
                                         # TeX: color line *
                                        #rrrrrrgg  vv        r    yyyyyyy             y
@@ -518,3 +552,165 @@ def gemm_simple_smem(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B:
                                 C[n2*256 + n1*16 + n0, m2*128 + m1*8 + m0] = accum[m1, n1, m0, n0]
 # TeX: end working_smem
 
+# TeX: version ring 3
+
+@proc
+def gemm_ring(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B: f32[N,K] @ CudaGmemLinear, C: f32[N,M] @ CudaGmemLinear):
+    # TeX: begin ring[0]
+    # TeX: color line ring[0]
+    #                                yyy
+    with CudaDeviceFunction(blockDim=384):  # We added 128 more threads (4 warps)
+        for m2 in cuda_tasks(0, M / 128):
+            for n2 in cuda_tasks(0, N / 256):
+                # TeX: end ring[0]
+                # TeX: begin ring
+                # TeX: color line *
+                #           r
+                A_smem: f32[4, 128, 32] @ CudaSmemLinear  # Added SMEM dimension:
+                # TeX: color line *
+                #           r                               rrrrrr
+                B_smem: f32[4, 256, 32] @ CudaSmemLinear  # 4-deep ring buffer of 2D tiles
+                accum: f32[16, 16, 8, 16] @ CudaRmem
+                # TeX: color line ring
+               #vvvvvvv            vvvvvvvvvvvv
+                ringbar: barrier @ CudaMbarrier
+                # TeX: end ring
+
+                for m1 in cuda_threads(0, 16, unit=16 * cuda_thread):
+                    for n1 in cuda_threads(0, 16, unit=cuda_thread):
+                        for m0 in seq(0, 8):
+                            for n0 in seq(0, 16):
+                                # TeX: summary
+                                # Zero per-thread accumulators
+                                accum[m1, n1, m0, n0] = 0
+
+                # TeX: begin ring
+                # TeX: color line *
+                #   bb
+                for k1 in seq(0, K / 32):
+                    # TeX: color line ring
+                    #    yyyyyyyyyyyyyyyy
+                    with CudaWarps(8, 12):  # Threads [256, 383]
+                # TeX: end ring
+                # TeX: begin ring[:2]
+                        # TeX: color line *
+                        #                         r
+                        # Wait for ReverseArrive, 4 iteration delay
+                # TeX: end ring[:2]
+                # TeX: begin ring
+                        # TeX: color line *
+                        #            vvvvvvv                 rr
+                        ReverseAwait(ringbar, cuda_temporal, ~4)
+                # TeX: end ring
+                # TeX: begin ring[1]
+                        for m1 in seq(0, 32):
+                            for m0 in cuda_threads(0, 4, unit=32*cuda_thread):
+                                for k0 in cuda_threads(0, 32):
+                                    # TeX: summary!
+                                    # Fill A_smem[k1 % 4]
+                                    # TeX: color line *
+                                    #      rrrr
+                                    A_smem[k1%4, m1*4 + m0, k0] = A[m2*128 + m1*4 + m0, k1*32 + k0]
+                        for n1 in seq(0, 64):
+                            for n0 in cuda_threads(0, 4, unit=32*cuda_thread):
+                                for k0 in cuda_threads(0, 32):
+                                    # TeX: summary!
+                                    # Fill B_smem[k1 % 4]
+                                    # TeX: color line *
+                                    #      rrrr
+                                    B_smem[k1%4, n1*4 + n0, k0] = B[n2*256 + n1*4 + n0, k1*32 + k0]
+                # TeX: end ring[1]
+                        # TeX: begin ring
+                        # TeX: color line ring
+                        #                    vvvvvvv
+                        Arrive(cuda_classic, ringbar, 1)
+                        # TeX: end ring
+
+                    # TeX: begin ring
+                    # TeX: color line *
+                    #    yyyyyyyyyyyyyyy
+                    with CudaWarps(0, 8):  # Threads [0, 256]
+                    # TeX: end ring
+                    # TeX: begin ring[0] ring[2]
+                        # TeX: color line ring
+                        #     vvvvvvv
+                        Await(ringbar, cuda_classic, ~0)  # Wait for Arrive, 0 iteration delay
+                    # TeX: end ring[0]
+                        for m1 in cuda_threads(0, 16, unit=16 * cuda_thread):
+                            for n1 in cuda_threads(0, 16, unit=cuda_thread):
+                                for k0 in seq(0, 32):
+                                    for m0 in seq(0, 8):
+                                        for n0 in seq(0, 16):
+                                            # TeX: summary!
+                                            # accum += A_smem[k1 % 4] @ B_smem[k1 % 4]
+                                            # TeX: color line *
+                                            #                               rrrr
+                                            accum[m1, n1, m0, n0] += A_smem[k1%4, m1*8 + m0, k0] \
+                                            # TeX: color line *
+                                            #                                 rrrr
+                                                                     * B_smem[k1%4, n1*16 + n0, k0]
+                        # TeX: begin ring[0]
+                        # TeX: color line ring
+                        #                           vvvvvvv
+                        ReverseArrive(cuda_classic, ringbar, 1)
+                        # TeX: end ring[0] ring[2]
+                # TeX: begin ring
+                # TeX: color line *
+                #     bb
+                # End k1 loop
+                # TeX: end ring
+
+                for m1 in cuda_threads(0, 16, unit=16 * cuda_thread):
+                    for n1 in cuda_threads(0, 16, unit=cuda_thread):
+                        for m0 in seq(0, 8):
+                            for n0 in seq(0, 16):
+                                # TeX: summary
+                                # Threads write out accumulators
+                                # TeX: begin ring[0]
+                                C[n2*256 + n1*16 + n0, m2*128 + m1*8 + m0] = accum[m1, n1, m0, n0]
+                                # TeX: end ring[0]
+
+
+@proc
+def gemm_tma(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B: f32[N,K] @ CudaGmemLinear, C: f32[N,M] @ CudaGmemLinear):
+
+    A_tensorMap = A[:,:] @ Sm90_tensorMap(0, 128, 32)
+    B_tensorMap = B[:,:] @ Sm90_tensorMap(0, 256, 32)
+
+    with CudaDeviceFunction(blockDim=384):
+        for m2 in cuda_tasks(0, M / 128):
+            for n2 in cuda_tasks(0, N / 256):
+                A_smem: f32[RING, 128, 32] @ CudaSmemLinear
+                B_smem: f32[RING, 256, 32] @ CudaSmemLinear
+                accum: f32[16, 16, 8, 16] @ CudaRmem
+                ringbar: barrier @ CudaMbarrier
+
+                for m1 in cuda_threads(0, 16, unit=16 * cuda_thread):
+                    for n1 in cuda_threads(0, 16, unit=cuda_thread):
+                        for m0 in seq(0, 8):
+                            for n0 in seq(0, 16):
+                                accum[m1, n1, m0, n0] = 0
+
+                for k1 in seq(0, K / 32):
+                    with CudaWarps(8, 9):
+                        with CudaAsync(tma_to_smem_async):
+                            ReverseAwait(ringbar, cuda_temporal, ~RING)
+                            Sm90_copy_tensor_to_smem_linear_2f32(A_smem[k1%RING,:,:], A_tensorMap[m2*128:(m2+1)*128, k1*32:(k1+1)*32], box0=128, box1=32)
+                            Sm90_copy_tensor_to_smem_linear_2f32(B_smem[k1%RING,:,:], B_tensorMap[n2*256:(n2+1)*256, k1*32:(k1+1)*32], box0=256, box1=32)
+                            Arrive(tma_to_smem_async, ringbar, 1)
+
+                    with CudaWarps(0, 8):
+                        Await(ringbar, cuda_classic, ~0)
+                        for m1 in cuda_threads(0, 16, unit=16 * cuda_thread):
+                            for n1 in cuda_threads(0, 16, unit=cuda_thread):
+                                for k0 in seq(0, 32):
+                                    for m0 in seq(0, 8):
+                                        for n0 in seq(0, 16):
+                                            accum[m1, n1, m0, n0] += A_smem[k1%RING, m1*8 + m0, k0] * B_smem[k1%RING, n1*16 + n0, k0]
+                        ReverseArrive(cuda_classic, ringbar, 1)
+
+                for m1 in cuda_threads(0, 16, unit=16 * cuda_thread):
+                    for n1 in cuda_threads(0, 16, unit=cuda_thread):
+                        for m0 in seq(0, 8):
+                            for n0 in seq(0, 16):
+                                C[n2*256 + n1*16 + n0, m2*128 + m1*8 + m0] = accum[m1, n1, m0, n0]
