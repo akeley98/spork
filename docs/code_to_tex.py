@@ -32,12 +32,14 @@ char_dict = {
 class TexLine:
     lineno: int
     is_summary: bool
+    is_remark: bool
     raw_text: str
     color_letters: str
+    bold: bool = False
 
     def leading_spaces(self):
         for i, c in enumerate(self.raw_text):
-            if c != ' ':
+            if not c.isspace():
                 return i
         return float("inf")
 
@@ -82,10 +84,12 @@ class TexLine:
 
         if prev_color_char:
             snippets.append("}")
-        snippets.append(r"}\\")
+        snippets.append(r"}")
         
         if self.is_summary:
             snippets = [r"\textit{"] + snippets + ["}"]
+        if self.bold:
+            snippets = [r"\textbf{"] + snippets + ["}"]
 
         return "".join(snippets)
 
@@ -141,6 +145,7 @@ class RemarkDirective(BaseFilterImpl):
     filters: List[VersionFilter]
     text: str
     color_letters: str
+    bold: bool
     lineno: int
 
 @dataclass(slots=True)
@@ -200,6 +205,8 @@ def file_to_lines_directives(f):
 
     while lineno < len(lines):
         text = lines[lineno]
+        if text.endswith("\n"):
+            text = text[:-1]
         lineno = lineno + 1
         directive = None
         try:
@@ -241,7 +248,10 @@ def file_to_lines_directives(f):
                     result.append(SummaryDirective(text, color_letters, lineno))
                 elif directive == "remark":
                     text = eat_next_line()
-                    result.append(RemarkDirective(parse_filters(version_names, args), text, color_letters, lineno))
+                    result.append(RemarkDirective(parse_filters(version_names, args), text, color_letters, False, lineno))
+                elif directive == "remark!":
+                    text = eat_next_line()
+                    result.append(RemarkDirective(parse_filters(version_names, args), text, color_letters, True, lineno))
                 elif directive == "line":
                     if not color_letters:
                         raise ValueError("line directive with no/empty color info")
@@ -267,7 +277,7 @@ def lines_directives_to_tex(lines_directives, name, version_number):
     for directive in lines_directives:
         if isinstance(directive, SourceLine):
             if refcnt > 0:
-                tex_lines.append(TexLine(directive.lineno, False, directive.text, source_color_letters))
+                tex_lines.append(TexLine(directive.lineno, False, False, directive.text, source_color_letters))
             source_color_letters = ""
         elif isinstance(directive, VersionDirective):
             pass
@@ -280,10 +290,11 @@ def lines_directives_to_tex(lines_directives, name, version_number):
                 if refcnt < 0:
                     raise ValueError(f"Line {directive.lineno}: end without begin for {name}.{version_number}")
         elif isinstance(directive, SummaryDirective):
-            tex_lines.append(TexLine(directive.lineno, refcnt == 0, directive.text, directive.color_letters))
+            tex_lines.append(TexLine(directive.lineno, refcnt == 0, False, directive.text, directive.color_letters))
         elif isinstance(directive, RemarkDirective):
-            if directive.passes_filter(name, version_number):
-                tex_lines.append(TexLine(directive.lineno, False, directive.text, directive.color_letters))
+            if refcnt > 0:
+                if directive.passes_filter(name, version_number):
+                    tex_lines.append(TexLine(directive.lineno, False, True, directive.text, directive.color_letters, directive.bold))
         elif isinstance(directive, ColorDirective):
             if directive.passes_filter(name, version_number):
                 source_color_letters = directive.color_letters
@@ -307,7 +318,7 @@ def lines_directives_to_tex(lines_directives, name, version_number):
         dedent = 0
     
     # Join lines
-    return "\n".join(line.gen_tex(dedent) for line in tex_lines)
+    return "\\\\\n".join(line.gen_tex(dedent) for line in tex_lines)
 
 def main(argv):
     if len(argv) != 3:
