@@ -360,6 +360,16 @@ def gemm_tile_per_thread(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear
                                 C[n2*256 + n1*16 + n0, m2*128 + m1*8 + m0] = accum[m0, n0]
 
 @proc
+def CudaWarps_example():
+    with CudaDeviceFunction(blockDim=384):
+        for task in cuda_tasks(0, 3):
+            for i in cuda_threads(0, 128):
+                pass
+            with CudaWarps(8, 12):
+                for i in cuda_threads(0, 128):
+                    pass
+
+@proc
 def gemm_tile_per_cta(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B: f32[N,K] @ CudaGmemLinear, C: f32[N,M] @ CudaGmemLinear):
     with CudaDeviceFunction(blockDim=256):
         for m2 in cuda_tasks(0, M / 128):

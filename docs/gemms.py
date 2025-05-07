@@ -13,20 +13,24 @@ def gemm_one_per_thread(M: size, N: size, K: size,
                         # TeX: color line intro[1]
                         #             rrrrrrrrrrrrrr                      rrrrrr
                         C: f32[N,M] @ CudaGmemLinear):  # Column-major in global memory
-    # TeX: color remark intro[0]
-    #                                                              yyyyyyyyyyyyyyyyyy
-    # CPU code here; CUDA device function (``kernel'') opened with CudaDeviceFunction
+    # TeX: remark! intro[0]
+    # Actor kind = CPU here
+    # TeX: remark! intro[0]
+    # CUDA device function (``kernel'') opened with CudaDeviceFunction
     # TeX: color line intro[0] par
-    #    yyyyyyyyyyyyyyyyyy          yyy
+    #                                yyy
     with CudaDeviceFunction(blockDim=256):
-        # Distribute work (``tasks'') to CTAs
+        # TeX: remark! intro[0]
+        # Actor kind = cuda_classic here
         # TeX: color line intro[0]
         #                           gg
-        for m2 in cuda_tasks(0, M / 16):
+        for m2 in cuda_tasks(0, M / 16):  # Distribute work (``tasks'') to CTAs
             # TeX: color line intro[0]
             #                           vv
             for n2 in cuda_tasks(0, N / 16):
                 # TeX: begin par
+                # TeX: remark! intro[2]
+                # Collective unit = 256 threads here
                 # TeX: color line intro[0] par
                 #                                yyy                  gg   vv
                 # Per-CTA code here; each CTA of 256 threads computes 16 x 16 output tile
@@ -36,15 +40,17 @@ def gemm_one_per_thread(M: size, N: size, K: size,
                     # TeX: color remark intro[2] par
                     #        yyy                              gg
                     # CTA of 256 threads splits into teams of 16 threads
+                    # TeX: remark! intro[2]
+                    # Collective unit = 16 threads here
                     # TeX: color line intro[2] par
                     #   bb                        vvvvvvvvvvvvvvvv
                     for n1 in cuda_threads(0, 16, unit=cuda_thread):
                         # TeX: color remark intro[2] par
                         #                                vvvvvv
                         # Teams of 16 threads split into single threads
-                        # Per-thread code
-                        # TeX: remark intro[0]
-                        # Each thread calculates one value of the output matrix
+                        # TeX: remark! intro[2]
+                        # Collective unit = 1 thread here
+                        # Per-thread code: calculate one value of the output matrix
                         # TeX: color remark intro[1]
                         #                                                rrrrrrrr
                         # Accumulate one value of the output matrix in a register
@@ -105,16 +111,14 @@ def gemm_tile_per_thread(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear
                     # TeX: color line tile[2]
                     #         rrrrrrrrrrrrr                       r
                     for n1 in cuda_threads(0, 16, unit=cuda_thread):
-                        # TeX: end tile[1:]
-                        # TeX: color line *
+                        # TeX: color remark! tile[0]
                         #                            bbbbbb                       rrrrrrrrr
                         # Each thread accumulates an 8 x 16 output matrix tile in registers
-                        # TeX: begin tile[1:]
-                        # TeX: color line tile[0]
-                        #          bbbbb    rrrrrrrr
                         # TeX: color remark tile[0]
                         #           bbbbbbbbbbbbbbbbbbbb
                         # Lowers to float accum[8 * 16];
+                        # TeX: color line tile[0]
+                        #          bbbbb    rrrrrrrr
                         accum: f32[8, 16] @ CudaRmem
                         for m0 in seq(0, 8):
                             for n0 in seq(0, 16):
@@ -365,7 +369,7 @@ def gemm_broken_smem(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B:
                 #       yyyy
                 # These SMEM allocations are per-CTA,
                 # TeX: remark! smem_alloc
-                # since we are outside any cuda_threads loops
+                # since the collective unit is CTA outside any cuda_threads loops
                 # TeX: color line broken_smem[0] smem_alloc
                 #                      yyyyyyyyyyyyyy
                 A_smem: f32[128, 32] @ CudaSmemLinear
@@ -409,6 +413,8 @@ def gemm_broken_smem(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B:
                     # TeX: begin broken_smem smem_alloc
                     # TeX: remark! *
                     # __syncthreads()
+                    # TeX: remark smem_alloc
+                    # Collective unit = CTA here
                     Fence(cuda_classic, cuda_classic)
                     # TeX: color remark! broken_smem[0]
                     #                        rrrrr    yyyyyyyyyyyyyyy
@@ -440,6 +446,8 @@ def gemm_broken_smem(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B:
                     # TeX: begin broken_smem smem_alloc
                     # TeX: remark! *
                     # __syncthreads()
+                    # TeX: remark smem_alloc
+                    # Collective unit = CTA here
                     Fence(cuda_classic, cuda_classic)
                     # TeX: end broken_smem smem_alloc
 
@@ -552,6 +560,31 @@ def gemm_simple_smem(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B:
 #                                                                            rrrrrrgg  vv        r
                                 C[n2*256 + n1*16 + n0, m2*128 + m1*8 + m0] = accum[m1, n1, m0, n0]
 # TeX: end working_smem
+
+# TeX: version CudaWarps 2
+@proc
+def CudaWarps_example():  # XXX THIS CODE BARELY FITS THE SLIDES
+    with CudaDeviceFunction(blockDim=384):
+        for task in cuda_tasks(0, 3):
+            # TeX: begin CudaWarps[0]
+            # Example: before CudaWarps
+            for i in cuda_threads(0, 128):
+            # Lowered C++
+            # TeX: color line *
+            #       bbbbbbbbbbbbbbbbbbbbbbbb
+            if (int exo_1thr_i = threadIdx.x;
+                exo_1thr_i < 128) {
+            # TeX: end CudaWarps[0]
+            # TeX: begin CudaWarps[1]
+            with CudaWarps(8, 12): # Example: after CudaWarps
+                for i in cuda_threads(0, 128):
+            # Lowered C++
+            if (threadIdx.x >= 256) {
+              # TeX: color line *
+              #       bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+              if (int exo_1thr_i = threadIdx.x - 256; 1) {
+            # TeX: end CudaWarps[1]
+
 
 # TeX: version ring 4
 # TeX: version sync_copy 1
@@ -704,7 +737,7 @@ def gemm_tma(M: size, N: size, K: size,
              B: f32[N,K] @ CudaGmemLinear,
              C: f32[N,M] @ CudaGmemLinear):
     # TeX: color remark! tma[2]
-    #                                            gggggggggggggggggg
+    #                                            vvvvvvvvvvvvvvvvvv
     # tensorMap constructed in CPU code (outside CudaDeviceFunction)
     # TeX: remark tma[2]
     # ``window'' (alias) to global memory A and B
@@ -722,7 +755,7 @@ def gemm_tma(M: size, N: size, K: size,
    #yyyyyyyyyyy                              vvvvvvv
     B_tensorMap = B[:,:] @ Sm90_tensorMap(0, 256, 32)  # 0 means no swizzling (ignore this)
     # TeX: color line tma[2]
-    #    gggggggggggggggggg
+    #    vvvvvvvvvvvvvvvvvv
     with CudaDeviceFunction(blockDim=384):
         for m2 in cuda_tasks(0, M / 128):
             for n2 in cuda_tasks(0, N / 256):

@@ -1,3 +1,4 @@
+% python3 code_to_tex.py gemms.py gemms_tex && xelatex </dev/null spork_gemm.tex
 \input{slides_common.tex}
 
 \begin{document}
@@ -35,21 +36,75 @@
 \includegraphics[width=\linewidth]{usda_spork.jpg}
 
 \newpage
-\myTitle{Intro 0}
+\myTitle{Basic Concepts}
+
+\begin{minipage}[t]{0.48\textwidth}\fixminipage
+
+Exo: Python-embedded DSL with mostly sequential semantics.
+Syntax lowers $\approx 1:1$ to C.
+
+Annotates Exo with parallelization directives.
+
+%% Scheduling checks will retain sequential semantics.
+%% ``Prove'' at the end that the scheduled function, as a sequential program, behaves the same as the parallelized program.
+
+\mySub{Language Constructs for GPUs}
+\begin{itemize}
+  \item Parallel for loops
+  \item Add sync statements
+  \item Add GPU memory types (Exo annotates memory types as \texttt{var @ \redBox{memory}})
+\end{itemize}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.48\textwidth}\fixminipage
+
+Each statement of an Exo program has these 2 static properties:
+
+\mySub{Actor Kind}
+
+Intuitively, the ``timeline'' the statement runs on
+\begin{itemize}
+  \item \texttt{cpu}: host CPU
+  \item \texttt{cuda\_classic}: most CUDA device code
+  \item async CUDA instructions
+\end{itemize}
+\texttt{with CudaDeviceFunction} wraps CUDA code.\\
+Changes the actor kind from \texttt{cpu} to \texttt{cuda\_classic}
+
+\mySub{Collective Unit}
+
+Number and arrangement of threads cooperating to execute a statement
+
+e.g. thread, warp, CTA, or user-defined \# threads
+
+Manipulated with parallel for loops
+
+\begin{itemize}
+  \item \texttt{cuda\_tasks}: outer loops, allocate work to CTAs (or clusters)
+  \item \texttt{cuda\_threads}: inner loops, allocate sub-CTA work to threads
+\end{itemize}
+\end{minipage}
+
+\newpage
+\myTitle{Starter Example: Actor Kinds}
+
+Output stationary example: each thread computes one value of the output matrix $C$.
+
+Threads grouped into 256 thread CTAs that compute a $16 \times 16$ tile.
 
 \input{gemms_tex/intro.0.tex}
 \newpage
-\myTitle{Intro 1}
+\myTitle{Starter Example: Memory Types}
 
 \input{gemms_tex/intro.1.tex}
 
 \newpage
-\myTitle{Intro 2}
+\myTitle{Starter Example: Collective Units}
 
 \input{gemms_tex/intro.2.tex}
 
 \newpage
-\myTitle{Par}
+\myTitle{cuda\_threads Loop Example}
 
 \input{gemms_tex/par.0.tex}
 
@@ -82,10 +137,10 @@
 \draw [arrow] (m1) -- node[above] {\texttt{for \blueBox{n1}}} (m1n0);
 \draw [arrow] (m2) -- node[above] {\texttt{for \blueBox{n1}}} (m2n0);
 \draw [arrow] (m15) -- node[below] {\texttt{for \blueBox{n1}}} (m15n0);
-\draw [dotted] (m2n0) -- node[] {\texttt{n1 = 0}} (m15n0);
-\draw [dotted] (m2n1) -- (m15n1);
-\draw [dotted] (m2n2) -- node[] {\texttt{n1 = 2}} (m15n2);
-\draw [dotted] (m2n15) --node[] {\texttt{n1 = 15}} (m15n15);
+\draw [dotted] (m2n0) -- node[] {\texttt{n1=0}} (m15n0);
+\draw [dotted] (m2n1) -- node[] {\texttt{n1=1}} (m15n1);
+\draw [dotted] (m2n2) -- node[] {\texttt{n1=2}} (m15n2);
+\draw [dotted] (m2n15) --node[] {\texttt{n1=15}} (m15n15);
 \draw [dotted] (m0n2) -- (m0n15);
 \draw [dotted] (m1n2) -- (m1n15);
 \draw [dotted] (m2n2) -- (m2n15);
@@ -94,7 +149,7 @@
 \end{tikzpicture}
 
 \newpage
-\myTitle{Tile 0}
+\myTitle{Register Tiles: Assign Multiple Output Values to 1 Thread}
 
 \input{gemms_tex/tile.0.tex}
 \newpage
@@ -108,14 +163,154 @@
 \input{gemms_tex/tile.2.tex}
 
 \newpage
-\myTitle{GMEM}
+\myTitle{SMEM Tile Reuse}
+
+All threads are reading directly from GMEM (global memory), which misses important re-use opportunities.
 
 \input{gemms_tex/gmem_remark.0.tex}
+
+\newpage
+\myTitle{SMEM Tile Reuse}
+
+Decompose the CTA's output $C$ matrix tile as a sum of $A$, $B$ matrix tile products
+
+The CTA's threads alternate between
+\begin{itemize}
+  \item Cooperatively loading $A$, $B$ tiles to \myKeyB{SMEM} (shared memory; per-CTA scratchpad): ``produce''
+  \item Cooperatively accumulating loaded SMEM tiles: ``consume''
+\end{itemize}
+We need to insert syncs to make the cooperation work.
+
+% This is so janky...
+\begin{tikzpicture}[node distance=2mm]
+\node (c) [normalnode, minimum width=50mm, minimum height=50mm] { $C$ };
+\node (eq) [right=of c] {$=$};
+\node (a) [normalnode, minimum width=50mm, minimum height=50mm, right=of eq] { $A$ };
+\node (b) [normalnode, minimum width=50mm, minimum height=50mm, right=of a] { $B$ };
+\node (c0) [rednode, minimum width=10mm, minimum height=10mm, text width=10mm, xshift=-10mm, yshift=10mm] {\texttt{accum}};
+\node (a0) [greennode, minimum width=5mm, minimum height=10mm, text width=0mm, right=of c0, xshift=38mm] {};
+\node (a1) [greennode, minimum width=5mm, minimum height=10mm, text width=0mm, right=of a0] {};
+\node (a2) [greennode, minimum width=5mm, minimum height=10mm, text width=0mm, right=of a1] {};
+\node (a3) [greennode, minimum width=5mm, minimum height=10mm, text width=0mm, right=of a2] {};
+\node (a4) [greennode, minimum width=5mm, minimum height=10mm, text width=0mm, right=of a3] {};
+\node (a5) [greennode, minimum width=5mm, minimum height=10mm, text width=0mm, right=of a4] {};
+\node (a6) [greennode, minimum width=5mm, minimum height=10mm, text width=0mm, right=of a5] {};
+\node (b0) [violetnode, minimum width=10mm, minimum height=5mm, text width=10mm, right=of a6, xshift=9mm, yshift=11.5mm] {};
+\node (b1) [violetnode, minimum width=10mm, minimum height=5mm, text width=10mm, below=of b0] {};
+\node (b2) [violetnode, minimum width=10mm, minimum height=5mm, text width=10mm, below=of b1] {};
+\node (b3) [violetnode, minimum width=10mm, minimum height=5mm, text width=10mm, below=of b2] {};
+\node (b4) [violetnode, minimum width=10mm, minimum height=5mm, text width=10mm, below=of b3] {};
+\node (b5) [violetnode, minimum width=10mm, minimum height=5mm, text width=10mm, below=of b4] {};
+\node (b6) [violetnode, minimum width=10mm, minimum height=5mm, text width=10mm, below=of b5] {};
+\end{tikzpicture}
+
+\newpage
+\myTitle{SMEM Tile Reuse}
+
+Divide $k$ accumulation loop by K-block size (32 in these examples)
+
+Outer \blueBox{\texttt{k1}} loop over matrix blocks; inner \blueBox{\texttt{k0}} loop handles block-block multiplication.
+
+\begin{minipage}[t]{0.48\textwidth}\fixminipage
+\begin{itemize}
+  \item Zero-initialize accumulator
+  \item \texttt{k1 = 0}: threads cooperate to load A, B tiles (offset $k = 0$)
+  \item Sync threads
+  \item \texttt{k1 = 0}: threads multiply-accum A, B tiles
+  \item Sync threads
+  \item \texttt{k1 = 1}: threads cooperate to load A, B tiles (offset $k = 32$)
+  \item Sync threads
+  \item \texttt{k1 = 1}: threads multiply-accum A, B tiles
+  \item Sync threads
+  \item \texttt{k1 = 2}: threads cooperate to load A, B tiles (offset $k = 64$)
+  \item Sync threads
+  \item \texttt{k1 = 2}: threads multiply-accum A, B tiles
+  \item ...
+\end{itemize}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.48\textwidth}\fixminipage
+~\\
+\begin{tikzpicture}[node distance=0mm]
+\node (c0) [normalnode, minimum width=25mm, minimum height=25mm, text width=6mm] { $C$ };
+\node (accum0) [rednode, minimum width=5mm, minimum height=5mm, text width=0mm, left=of c0, xshift=10mm, yshift=5mm] {};
+\node (p0) [right=of c0] {\texttt{+=}};
+\node (a0) [normalnode, minimum width=25mm, minimum height=25mm, text width=6mm, right=of p0] { $A$ };
+\node (aT0) [greennode, minimum width=5mm, minimum height=5mm, text width=0mm, left=of a0, xshift=5mm, yshift=5mm] {};
+\node (b0) [normalnode, minimum width=25mm, minimum height=25mm, text width=6mm, right=of a0, xshift=2mm] { $B$ };
+\node (bT0) [violetnode, minimum width=5mm, minimum height=5mm, text width=0mm, left=of b0, xshift=10mm, yshift=10mm] {};
+
+\node (c1) [normalnode, minimum width=25mm, minimum height=25mm, text width=6mm, below=of c0, yshift=-4mm] { $C$ };
+\node (accum1) [rednode, minimum width=5mm, minimum height=5mm, text width=0mm, left=of c1, xshift=10mm, yshift=5mm] {};
+\node (p1) [right=of c1] {\texttt{+=}};
+\node (a1) [normalnode, minimum width=25mm, minimum height=25mm, text width=6mm, right=of p1] { $A$ };
+\node (aT1) [greennode, minimum width=5mm, minimum height=5mm, text width=0mm, left=of a1, xshift=10mm, yshift=5mm] {};
+\node (b1) [normalnode, minimum width=25mm, minimum height=25mm, text width=6mm, right=of a1, xshift=2mm] { $B$ };
+\node (bT1) [violetnode, minimum width=5mm, minimum height=5mm, text width=0mm, left=of b1, xshift=10mm, yshift=5mm] {};
+
+\node (c2) [normalnode, minimum width=25mm, minimum height=25mm, text width=6mm, below=of c1, yshift=-4mm] { $C$ };
+\node (accum2) [rednode, minimum width=5mm, minimum height=5mm, text width=0mm, left=of c2, xshift=10mm, yshift=5mm] {};
+\node (p2) [right=of c2] {\texttt{+=}};
+\node (a2) [normalnode, minimum width=25mm, minimum height=25mm, text width=6mm, right=of p2] { $A$ };
+\node (aT2) [greennode, minimum width=5mm, minimum height=5mm, text width=0mm, left=of a2, xshift=15mm, yshift=5mm] {};
+\node (b2) [normalnode, minimum width=25mm, minimum height=25mm, text width=6mm, right=of a2, xshift=2mm] { $B$ };
+\node (bT2) [violetnode, minimum width=5mm, minimum height=5mm, text width=0mm, left=of b2, xshift=10mm, yshift=0mm] {};
+
+\end{tikzpicture}
+\end{minipage}
+
+\newpage
+\myTitle{SMEM Tile Sizing}
+
+When we choose the tile sizes for $A$ and $B$, generally, $M, N > K$.\\
+This maximizes re-use when multiplying the two tiles.
+
+\begin{tikzpicture}[node distance=0mm]
+\node (cL) [normalnode, minimum width=50mm, minimum height=50mm] {};
+\node (aL) [smallnode, minimum width=20mm, minimum height=50mm, left=of cL, xshift=-2mm] {$A$};
+\node (aRow) [greennode, minimum width=18mm, minimum height=6mm, above=of aL, yshift=-18mm, text width=0mm] {};
+\node (bL) [smallnode, minimum width=50mm, minimum height=20mm, above=of cL, yshift=2mm] {$B$};
+\draw (aRow.east) to[out=0, in=270] ($(bL.south) - (2.0, 0)$);
+\draw (aRow.east) to[out=0, in=270] ($(bL.south) - (1.2, 0)$);
+\draw (aRow.east) to[out=0, in=270] ($(bL.south) - (0.4, 0)$);
+\draw (aRow.east) to[out=0, in=270] ($(bL.south) + (0.4, 0)$);
+\draw (aRow.east) to[out=0, in=270] ($(bL.south) + (1.2, 0)$);
+\draw (aRow.east) to[out=0, in=270] ($(bL.south) + (2.0, 0)$);
+\node (ML) [right=of aL, xshift=2mm] {\greenBox{$M$}};
+\node (NL) [below=of bL, yshift=-2mm] {\violetBox{$N$}};
+\node (aKL) [above=of aL] {\blueBox{$K$}};
+\node (bKL) [left=of bL] {\blueBox{$K$}};
+\node (Lcaption) [below=of cL, xshift=-11mm] {Each row of the $A$ tile is used \violetBox{$N$} times.};
+
+\node (cR) [normalnode, minimum width=50mm, minimum height=50mm, right=of cL, xshift=42mm] {};
+\node (aR) [smallnode, minimum width=20mm, minimum height=50mm, left=of cR, xshift=-2mm] {$A$};
+\node (bR) [smallnode, minimum width=50mm, minimum height=20mm, above=of cR, yshift=2mm] {$B$};
+\node (bCol) [violetnode, minimum width=6mm, minimum height=18mm, left=of bR, xshift=18mm, text width=0mm] {};
+\draw (bCol.south) to[out=270, in=0] ($(aR.east) - (0, 2.0)$);
+\draw (bCol.south) to[out=270, in=0] ($(aR.east) - (0, 1.2)$);
+\draw (bCol.south) to[out=270, in=0] ($(aR.east) - (0, 0.4)$);
+\draw (bCol.south) to[out=270, in=0] ($(aR.east) + (0, 0.4)$);
+\draw (bCol.south) to[out=270, in=0] ($(aR.east) + (0, 1.2)$);
+\draw (bCol.south) to[out=270, in=0] ($(aR.east) + (0, 2.0)$);
+\node (MR) [right=of aR, xshift=2mm] {\greenBox{$M$}};
+\node (NR) [below=of bR, yshift=-2mm] {\violetBox{$N$}};
+\node (aKR) [above=of aR] {\blueBox{$K$}};
+\node (bKR) [left=of bR] {\blueBox{$K$}};
+\node (Rcaption) [below=of cR, xshift=-11mm] {Each column of the $B$ tile is used \greenBox{$M$} times.};
+\end{tikzpicture}
+
+
+In contrast, increasing the \blueBox{$K$} tile size yields no re-use.
+
 
 \newpage
 \myTitle{SMEM Alloc}
 
 \input{gemms_tex/smem_alloc.0.tex}
+
+\texttt{Fence(cuda\_classic, cuda\_classic)} is an all-threads-to-all-threads sync in Exo-GPU, where ``all'' is defined by the collective unit.
+
+\texttt{cuda\_classic}: actor kind; for now, we don't need to worry about this.
 
 \newpage
 \myTitle{Broken SMEM 0}
@@ -255,7 +450,8 @@ Reverse synchronization: Producer \producerBox{\texttt{k1 = N}} waits for consum
 \newpage
 \myTitle{Warp Specialization}
 
-Dedicate some warps (32-thread groups) to be \producerBox{producers} and some to be \consumerBox{consumers}.
+Dedicate some warps (32-thread groups) to be \producerBox{producers} and some to be \consumerBox{consumers}.\\
+We use \blueBox{\texttt{with CudaWarps}} in Exo to control work assignment to threads.
 
 \begin{tikzpicture}[node distance=2mm]
 \node (produce0) [smallproducer] {Copy instr \texttt{k1 = 0}};
@@ -296,19 +492,27 @@ Dedicate some warps (32-thread groups) to be \producerBox{producers} and some to
 \draw[arrow, dotted] (copy2.east) to[out=315, in=90] (consume2.north);
 \draw[arrow, dotted] (copy3.east) to[out=315, in=90] (consume3.north);
 \end{tikzpicture}
+%In Exo, use \texttt{with CudaWarps} to specialize threads: alters lowering of child \texttt{cuda\_threads} loops.
 
+\begin{minipage}[t]{0.4\textwidth}\fixminipage
+\input{gemms_tex/CudaWarps.0.tex}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.58\textwidth}\fixminipage
+\input{gemms_tex/CudaWarps.1.tex}
+\end{minipage}
 \newpage
-\myTitle{Ring Buffer 0}
+\myTitle{Ring Buffer Example: Thread Specialization}
 
 \input{gemms_tex/ring.0.tex}
 
 \newpage
-\myTitle{Ring Buffer 1}
+\myTitle{Ring Buffer Example: Producer Threads Detail}
 
 \input{gemms_tex/ring.1.tex}
 
 \newpage
-\myTitle{Ring Buffer 2}
+\myTitle{Ring Buffer Example: Consumer Threads Detail}
 
 \input{gemms_tex/ring.2.tex}
 
@@ -366,47 +570,47 @@ Parameterize sync statements (Fence/Arrive/Await) with \myKeyA{actor kind}; lowe
 \end{minipage}
 
 \newpage
-\myTitle{Before TMA}
+\myTitle{Before TMA -- Where We Left Off}
 
 \input{gemms_tex/ring.3.tex}
 
 \newpage
-\myTitle{Prep TMA 0}
+\myTitle{Prep for TMA: Change actor kind with CudaAsync}
 
 \input{gemms_tex/prep_tma.0.tex}
 
 \newpage
-\myTitle{Prep TMA 1}
+\myTitle{Prep for TMA: Update Barriers}
 
 \input{gemms_tex/prep_tma.1.tex}
 
 \newpage
-\myTitle{TMA 0}
+\myTitle{TMA: Substitute TMA Instructions}
 
 \input{gemms_tex/tma.0.tex}
 
 \newpage
-\myTitle{TMA 1}
+\myTitle{TMA: TensorMap}
 
 \input{gemms_tex/tma.1.tex}
 
 \newpage
-\myTitle{TMA 2}
+\myTitle{TMA: Prepare TensorMap}
 
 \input{gemms_tex/tma.2.tex}
 
 \newpage
-\myTitle{TMA 3}
+\myTitle{TMA: SpecialWindow}
 
 \input{gemms_tex/tma.3.tex}
 
 \newpage
-\myTitle{TMA Forward Synchronization}
+\myTitle{TMA: Forward Synchronization}
 
 \input{gemms_tex/prep_tma.2.tex}
 
 \newpage
-\myTitle{TMA Reverse Synchronization}
+\myTitle{TMA :Reverse Synchronization}
 
 \input{gemms_tex/prep_tma.3.tex}
 
