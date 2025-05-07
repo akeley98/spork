@@ -43,7 +43,7 @@
 Exo: Python-embedded DSL with mostly sequential semantics.
 Syntax lowers $\approx 1:1$ to C.
 
-Annotates Exo with parallelization directives.
+Exo-GPU annotates Exo with parallelization directives.
 
 %% Scheduling checks will retain sequential semantics.
 %% ``Prove'' at the end that the scheduled function, as a sequential program, behaves the same as the parallelized program.
@@ -58,7 +58,7 @@ Annotates Exo with parallelization directives.
 \hfill
 \begin{minipage}[t]{0.48\textwidth}\fixminipage
 
-Each statement of an Exo program has these 2 static properties:
+Each statement of an Exo-GPU program has these 2 static properties:
 
 \mySub{Actor Kind}
 
@@ -368,6 +368,16 @@ In contrast, increasing the \blueBox{$K$} tile size yields no re-use.
 \vspace{4mm}
 Distributed dimensions (\blacktt{f32[\greenBox{16}, \violetBox{16}, ...]}) are elided in the generated C++ code.
 \end{minipage}
+
+All of this was just to lift the \texttt{accum} variable out of the loop!
+
+\myKeyA{Rationale:} Why did we need to do this? (i.e. why not just lower \texttt{accum[8, 16]} verbatim)?
+
+\begin{itemize}
+  \item Sequential-parallel equivalence: parallel-fors are just ``pragmas'', shouldn't change tensor meaning
+  \item Sequential scheduling language needs to understand ``intent'' and dataflow of the full tensor
+  \item We also need this to be explicit for multicast instructions (not in this talk)
+\end{itemize}
 
 \newpage
 \myTitle{Working SMEM Example 0}

@@ -308,10 +308,10 @@ for m1 in cuda_threads(
 #       vv
     for n1 in cuda_threads(
             0, 16, unit=cuda_thread):
+        # Each thread owns a 8 x 16 tile
 # TeX: color line *
 #       rrrrr      bbbbb    rrrrrrrr
         accum: f32[8, 16] @ CudaRmem
-
 # Lowered C++
 unsigned tid = threadIdx.x;  // for slides
 # TeX: color line *
@@ -326,6 +326,7 @@ if (int exo_16thr_m1 = tid / 16; 1) {
 # TeX: end dmem_before
 
 # TeX: begin dmem_after
+# The CTA owns a 128 x 256 tile (8 x 16 per thread)
 # TeX: color line *
 rrrrr      gg  vv  bbbbb    rrrrrrrr
 accum: f32[16, 16, 8, 16] @ CudaRmem
@@ -337,7 +338,6 @@ for m1 in cuda_threads(
 #       vv
     for n1 in cuda_threads(
             0, 16, unit=cuda_thread):
-
 # Lowered C++
 # TeX: color line *
 #     rrrrr bbbbbb
