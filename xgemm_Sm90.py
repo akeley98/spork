@@ -15,9 +15,9 @@ wg_k = 8
 ring = 4
 
 my_warp_config = [
-    CudaWarpConfig("consumer", 8, setmaxnreg_inc=232),
     CudaWarpConfig("producer", 1, setmaxnreg_dec=40),
     CudaWarpConfig("unused", 3, setmaxnreg_dec=40),
+    CudaWarpConfig("consumer", 8, setmaxnreg_inc=232),
 ]
 
 @proc
@@ -59,6 +59,8 @@ def xgemm_Sm90_wgmma(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B:
                             Arrive(tma_to_smem_async, ringbar, 1)
 
                     with CudaWarps(name="consumer"):
+                        with CudaWarps(1, 3, name="consumer"):
+                            pass
                         # Producer warpgroups
                         Await(ringbar, wgmma_async, ~0)
                         for wg in cuda_threads(0, 2, unit=cuda_warpgroup):
