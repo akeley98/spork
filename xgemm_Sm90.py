@@ -7,13 +7,18 @@ from exo.platforms.Sm80 import *
 from exo.platforms.Sm90 import *
 
 smem_m = 256
-smem_n = 96
+smem_n = 128
 smem_k = 32
 wg_m = 128
-wg_n = 96
+wg_n = 128
 wg_k = 8
 ring = 4
 
+my_warp_config = [
+    CudaWarpConfig("consumer", 8, setmaxnreg_inc=232),
+    CudaWarpConfig("producer", 1, setmaxnreg_dec=40),
+    CudaWarpConfig("unused", 3, setmaxnreg_dec=40),
+]
 
 @proc
 def xgemm_Sm90_wgmma(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B: f32[N,K] @ CudaGmemLinear, C: f32[N,M] @ CudaGmemLinear):
@@ -24,7 +29,7 @@ def xgemm_Sm90_wgmma(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B:
     A_tensorMap = A[:,:] @ Sm90_tensorMap(128, smem_m, smem_k)
     B_tensorMap = B[:,:] @ Sm90_tensorMap(128, smem_n, smem_k)
 
-    with CudaDeviceFunction(blockDim = 384, blocks_per_sm = 1):
+    with CudaDeviceFunction(warp_config = my_warp_config, blocks_per_sm = 1):
         for m_task in cuda_tasks(0, M / smem_m):
             for n_task in cuda_tasks(0, N / smem_n):
                 ringbar : barrier @ CudaMbarrier
@@ -33,13 +38,13 @@ def xgemm_Sm90_wgmma(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B:
                 A_smem : f32[ring, smem_m / 8, 8, smem_k] @ Sm90_SmemSwizzled(128)
                 B_smem : f32[ring, smem_n / 8, 8, smem_k] @ Sm90_SmemSwizzled(128)
 
-                with CudaWarps(0, 8):
+                with CudaWarps(name="consumer"):
                     for wg in cuda_threads(0, 2, unit=cuda_warpgroup):
                         for m_mma in seq(0, wg_m / 64):
                             Sm90_zero_scale_d_tf32(D_rmem[wg,m_mma,:,:], n=wg_n)
 
                 for k_iter in seq(0, K/smem_k):  # This loop should be cut at 1
-                    with CudaWarps(8, 9):
+                    with CudaWarps(name="producer"):
                         # TMA producer warp
                         with CudaAsync(tma_to_smem_async):
                             ReverseAwait(ringbar, cuda_temporal, ~ring)
@@ -53,7 +58,7 @@ def xgemm_Sm90_wgmma(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B:
                                 box0=smem_n, box1=smem_k)
                             Arrive(tma_to_smem_async, ringbar, 1)
 
-                    with CudaWarps(0, 8):
+                    with CudaWarps(name="consumer"):
                         # Producer warpgroups
                         Await(ringbar, wgmma_async, ~0)
                         for wg in cuda_threads(0, 2, unit=cuda_warpgroup):
@@ -70,12 +75,12 @@ def xgemm_Sm90_wgmma(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B:
                         if k_iter >= 1:
                             ReverseArrive(cuda_classic, ringbar, 1)
 
-                with CudaWarps(0, 8):
+                with CudaWarps(name="consumer"):
                     for wg in cuda_threads(0, 2, unit=cuda_warpgroup):
                         Await(cg[wg], cuda_classic, 0)
                     ReverseArrive(cuda_classic, ringbar, ~0)
 
-                with CudaWarps(0, 8):
+                with CudaWarps(name="consumer"):
                     for wg in cuda_threads(0, 2, unit=cuda_warpgroup):
                         for m_mma in seq(0, wg_m / 64):
                             Sm90_mma_write_d_col_major_tf32(
@@ -190,3 +195,4 @@ def gemm_tma(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B: f32[N,K
                         for m0 in seq(0, 8):
                             for n0 in seq(0, 16):
                                 C[n2*256 + n1*16 + n0, m2*128 + m1*8 + m0] = accum[m1, n1, m0, n0]
+
