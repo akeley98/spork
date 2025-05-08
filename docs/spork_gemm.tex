@@ -54,6 +54,20 @@ Exo-GPU annotates Exo with parallelization directives.
   \item Add sync statements
   \item Add GPU memory types (Exo annotates memory types as \texttt{var @ \redBox{memory}})
 \end{itemize}
+
+\mySub{Goals}
+\begin{itemize}
+  \item Imperatively program individual threads
+  \item Support async instructions
+  \item ...but type systems watch over our imperative programing
+\end{itemize}
+
+\mySub{Not in this talk}
+\begin{itemize}
+  \item Scheduling semantics (still sequential)
+  \item Sequential-parallel equivalence
+  \item (i.e. ``prove'' that parallel program + syncs = sequential program behavior)
+\end{itemize}
 \end{minipage}
 \hfill
 \begin{minipage}[t]{0.48\textwidth}\fixminipage
