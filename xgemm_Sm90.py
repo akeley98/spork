@@ -153,48 +153,48 @@ def gemm_ring(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B: f32[N,
                             for n0 in seq(0, 16):
                                 C[n2*256 + n1*16 + n0, m2*128 + m1*8 + m0] = accum[m1, n1, m0, n0]
 
-
 @proc
 def gemm_tma(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B: f32[N,K] @ CudaGmemLinear, C: f32[N,M] @ CudaGmemLinear):
 
     A_tensorMap = A[:,:] @ Sm90_tensorMap(0, 128, 32)
     B_tensorMap = B[:,:] @ Sm90_tensorMap(0, 256, 32)
 
-    with CudaDeviceFunction(blockDim=384):
-        for m2 in cuda_tasks(0, M / 128):
+    with CudaDeviceFunction(blockDim=384, clusterDim=2):
+        for m2 in cuda_tasks(0, M / 256):
             for n2 in cuda_tasks(0, N / 256):
-                A_smem: f32[RING, 128, 32] @ CudaSmemLinear
-                B_smem: f32[RING, 256, 32] @ CudaSmemLinear
-                accum: f32[16, 16, 8, 16] @ CudaRmem
-                ringbar: barrier @ CudaMbarrier
+                A_smem: f32[2, RING, 128, 32] @ CudaSmemLinear
+                B_smem: f32[2, RING, 256, 32] @ CudaSmemLinear
+                for cluster in cuda_threads(0, 2, unit=cuda_cta_in_cluster):
+                    accum: f32[16, 16, 8, 16] @ CudaRmem
+                    ringbar: barrier @ CudaMbarrier
 
-                for m1 in cuda_threads(0, 16, unit=16 * cuda_thread):
-                    for n1 in cuda_threads(0, 16, unit=cuda_thread):
-                        for m0 in seq(0, 8):
-                            for n0 in seq(0, 16):
-                                accum[m1, n1, m0, n0] = 0
+                    for m1 in cuda_threads(0, 16, unit=16 * cuda_thread):
+                        for n1 in cuda_threads(0, 16, unit=cuda_thread):
+                            for m0 in seq(0, 8):
+                                for n0 in seq(0, 16):
+                                    accum[m1, n1, m0, n0] = 0
 
-                for k1 in seq(0, K / 32):
-                    with CudaWarps(8, 9):
-                        with CudaAsync(tma_to_smem_async):
-                            ReverseAwait(ringbar, cuda_temporal, ~RING)
-                            Sm90_copy_tensor_to_smem_linear_2f32(A_smem[k1%RING,:,:], A_tensorMap[m2*128:(m2+1)*128, k1*32:(k1+1)*32], box0=128, box1=32)
-                            Sm90_copy_tensor_to_smem_linear_2f32(B_smem[k1%RING,:,:], B_tensorMap[n2*256:(n2+1)*256, k1*32:(k1+1)*32], box0=256, box1=32)
-                            Arrive(tma_to_smem_async, ringbar, 1)
+                    for k1 in seq(0, K / 32):
+                        with CudaWarps(8, 9):
+                            with CudaAsync(tma_to_smem_async):
+                                ReverseAwait(ringbar, cuda_temporal, ~RING)
+                                Sm90_copy_tensor_to_smem_linear_2f32(A_smem[cluster,k1%RING,:,:], A_tensorMap[(m2*2+cluster)*128:((m2*2+cluster)+1)*128, k1*32:(k1+1)*32], box0=128, box1=32)
+                                Sm90_copy_tensor_to_smem_linear_2f32(B_smem[cluster,k1%RING,:,:], B_tensorMap[n2*256:(n2+1)*256, k1*32:(k1+1)*32], box0=256, box1=32)
+                                Arrive(tma_to_smem_async, ringbar, 1)
 
-                    with CudaWarps(0, 8):
-                        Await(ringbar, cuda_classic, ~0)
-                        for m1 in cuda_threads(0, 16, unit=16 * cuda_thread):
-                            for n1 in cuda_threads(0, 16, unit=cuda_thread):
-                                for k0 in seq(0, 32):
-                                    for m0 in seq(0, 8):
-                                        for n0 in seq(0, 16):
-                                            accum[m1, n1, m0, n0] += A_smem[k1%RING, m1*8 + m0, k0] * B_smem[k1%RING, n1*16 + n0, k0]
-                        ReverseArrive(cuda_classic, ringbar, 1)
+                        with CudaWarps(0, 8):
+                            Await(ringbar, cuda_classic, ~0)
+                            for m1 in cuda_threads(0, 16, unit=16 * cuda_thread):
+                                for n1 in cuda_threads(0, 16, unit=cuda_thread):
+                                    for k0 in seq(0, 32):
+                                        for m0 in seq(0, 8):
+                                            for n0 in seq(0, 16):
+                                                accum[m1, n1, m0, n0] += A_smem[cluster,k1%RING, m1*8 + m0, k0] * B_smem[cluster,k1%RING, n1*16 + n0, k0]
+                            ReverseArrive(cuda_classic, ringbar, 1)
 
-                for m1 in cuda_threads(0, 16, unit=16 * cuda_thread):
-                    for n1 in cuda_threads(0, 16, unit=cuda_thread):
-                        for m0 in seq(0, 8):
-                            for n0 in seq(0, 16):
-                                C[n2*256 + n1*16 + n0, m2*128 + m1*8 + m0] = accum[m1, n1, m0, n0]
+                    for m1 in cuda_threads(0, 16, unit=16 * cuda_thread):
+                        for n1 in cuda_threads(0, 16, unit=cuda_thread):
+                            for m0 in seq(0, 8):
+                                for n0 in seq(0, 16):
+                                    C[n2*256 + n1*16 + n0, (m2*2+cluster)*128 + m1*8 + m0] = accum[m1, n1, m0, n0]
 
