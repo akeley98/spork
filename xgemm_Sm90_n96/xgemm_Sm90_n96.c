@@ -2,21 +2,6 @@
 
 
 
-#ifdef __cplusplus
-template <typename T, unsigned RegCount>
-struct exo_Sm90_RmemMatrixA
-{
-    T a[RegCount];
-    static constexpr unsigned reg_count = RegCount;
-};
-template <typename T, unsigned RegCount>
-struct exo_Sm90_RmemMatrixD
-{
-    T d[RegCount];
-    unsigned scale_d = 0;  // Set to 0 triggers zero-init on the next mma_async call.
-    static constexpr unsigned reg_count = RegCount;
-};
-#endif
 
 typedef struct Sm90_SmemMatrices_SW128 {
     char matrix_bytes[1024];
@@ -24,6 +9,11 @@ typedef struct Sm90_SmemMatrices_SW128 {
     EXO_CUDA_INLINE Sm90_SmemMatrices_SW128& byte_offset(unsigned bytes)
     {
         return reinterpret_cast<Sm90_SmemMatrices_SW128&>(matrix_bytes[bytes]);
+    }
+
+    EXO_CUDA_INLINE uint64_t get_swizzle_bits() const
+    {
+        return 1;
     }
 #endif
 } Sm90_SmemMatrices_SW128;
@@ -238,65 +228,113 @@ exo_CudaUtil::exo_Sm90_tma_to_smem_2d(
 */
 
 /* relying on the following instruction..."
-Sm90_mma_async_tf32(d,a,b,n=96)
-asm volatile("{{.reg .pred p;\n\tsetp.ne.b32 p, %50, 0;\n\twgmma.mma_async.sync.aligned.m64n96k8.f32.tf32.tf32\n\t{{%0, %1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13, %14, %15, %16, %17, %18, %19, %20, %21, %22, %23, %24, %25, %26, %27, %28, %29, %30, %31, %32, %33, %34, %35, %36, %37, %38, %39, %40, %41, %42, %43, %44, %45, %46, %47}},\n\t%48, %49, p, 1, 1;\n}}": "+f"({d_data}.d[0]), "+f"({d_data}.d[1]), "+f"({d_data}.d[2]), "+f"({d_data}.d[3]), "+f"({d_data}.d[4]), "+f"({d_data}.d[5]), "+f"({d_data}.d[6]), "+f"({d_data}.d[7]), "+f"({d_data}.d[8]), "+f"({d_data}.d[9]), "+f"({d_data}.d[10]), "+f"({d_data}.d[11]), "+f"({d_data}.d[12]), "+f"({d_data}.d[13]), "+f"({d_data}.d[14]), "+f"({d_data}.d[15]), "+f"({d_data}.d[16]), "+f"({d_data}.d[17]), "+f"({d_data}.d[18]), "+f"({d_data}.d[19]), "+f"({d_data}.d[20]), "+f"({d_data}.d[21]), "+f"({d_data}.d[22]), "+f"({d_data}.d[23]), "+f"({d_data}.d[24]), "+f"({d_data}.d[25]), "+f"({d_data}.d[26]), "+f"({d_data}.d[27]), "+f"({d_data}.d[28]), "+f"({d_data}.d[29]), "+f"({d_data}.d[30]), "+f"({d_data}.d[31]), "+f"({d_data}.d[32]), "+f"({d_data}.d[33]), "+f"({d_data}.d[34]), "+f"({d_data}.d[35]), "+f"({d_data}.d[36]), "+f"({d_data}.d[37]), "+f"({d_data}.d[38]), "+f"({d_data}.d[39]), "+f"({d_data}.d[40]), "+f"({d_data}.d[41]), "+f"({d_data}.d[42]), "+f"({d_data}.d[43]), "+f"({d_data}.d[44]), "+f"({d_data}.d[45]), "+f"({d_data}.d[46]), "+f"({d_data}.d[47]): "l"(exo_CudaUtil::exo_matrix_descriptor<1>(&{a_data}, 1024, 1024)), "l"(exo_CudaUtil::exo_matrix_descriptor<1>(&{b_data}, 1024, 1024)), "r"({d_data}.scale_d));
+Sm90_mma_async_tf32(d,a,b,M=128, N=96)
+exo_CudaUtil::exo_Sm90_mma_async_ss_m128n96_f32_tf32_tf32(exo_CudaUtil::exo_matrix_descriptor({a}, 4, 0), exo_CudaUtil::exo_matrix_descriptor({a}, 4, 64), exo_CudaUtil::exo_matrix_descriptor({b}, 4), {d_data}.m0n0r0, {d_data}.m0n0r1, {d_data}.m0n0r2, {d_data}.m0n0r3, {d_data}.m0n8r0, {d_data}.m0n8r1, {d_data}.m0n8r2, {d_data}.m0n8r3, {d_data}.m0n16r0, {d_data}.m0n16r1, {d_data}.m0n16r2, {d_data}.m0n16r3, {d_data}.m0n24r0, {d_data}.m0n24r1, {d_data}.m0n24r2, {d_data}.m0n24r3, {d_data}.m0n32r0, {d_data}.m0n32r1, {d_data}.m0n32r2, {d_data}.m0n32r3, {d_data}.m0n40r0, {d_data}.m0n40r1, {d_data}.m0n40r2, {d_data}.m0n40r3, {d_data}.m0n48r0, {d_data}.m0n48r1, {d_data}.m0n48r2, {d_data}.m0n48r3, {d_data}.m0n56r0, {d_data}.m0n56r1, {d_data}.m0n56r2, {d_data}.m0n56r3, {d_data}.m0n64r0, {d_data}.m0n64r1, {d_data}.m0n64r2, {d_data}.m0n64r3, {d_data}.m0n72r0, {d_data}.m0n72r1, {d_data}.m0n72r2, {d_data}.m0n72r3, {d_data}.m0n80r0, {d_data}.m0n80r1, {d_data}.m0n80r2, {d_data}.m0n80r3, {d_data}.m0n88r0, {d_data}.m0n88r1, {d_data}.m0n88r2, {d_data}.m0n88r3, {d_data}.m64n0r0, {d_data}.m64n0r1, {d_data}.m64n0r2, {d_data}.m64n0r3, {d_data}.m64n8r0, {d_data}.m64n8r1, {d_data}.m64n8r2, {d_data}.m64n8r3, {d_data}.m64n16r0, {d_data}.m64n16r1, {d_data}.m64n16r2, {d_data}.m64n16r3, {d_data}.m64n24r0, {d_data}.m64n24r1, {d_data}.m64n24r2, {d_data}.m64n24r3, {d_data}.m64n32r0, {d_data}.m64n32r1, {d_data}.m64n32r2, {d_data}.m64n32r3, {d_data}.m64n40r0, {d_data}.m64n40r1, {d_data}.m64n40r2, {d_data}.m64n40r3, {d_data}.m64n48r0, {d_data}.m64n48r1, {d_data}.m64n48r2, {d_data}.m64n48r3, {d_data}.m64n56r0, {d_data}.m64n56r1, {d_data}.m64n56r2, {d_data}.m64n56r3, {d_data}.m64n64r0, {d_data}.m64n64r1, {d_data}.m64n64r2, {d_data}.m64n64r3, {d_data}.m64n72r0, {d_data}.m64n72r1, {d_data}.m64n72r2, {d_data}.m64n72r3, {d_data}.m64n80r0, {d_data}.m64n80r1, {d_data}.m64n80r2, {d_data}.m64n80r3, {d_data}.m64n88r0, {d_data}.m64n88r1, {d_data}.m64n88r2, {d_data}.m64n88r3, {d_data}.scale_d);
 {d_data}.scale_d = 1;
 */
 
 /* relying on the following instruction..."
-Sm90_mma_write_d_col_major_tf32(dst,src,n=96)
-exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.d[0], 0);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.d[1], 1);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.d[2], 2);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.d[3], 3);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.d[4], 4);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.d[5], 5);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.d[6], 6);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.d[7], 7);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.d[8], 8);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.d[9], 9);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.d[10], 10);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.d[11], 11);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.d[12], 12);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.d[13], 13);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.d[14], 14);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.d[15], 15);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.d[16], 16);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.d[17], 17);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.d[18], 18);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.d[19], 19);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.d[20], 20);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.d[21], 21);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.d[22], 22);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.d[23], 23);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.d[24], 24);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.d[25], 25);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.d[26], 26);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.d[27], 27);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.d[28], 28);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.d[29], 29);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.d[30], 30);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.d[31], 31);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.d[32], 32);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.d[33], 33);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.d[34], 34);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.d[35], 35);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.d[36], 36);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.d[37], 37);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.d[38], 38);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.d[39], 39);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.d[40], 40);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.d[41], 41);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.d[42], 42);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.d[43], 43);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.d[44], 44);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.d[45], 45);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.d[46], 46);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.d[47], 47);
+Sm90_mma_write_d_col_major_tf32(dst,src,M=128, N=96)
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m0n0r0, 0, 0);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m0n0r1, 0, 1);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m0n0r2, 0, 2);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m0n0r3, 0, 3);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m0n8r0, 0, 4);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m0n8r1, 0, 5);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m0n8r2, 0, 6);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m0n8r3, 0, 7);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m0n16r0, 0, 8);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m0n16r1, 0, 9);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m0n16r2, 0, 10);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m0n16r3, 0, 11);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m0n24r0, 0, 12);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m0n24r1, 0, 13);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m0n24r2, 0, 14);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m0n24r3, 0, 15);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m0n32r0, 0, 16);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m0n32r1, 0, 17);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m0n32r2, 0, 18);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m0n32r3, 0, 19);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m0n40r0, 0, 20);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m0n40r1, 0, 21);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m0n40r2, 0, 22);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m0n40r3, 0, 23);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m0n48r0, 0, 24);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m0n48r1, 0, 25);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m0n48r2, 0, 26);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m0n48r3, 0, 27);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m0n56r0, 0, 28);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m0n56r1, 0, 29);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m0n56r2, 0, 30);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m0n56r3, 0, 31);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m0n64r0, 0, 32);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m0n64r1, 0, 33);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m0n64r2, 0, 34);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m0n64r3, 0, 35);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m0n72r0, 0, 36);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m0n72r1, 0, 37);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m0n72r2, 0, 38);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m0n72r3, 0, 39);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m0n80r0, 0, 40);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m0n80r1, 0, 41);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m0n80r2, 0, 42);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m0n80r3, 0, 43);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m0n88r0, 0, 44);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m0n88r1, 0, 45);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m0n88r2, 0, 46);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m0n88r3, 0, 47);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m64n0r0, 64, 0);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m64n0r1, 64, 1);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m64n0r2, 64, 2);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m64n0r3, 64, 3);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m64n8r0, 64, 4);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m64n8r1, 64, 5);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m64n8r2, 64, 6);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m64n8r3, 64, 7);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m64n16r0, 64, 8);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m64n16r1, 64, 9);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m64n16r2, 64, 10);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m64n16r3, 64, 11);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m64n24r0, 64, 12);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m64n24r1, 64, 13);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m64n24r2, 64, 14);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m64n24r3, 64, 15);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m64n32r0, 64, 16);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m64n32r1, 64, 17);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m64n32r2, 64, 18);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m64n32r3, 64, 19);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m64n40r0, 64, 20);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m64n40r1, 64, 21);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m64n40r2, 64, 22);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m64n40r3, 64, 23);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m64n48r0, 64, 24);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m64n48r1, 64, 25);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m64n48r2, 64, 26);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m64n48r3, 64, 27);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m64n56r0, 64, 28);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m64n56r1, 64, 29);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m64n56r2, 64, 30);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m64n56r3, 64, 31);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m64n64r0, 64, 32);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m64n64r1, 64, 33);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m64n64r2, 64, 34);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m64n64r3, 64, 35);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m64n72r0, 64, 36);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m64n72r1, 64, 37);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m64n72r2, 64, 38);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m64n72r3, 64, 39);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m64n80r0, 64, 40);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m64n80r1, 64, 41);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m64n80r2, 64, 42);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m64n80r3, 64, 43);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m64n88r0, 64, 44);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m64n88r1, 64, 45);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m64n88r2, 64, 46);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>({dst}, {src_data}.m64n88r3, 64, 47);
 */
 
 /* relying on the following instruction..."
-Sm90_zero_scale_d_tf32(d,n=96)
+Sm90_zero_scale_d_f32(M,N,d)
 {d_data}.scale_d = 0;
 */
 // xgemm_Sm90_wgmma_n96(

@@ -7,21 +7,6 @@
 #include <cuda/std/array>
 
 
-#ifdef __cplusplus
-template <typename T, unsigned RegCount>
-struct exo_Sm90_RmemMatrixA
-{
-    T a[RegCount];
-    static constexpr unsigned reg_count = RegCount;
-};
-template <typename T, unsigned RegCount>
-struct exo_Sm90_RmemMatrixD
-{
-    T d[RegCount];
-    unsigned scale_d = 0;  // Set to 0 triggers zero-init on the next mma_async call.
-    static constexpr unsigned reg_count = RegCount;
-};
-#endif
 
 typedef struct Sm90_SmemMatrices_SW128 {
     char matrix_bytes[1024];
@@ -29,6 +14,11 @@ typedef struct Sm90_SmemMatrices_SW128 {
     EXO_CUDA_INLINE Sm90_SmemMatrices_SW128& byte_offset(unsigned bytes)
     {
         return reinterpret_cast<Sm90_SmemMatrices_SW128&>(matrix_bytes[bytes]);
+    }
+
+    EXO_CUDA_INLINE uint64_t get_swizzle_bits() const
+    {
+        return 1;
     }
 #endif
 } Sm90_SmemMatrices_SW128;
@@ -242,36 +232,69 @@ exo_Sm90_tma_to_smem_2d(void* dst, const CUtensorMap& tensorMap, cuda::std::arra
             : "memory");
     }
 }
-/* Required by Sm90_mma_async_tf32(d,a,b,n=128) */
-EXO_CUDA_INLINE uint64_t exo_matrix_descriptor_encode(uint32_t val)
-{
-    uint64_t enc = (val & 0x3FFFF) >> 4;
-    return enc;
-}
-
-template <unsigned swizzle_bits>
-EXO_CUDA_INLINE uint64_t exo_matrix_descriptor(const void* smem_ptr, uint32_t mn_stride, uint32_t k_stride)
-{
-    return exo_matrix_descriptor_encode(exo_smemU32(smem_ptr))
-           | exo_matrix_descriptor_encode(k_stride) << 16u
-           | exo_matrix_descriptor_encode(mn_stride) << 32u
-           | uint64_t(swizzle_bits) << 62;
-}
-
-/* Required by Sm90_mma_write_d_col_major_tf32(dst,src,n=128) */
+/* Required by Sm90_mma_async_tf32(d,a,b,M=128, N=128) */
+/* Required by Sm90_mma_write_d_col_major_tf32(dst,src,M=128, N=128) */
 template <bool ColumnMajor, typename Window, typename Reg>
-EXO_CUDA_INLINE void exo_Sm90_store_d_reg(Window dst, Reg value, uint32_t reg_index)
+EXO_CUDA_INLINE void exo_Sm90_store_d_reg(Window dst, Reg value, uint32_t m_offset, uint32_t reg_index)
 {
     const uint32_t tid = threadIdx.x % 128u;
     const uint32_t r_base = (tid / 32u) * 16u + (tid % 32u) / 4u;
     const uint32_t c_base = (tid % 4u) * 2u;
-    const uint32_t r = r_base + ((reg_index % 4u) / 2u) * 8u;
+    const uint32_t r = m_offset + r_base + ((reg_index % 4u) / 2u) * 8u;
     const uint32_t c = c_base + (reg_index / 4u) * 8 + (reg_index % 2u);
     auto dst_ptr = reinterpret_cast<Reg*>(
             &dst.data[c * dst.strides[!ColumnMajor] + r * dst.strides[ColumnMajor]]);
     *dst_ptr = value;
 }
 
+/* Required by Sm90_mma_async_tf32(d,a,b,M=128, N=128) */
+/* Required by Sm90_mma_write_d_col_major_tf32(dst,src,M=128, N=128) */
+EXO_CUDA_INLINE uint64_t exo_matrix_descriptor_encode(uint32_t val)
+{
+    return (val & 0x3FFFF) >> 4;
+}
+
+template <typename Window>
+EXO_CUDA_INLINE uint64_t exo_matrix_descriptor(Window window, uint32_t element_size, uint32_t mn_offset = 0)
+{
+    uint64_t mn_stride = window.strides[0] * element_size;
+    return exo_matrix_descriptor_encode(exo_smemU32(window.data) + (mn_offset / 8u) * mn_stride)
+           | exo_matrix_descriptor_encode(sizeof(*window.data)) << 16u
+           | exo_matrix_descriptor_encode(mn_stride) << 32u
+           | uint64_t(window.data->get_swizzle_bits()) << 62;
+}
+
+/* Required by Sm90_mma_async_tf32(d,a,b,M=128, N=128) */
+/* Required by Sm90_mma_write_d_col_major_tf32(dst,src,M=128, N=128) */
+struct exo_Sm90_RmemD_m128n128_f32 {
+    float m0n0r0, m0n0r1, m0n0r2, m0n0r3, m0n8r0, m0n8r1, m0n8r2, m0n8r3, m0n16r0, m0n16r1, m0n16r2, m0n16r3, m0n24r0, m0n24r1, m0n24r2, m0n24r3, m0n32r0, m0n32r1, m0n32r2, m0n32r3, m0n40r0, m0n40r1, m0n40r2, m0n40r3, m0n48r0, m0n48r1, m0n48r2, m0n48r3, m0n56r0, m0n56r1, m0n56r2, m0n56r3, m0n64r0, m0n64r1, m0n64r2, m0n64r3, m0n72r0, m0n72r1, m0n72r2, m0n72r3, m0n80r0, m0n80r1, m0n80r2, m0n80r3, m0n88r0, m0n88r1, m0n88r2, m0n88r3, m0n96r0, m0n96r1, m0n96r2, m0n96r3, m0n104r0, m0n104r1, m0n104r2, m0n104r3, m0n112r0, m0n112r1, m0n112r2, m0n112r3, m0n120r0, m0n120r1, m0n120r2, m0n120r3, m64n0r0, m64n0r1, m64n0r2, m64n0r3, m64n8r0, m64n8r1, m64n8r2, m64n8r3, m64n16r0, m64n16r1, m64n16r2, m64n16r3, m64n24r0, m64n24r1, m64n24r2, m64n24r3, m64n32r0, m64n32r1, m64n32r2, m64n32r3, m64n40r0, m64n40r1, m64n40r2, m64n40r3, m64n48r0, m64n48r1, m64n48r2, m64n48r3, m64n56r0, m64n56r1, m64n56r2, m64n56r3, m64n64r0, m64n64r1, m64n64r2, m64n64r3, m64n72r0, m64n72r1, m64n72r2, m64n72r3, m64n80r0, m64n80r1, m64n80r2, m64n80r3, m64n88r0, m64n88r1, m64n88r2, m64n88r3, m64n96r0, m64n96r1, m64n96r2, m64n96r3, m64n104r0, m64n104r1, m64n104r2, m64n104r3, m64n112r0, m64n112r1, m64n112r2, m64n112r3, m64n120r0, m64n120r1, m64n120r2, m64n120r3;
+    int scale_d;
+};
+/* Required by Sm90_mma_async_tf32(d,a,b,M=128, N=128) */
+/* Required by Sm90_mma_write_d_col_major_tf32(dst,src,M=128, N=128) */
+EXO_CUDA_INLINE void exo_Sm90_mma_async_ss_m128n128_f32_tf32_tf32(uint64_t a_descriptor_m0, uint64_t a_descriptor_m64, uint64_t b_descriptor, float& m0n0r0, float& m0n0r1, float& m0n0r2, float& m0n0r3, float& m0n8r0, float& m0n8r1, float& m0n8r2, float& m0n8r3, float& m0n16r0, float& m0n16r1, float& m0n16r2, float& m0n16r3, float& m0n24r0, float& m0n24r1, float& m0n24r2, float& m0n24r3, float& m0n32r0, float& m0n32r1, float& m0n32r2, float& m0n32r3, float& m0n40r0, float& m0n40r1, float& m0n40r2, float& m0n40r3, float& m0n48r0, float& m0n48r1, float& m0n48r2, float& m0n48r3, float& m0n56r0, float& m0n56r1, float& m0n56r2, float& m0n56r3, float& m0n64r0, float& m0n64r1, float& m0n64r2, float& m0n64r3, float& m0n72r0, float& m0n72r1, float& m0n72r2, float& m0n72r3, float& m0n80r0, float& m0n80r1, float& m0n80r2, float& m0n80r3, float& m0n88r0, float& m0n88r1, float& m0n88r2, float& m0n88r3, float& m0n96r0, float& m0n96r1, float& m0n96r2, float& m0n96r3, float& m0n104r0, float& m0n104r1, float& m0n104r2, float& m0n104r3, float& m0n112r0, float& m0n112r1, float& m0n112r2, float& m0n112r3, float& m0n120r0, float& m0n120r1, float& m0n120r2, float& m0n120r3, float& m64n0r0, float& m64n0r1, float& m64n0r2, float& m64n0r3, float& m64n8r0, float& m64n8r1, float& m64n8r2, float& m64n8r3, float& m64n16r0, float& m64n16r1, float& m64n16r2, float& m64n16r3, float& m64n24r0, float& m64n24r1, float& m64n24r2, float& m64n24r3, float& m64n32r0, float& m64n32r1, float& m64n32r2, float& m64n32r3, float& m64n40r0, float& m64n40r1, float& m64n40r2, float& m64n40r3, float& m64n48r0, float& m64n48r1, float& m64n48r2, float& m64n48r3, float& m64n56r0, float& m64n56r1, float& m64n56r2, float& m64n56r3, float& m64n64r0, float& m64n64r1, float& m64n64r2, float& m64n64r3, float& m64n72r0, float& m64n72r1, float& m64n72r2, float& m64n72r3, float& m64n80r0, float& m64n80r1, float& m64n80r2, float& m64n80r3, float& m64n88r0, float& m64n88r1, float& m64n88r2, float& m64n88r3, float& m64n96r0, float& m64n96r1, float& m64n96r2, float& m64n96r3, float& m64n104r0, float& m64n104r1, float& m64n104r2, float& m64n104r3, float& m64n112r0, float& m64n112r1, float& m64n112r2, float& m64n112r3, float& m64n120r0, float& m64n120r1, float& m64n120r2, float& m64n120r3, int scale_d)
+{
+  asm volatile("{\n"
+  ".reg .pred p;\n"
+  "setp.ne.b32 p, %66, 0;\n"
+  "wgmma.mma_async.sync.aligned.m64n128k8.f32.tf32.tf32 "
+  "{%0, %1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13, %14, %15, %16, %17, %18, %19, %20, %21, %22, %23, %24, %25, %26, %27, %28, %29, %30, %31, %32, %33, %34, %35, %36, %37, %38, %39, %40, %41, %42, %43, %44, %45, %46, %47, %48, %49, %50, %51, %52, %53, %54, %55, %56, %57, %58, %59, %60, %61, %62, %63}, "
+  "%64, %65, p, 1, 1;\n"
+  "}"
+  : "+f"(m0n0r0), "+f"(m0n0r1), "+f"(m0n0r2), "+f"(m0n0r3), "+f"(m0n8r0), "+f"(m0n8r1), "+f"(m0n8r2), "+f"(m0n8r3), "+f"(m0n16r0), "+f"(m0n16r1), "+f"(m0n16r2), "+f"(m0n16r3), "+f"(m0n24r0), "+f"(m0n24r1), "+f"(m0n24r2), "+f"(m0n24r3), "+f"(m0n32r0), "+f"(m0n32r1), "+f"(m0n32r2), "+f"(m0n32r3), "+f"(m0n40r0), "+f"(m0n40r1), "+f"(m0n40r2), "+f"(m0n40r3), "+f"(m0n48r0), "+f"(m0n48r1), "+f"(m0n48r2), "+f"(m0n48r3), "+f"(m0n56r0), "+f"(m0n56r1), "+f"(m0n56r2), "+f"(m0n56r3), "+f"(m0n64r0), "+f"(m0n64r1), "+f"(m0n64r2), "+f"(m0n64r3), "+f"(m0n72r0), "+f"(m0n72r1), "+f"(m0n72r2), "+f"(m0n72r3), "+f"(m0n80r0), "+f"(m0n80r1), "+f"(m0n80r2), "+f"(m0n80r3), "+f"(m0n88r0), "+f"(m0n88r1), "+f"(m0n88r2), "+f"(m0n88r3), "+f"(m0n96r0), "+f"(m0n96r1), "+f"(m0n96r2), "+f"(m0n96r3), "+f"(m0n104r0), "+f"(m0n104r1), "+f"(m0n104r2), "+f"(m0n104r3), "+f"(m0n112r0), "+f"(m0n112r1), "+f"(m0n112r2), "+f"(m0n112r3), "+f"(m0n120r0), "+f"(m0n120r1), "+f"(m0n120r2), "+f"(m0n120r3)
+  : "l"(a_descriptor_m0), "l"(b_descriptor), "r"(scale_d)
+  );
+  asm volatile("{\n"
+  ".reg .pred p;\n"
+  "setp.ne.b32 p, %66, 0;\n"
+  "wgmma.mma_async.sync.aligned.m64n128k8.f32.tf32.tf32 "
+  "{%0, %1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13, %14, %15, %16, %17, %18, %19, %20, %21, %22, %23, %24, %25, %26, %27, %28, %29, %30, %31, %32, %33, %34, %35, %36, %37, %38, %39, %40, %41, %42, %43, %44, %45, %46, %47, %48, %49, %50, %51, %52, %53, %54, %55, %56, %57, %58, %59, %60, %61, %62, %63}, "
+  "%64, %65, p, 1, 1;\n"
+  "}"
+  : "+f"(m64n0r0), "+f"(m64n0r1), "+f"(m64n0r2), "+f"(m64n0r3), "+f"(m64n8r0), "+f"(m64n8r1), "+f"(m64n8r2), "+f"(m64n8r3), "+f"(m64n16r0), "+f"(m64n16r1), "+f"(m64n16r2), "+f"(m64n16r3), "+f"(m64n24r0), "+f"(m64n24r1), "+f"(m64n24r2), "+f"(m64n24r3), "+f"(m64n32r0), "+f"(m64n32r1), "+f"(m64n32r2), "+f"(m64n32r3), "+f"(m64n40r0), "+f"(m64n40r1), "+f"(m64n40r2), "+f"(m64n40r3), "+f"(m64n48r0), "+f"(m64n48r1), "+f"(m64n48r2), "+f"(m64n48r3), "+f"(m64n56r0), "+f"(m64n56r1), "+f"(m64n56r2), "+f"(m64n56r3), "+f"(m64n64r0), "+f"(m64n64r1), "+f"(m64n64r2), "+f"(m64n64r3), "+f"(m64n72r0), "+f"(m64n72r1), "+f"(m64n72r2), "+f"(m64n72r3), "+f"(m64n80r0), "+f"(m64n80r1), "+f"(m64n80r2), "+f"(m64n80r3), "+f"(m64n88r0), "+f"(m64n88r1), "+f"(m64n88r2), "+f"(m64n88r3), "+f"(m64n96r0), "+f"(m64n96r1), "+f"(m64n96r2), "+f"(m64n96r3), "+f"(m64n104r0), "+f"(m64n104r1), "+f"(m64n104r2), "+f"(m64n104r3), "+f"(m64n112r0), "+f"(m64n112r1), "+f"(m64n112r2), "+f"(m64n112r3), "+f"(m64n120r0), "+f"(m64n120r1), "+f"(m64n120r2), "+f"(m64n120r3)
+  : "l"(a_descriptor_m64), "l"(b_descriptor), "r"(scale_d)
+  );
+}
 }  // end namespace
 // CUDA device function args -- duplicated in .c file
 struct exo_CudaDeviceArgs0_xgemm_Sm90_wgmma_n128
@@ -297,8 +320,9 @@ struct exo_Cuda0_xgemm_Sm90_wgmma_n128
 
   struct exo_Task
   {
-    int_fast32_t m_task;
+    int_fast32_t m1_task;
     int_fast32_t n_task;
+    int_fast32_t m0_task;
   };
 
   struct exo_SyncState
@@ -461,7 +485,7 @@ exo_Cuda0_xgemm_Sm90_wgmma_n128::exo_deviceTask_producer(char* exo_smem, exo_Syn
         exo_CudaUtil::exo_Sm90_tma_to_smem_2d(
                     &A_smem[((k_iter % 4) * (8192)) / 256].byte_offset((0) * 4),
                     exo_deviceArgs.exo_data_A_tensorMap,
-                    {{ exo_deviceArgs.A_tensorMap.exo_offsets[0] + (unsigned)(256 * exo_task.m_task), exo_deviceArgs.A_tensorMap.exo_offsets[1] + (unsigned)(32 * k_iter) }},
+                    {{ exo_deviceArgs.A_tensorMap.exo_offsets[0] + (unsigned)(256 * (4 * exo_task.m1_task + exo_task.m0_task)), exo_deviceArgs.A_tensorMap.exo_offsets[1] + (unsigned)(32 * k_iter) }},
                     exo_tma_mbarrier,
                     32768);
         exo_CudaUtil::exo_Sm90_tma_to_smem_2d(
@@ -487,7 +511,7 @@ exo_Cuda0_xgemm_Sm90_wgmma_n128::exo_deviceTask_producer(char* exo_smem, exo_Syn
         exo_CudaUtil::exo_Sm90_tma_to_smem_2d(
                     &A_smem[((k_iter % 4) * (8192)) / 256].byte_offset((0) * 4),
                     exo_deviceArgs.exo_data_A_tensorMap,
-                    {{ exo_deviceArgs.A_tensorMap.exo_offsets[0] + (unsigned)(256 * exo_task.m_task), exo_deviceArgs.A_tensorMap.exo_offsets[1] + (unsigned)(32 * k_iter) }},
+                    {{ exo_deviceArgs.A_tensorMap.exo_offsets[0] + (unsigned)(256 * (4 * exo_task.m1_task + exo_task.m0_task)), exo_deviceArgs.A_tensorMap.exo_offsets[1] + (unsigned)(32 * k_iter) }},
                     exo_tma_mbarrier,
                     32768);
         exo_CudaUtil::exo_Sm90_tma_to_smem_2d(
@@ -543,14 +567,12 @@ exo_Cuda0_xgemm_Sm90_wgmma_n128::exo_deviceTask_consumer(char* exo_smem, exo_Syn
   namespace exo_CudaUtil = exo_CudaUtil_xgemm_Sm90_n128;
   // Scope of named barrier ringbar
   // Scope of named barrier cg
-  exo_Sm90_RmemMatrixD<float, 64> D_rmem[2];
+  exo_CudaUtil::exo_Sm90_RmemD_m128n128_f32 D_rmem;
   auto& A_smem = reinterpret_cast<Sm90_SmemMatrices_SW128 (&)[]>(exo_smem[128]);
   auto& B_smem = reinterpret_cast<Sm90_SmemMatrices_SW128 (&)[]>(exo_smem[131200]);
   if (int tmp_1 = threadIdx.x; tmp_1 >= 128) {
     if ([[maybe_unused]] int exo_128thr_wg = ((threadIdx.x - 128) / 128); 1) {
-      for (int m_mma = 0; m_mma < 2; m_mma++) {
-        D_rmem[m_mma].scale_d = 0;
-      }
+      D_rmem.scale_d = 0;
     }
   }
   for (int k_iter = 0; k_iter < 1; k_iter++) {
@@ -567,10 +589,8 @@ exo_Cuda0_xgemm_Sm90_wgmma_n128::exo_deviceTask_consumer(char* exo_smem, exo_Syn
           // Fence(wgmma_fence_1, wgmma_fence_2)
           asm("wgmma.fence.sync.aligned;");
           for (int k_mma = 0; k_mma < 4; k_mma++) {
-            for (int m_mma = 0; m_mma < 2; m_mma++) {
-              asm volatile("{.reg .pred p;\n\tsetp.ne.b32 p, %66, 0;\n\twgmma.mma_async.sync.aligned.m64n128k8.f32.tf32.tf32\n\t{%0, %1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13, %14, %15, %16, %17, %18, %19, %20, %21, %22, %23, %24, %25, %26, %27, %28, %29, %30, %31, %32, %33, %34, %35, %36, %37, %38, %39, %40, %41, %42, %43, %44, %45, %46, %47, %48, %49, %50, %51, %52, %53, %54, %55, %56, %57, %58, %59, %60, %61, %62, %63},\n\t%64, %65, p, 1, 1;\n}": "+f"(D_rmem[m_mma].d[0]), "+f"(D_rmem[m_mma].d[1]), "+f"(D_rmem[m_mma].d[2]), "+f"(D_rmem[m_mma].d[3]), "+f"(D_rmem[m_mma].d[4]), "+f"(D_rmem[m_mma].d[5]), "+f"(D_rmem[m_mma].d[6]), "+f"(D_rmem[m_mma].d[7]), "+f"(D_rmem[m_mma].d[8]), "+f"(D_rmem[m_mma].d[9]), "+f"(D_rmem[m_mma].d[10]), "+f"(D_rmem[m_mma].d[11]), "+f"(D_rmem[m_mma].d[12]), "+f"(D_rmem[m_mma].d[13]), "+f"(D_rmem[m_mma].d[14]), "+f"(D_rmem[m_mma].d[15]), "+f"(D_rmem[m_mma].d[16]), "+f"(D_rmem[m_mma].d[17]), "+f"(D_rmem[m_mma].d[18]), "+f"(D_rmem[m_mma].d[19]), "+f"(D_rmem[m_mma].d[20]), "+f"(D_rmem[m_mma].d[21]), "+f"(D_rmem[m_mma].d[22]), "+f"(D_rmem[m_mma].d[23]), "+f"(D_rmem[m_mma].d[24]), "+f"(D_rmem[m_mma].d[25]), "+f"(D_rmem[m_mma].d[26]), "+f"(D_rmem[m_mma].d[27]), "+f"(D_rmem[m_mma].d[28]), "+f"(D_rmem[m_mma].d[29]), "+f"(D_rmem[m_mma].d[30]), "+f"(D_rmem[m_mma].d[31]), "+f"(D_rmem[m_mma].d[32]), "+f"(D_rmem[m_mma].d[33]), "+f"(D_rmem[m_mma].d[34]), "+f"(D_rmem[m_mma].d[35]), "+f"(D_rmem[m_mma].d[36]), "+f"(D_rmem[m_mma].d[37]), "+f"(D_rmem[m_mma].d[38]), "+f"(D_rmem[m_mma].d[39]), "+f"(D_rmem[m_mma].d[40]), "+f"(D_rmem[m_mma].d[41]), "+f"(D_rmem[m_mma].d[42]), "+f"(D_rmem[m_mma].d[43]), "+f"(D_rmem[m_mma].d[44]), "+f"(D_rmem[m_mma].d[45]), "+f"(D_rmem[m_mma].d[46]), "+f"(D_rmem[m_mma].d[47]), "+f"(D_rmem[m_mma].d[48]), "+f"(D_rmem[m_mma].d[49]), "+f"(D_rmem[m_mma].d[50]), "+f"(D_rmem[m_mma].d[51]), "+f"(D_rmem[m_mma].d[52]), "+f"(D_rmem[m_mma].d[53]), "+f"(D_rmem[m_mma].d[54]), "+f"(D_rmem[m_mma].d[55]), "+f"(D_rmem[m_mma].d[56]), "+f"(D_rmem[m_mma].d[57]), "+f"(D_rmem[m_mma].d[58]), "+f"(D_rmem[m_mma].d[59]), "+f"(D_rmem[m_mma].d[60]), "+f"(D_rmem[m_mma].d[61]), "+f"(D_rmem[m_mma].d[62]), "+f"(D_rmem[m_mma].d[63]): "l"(exo_CudaUtil::exo_matrix_descriptor<1>(&A_smem[((k_iter % 4) * (8192) + (8 * m_mma + 16 * exo_128thr_wg) * (256) + 8 * k_mma) / 256].byte_offset((8 * k_mma) * 4), 1024, 1024)), "l"(exo_CudaUtil::exo_matrix_descriptor<1>(&B_smem[((k_iter % 4) * (4096) + 8 * k_mma) / 256].byte_offset((8 * k_mma) * 4), 1024, 1024)), "r"(D_rmem[m_mma].scale_d));
-D_rmem[m_mma].scale_d = 1;
-            }
+            exo_CudaUtil::exo_Sm90_mma_async_ss_m128n128_f32_tf32_tf32(exo_CudaUtil::exo_matrix_descriptor(((struct exo_win_3f32c_Sm90_SmemSwizzled_128){ &A_smem[((k_iter % 4) * (8192) + (16 * exo_128thr_wg) * (256) + 8 * k_mma) / 256].byte_offset((8 * k_mma) * 4), { 256, 32, 1 } }), 4, 0), exo_CudaUtil::exo_matrix_descriptor(((struct exo_win_3f32c_Sm90_SmemSwizzled_128){ &A_smem[((k_iter % 4) * (8192) + (16 * exo_128thr_wg) * (256) + 8 * k_mma) / 256].byte_offset((8 * k_mma) * 4), { 256, 32, 1 } }), 4, 64), exo_CudaUtil::exo_matrix_descriptor(((struct exo_win_3f32c_Sm90_SmemSwizzled_128){ &B_smem[((k_iter % 4) * (4096) + 8 * k_mma) / 256].byte_offset((8 * k_mma) * 4), { 256, 32, 1 } }), 4), D_rmem.m0n0r0, D_rmem.m0n0r1, D_rmem.m0n0r2, D_rmem.m0n0r3, D_rmem.m0n8r0, D_rmem.m0n8r1, D_rmem.m0n8r2, D_rmem.m0n8r3, D_rmem.m0n16r0, D_rmem.m0n16r1, D_rmem.m0n16r2, D_rmem.m0n16r3, D_rmem.m0n24r0, D_rmem.m0n24r1, D_rmem.m0n24r2, D_rmem.m0n24r3, D_rmem.m0n32r0, D_rmem.m0n32r1, D_rmem.m0n32r2, D_rmem.m0n32r3, D_rmem.m0n40r0, D_rmem.m0n40r1, D_rmem.m0n40r2, D_rmem.m0n40r3, D_rmem.m0n48r0, D_rmem.m0n48r1, D_rmem.m0n48r2, D_rmem.m0n48r3, D_rmem.m0n56r0, D_rmem.m0n56r1, D_rmem.m0n56r2, D_rmem.m0n56r3, D_rmem.m0n64r0, D_rmem.m0n64r1, D_rmem.m0n64r2, D_rmem.m0n64r3, D_rmem.m0n72r0, D_rmem.m0n72r1, D_rmem.m0n72r2, D_rmem.m0n72r3, D_rmem.m0n80r0, D_rmem.m0n80r1, D_rmem.m0n80r2, D_rmem.m0n80r3, D_rmem.m0n88r0, D_rmem.m0n88r1, D_rmem.m0n88r2, D_rmem.m0n88r3, D_rmem.m0n96r0, D_rmem.m0n96r1, D_rmem.m0n96r2, D_rmem.m0n96r3, D_rmem.m0n104r0, D_rmem.m0n104r1, D_rmem.m0n104r2, D_rmem.m0n104r3, D_rmem.m0n112r0, D_rmem.m0n112r1, D_rmem.m0n112r2, D_rmem.m0n112r3, D_rmem.m0n120r0, D_rmem.m0n120r1, D_rmem.m0n120r2, D_rmem.m0n120r3, D_rmem.m64n0r0, D_rmem.m64n0r1, D_rmem.m64n0r2, D_rmem.m64n0r3, D_rmem.m64n8r0, D_rmem.m64n8r1, D_rmem.m64n8r2, D_rmem.m64n8r3, D_rmem.m64n16r0, D_rmem.m64n16r1, D_rmem.m64n16r2, D_rmem.m64n16r3, D_rmem.m64n24r0, D_rmem.m64n24r1, D_rmem.m64n24r2, D_rmem.m64n24r3, D_rmem.m64n32r0, D_rmem.m64n32r1, D_rmem.m64n32r2, D_rmem.m64n32r3, D_rmem.m64n40r0, D_rmem.m64n40r1, D_rmem.m64n40r2, D_rmem.m64n40r3, D_rmem.m64n48r0, D_rmem.m64n48r1, D_rmem.m64n48r2, D_rmem.m64n48r3, D_rmem.m64n56r0, D_rmem.m64n56r1, D_rmem.m64n56r2, D_rmem.m64n56r3, D_rmem.m64n64r0, D_rmem.m64n64r1, D_rmem.m64n64r2, D_rmem.m64n64r3, D_rmem.m64n72r0, D_rmem.m64n72r1, D_rmem.m64n72r2, D_rmem.m64n72r3, D_rmem.m64n80r0, D_rmem.m64n80r1, D_rmem.m64n80r2, D_rmem.m64n80r3, D_rmem.m64n88r0, D_rmem.m64n88r1, D_rmem.m64n88r2, D_rmem.m64n88r3, D_rmem.m64n96r0, D_rmem.m64n96r1, D_rmem.m64n96r2, D_rmem.m64n96r3, D_rmem.m64n104r0, D_rmem.m64n104r1, D_rmem.m64n104r2, D_rmem.m64n104r3, D_rmem.m64n112r0, D_rmem.m64n112r1, D_rmem.m64n112r2, D_rmem.m64n112r3, D_rmem.m64n120r0, D_rmem.m64n120r1, D_rmem.m64n120r2, D_rmem.m64n120r3, D_rmem.scale_d);
+D_rmem.scale_d = 1;
           }
           // Arrive(wgmma_async, cg[wg], 1)
           asm("wgmma.commit_group.sync.aligned;");
@@ -600,10 +620,8 @@ D_rmem[m_mma].scale_d = 1;
           // Fence(wgmma_fence_1, wgmma_fence_2)
           asm("wgmma.fence.sync.aligned;");
           for (int k_mma = 0; k_mma < 4; k_mma++) {
-            for (int m_mma = 0; m_mma < 2; m_mma++) {
-              asm volatile("{.reg .pred p;\n\tsetp.ne.b32 p, %66, 0;\n\twgmma.mma_async.sync.aligned.m64n128k8.f32.tf32.tf32\n\t{%0, %1, %2, %3, %4, %5, %6, %7, %8, %9, %10, %11, %12, %13, %14, %15, %16, %17, %18, %19, %20, %21, %22, %23, %24, %25, %26, %27, %28, %29, %30, %31, %32, %33, %34, %35, %36, %37, %38, %39, %40, %41, %42, %43, %44, %45, %46, %47, %48, %49, %50, %51, %52, %53, %54, %55, %56, %57, %58, %59, %60, %61, %62, %63},\n\t%64, %65, p, 1, 1;\n}": "+f"(D_rmem[m_mma].d[0]), "+f"(D_rmem[m_mma].d[1]), "+f"(D_rmem[m_mma].d[2]), "+f"(D_rmem[m_mma].d[3]), "+f"(D_rmem[m_mma].d[4]), "+f"(D_rmem[m_mma].d[5]), "+f"(D_rmem[m_mma].d[6]), "+f"(D_rmem[m_mma].d[7]), "+f"(D_rmem[m_mma].d[8]), "+f"(D_rmem[m_mma].d[9]), "+f"(D_rmem[m_mma].d[10]), "+f"(D_rmem[m_mma].d[11]), "+f"(D_rmem[m_mma].d[12]), "+f"(D_rmem[m_mma].d[13]), "+f"(D_rmem[m_mma].d[14]), "+f"(D_rmem[m_mma].d[15]), "+f"(D_rmem[m_mma].d[16]), "+f"(D_rmem[m_mma].d[17]), "+f"(D_rmem[m_mma].d[18]), "+f"(D_rmem[m_mma].d[19]), "+f"(D_rmem[m_mma].d[20]), "+f"(D_rmem[m_mma].d[21]), "+f"(D_rmem[m_mma].d[22]), "+f"(D_rmem[m_mma].d[23]), "+f"(D_rmem[m_mma].d[24]), "+f"(D_rmem[m_mma].d[25]), "+f"(D_rmem[m_mma].d[26]), "+f"(D_rmem[m_mma].d[27]), "+f"(D_rmem[m_mma].d[28]), "+f"(D_rmem[m_mma].d[29]), "+f"(D_rmem[m_mma].d[30]), "+f"(D_rmem[m_mma].d[31]), "+f"(D_rmem[m_mma].d[32]), "+f"(D_rmem[m_mma].d[33]), "+f"(D_rmem[m_mma].d[34]), "+f"(D_rmem[m_mma].d[35]), "+f"(D_rmem[m_mma].d[36]), "+f"(D_rmem[m_mma].d[37]), "+f"(D_rmem[m_mma].d[38]), "+f"(D_rmem[m_mma].d[39]), "+f"(D_rmem[m_mma].d[40]), "+f"(D_rmem[m_mma].d[41]), "+f"(D_rmem[m_mma].d[42]), "+f"(D_rmem[m_mma].d[43]), "+f"(D_rmem[m_mma].d[44]), "+f"(D_rmem[m_mma].d[45]), "+f"(D_rmem[m_mma].d[46]), "+f"(D_rmem[m_mma].d[47]), "+f"(D_rmem[m_mma].d[48]), "+f"(D_rmem[m_mma].d[49]), "+f"(D_rmem[m_mma].d[50]), "+f"(D_rmem[m_mma].d[51]), "+f"(D_rmem[m_mma].d[52]), "+f"(D_rmem[m_mma].d[53]), "+f"(D_rmem[m_mma].d[54]), "+f"(D_rmem[m_mma].d[55]), "+f"(D_rmem[m_mma].d[56]), "+f"(D_rmem[m_mma].d[57]), "+f"(D_rmem[m_mma].d[58]), "+f"(D_rmem[m_mma].d[59]), "+f"(D_rmem[m_mma].d[60]), "+f"(D_rmem[m_mma].d[61]), "+f"(D_rmem[m_mma].d[62]), "+f"(D_rmem[m_mma].d[63]): "l"(exo_CudaUtil::exo_matrix_descriptor<1>(&A_smem[((k_iter % 4) * (8192) + (8 * m_mma + 16 * exo_128thr_wg) * (256) + 8 * k_mma) / 256].byte_offset((8 * k_mma) * 4), 1024, 1024)), "l"(exo_CudaUtil::exo_matrix_descriptor<1>(&B_smem[((k_iter % 4) * (4096) + 8 * k_mma) / 256].byte_offset((8 * k_mma) * 4), 1024, 1024)), "r"(D_rmem[m_mma].scale_d));
-D_rmem[m_mma].scale_d = 1;
-            }
+            exo_CudaUtil::exo_Sm90_mma_async_ss_m128n128_f32_tf32_tf32(exo_CudaUtil::exo_matrix_descriptor(((struct exo_win_3f32c_Sm90_SmemSwizzled_128){ &A_smem[((k_iter % 4) * (8192) + (16 * exo_128thr_wg) * (256) + 8 * k_mma) / 256].byte_offset((8 * k_mma) * 4), { 256, 32, 1 } }), 4, 0), exo_CudaUtil::exo_matrix_descriptor(((struct exo_win_3f32c_Sm90_SmemSwizzled_128){ &A_smem[((k_iter % 4) * (8192) + (16 * exo_128thr_wg) * (256) + 8 * k_mma) / 256].byte_offset((8 * k_mma) * 4), { 256, 32, 1 } }), 4, 64), exo_CudaUtil::exo_matrix_descriptor(((struct exo_win_3f32c_Sm90_SmemSwizzled_128){ &B_smem[((k_iter % 4) * (4096) + 8 * k_mma) / 256].byte_offset((8 * k_mma) * 4), { 256, 32, 1 } }), 4), D_rmem.m0n0r0, D_rmem.m0n0r1, D_rmem.m0n0r2, D_rmem.m0n0r3, D_rmem.m0n8r0, D_rmem.m0n8r1, D_rmem.m0n8r2, D_rmem.m0n8r3, D_rmem.m0n16r0, D_rmem.m0n16r1, D_rmem.m0n16r2, D_rmem.m0n16r3, D_rmem.m0n24r0, D_rmem.m0n24r1, D_rmem.m0n24r2, D_rmem.m0n24r3, D_rmem.m0n32r0, D_rmem.m0n32r1, D_rmem.m0n32r2, D_rmem.m0n32r3, D_rmem.m0n40r0, D_rmem.m0n40r1, D_rmem.m0n40r2, D_rmem.m0n40r3, D_rmem.m0n48r0, D_rmem.m0n48r1, D_rmem.m0n48r2, D_rmem.m0n48r3, D_rmem.m0n56r0, D_rmem.m0n56r1, D_rmem.m0n56r2, D_rmem.m0n56r3, D_rmem.m0n64r0, D_rmem.m0n64r1, D_rmem.m0n64r2, D_rmem.m0n64r3, D_rmem.m0n72r0, D_rmem.m0n72r1, D_rmem.m0n72r2, D_rmem.m0n72r3, D_rmem.m0n80r0, D_rmem.m0n80r1, D_rmem.m0n80r2, D_rmem.m0n80r3, D_rmem.m0n88r0, D_rmem.m0n88r1, D_rmem.m0n88r2, D_rmem.m0n88r3, D_rmem.m0n96r0, D_rmem.m0n96r1, D_rmem.m0n96r2, D_rmem.m0n96r3, D_rmem.m0n104r0, D_rmem.m0n104r1, D_rmem.m0n104r2, D_rmem.m0n104r3, D_rmem.m0n112r0, D_rmem.m0n112r1, D_rmem.m0n112r2, D_rmem.m0n112r3, D_rmem.m0n120r0, D_rmem.m0n120r1, D_rmem.m0n120r2, D_rmem.m0n120r3, D_rmem.m64n0r0, D_rmem.m64n0r1, D_rmem.m64n0r2, D_rmem.m64n0r3, D_rmem.m64n8r0, D_rmem.m64n8r1, D_rmem.m64n8r2, D_rmem.m64n8r3, D_rmem.m64n16r0, D_rmem.m64n16r1, D_rmem.m64n16r2, D_rmem.m64n16r3, D_rmem.m64n24r0, D_rmem.m64n24r1, D_rmem.m64n24r2, D_rmem.m64n24r3, D_rmem.m64n32r0, D_rmem.m64n32r1, D_rmem.m64n32r2, D_rmem.m64n32r3, D_rmem.m64n40r0, D_rmem.m64n40r1, D_rmem.m64n40r2, D_rmem.m64n40r3, D_rmem.m64n48r0, D_rmem.m64n48r1, D_rmem.m64n48r2, D_rmem.m64n48r3, D_rmem.m64n56r0, D_rmem.m64n56r1, D_rmem.m64n56r2, D_rmem.m64n56r3, D_rmem.m64n64r0, D_rmem.m64n64r1, D_rmem.m64n64r2, D_rmem.m64n64r3, D_rmem.m64n72r0, D_rmem.m64n72r1, D_rmem.m64n72r2, D_rmem.m64n72r3, D_rmem.m64n80r0, D_rmem.m64n80r1, D_rmem.m64n80r2, D_rmem.m64n80r3, D_rmem.m64n88r0, D_rmem.m64n88r1, D_rmem.m64n88r2, D_rmem.m64n88r3, D_rmem.m64n96r0, D_rmem.m64n96r1, D_rmem.m64n96r2, D_rmem.m64n96r3, D_rmem.m64n104r0, D_rmem.m64n104r1, D_rmem.m64n104r2, D_rmem.m64n104r3, D_rmem.m64n112r0, D_rmem.m64n112r1, D_rmem.m64n112r2, D_rmem.m64n112r3, D_rmem.m64n120r0, D_rmem.m64n120r1, D_rmem.m64n120r2, D_rmem.m64n120r3, D_rmem.scale_d);
+D_rmem.scale_d = 1;
           }
           // Arrive(wgmma_async, cg[wg], 1)
           asm("wgmma.commit_group.sync.aligned;");
@@ -629,72 +647,134 @@ D_rmem[m_mma].scale_d = 1;
   }
   if (int tmp_1 = threadIdx.x; tmp_1 >= 128) {
     if ([[maybe_unused]] int exo_128thr_wg = ((threadIdx.x - 128) / 128); 1) {
-      for (int m_mma = 0; m_mma < 2; m_mma++) {
-        exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * m_mma + 128 * exo_128thr_wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[m_mma].d[0], 0);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * m_mma + 128 * exo_128thr_wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[m_mma].d[1], 1);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * m_mma + 128 * exo_128thr_wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[m_mma].d[2], 2);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * m_mma + 128 * exo_128thr_wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[m_mma].d[3], 3);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * m_mma + 128 * exo_128thr_wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[m_mma].d[4], 4);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * m_mma + 128 * exo_128thr_wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[m_mma].d[5], 5);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * m_mma + 128 * exo_128thr_wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[m_mma].d[6], 6);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * m_mma + 128 * exo_128thr_wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[m_mma].d[7], 7);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * m_mma + 128 * exo_128thr_wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[m_mma].d[8], 8);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * m_mma + 128 * exo_128thr_wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[m_mma].d[9], 9);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * m_mma + 128 * exo_128thr_wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[m_mma].d[10], 10);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * m_mma + 128 * exo_128thr_wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[m_mma].d[11], 11);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * m_mma + 128 * exo_128thr_wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[m_mma].d[12], 12);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * m_mma + 128 * exo_128thr_wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[m_mma].d[13], 13);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * m_mma + 128 * exo_128thr_wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[m_mma].d[14], 14);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * m_mma + 128 * exo_128thr_wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[m_mma].d[15], 15);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * m_mma + 128 * exo_128thr_wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[m_mma].d[16], 16);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * m_mma + 128 * exo_128thr_wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[m_mma].d[17], 17);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * m_mma + 128 * exo_128thr_wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[m_mma].d[18], 18);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * m_mma + 128 * exo_128thr_wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[m_mma].d[19], 19);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * m_mma + 128 * exo_128thr_wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[m_mma].d[20], 20);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * m_mma + 128 * exo_128thr_wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[m_mma].d[21], 21);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * m_mma + 128 * exo_128thr_wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[m_mma].d[22], 22);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * m_mma + 128 * exo_128thr_wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[m_mma].d[23], 23);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * m_mma + 128 * exo_128thr_wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[m_mma].d[24], 24);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * m_mma + 128 * exo_128thr_wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[m_mma].d[25], 25);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * m_mma + 128 * exo_128thr_wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[m_mma].d[26], 26);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * m_mma + 128 * exo_128thr_wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[m_mma].d[27], 27);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * m_mma + 128 * exo_128thr_wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[m_mma].d[28], 28);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * m_mma + 128 * exo_128thr_wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[m_mma].d[29], 29);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * m_mma + 128 * exo_128thr_wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[m_mma].d[30], 30);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * m_mma + 128 * exo_128thr_wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[m_mma].d[31], 31);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * m_mma + 128 * exo_128thr_wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[m_mma].d[32], 32);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * m_mma + 128 * exo_128thr_wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[m_mma].d[33], 33);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * m_mma + 128 * exo_128thr_wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[m_mma].d[34], 34);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * m_mma + 128 * exo_128thr_wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[m_mma].d[35], 35);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * m_mma + 128 * exo_128thr_wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[m_mma].d[36], 36);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * m_mma + 128 * exo_128thr_wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[m_mma].d[37], 37);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * m_mma + 128 * exo_128thr_wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[m_mma].d[38], 38);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * m_mma + 128 * exo_128thr_wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[m_mma].d[39], 39);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * m_mma + 128 * exo_128thr_wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[m_mma].d[40], 40);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * m_mma + 128 * exo_128thr_wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[m_mma].d[41], 41);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * m_mma + 128 * exo_128thr_wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[m_mma].d[42], 42);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * m_mma + 128 * exo_128thr_wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[m_mma].d[43], 43);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * m_mma + 128 * exo_128thr_wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[m_mma].d[44], 44);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * m_mma + 128 * exo_128thr_wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[m_mma].d[45], 45);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * m_mma + 128 * exo_128thr_wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[m_mma].d[46], 46);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * m_mma + 128 * exo_128thr_wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[m_mma].d[47], 47);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * m_mma + 128 * exo_128thr_wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[m_mma].d[48], 48);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * m_mma + 128 * exo_128thr_wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[m_mma].d[49], 49);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * m_mma + 128 * exo_128thr_wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[m_mma].d[50], 50);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * m_mma + 128 * exo_128thr_wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[m_mma].d[51], 51);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * m_mma + 128 * exo_128thr_wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[m_mma].d[52], 52);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * m_mma + 128 * exo_128thr_wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[m_mma].d[53], 53);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * m_mma + 128 * exo_128thr_wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[m_mma].d[54], 54);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * m_mma + 128 * exo_128thr_wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[m_mma].d[55], 55);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * m_mma + 128 * exo_128thr_wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[m_mma].d[56], 56);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * m_mma + 128 * exo_128thr_wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[m_mma].d[57], 57);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * m_mma + 128 * exo_128thr_wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[m_mma].d[58], 58);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * m_mma + 128 * exo_128thr_wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[m_mma].d[59], 59);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * m_mma + 128 * exo_128thr_wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[m_mma].d[60], 60);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * m_mma + 128 * exo_128thr_wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[m_mma].d[61], 61);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * m_mma + 128 * exo_128thr_wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[m_mma].d[62], 62);
-exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 64 * m_mma + 128 * exo_128thr_wg + 256 * exo_task.m_task], { exo_deviceArgs.M, 1 } }), D_rmem[m_mma].d[63], 63);
-      }
+      exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m0n0r0, 0, 0);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m0n0r1, 0, 1);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m0n0r2, 0, 2);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m0n0r3, 0, 3);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m0n8r0, 0, 4);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m0n8r1, 0, 5);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m0n8r2, 0, 6);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m0n8r3, 0, 7);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m0n16r0, 0, 8);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m0n16r1, 0, 9);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m0n16r2, 0, 10);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m0n16r3, 0, 11);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m0n24r0, 0, 12);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m0n24r1, 0, 13);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m0n24r2, 0, 14);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m0n24r3, 0, 15);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m0n32r0, 0, 16);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m0n32r1, 0, 17);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m0n32r2, 0, 18);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m0n32r3, 0, 19);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m0n40r0, 0, 20);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m0n40r1, 0, 21);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m0n40r2, 0, 22);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m0n40r3, 0, 23);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m0n48r0, 0, 24);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m0n48r1, 0, 25);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m0n48r2, 0, 26);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m0n48r3, 0, 27);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m0n56r0, 0, 28);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m0n56r1, 0, 29);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m0n56r2, 0, 30);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m0n56r3, 0, 31);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m0n64r0, 0, 32);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m0n64r1, 0, 33);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m0n64r2, 0, 34);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m0n64r3, 0, 35);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m0n72r0, 0, 36);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m0n72r1, 0, 37);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m0n72r2, 0, 38);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m0n72r3, 0, 39);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m0n80r0, 0, 40);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m0n80r1, 0, 41);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m0n80r2, 0, 42);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m0n80r3, 0, 43);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m0n88r0, 0, 44);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m0n88r1, 0, 45);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m0n88r2, 0, 46);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m0n88r3, 0, 47);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m0n96r0, 0, 48);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m0n96r1, 0, 49);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m0n96r2, 0, 50);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m0n96r3, 0, 51);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m0n104r0, 0, 52);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m0n104r1, 0, 53);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m0n104r2, 0, 54);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m0n104r3, 0, 55);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m0n112r0, 0, 56);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m0n112r1, 0, 57);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m0n112r2, 0, 58);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m0n112r3, 0, 59);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m0n120r0, 0, 60);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m0n120r1, 0, 61);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m0n120r2, 0, 62);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m0n120r3, 0, 63);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m64n0r0, 64, 0);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m64n0r1, 64, 1);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m64n0r2, 64, 2);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m64n0r3, 64, 3);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m64n8r0, 64, 4);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m64n8r1, 64, 5);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m64n8r2, 64, 6);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m64n8r3, 64, 7);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m64n16r0, 64, 8);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m64n16r1, 64, 9);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m64n16r2, 64, 10);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m64n16r3, 64, 11);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m64n24r0, 64, 12);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m64n24r1, 64, 13);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m64n24r2, 64, 14);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m64n24r3, 64, 15);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m64n32r0, 64, 16);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m64n32r1, 64, 17);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m64n32r2, 64, 18);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m64n32r3, 64, 19);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m64n40r0, 64, 20);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m64n40r1, 64, 21);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m64n40r2, 64, 22);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m64n40r3, 64, 23);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m64n48r0, 64, 24);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m64n48r1, 64, 25);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m64n48r2, 64, 26);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m64n48r3, 64, 27);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m64n56r0, 64, 28);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m64n56r1, 64, 29);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m64n56r2, 64, 30);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m64n56r3, 64, 31);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m64n64r0, 64, 32);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m64n64r1, 64, 33);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m64n64r2, 64, 34);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m64n64r3, 64, 35);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m64n72r0, 64, 36);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m64n72r1, 64, 37);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m64n72r2, 64, 38);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m64n72r3, 64, 39);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m64n80r0, 64, 40);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m64n80r1, 64, 41);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m64n80r2, 64, 42);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m64n80r3, 64, 43);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m64n88r0, 64, 44);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m64n88r1, 64, 45);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m64n88r2, 64, 46);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m64n88r3, 64, 47);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m64n96r0, 64, 48);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m64n96r1, 64, 49);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m64n96r2, 64, 50);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m64n96r3, 64, 51);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m64n104r0, 64, 52);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m64n104r1, 64, 53);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m64n104r2, 64, 54);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m64n104r3, 64, 55);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m64n112r0, 64, 56);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m64n112r1, 64, 57);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m64n112r2, 64, 58);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m64n112r3, 64, 59);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m64n120r0, 64, 60);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m64n120r1, 64, 61);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m64n120r2, 64, 62);
+exo_CudaUtil::exo_Sm90_store_d_reg<true>(((struct exo_win_2f32){ &exo_deviceArgs.C[(128 * exo_task.n_task) * (exo_deviceArgs.M) + 128 * exo_128thr_wg + 256 * (4 * exo_task.m1_task + exo_task.m0_task)], { exo_deviceArgs.M, 1 } }), D_rmem.m64n120r3, 64, 63);
     }
   }
   // Fence(cuda_classic, cuda_classic)
@@ -719,16 +799,24 @@ exo_Cuda0_xgemm_Sm90_wgmma_n128::exo_deviceMainLoop(char* exo_smem, const exo_De
   if (nreg == ((int32_t) 40)) {
     asm("setmaxnreg.dec.sync.aligned.u32 40;");
     if (int tmp = threadIdx.x; tmp >= 0 && tmp < 32) {
-      for (int exo_task_m_task = 0; exo_task_m_task < ((exo_deviceArgs.M) / (256)); exo_task_m_task++) {
+      for (int exo_task_m1_task = 0; exo_task_m1_task < ((((exo_deviceArgs.M) / (256)) + 3) / (4)); exo_task_m1_task++) {
         for (int exo_task_n_task = 0; exo_task_n_task < ((exo_deviceArgs.N) / (128)); exo_task_n_task++) {
-          if (exo_taskIndex++ % (gridDim.x / exo_clusterDim) == blockIdx.x / exo_clusterDim) exo_deviceTask_producer(exo_smem, exo_syncState, exo_deviceArgs, (struct exo_Task) { exo_task_m_task, exo_task_n_task });
+          for (int exo_task_m0_task = 0; exo_task_m0_task < 4; exo_task_m0_task++) {
+            if (4 * exo_task_m1_task + exo_task_m0_task < ((exo_deviceArgs.M) / (256))) {
+              if (exo_taskIndex++ % (gridDim.x / exo_clusterDim) == blockIdx.x / exo_clusterDim) exo_deviceTask_producer(exo_smem, exo_syncState, exo_deviceArgs, (struct exo_Task) { exo_task_m1_task, exo_task_n_task, exo_task_m0_task });
+            }
+          }
         }
       }
     }
     if (int tmp = threadIdx.x; tmp >= 32 && tmp < 128) {
-      for (int exo_task_m_task = 0; exo_task_m_task < ((exo_deviceArgs.M) / (256)); exo_task_m_task++) {
+      for (int exo_task_m1_task = 0; exo_task_m1_task < ((((exo_deviceArgs.M) / (256)) + 3) / (4)); exo_task_m1_task++) {
         for (int exo_task_n_task = 0; exo_task_n_task < ((exo_deviceArgs.N) / (128)); exo_task_n_task++) {
-          if (exo_taskIndex++ % (gridDim.x / exo_clusterDim) == blockIdx.x / exo_clusterDim) exo_deviceTask_unused(exo_smem, exo_syncState, exo_deviceArgs, (struct exo_Task) { exo_task_m_task, exo_task_n_task });
+          for (int exo_task_m0_task = 0; exo_task_m0_task < 4; exo_task_m0_task++) {
+            if (4 * exo_task_m1_task + exo_task_m0_task < ((exo_deviceArgs.M) / (256))) {
+              if (exo_taskIndex++ % (gridDim.x / exo_clusterDim) == blockIdx.x / exo_clusterDim) exo_deviceTask_unused(exo_smem, exo_syncState, exo_deviceArgs, (struct exo_Task) { exo_task_m1_task, exo_task_n_task, exo_task_m0_task });
+            }
+          }
         }
       }
     }
@@ -736,9 +824,13 @@ exo_Cuda0_xgemm_Sm90_wgmma_n128::exo_deviceMainLoop(char* exo_smem, const exo_De
   if (nreg == ((int32_t) 232)) {
     asm("setmaxnreg.inc.sync.aligned.u32 232;");
     if (int tmp = threadIdx.x; tmp >= 128 && tmp < 384) {
-      for (int exo_task_m_task = 0; exo_task_m_task < ((exo_deviceArgs.M) / (256)); exo_task_m_task++) {
+      for (int exo_task_m1_task = 0; exo_task_m1_task < ((((exo_deviceArgs.M) / (256)) + 3) / (4)); exo_task_m1_task++) {
         for (int exo_task_n_task = 0; exo_task_n_task < ((exo_deviceArgs.N) / (128)); exo_task_n_task++) {
-          if (exo_taskIndex++ % (gridDim.x / exo_clusterDim) == blockIdx.x / exo_clusterDim) exo_deviceTask_consumer(exo_smem, exo_syncState, exo_deviceArgs, (struct exo_Task) { exo_task_m_task, exo_task_n_task });
+          for (int exo_task_m0_task = 0; exo_task_m0_task < 4; exo_task_m0_task++) {
+            if (4 * exo_task_m1_task + exo_task_m0_task < ((exo_deviceArgs.M) / (256))) {
+              if (exo_taskIndex++ % (gridDim.x / exo_clusterDim) == blockIdx.x / exo_clusterDim) exo_deviceTask_consumer(exo_smem, exo_syncState, exo_deviceArgs, (struct exo_Task) { exo_task_m1_task, exo_task_n_task, exo_task_m0_task });
+            }
+          }
         }
       }
     }
