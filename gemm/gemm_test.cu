@@ -11,7 +11,8 @@
 #include "gemm_sm80.h"
 #include "gemm_sm90.h"
 #include "../xgemm_Sm80/xgemm_Sm80.h"
-#include "../xgemm_Sm90/xgemm_Sm90.h"
+#include "../xgemm_Sm90_n96/xgemm_Sm90_n96.h"
+#include "../xgemm_Sm90_n128/xgemm_Sm90_n128.h"
 #include "../edited_xgemm_Sm90/edited.h"
 
 #ifndef CUBLAS_TEST_ENABLED
@@ -303,13 +304,13 @@ void gemm_test(TestParams params, cudaStream_t stream)
                 xgemm_Sm80_mbarrier(nullptr, int(params.M), int(params.N), int(params.K), d_a, d_b, d_c_tested);
                 // xgemm_Sm80_split(nullptr, int(params.M), int(params.N), int(params.K), d_a, d_b, d_c_tested);
             }
-            else if (algo == AlgorithmCode::exo_tmp_test) {
+            else if (algo == AlgorithmCode::exo_sm_90_n96) {
                 assert(stream == 0);
-                gemm_tma(nullptr, int(params.N), int(params.M), int(params.K), d_bCol, d_a, d_c_tested);
+                xgemm_Sm90_wgmma_n96(nullptr, int(params.N), int(params.M), int(params.K), d_bCol, d_a, d_c_tested);
             }
-            else if (algo == AlgorithmCode::exo_sm_90) {
+            else if (algo == AlgorithmCode::exo_sm_90_n128) {
                 assert(stream == 0);
-                xgemm_Sm90_wgmma(nullptr, int(params.N), int(params.M), int(params.K), d_bCol, d_a, d_c_tested);
+                xgemm_Sm90_wgmma_n128(nullptr, int(params.N), int(params.M), int(params.K), d_bCol, d_a, d_c_tested);
             }
             else if (algo == AlgorithmCode::edited_exo_sm_90) {
                 assert(stream == 0);
@@ -374,10 +375,10 @@ void gemm_test(TestParams params, cudaStream_t stream)
               case AlgorithmCode::edited_exo_sm_90:
                 color_code = 33;
                 break;
-              case AlgorithmCode::exo_tmp_test:
               case AlgorithmCode::exo_sm_80_fence:
               case AlgorithmCode::exo_sm_80_mbarrier:
-              case AlgorithmCode::exo_sm_90:
+              case AlgorithmCode::exo_sm_90_n96:
+              case AlgorithmCode::exo_sm_90_n128:
                 color_code = 36;
                 break;
               case AlgorithmCode::mine_split_k_inner: case AlgorithmCode::mine_split_k_outer:
@@ -401,9 +402,6 @@ void gemm_test(TestParams params, cudaStream_t stream)
 
         const auto algorithm_code = static_cast<AlgorithmCode>(bit_index);
         int test_count = 48;
-        if (algorithm_code == AlgorithmCode::exo_tmp_test) {
-            test_count = 1;
-        }
         run_tests(algorithm_code, test_count);
     }
 

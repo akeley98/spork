@@ -12,12 +12,12 @@ enum class TestDataCode
 
 enum class AlgorithmCode
 {
-    exo_tmp_test,
     cublas,
     cutlass,
     exo_sm_80_fence,
     exo_sm_80_mbarrier,
-    exo_sm_90,
+    exo_sm_90_n96,
+    exo_sm_90_n128,
     edited_exo_sm_90,
     mine_sm_80,
     mine_output_stationary,
@@ -37,8 +37,6 @@ inline uint32_t algorithm_code_bit(AlgorithmCode code)
 inline const char* algorithm_name(AlgorithmCode code)
 {
     switch (code) {
-      case AlgorithmCode::exo_tmp_test:
-        return "exo_tmp_test";
       case AlgorithmCode::mine_output_stationary:
         return "mine (output stationary)";
       case AlgorithmCode::cublas:
@@ -59,8 +57,10 @@ inline const char* algorithm_name(AlgorithmCode code)
         return "exo_sm_80_fence";
       case AlgorithmCode::exo_sm_80_mbarrier:
         return "exo_sm_80_mbarrier";
-      case AlgorithmCode::exo_sm_90:
-        return "exo_sm_90";
+      case AlgorithmCode::exo_sm_90_n96:
+        return "exo_sm_90_n96";
+      case AlgorithmCode::exo_sm_90_n128:
+        return "exo_sm_90_n128";
       case AlgorithmCode::edited_exo_sm_90:
         return "edited_exo_sm_90";
     }
