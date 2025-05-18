@@ -1,0 +1,67 @@
+As part of our programming languages work, we need some help in better understanding what causes this warning (and the associated extra WARPGROUP.DEPBAR instructions) in ptxas:
+
+    wgmma.mma_async instructions are serialized due to non wgmma instructions defining accumulator registers of a wgmma between start and end of the pipeline stage in the function ...
+
+I comprehend the surface-level meaning of the error message, and the valid usage requirements of wgmma and its asynchronous register access, as documented by the PTX guide. What I don't understand is how to reliably avoid conditions that lead to nvcc generating incorrect PTX code, or even in some cases what is wrong at all with the generated PTX (i.e. seemingly correct PTX code will still emit this message when compiled to SASS, despite no apparent invalid register accesses).
+
+The system we're working on (Exo-GPU) compiles Python-embedded code to CUDA C++, which is then compiled to PTX+SASS by the CUDA toolkit.
+We're currently using toolkit version 12.3 as advised by Hazy Research.
+
+Failures we've observed break down into two categories:
+
+A. Failures due to the C++ abstraction not interacting well with the async usage of wgmma registers.
+Essentially, the C++ compiler doesn't understand that the inline wgmma asm is writing to register asynchronously, so it'll happily generate PTX code that spills wgmma operands to local memory, or move operands to another PTX register, immediately after the inline wgmma instruction without any inserted synchronization. For example,
+
+    mov.b32 %f1854 , %r55 ;
+    // begin inline asm
+    {
+      .reg .pred p;
+      setp.ne.b32 p, %r347, 0;
+      wgmma.mma_async.sync.aligned.m64n128k8.f32.tf32.tf32 { %f1854 , ...
+    }
+    // end inline asm
+    mov.b32 %r276 , %f1854 ;
+
+where here the C++ compiler migrated a single C++ variable from %r55 to %f1854 to %r276.
+
+To avoid this, we need to understand the underlying model for how nvcc maps C++ variables to PTX registers, and make sure it never migrates a wgmma register behind our back.
+
+B. Failures where no incorrect PTX code was generated, but ptxas inserts syncs anyway for inscrutable reasons.
+My hypothesis is that ptxas has to deduce the "full lifetime" of a wgmma register to allocate physical SASS registers to PTX registers.
+So if my usage of wgmma is correct, but ptxas doesn't understand it, maybe ptxas conservatively assumes the usage of the wgmma register is unbounded, and therefore deduces a conflict with subsequent non-wgmma usages despite synchronization???
+Essentially, the PTX docs describes correct usage of wgmma in terms of the _dynamic_ behavior of an executed program (i.e. that synchronization is inserted correctly), while the real test of correctness is whether ptxas's _static_ analysis accepts my program as correct ... and I don't understand the latter.
+
+We would like to better understand what leads to these failures.
+We're working on a programming language, so we need a reliable understanding of the underlying system, and not just fix our one current example to work (even parameter tuning can cause a correct program to run into one of these conditions, despite the structure being the same, so having one working example is no guarantee that future users won't run into issues due to minor deviations from a supported case).
+
+For issue (A), I have some example code for wgmma.mma_async.sync.aligned.m64n96k8.f32.tf32.tf32 and wgmma.mma_async.sync.aligned.m64n128k8.f32.tf32.tf32 that shows how fragile lowering an array to registers (as opposed to spilled local memory) is.
+As an example of somewhat out-of-the-ordinary user behavior we need to be prepared for, each warpgroup is assigned a tile with M=128 (i.e. twice the "native width" of M=64 for wgmma) and therefore has 2 wgmma accumulator tiles per warpgroup.
+
+In xgemm_Sm90_n96_array/xgemm_Sm90_n96_array.cuh we declare the accumulator as `exo_Sm90_RmemMatrixD<float, 48> D_rmem[2];`, with each struct containing an array of 48 32-bit floats.
+We use m64n96k8 sized wgmma mma_async instructions.
+This lowers to xgemm_Sm90_n96_array.ptx and xgemm_Sm90_n96_array.sass as I intended.
+
+In xgemm_Sm90_n128_array/xgemm_Sm90_n128_array.cuh, the accumulator is expended to `exo_Sm90_RmemMatrixD<float, 64> D_rmem[2];`, and wgmma mma_async instructions are widened to m64n128k8.
+The structure is the same as the n96 example, but now the accumulators are spilled to local memory (despite there being enough registers to fit them ... I setmaxnreg'd the register count to 232, which is far more than enough to fit the 128 accumulator registers actually needed).
+
+Compare the two examples with `meld xgemm_Sm90_n96_array/xgemm_Sm90_n96_array.cuh xgemm_Sm90_n128_array/xgemm_Sm90_n128_array.cuh`.
+Only xgemm_Sm90_n128_array.ptx contains `st.local.v2` and `ld.local.v2` bracketing usages of wgmma, which leads to xgemm_Sm90_n128_array.sass containing conservative WARPGROUP.DEPBAR instructions and bad performance.
+
+As I workaround, I tried to eliminate all C++ arrays and replace them with a struct of named scalars.
+See xgemm_Sm90_n128/xgemm_Sm90_n128.cuh, which uses `struct exo_Sm90_RmemD_m128n128_f32` for the accumulator.
+This seems to fix the problem, showing that it's the C++ compiler's behavior causing the bad performance, and not fundamental hardware limitations or issues with the intended algorithm.
+
+I would be happy to talk synchronously about these code samples in-depth.
+
+What concerns me is Cutlass/CuTe seem to use C++ arrays to store A_register/D_register, and have things lower to SASS just fine.
+I can continue with my workaround of declaring N-many scalar variables in place of a C++ array[N], although I am unsure if this will have unintended consequences; generally, my experience with CUDA is it's best not to be too "clever" and stick to how example code does it.
+
+For issue (B), I wish we had a better understanding of how precisely "the start and end of the pipeline stage" is detected by the compiler.
+Because often, the compiler accuses me of having "non wgmma instructions defining accumulator registers of a wgmma" despite the wgmma and non-wgmma usages being far apart in code, and synchronized with commit groups.
+So far, I've noticed that this condition can arise from:
+
+* having the scale-d parameter to wgmma be non-constant in the PTX code; i.e., I have to specialize the 0th iteration of the k-loop so the initial usage of HGMMA can read from RZ.
+
+* having the final "wgmma.wait_group.sync.aligned 0" be "weird" in any way, like being in control flow that's dynamically guaranteed to be executed, but perhaps the compiler doesn't know that?
+
+but I doubt this is the full list of possible failure modes.
