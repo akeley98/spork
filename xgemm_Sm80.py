@@ -177,6 +177,7 @@ def xgemm_Sm80_mbarrier(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear,
                             fake: barrier @ CudaMbarrier
                             for nw in cuda_threads(0, N1 / Nw, unit=cuda_warp):
                                 Await(fake[nw], Sm80_generic, ~3)
+                            for nw in cuda_threads(0, N1 / Nw, unit=cuda_warp):
                                 Arrive(cuda_classic, fake[nw], 1)
                                 # Load all B matrix tiles ahead of time
                                 B_rmem : f32[K0/MMA_K, Nw/8, MMA_K, 8] @ Sm80_RmemMatrixB
