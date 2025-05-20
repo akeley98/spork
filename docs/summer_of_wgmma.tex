@@ -1,0 +1,198 @@
+% python3 code_to_tex.py su_samples.py su_samples && xelatex summer_of_wgmma.tex </dev/null
+\input{whitepaper_common.tex}
+
+\tikzstyle{smallnode} = [rectangle, minimum width=1.25cm, minimum height=1cm, text centered, text width=1.25cm, draw=black, fill=white]
+\tikzstyle{smallishnode} = [rectangle, minimum width=2cm, minimum height=1cm, text centered, text width=2cm, draw=black, fill=white]
+\tikzstyle{normalnode} = [rectangle, minimum width=3cm, minimum height=1cm, text centered, text width=3cm, draw=black, fill=white]
+\tikzstyle{widenode} = [rectangle, minimum width=62mm, minimum height=8mm, text centered, text width=62mm, draw=black, fill=white]
+\tikzstyle{bignode} = [rectangle, minimum width=3.5cm, minimum height=2cm, text centered, text width=3cm, draw=black, fill=white]
+\tikzstyle{smemnode} = [rectangle, minimum width=3cm, minimum height=1cm, text centered, text width=3cm, draw=keyColorB, fill=white]
+\tikzstyle{gmemnode} = [rectangle, minimum width=3cm, minimum height=1cm, text centered, text width=3cm, draw=keyColorA, fill=white]
+\tikzstyle{smallishsmemnode} = [rectangle, minimum width=2cm, minimum height=1cm, text centered, text width=2cm, draw=keyColorB, fill=white]
+\tikzstyle{arrow} = [thick,->,>=stealth]
+\tikzstyle{line} = [thick]
+
+\begin{document}
+\myTitle{Summer Plans for Spork}
+
+For now I'm just focusing on proposed changes to the Exo object language.
+I also have to figure out how to update the synchronization checker to handle new features, and glue it to Exo.
+After that, implementing algorithms in Exo-GPU and performance results (sounds like part of this work may be outsourced to Jason).
+
+New/changed features:
+
+\begin{itemize}
+\item Instructions are currently conveyed as Python functions; as an alternative, we should also support ``instruction templates'' conveyed as Python classes.
+These instruction templates can be instantiated to create a family of similar instrs, and give us more room syntactically to fit all the instruction metadata needed for Exo-GPU.
+\item Move away from string interpolation and towards more ``structured'' interfaces for generating windows and C/C++ instruction syntax.
+\item Changes to distributed memory to support multicasting and warp-shuffle instructions, i.e., cases where it's no longer true that each distributed shard is accessed solely by its owner.
+\item Possibly, replace the actor kind idea with timelines: \textit{instruction timeline} (\lighttt{instr\_tl}) and \textit{usage timeline} (\lighttt{usage\_tl}), which are per-instruction and per-instruction-parameter attributes, respectively.
+\item Improvements to Arrive/Await statements to support TMA and multicast: we need to allow arriving on multiple barriers, and associating a barrier with a specific instruction, and no prior instructions, in an instruction stream.
+\end{itemize}
+
+\newpage
+\myTitle{Instr Class}
+
+``New-style'' instruction templates are created as \lighttt{@instr}-decorated Python classes, rather than functions.
+The class must have two functions
+\begin{itemize}
+  \item \lighttt{behavior}: Exo code specifying the behavior of the function.
+  \item \lighttt{instance}: Python code executed by the compiler and codegen.
+\end{itemize}
+
+\input{su_samples/instr_class.0.tex}
+
+\filbreak
+The decorated class is not itself an instr, but an instr template.
+All parameters in common between the \lighttt{behavior} and \lighttt{instance} functions (in this case, \lighttt{K}) must be substituted with concrete values.
+These are ``template parameters''.
+The other \lighttt{behavior} parameters are ``runtime parameters''.
+
+\input{su_samples/instr_class.1.tex}
+
+\filbreak
+Besides allowing code-reuse through the template mechanism and class inheritance, conveying the \lighttt{instr} as a class gives us more room syntactically (in the \lighttt{instance} function) to convey the large amount of metadata for Exo-GPU instructions:
+\begin{itemize}
+  \item collective unit
+  \filbreak
+  \item include files and ``utils'' for C and CUDA C++
+  \filbreak
+  \item instruction timeline (n\'ee actor kind)
+  \filbreak
+  \item per-parameter information: usage timeline (``actor signature''), sync/async access
+\end{itemize}
+
+\filbreak
+\mainSub{Exo Syntax}
+
+Pass template parameters as keyword arguments, and runtime parameters as positional:
+
+\input{su_samples/instr_class.2.tex}
+
+\filbreak
+\mainSub{LoopIR\_Unification Changes}
+
+For convenience, usually the user shouldn't substitute template parameters manually.
+Instead, we should program \lighttt{replace()} to be able to take an instr template, and deduce and substitute template parameters as part of unification.
+It's an error if the substituted value is not a constant.
+
+\filbreak
+\mainSub{Include Files \& Utility Code}
+
+We will have a lot of similar instructions that may share snippets of useful ``global'' source code.
+As a replacement for \lighttt{c\_global}, the \lighttt{instance} function of an instr class configures these attributes defining source code needed for compiling the instrs:
+\begin{itemize}
+\item \lighttt{c\_includes: List[str]}: names of include files needed in C code (the \lighttt{.c} file)
+\item \lighttt{c\_utils: List[str]}: C code snippets
+\item \lighttt{cu\_includes: List[str]}: names of include files needed in CUDA C++ code (the \lighttt{.cuh} file)
+\item \lighttt{cu\_utils: List[str]}: CUDA C++ code snippets
+\end{itemize}
+Duplicate include files/utils are discarded.
+
+\filbreak
+Because the header file (\lighttt{.cuh}) for the generated CUDA code is not really private, all the CUDA utilities are placed into a ``unique'' namespace (uniquify based on Python source file name).
+This is aliased as \lighttt{namespace exo\_CudaUtil} in generated CUDA functions.
+
+\filbreak
+\mainSub{Instr Format Function}
+
+The current system of generating C (or CUDA) code for instrs using \lighttt{str.format} is really unweildly.
+As an alternative, let's support codegen with a Python function that's given information on all runtime parameters and returns a C/C++ string.
+This ties into my proposed changes to the window system that allow deeper introspection of windows.
+
+\newpage
+\myTitle{Make Windows Better}
+
+Windows serve two purposes in Exo
+\begin{itemize}
+ \item In the common usage, we use windows to pass slices of tensors to instrs.
+ Typically, the instr's code format does not actually create a window, and just formats using \lighttt{\textit{arg\_name}\_data}.
+ I call this a \myKeyA{non-materialized} window.
+ \item Much less commonly, we actually \myKeyA{materialize} a window struct, such as when we cross a true function boundary, or we compile a \lighttt{WindowStmt} (can of worms I won't get into in this document).
+\end{itemize}
+\filbreak
+The uncommon materialized window case puts artificial constraints on our thinking.
+I propose we make it much easier to unpack and inspect attributes of a window within the Exo compiler, with limited (or no) support for materializing the window, depending on memory type.
+Currently, this is only possible for the limited case of \lighttt{\textit{arg\_name}\_data} (inspecting the offseted pointer for a window) and the weird \lighttt{\textit{arg\_name}\_int} thing.
+
+\filbreak
+Furthermore, we should have language-level support for expressing the different ``hardware modes'' for tensor dimensions (distributed memory, array, packed/vectorized), and enforcing commonplace restrictions (e.g. that an AVX vector isn't strided).
+I think this is better than trying to repeatedly implement hacky assertions with \lighttt{stride}, etc., in \lighttt{Memory}/\lighttt{SpecialWindow} implementations.
+
+\filbreak
+\mainSub{Dimension Hardware Modes}
+
+From left-to-right, a tensor's dimensions consist of \redBox{distributed}, \yellowBox{array}, and \blueBox{packed} (``vectorized'') dimensions.
+The distributed dimensions are deduced by Exo-GPU, and mostly hidden from the window implementation; the Exo-GPU compiler rewrites the subtree to eliminate distributed dimensions prior to C/C++ codegen.
+The packed dimensions are defined by the \lighttt{Memory} type (e.g. 8, for \lighttt{\_\_m256}).
+The remaining dimensions (in the middle) are array dimensions.
+
+\myKeyA{AVX Example:}
+
+\input{su_samples/avx_example.0.tex}
+
+\filbreak
+
+\myKeyA{CUDA Example:}
+
+\input{su_samples/warp_example.0.tex}
+
+\filbreak
+For window parameters, we can explicitly tag the hardware modes, from left-to-right:
+\begin{itemize}
+  \item ``\lighttt{distributed:}'' rarely used; needed for multicast and warp shuffle
+  \filbreak
+  \item ``\lighttt{strided:}'' array dimension, with arbitrary stride
+  \filbreak
+  \item ``\lighttt{dense:}'' array dimension, densely packed
+  \filbreak
+  \item ``\lighttt{packed:}'' packed dimension
+\end{itemize}
+
+\filbreak
+
+\filbreak
+\myKeyA{Backwards Compatibility:} If not tagged, query the number of packed dimensions $P$ from the \lighttt{Memory} type, and assume the right-most up-to $P$ dimensions are \lighttt{packed}, and the rest \lighttt{strided}.
+
+\filbreak
+\myKeyA{AVX Example:}
+
+\input{su_samples/avx_window.0.tex}
+
+\filbreak
+\myKeyA{TMA GMEM Example:}
+
+\input{su_samples/tma_window.0.tex}
+
+\filbreak
+\myKeyA{TMA SMEM Example:}
+
+\input{su_samples/tma_window.1.tex}
+
+\filbreak
+\mainSub{Expected Patterns}
+
+For Exo-GPU, there's several usage patterns for windows:
+
+\filbreak
+\myKeyA{Pointer + strides:} Only thing that is supported today.
+Allocated in C/C++ as a flattened array.
+We can freely load/store scalars, and reduce the dimensionality of a window.
+``Mutable'' pointer: we do pointer arithmetic to implement offsets.
+These windows may be materialized as structs.
+
+\input{su_samples/pointer_strides.0.tex}
+
+\filbreak
+\myKeyA{Register-like:} Allocated in C/C++ as a multidimensional array.
+Cannot be materialized as a window struct, or passed to non-instr procs.
+
+\input{su_samples/register_alloc.0.tex}
+
+\filbreak
+\myKeyA{Pointer + offsets:}
+These windows can be materialized as structs, but with an ``immutable'' pointer: the offsets of the window are encoded explicitly.
+The dimensionality of the window can't be changed (i.e. we support only intervals, not points)
+
+\input{su_samples/pointer_offsets.0.tex}
+\end{document}

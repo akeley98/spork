@@ -17,9 +17,12 @@ docs/spork.pdf
 docs/SpecialWindow.pdf
 docs/spork_mini.pdf
 docs/coll_algebra.pdf
+docs/coll_samples
 docs/wgmma_dirty_laundry.pdf
 docs/spork_pre_h100.pdf
 docs/gemms_tex
+docs/summer_of_wgmma.pdf
+docs/su_samples
 gemm/gemm
 attn
 libattn.so

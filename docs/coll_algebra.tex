@@ -1,4 +1,4 @@
-% xelatex </dev/null coll_algebra.tex
+% python3 code_to_tex.py coll_samples.py coll_samples && xelatex </dev/null coll_algebra.tex
 
 \input{whitepaper_common.tex}
 
@@ -264,7 +264,7 @@ Summarizing for now, the collective tiling contains:
 \filbreak
 which together describe the (not-necessarily-aligned) \myKeyA{collective unit} of the thread collectives; further contains
 \begin{itemize}
-  \item \myKeyA{Parent:} \lighttt{Optional[CollTiling]}, the source of thread collectives that are subdivided to yield the new thread collectives (None indicates top-level collective)
+  \item \myKeyA{Parent:} \lighttt{Optional[CollTiling]}, the source of thread collectives that are subdivided to yield the new thread collectives (None indicates top-level collective).
   \filbreak
   \item \myKeyA{Tile:} $\mathbb{Z}^N_+$, subdivision tile size
   \filbreak
@@ -300,6 +300,7 @@ For all dimensions $x$, $0 < B_x \le B_x + O_x \le T_x$.
 \filbreak
 \mainKey{Tiling Pattern:} Let $I^P$ be the intra-box exprs of threads in the parent box.
 Then the tile index of a thread is $j = \lfloor I^P_d / T_d \rfloor$ ($j = 0$ for the degenerate case).
+This expression is the \lighttt{CollIndexExpr} for the iteration variable $j$.
 Threads, if not disabled by the rules below, are assigned to execute iteration $j$.
 
 \filbreak
@@ -469,5 +470,153 @@ The offset and intra-box expr are completed differently.
 
 \filbreak
 \minorKey{Intra-box Expr Coordinate Splitting}: Each coordinate $e$ of the expression splits into $(\frac{e}{f}, e~\%f)$.
+
+\FloatBarrier
+
+\newpage
+\myTitle{Distributed Memory}
+
+In CUDA C++, often the declared size of a matrix tile doesn't match the logical size of the matrix, because we distribute shards of the matrix tile to individual threads, and register allocation in CUDA C++ occurs at per-thread granularity.
+For example, each thread may allocate a $8 \times 4$ tile i, and the threads in the CTA may be arranged in a $16 \times 16$ grid, causing the full CTA matrix to be $128 \times 64$.
+
+\filbreak
+In Exo syntax, this example looks like
+
+\input{coll_samples/simple.0.tex}
+
+\filbreak
+The number and behavior of the distributed dimensions gets deduced by Exo-GPU based on subsequent usage.\footnote{Future discussion: is this implicitness a good idea?}
+We expect distributed indices to be plain variables, with no arithmetic done.
+As part of code lowering, we strip the distributed dimensions so the generated CUDA C++ declares the size of only the distributed shard.
+
+\input{coll_samples/simple_cxx.0.tex}
+
+\filbreak
+Similar patterns may occur with larger granularity, for example, allocating per-warpgroup shards for wgmma, or per-CTA shards for (cluster) distributed SMEM.
+For Exo, this all falls under the umbrella of ``distributed memory''.
+
+\filbreak
+Each tensor allocation has two important \myKeyA{collective units}
+\begin{itemize}
+  \item The \myKeyA{alloc unit}: the collective unit for the alloc statement
+  \filbreak
+  \item The \myKeyA{native unit}: collective unit physically needed to allocate the memory type (defined by \lighttt{MemWin} sub-class, e.g. 1 thread for scalar registers, 1 CTA for SMEM, 1 warp for mma matrix tiles).
+\end{itemize}
+\filbreak
+If these are not matched, we need to deduce 1 or more of the left-most dimensions as distributed dimensions.
+The remaining dimensions describe the shape of the distributed shard allocated in each native thread collective.
+
+\filbreak
+The rules for our deduction should enforce that
+\begin{enumerate}
+  \item each distributed shard is accessed by the same thread collective each time\footnote{Exception: warp shuffle, multicast (not covered in this doc)}
+  \filbreak
+  \item each thread collective accesses the same distributed shard each time
+  \filbreak
+  \item each distributed shard is actually allocated by the correct (native) collective unit
+\end{enumerate}
+
+\filbreak
+\mainSub{State Model}
+
+Each \lighttt{cuda\_threads} iterator variable (previous example : \texttt{\greenBox{m}, \violetBox{n}}) has two relevant pieces of state:
+\begin{itemize}
+  \item Its \myKeyA{\texttt{CollIndexExpr}}, mapping \lighttt{threadIdx.x} or \lighttt{blockIdx.x} to the iteration variable value.
+  \filbreak
+  \item Its \myKeyA{tiling operator} $t_0 \mapsto t_1$, where $t_1$ is the number of threads in the \myKeyA{tile} of the collective tiling defined by the \lighttt{cuda\_threads} loop, and $t_0$ is the number of threads in the tile of the parent collective unit.
+\end{itemize}
+
+\filbreak
+We deduce from each usage a tuple of \lighttt{CollIndexExpr}; the length of this tuple is the number of distributed dimensions, and the values are the indexing variables' \lighttt{CollIndexExpr}.
+
+\input{coll_samples/simple.1.tex}
+
+\filbreak
+All usages must deduce the same tuple of \lighttt{CollIndexExpr}.
+Recall the tile size includes inactive threads, which isn't relevant in this simple example, but will matter later.
+
+\filbreak
+\mainSub{Deduction Algorithm}
+
+The goal of the deduction is to find a valid \myKeyA{tiling chain}; this is a permutation of \lighttt{cuda\_threads} iteration variables such that
+\begin{itemize}
+  \item let $t_a$ be the number of threads in the tile of the collective tiling in scope for the tensor allocation.
+  \item let $t_n$ be the number of threads in the tile (equivalently, box) of the native unit.
+  \item the tiling operators of the variables forms a chain $t_a \mapsto ... \mapsto t_n$.
+\end{itemize}
+
+\filbreak
+In the earlier example, $t_a = 256$, $t_n = 1$, and the tiling chain is \greenBox{$m: 256 \mapsto 16$}, \violetBox{$n: 16 \mapsto 1$}.
+The collective tiling defined by the \lighttt{cuda\_threads} loop of the last variable in the tiling chain is the \myKeyA{leaf tiling}.
+
+\filbreak
+If the native unit mismatches the collective unit, we do distributed memory analysis for each index expression.
+Consume, from left-to-right, indices until some permutation of \textit{all} % ambiguous tiling chain
+consumed variables forms a valid tiling chain.
+Each consumed index must be a plain read of a \lighttt{cuda\_threads} iteration variable.
+The remaining unconsumed indices correspond to non-distributed dimensions.
+
+\filbreak
+We save the result of the deduction as a tuple of \lighttt{CollIndexExpr} (the order of this tuple is the order of the consumed index variables, not the order of the tiling chain).
+
+\filbreak
+Failure conditions:
+\begin{itemize}
+  \item We don't find a valid tiling chain before we consume an invalid index expression or run out of indices.
+  \filbreak
+  \item The leaf collective tiling's collective unit doesn't match the native unit.\footnote{Tile thread count alone isn't enough to guard against this; we could have a mismatch due to incorrect shape, or due to misalignment.}
+  \filbreak
+  \item We consume two indices that share the same $t_0$ value, ignoring no-op tiling operators $t_0 \mapsto t_1$ where $t_0 = t_1$. (This enforces the \textit{all} emphasized above).
+  \filbreak
+  \item The deduced tuple of \lighttt{CollIndexExpr} mismatches that of another usage.
+\end{itemize}
+
+\filbreak
+\mainSub{Negative Example: Invalid Index Expression}
+
+\input{coll_samples/seq_fail.0.tex}
+
+\filbreak
+\mainSub{Negative Example: Mismatched \texttt{CollIndexExpr}}
+
+\input{coll_samples/mismatched.0.tex}
+
+\filbreak
+\mainSub{Positive Example: Matched \texttt{CollIndexExpr}}
+
+\input{coll_samples/matched.0.tex}
+
+\filbreak
+\mainSub{Positive Example: Warp Matrix Tile}
+
+The \lighttt{Sm80\_RmemMatrixD} memory type has a native unit of \lighttt{cuda\_warp}; $t_n = 32$.
+
+\input{coll_samples/warp_example.0.tex}
+
+Note how the deduction in this case is based on a window expression.
+The \lighttt{Sm80\_mma\_zero\_d\_tf32} function takes only one distributed shard, so all intervals (\texttt{:}) correspond to non-distributed dimensions.
+This will not be the case for multicast and warp shuffle functions, which take multiple distributed shards.
+To handle this, we will have to treat intervals as holes that are completed by introspecting the called \lighttt{instr}.
+The full deduction is based on synthesizing the behavior of both the caller and callee.
+This use case is a major motivation for why distributed memory as a concept exists at all (allowing explicit neighbor indexing), and why it's based on these more complicated tiling chain deductions, rather than simple syntactic checks.
+
+\filbreak
+\mainSub{Negative Example: Broken Chain}
+
+\input{coll_samples/broken_chain.0.tex}
+
+\filbreak
+\mainSub{Positive Example: Broken Chain Fixes}
+
+Minor changes to the broken chain example will compile successfully.
+For example, we can replace the \texttt{for \yellowBox{b} in cuda\_threads(...)} loop with \texttt{with CudaWarps}.
+This highlights the importance that the deduction relies on chaining tile sizes, not box sizes.
+
+\input{coll_samples/chain.0.tex}
+
+Another possible correction is to include \texttt{\yellowBox{b}} in the indexing expression.
+This increases the number of distributed dimensions to 3, and consequently reduces the distributed shard size (from 2 to 1).
+
+\input{coll_samples/chain.1.tex}
 
 \end{document}
