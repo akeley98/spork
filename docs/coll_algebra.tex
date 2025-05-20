@@ -27,7 +27,8 @@
 \begin{document}
 \myTitle{Exo GPU (Spork) Collective Algebra}
 
-Thoughts on how to formally model subdividing groups of threads, thread indexing, and thread convergence (e.g. for barriers or warp/warpgroup tensor core MMA).
+Thoughts on how to formally-ish model subdividing groups of threads, thread indexing, and thread convergence (e.g. for barriers or warp/warpgroup tensor core MMA).
+This gets used to describe how distributed memory works in Exo-GPU.
 
 \filbreak
 \mainKey{Collective Unit:} A ``unit of measurement'' for threads arranged in a certain shape.
@@ -476,8 +477,8 @@ The offset and intra-box expr are completed differently.
 \newpage
 \myTitle{Distributed Memory}
 
-In CUDA C++, often the declared size of a matrix tile doesn't match the logical size of the matrix, because we distribute shards of the matrix tile to individual threads, and register allocation in CUDA C++ occurs at per-thread granularity.
-For example, each thread may allocate a $8 \times 4$ tile i, and the threads in the CTA may be arranged in a $16 \times 16$ grid, causing the full CTA matrix to be $128 \times 64$.
+In CUDA C++, often, the declared size of a matrix tile doesn't match the logical size of the matrix, because we distribute shards of the matrix tile to individual threads, and register allocation in CUDA C++ occurs at per-thread granularity.
+For example, each thread may allocate a $8 \times 4$ tile, and the threads in the CTA may be arranged in a $16 \times 16$ grid, causing the full CTA matrix to be $128 \times 64$.
 
 \filbreak
 In Exo syntax, this example looks like
@@ -540,8 +541,8 @@ Recall the tile size includes inactive threads, which isn't relevant in this sim
 
 The goal of the deduction is to find a valid \myKeyA{tiling chain}; this is a permutation of \lighttt{cuda\_threads} iteration variables such that
 \begin{itemize}
-  \item let $t_a$ be the number of threads in the tile of the collective tiling in scope for the tensor allocation.
-  \item let $t_n$ be the number of threads in the tile (equivalently, box) of the native unit.
+  \item let $t_a$ be the number of threads in the tile of the collective tiling in scope for the tensor allocation;
+  \item let $t_n$ be the number of threads in the tile (equivalently, box) of the native unit;
   \item the tiling operators of the variables forms a chain $t_a \mapsto ... \mapsto t_n$.
 \end{itemize}
 
@@ -618,5 +619,22 @@ Another possible correction is to include \texttt{\yellowBox{b}} in the indexing
 This increases the number of distributed dimensions to 3, and consequently reduces the distributed shard size (from 2 to 1).
 
 \input{coll_samples/chain.1.tex}
+
+\filbreak
+\mainSub{Negative Example: Repeated Index}
+
+\input{coll_samples/repeated.0.tex}
+
+\filbreak
+\mainSub{Positive Example: Modified Repeated Index}
+
+If we reorder \greenBox{m} and \violetBox{n} in the above example, we get a correct Exo-GPU program.
+
+\input{coll_samples/repeated.1.tex}
+
+Since the second usage of \greenBox{m} is \textit{not} deduced as distributed index, it appears as a literal index in the generated CUDA C++ code.
+This is unusual, but valid, Exo GPU code:
+
+\input{coll_samples/repeated_cxx.0.tex}
 
 \end{document}

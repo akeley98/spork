@@ -175,11 +175,11 @@ def matched():
             #                                                               rrrrrrrrrrrrr
             # The tiling chain is different, but it works since the deduced CollIndexExpr
             # tuple matches. This example requires a custom collective unit (every 8th thread).
+            # n = threadIdx.x % 8
             # TeX: color line *
             #   v
             for n in cuda_threads(0, 8, unit=CollUnit((8,), (1,), "one_thread_per_8", None)):
                                            # CollUnit(domain, box, __repr__, scaled_dim_idx)
-                # n = threadIdx.x % 8
                 # TeX: color line *
                 #   g
                 for m in cuda_threads(0, 16, unit=cuda_thread):  # m = threadIdx.x / 8
@@ -319,3 +319,71 @@ def chain_1():
                         #    g  v  y         yyyyyyyyyyy  ggggggggg  vvvvvvv
                         vals[m, n, b] = 0  # b: 256->128, m: 128->8, n: 8->1
 # TeX: end chain[1]
+
+# TeX: version repeated 2
+
+if False:
+    @proc
+    def repeated_index():
+        # TeX: begin repeated[0]
+        with CudaDeviceFunction(blockDim=256):
+            for task in cuda_tasks(0, xyzzy):
+                # TeX: color line *
+                #                                   rrrrrrrrrrrrrrrrrr
+                vals: f32[16, 16, 16] @ CudaRmem  # t_a = 256, t_n = 1
+                # TeX: color line *
+                #   g
+                for m in cuda_threads(0, 16, unit=16 * cuda_thread):
+                    # TeX: color line *
+                    #   v
+                    for n in cuda_threads(0, 16, unit=cuda_thread):
+                        # TeX: color line *
+                        #    g  g  v         gggggggggg  gggggggggg
+                        vals[m, m, n] = 0  # m: 256->16, m: 256->16
+                # TeX: color line *
+                #                                       ggggggggg                            rrrrrrr
+                # Fail: we encounter another index with t_0 = 256 before we reach the target t_n = 1
+# TeX: end repeated[0]
+
+@proc
+def repeated_index():
+    # TeX: begin repeated[1]
+    with CudaDeviceFunction(blockDim=256):
+        for task in cuda_tasks(0, xyzzy):
+            # TeX: color line *
+            #         rrrrrr  yy                rrrrrrrrrrrrrrrrrr
+            vals: f32[16, 16, 16] @ CudaRmem  # t_a = 256, t_n = 1
+            # TeX: color line *
+            #            rrrrrrrrrrrrrrrr  rrrrrrrrrrrrrrrr
+            # Deduction: threadIdx.x % 16, threadIdx.x / 16
+            # TeX: color line *
+            #   g
+            for m in cuda_threads(0, 16, unit=16 * cuda_thread):# m = threadIdx. / 16
+                # TeX: color line *
+                #   v
+                for n in cuda_threads(0, 16, unit=cuda_thread):# n = threadIdx.x % 16
+                    # TeX: color line *
+                    #    v  g            gggggggggg  vvvvvvvv
+                    vals[n, m, m] = 0  # m: 256->16, n: 16->1
+            # TeX: color line *
+            #                                                                             rrrrrrr
+            # Second m not deduced as distributed idx since we already reached the target t_n = 1
+# TeX: end repeated[1]
+
+"""
+# TeX: version repeated_cxx 1
+# TeX: begin repeated_cxx[0]
+# TeX: color line *
+#            yy
+  float vals[16];
+  # TeX: color line *
+  #       ggggggggggg   rrrrrrrrrrrrrrrr
+  if (int exo_16thr_m = threadIdx.x / 16; 1) {
+    # TeX: color line *
+    #       vvvvvvvvvv   rrrrrrrrrrrrrrrr
+    if (int exo_1thr_n = threadIdx.x % 16; 1) {
+      # TeX: color line *
+      #    ggggggggggg
+      vals[exo_16thr_m] = 0.0f;
+      # TeX: end repeated_cxx[0]
+"""
