@@ -387,3 +387,58 @@ def repeated_index():
       vals[exo_16thr_m] = 0.0f;
       # TeX: end repeated_cxx[0]
 """
+
+
+# TeX: version many_tensors 1
+
+@proc
+def many_tensors():
+    # TeX: begin many_tensors[0]
+    with CudaDeviceFunction(warp_config = [CudaWarpConfig("first_half", 8),
+                                           CudaWarpConfig("second_half", 8)]):
+        for task in cuda_tasks(0, xyzzy):
+            # TeX: color line *
+            #                                         rrrrrrrrrrrrrrrr  rrrrrrrrrrrrrrrr
+            val1: f32[16, 16] @ CudaRmem # Deduction: threadIdx.x / 16, threadIdx.x % 16
+            # TeX: color line *
+            #                                         rrrrrrrrrrrrrrrr  rrrrrrrrrrrrrrrr
+            val2: f32[16, 16] @ CudaRmem # Deduction: threadIdx.x / 16, threadIdx.x % 16
+            # TeX: color line *
+            #                                         rrrrrrrrrrrrrrrrrrrrrrrr  rrrrrrrrrrrrrrrr
+            val3: f32[16, 16] @ CudaRmem # Deduction: (threadIdx.x - 256) / 16, threadIdx.x % 16
+
+            with CudaWarps(name="first_half"):
+                # TeX: color line *
+                #   g
+                for m in cuda_threads(0, 16, unit=16 * cuda_thread):  # m = threadIdx.x / 16
+                    # TeX: color line *
+                    #   v
+                    for n in cuda_threads(0, 16, unit=cuda_thread):   # n = threadIdx.x % 16
+                        # TeX: color line *
+                        #    g  v
+                        val1[m, n] = 0
+                        # TeX: color line *
+                        #    g  v
+                        val2[m, n] = 0
+            with CudaWarps(name="second_half"):
+                # m = (threadIdx.x - 256) / 16
+                # TeX: color line *
+                #   g
+                for m in cuda_threads(0, 16, unit=16 * cuda_thread):
+                    # TeX: color line *
+                    #   v
+                    for n in cuda_threads(0, 16, unit=cuda_thread):   # n = threadIdx.x % 16
+                        # TeX: color line *
+                        #    g  v
+                        val3[m, n] = 0
+# TeX: end many_tensors[0]
+
+
+@proc
+def two_ctas():
+    with CudaDeviceFunction(blockDim=256, clusterDim=2):
+        for task in cuda_tasks(0, xyzzy):
+            vals: f32[2, 100] @ CudaSmemLinear
+            for cta in cuda_threads(0, 2, unit=cuda_cta_in_cluster):
+                for tid in cuda_threads(0, 1):
+                    vals[cta, 5] = 0
