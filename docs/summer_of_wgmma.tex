@@ -486,7 +486,34 @@ We need to provide both the window encoder and indexer with helpers that check
   \item the alignment of memory (this will actually require cooperative changes to multiple parts of the language).
 \end{itemize}
 
-\newpage
+\filbreak
 \myTitle{Instrs \& Distributed Memory}
+
+The vast majority of instructions follow the ``each thread collective owns its own distributed shard'' model, i.e., any window parameters passed in refer to a portion of just one distributed shard.
+We explicitly annotate (with \redBox{\texttt{distributed:}}) window parameters that break this assumption.
+
+\filbreak
+Within the instruction's \lighttt{behavior} specification, we need to add new \lighttt{distribute(...)} statements to guide distributed memory analysis.
+For example,
+
+\input{su_samples/shfl_sync.0.tex}
+
+\filbreak
+LoopIR\_unification should ignore the loop mode of the for loops (which already seems to be the case), and ignore the \lighttt{distribute(...)} statements.
+
+\filbreak
+It's somewhat questionable what the reasonable interpretation of the ``remove distributed dimensions'' compiler pass is here, given the distributed dimensions are in this case actually valuable information.
+The current use cases (warp shuffle, and TMA multicast) are implemented using CUDA intrinsics that allow for peeking into other distributed shards internally, without invoking the Exo compiler's complicated window system described previously.
+
+\filbreak
+So, although it's a bit cheesy, I propose we just blindly strip the distributed dimensions anyway (and possibly just re-write the instr's behavior as a no-op since the typechecking will be messed up).
+This means that the window \lighttt{index(...)} function is aware of array and packed dimensions only, and it's the instr implementation's job to handle indexing into other distributed shards.
+This should be OK as the goal at this late stage of the compilation is just to ``get the job done'' and generate C/C++ code;
+just make a mental note we did this in case there's problems later.
+
+\filbreak
+For completeness, the other use case, TMA multicast instructions, will look something like
+
+\input{su_samples/tma_instr.0.tex}
 
 \end{document}

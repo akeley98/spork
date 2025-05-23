@@ -207,3 +207,56 @@ void tma_proc( void *ctxt,
     {{ ({strides[0]}), ({strides[1]}), ... }}
 }}
 # TeX: end encode_window
+
+# TeX: version shfl_sync 1
+# TeX: begin shfl_sync[0]
+@instr
+class cuda_shfl_sync_f32:
+    def behavior(
+    # TeX: color line *
+    #                              rr                                     rr
+            dst: [f32][distributed:32] @ CudaRmem, src: [f32][distributed:32] @ CudaRmem,
+            i: idx):
+        for tid in cuda_threads(0, 32, unit=cuda_thread):
+            dst[tid] = src[i]
+            # The dst register is the same as the one owned by the current thread
+            # TeX: color line *
+            #              rrr
+            distribute(dst[tid])
+            # src[tid] owned by thread tid of 32 in warp; not the same as the src[i] we peeked
+            # TeX: color line *
+            #              rrr
+            distribute(src[tid])
+
+    def instance(self):
+        self.instr_format = "{dst_data} =__shfl_sync(0xFFFF'FFFF, {src_data}, {i});"
+        self.coll_unit = cuda_warp
+# TeX: end shfl_sync[0]
+
+# TeX: version tma_instr 1
+# TeX: begin tma_instr[0]
+@instr
+class tma_multicast_f32_2d_linear:
+    def behavior(
+            n_cta: size, box0: size, box1: size,
+            # TeX: color line *
+            #                       rrrrr         yyyy  yyyy
+            dst: [f32][distributed: n_cta, dense: box0, box1] @ CudaSmemLinear,
+            # TeX: color line *
+            #          yyyy  yyyy
+            src: [f32][box0, box1]):
+        for cta in cuda_threads(0, n_cta, unit=cuda_cta_in_cluster):
+            # TeX: color line *
+            #                rrr
+            distribute(n_cta[cta, :, :])
+            for i0 in seq(0, box0):
+                for i1 in seq(0, box1):
+                    dst[cta, i0, i1] = src[i0, i1]
+
+    def instance(self, n_cta, box0, box1):
+        self.instr_format = # ... this is why I want the callback
+        self.coll_unit = n_cta * cuda_cta_in_cluster  # n_cta CTAs participate in multicast
+        # this syntax may change
+        self.access_info["src"] = Sm90_tensorMap(0, box0 // n_cta, box1)
+        # ...
+# TeX: end tma_instr[0]
