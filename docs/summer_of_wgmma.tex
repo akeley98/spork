@@ -2,6 +2,10 @@
 \input{whitepaper_common.tex}
 
 \tikzstyle{smallnode} = [rectangle, minimum width=1.25cm, minimum height=1cm, text centered, text width=1.25cm, draw=black, fill=white]
+\tikzstyle{arraynode} = [rectangle, minimum width=2.25cm, minimum height=1cm, text centered, text width=2.25cm, draw=yellowBoxFg, fill=yellowBoxBg, text=yellowBoxFg]
+\tikzstyle{packednode} = [rectangle, minimum width=2.25cm, minimum height=1cm, text centered, text width=2.25cm, draw=blueBoxFg, fill=blueBoxBg, text=blueBoxFg]
+\tikzstyle{featurenode} = [rectangle, minimum width=2.25cm, minimum height=1cm, text centered, text width=2.25cm, draw=violetBoxFg, fill=violetBoxBg, text=violetBoxFg]
+\tikzstyle{memnode} = [rectangle, minimum width=2.25cm, minimum height=1cm, text centered, text width=2.25cm, draw=greenBoxFg, fill=greenBoxBg, text=greenBoxFg]
 \tikzstyle{smallishnode} = [rectangle, minimum width=2cm, minimum height=1cm, text centered, text width=2cm, draw=black, fill=white]
 \tikzstyle{normalnode} = [rectangle, minimum width=3cm, minimum height=1cm, text centered, text width=3cm, draw=black, fill=white]
 \tikzstyle{widenode} = [rectangle, minimum width=62mm, minimum height=8mm, text centered, text width=62mm, draw=black, fill=white]
@@ -107,12 +111,12 @@ Windows serve two purposes in Exo
 \begin{itemize}
  \item In the common usage, we use windows to pass slices of tensors to instrs.
  Typically, the instr's code format does not actually create a window, and just formats using \lighttt{\textit{arg\_name}\_data}.
- I call this a \myKeyA{non-materialized} window.
- \item Much less commonly, we actually \myKeyA{materialize} a window struct, such as when we cross a true function boundary, or we compile a \lighttt{WindowStmt} (can of worms I won't get into in this document).
+ I call this a \myKeyA{non-encoded} window.
+ \item Much less commonly, we actually \myKeyA{encode} a window to a window struct, such as when we cross a true function boundary, or we compile a \lighttt{WindowStmt} (can of worms I won't get into in this document).
 \end{itemize}
 \filbreak
-The uncommon materialized window case puts artificial constraints on our thinking.
-I propose we make it much easier to unpack and inspect attributes of a window within the Exo compiler, with limited (or no) support for materializing the window, depending on memory type.
+The uncommon encoded window case puts artificial constraints on our thinking.
+I propose we make it much easier to unpack and inspect attributes of a window within the Exo compiler, with limited (or no) support for encoding the window, depending on memory type.
 Currently, this is only possible for the limited case of \lighttt{\textit{arg\_name}\_data} (inspecting the offseted pointer for a window) and the weird \lighttt{\textit{arg\_name}\_int} thing.
 
 \filbreak
@@ -124,7 +128,7 @@ I think this is better than trying to repeatedly implement hacky assertions with
 
 From left-to-right, a tensor's dimensions consist of \redBox{distributed}, \yellowBox{array}, and \blueBox{packed} (``vectorized'') dimensions.
 The distributed dimensions are deduced by Exo-GPU, and mostly hidden from the window implementation; the Exo-GPU compiler rewrites the subtree to eliminate distributed dimensions prior to C/C++ codegen.
-The packed dimensions are defined by the \lighttt{Memory} type (e.g. 8, for \lighttt{\_\_m256}).
+The shape of the \myKeyA{packed tensor} (dimension count and expected sizes) is defined by the \lighttt{Memory} type (e.g. [8], for \lighttt{\_\_m256}).
 The remaining dimensions (in the middle) are array dimensions.
 
 \myKeyA{AVX Example:}
@@ -144,12 +148,13 @@ For window parameters, we can explicitly tag the hardware modes, from left-to-ri
   \filbreak
   \item ``\lighttt{strided:}'' array dimension, with arbitrary stride
   \filbreak
-  \item ``\lighttt{dense:}'' array dimension, densely packed
+  \item ``\lighttt{dense:}'' array dimension, densely strided
   \filbreak
-  \item ``\lighttt{packed:}'' packed dimension
+  \item ``\lighttt{packed:}'' packed (vectorized) dimension
 \end{itemize}
 
 \filbreak
+The compiler enforces when compiling each \lighttt{WindowExpr} that \lighttt{dense} dimensions are valid (this is currently handled repeatedly for each instr, using \lighttt{assert} and \lighttt{stride} expressions).
 
 \filbreak
 \myKeyA{Backwards Compatibility:} If not tagged, query the number of packed dimensions $P$ from the \lighttt{Memory} type, and assume the right-most up-to $P$ dimensions are \lighttt{packed}, and the rest \lighttt{strided}.
@@ -179,20 +184,309 @@ For Exo-GPU, there's several usage patterns for windows:
 Allocated in C/C++ as a flattened array.
 We can freely load/store scalars, and reduce the dimensionality of a window.
 ``Mutable'' pointer: we do pointer arithmetic to implement offsets.
-These windows may be materialized as structs.
+These windows may be encoded as structs.
 
 \input{su_samples/pointer_strides.0.tex}
 
 \filbreak
 \myKeyA{Register-like:} Allocated in C/C++ as a multidimensional array.
-Cannot be materialized as a window struct, or passed to non-instr procs.
+Cannot be encoded as a window struct, or passed to non-instr procs.
 
 \input{su_samples/register_alloc.0.tex}
 
 \filbreak
 \myKeyA{Pointer + offsets:}
-These windows can be materialized as structs, but with an ``immutable'' pointer: the offsets of the window are encoded explicitly.
-The dimensionality of the window can't be changed (i.e. we support only intervals, not points)
+These windows can be encoded as structs, but with an ``immutable'' pointer: the offsets of the window are encoded explicitly.
+The dimensionality of the window can't be changed (i.e. we support only intervals, not points).
+This is primarily for CUtensorMap (TMA).
 
 \input{su_samples/pointer_offsets.0.tex}
+
+\filbreak
+\mainSub{Windows in Exo Today}
+
+Window are extremely hard-coded in Exo today.
+Regardless of the memory type, a window gets generated based on the precision, the dimensionality, and const-ness.
+This window struct is defined and populated with a data pointer and strides with no involvement of the underlying memory type. For example, for 2D const f32 windows, we have:
+
+\input{su_samples/2f2c.0.tex}
+
+\filbreak
+For memory types, there's no support for customizing encoded windows, and very limited support for non-encoded windows, where there's an implicit contract between a memory type's \lighttt{window()} function and an instr's usage of  \lighttt{\{\textit{arg\_name}\_data\}}.
+
+\filbreak
+For example, the \lighttt{AVX2} memory type has completely invalid encoded window structs (because we try to assign a \lighttt{\_\_m256} pointer to a scalar \lighttt{float} pointer), and the implicit \lighttt{window()} contract is that an instr can access a \textit{single} \lighttt{\_\_m256} vector, since the \lighttt{window()} callback interprets all offsets except the last as array indices.
+
+\input{su_samples/avx_before.0.tex}
+
+\filbreak
+Instrs have partial ability to prevent invalid usage by using \lighttt{stride()} expressions, e.g., the AVX window \lighttt{foo[1:9,3,6]} will be rejected (after we fix the assert bug) by \lighttt{assert stride(..., 0) == 1}.
+
+\filbreak
+The \lighttt{window()} function has to know how to decode the pointer attirbute from a window struct (\lighttt{.data}), and, indeed, is provided unfiltered access to the otherwise-private \lighttt{LoopIR.Tensor} type to detect whether this is needed:
+
+\input{su_samples/is_win.0.tex}
+
+\filbreak
+Instrs use \lighttt{str.format} to generate C syntax.
+For each window parameter, the formatter receives as keyword arguments:
+\begin{itemize}
+  \item \lighttt{\{\textit{arg\_name}\}}: the \myKeyA{encoded window} struct.
+  \filbreak
+  \item \lighttt{\{\textit{arg\_name}\_data\}}: the results given by \lighttt{window()}.
+    This is a restricted case of what I'll call \myKeyA{window indexing}: accessing the value at a specific position of a window. 
+    For example, AVX instrs can access only one specific \lighttt{\_\_m256} vector.
+  \filbreak
+  \item \lighttt{\{\textit{arg\_name}\_int\}}: The raw C name of the input parameter.
+\end{itemize}
+
+\filbreak
+\mainSub{Externalizing Windows}
+
+This is a bit difficult as window generation is heavily coupled with the compiler internals, e.g.,
+
+\begin{itemize}
+  \item known strides
+  \filbreak
+  \item \lighttt{CIR}, for generating nice index/stride arithmetic expressions
+  \filbreak
+  \item assertions
+  \filbreak
+  \item somewhat messy interaction with scalar\_refs
+\end{itemize}
+
+\filbreak
+For the most part, it'll be good to continue to use these internals and avoid having to re-implement basic window features over and over again, potentially in buggy ways (precedence errors, etc.).
+
+\filbreak
+I'm proposing that we view windows as a collection of features that are internally manipulated by the compiler (e.g. adding offsets when compiling a \lighttt{WindowExpr}).
+We'll provide controlled interfaces to these features for \lighttt{MemWin} and \lighttt{instr}:
+\begin{itemize}
+  \item \myKeyA{Data pointer:} name of the allocated tensor, or window \lighttt{data} pointer attribute
+  \filbreak
+  \item \myKeyA{Array strides:} strides corresponding to array dimensions (optional).
+    \textbf{Potential Breaking Change:} can we specify strides in units of \myKeyA{packed tensors}, rather than scalars?
+    This will make querying the stride of a packed dimension meaningless.
+  \filbreak
+  \item \myKeyA{Array offsets:} explicit offsets for array dimensions that need to be accounted for to access the ``true'' window relative to the given data pointer. For the current pointer+strides-style windows, these are implicitly all 0, i.e., the \lighttt{data} pointer has already been offset.
+  \filbreak
+  \item \myKeyA{Packed offsets:} explicit offsets for packed dimensions (optional support). This doesn't make sense for cases where elements in the packed tensor cannot be randomly accessed (e.g. AVX vectors), but it will be useful when we implement swizzled matrices (where we can in fact random access elements, but have to be careful about it).
+\end{itemize}
+
+\filbreak
+The \lighttt{MemWin} type can provide three (optional) interfaces to the underlying window system
+\begin{itemize}
+  \item \myKeyA{\texttt{packed\_tensor\_size}}: Given a precision (e.g. f32), give the number and expected sizes of packed dimensions. e.g. for AVX2, \lighttt{f32 -> [8]}, \lighttt{f64 -> [4]}. There may be multiple supported sizes, e.g. for CUDA mma, \lighttt{f32 -> [16, 8], [16, 4]}, \lighttt{f16 -> [16, 16], [16, 8]}.
+  \item \myKeyA{\texttt{WindowEncoder}}: Convert window features to/from window struct. Analgous to \lighttt{\{\textit{arg\_name}\}}.
+  \filbreak
+  \item \myKeyA{\texttt{WindowIndexer}}: For use in compiling instrs to C. Given window features, generate a C expression resolving to values at a certain location in the window. Analagous to \lighttt{\{\textit{arg\_name}\_data\}}.
+\end{itemize}
+
+\filbreak
+\mainSub{Window Encoder}
+
+\begin{figure*}[!b]
+\sffamily
+\begin{tikzpicture}[node distance=0mm]
+\node(alloc) [normalnode] {Allocation / non-window param};
+\node(defaults) [below=of alloc] {Built-in defaults:};
+\node(default_dataptr) [below=of defaults] {C variable name};
+\node(default_strides) [below=of default_dataptr] {C-style N-D array strides};
+\node(default_array_offsets) [below=of default_strides] {all 0s};
+\node(win) [normalnode, below=of default_array_offsets, yshift=-5mm] {WindowStmt / window parameter};
+\node(decode) [memnode, text width=3cm, below=of win] {MemWin: Window Decode};
+\node(dataptr) [featurenode, right=of default_dataptr, xshift=16mm] {dataptr};
+\node(strides) [featurenode, below=of dataptr] {strides};
+\node(array0) [arraynode, below=of strides] {array offsets};
+\node(array1) [arraynode, right=of array0, xshift=16mm] {array offsets};
+\node(array_intervals) [arraynode, below=of array1] {array interval sizes};
+\node(packed) [packednode, below=of array_intervals] {packed offsets};
+\node(packed_intervals) [packednode, below=of packed] {packed interval sizes};
+\node(packed_tensor) [memnode, text width=6cm, below=of packed_intervals, yshift=-2mm, xshift=30mm] {MemWin: Packed tensor size};
+\node(split) [left=of packed_tensor, xshift=-8mm] {split \yellowBox{array} \& \blueBox{packed} indices};
+\node(window_expr) [normalnode, left=of split, xshift=-8mm] {WindowExpr};
+\node(encode) [memnode, above=of array1, xshift=22mm, yshift=22mm, text width=5cm] {MemWin: Window Encode};
+\node [right=of array_intervals] {(check dimension change support)};
+\node [right=of packed] {(assert all 0)};
+\node [right=of packed_intervals] {(assert complete intervals)};
+\draw [arrow] (alloc.west) to[in=180, out=180] (defaults.west);
+\draw [arrow] (win.west) to[in=180, out=180] (decode.west);
+\draw [arrow] (default_dataptr.east) to[in=180, out=0] (dataptr.west);
+\draw [arrow] (default_strides.east) to[in=180, out=0] (strides.west);
+\draw [arrow] (default_array_offsets.east) to[in=180, out=0] (array0.west);
+\draw [arrow] (decode.east) to[in=180, out=20] (dataptr.west);
+\draw [arrow] (decode.east) to[in=180, out=0] (strides.west);
+\draw [arrow] (decode.east) to[in=180, out=340] (array0.west);
+\draw [arrow] (array0.east) to[in=180, out=0] (array1.west);
+\draw [arrow] (window_expr.east) to (split.west);
+\draw [arrow] (packed_tensor.west) to (split.east);
+\draw [arrow] (split.north) to[out=90, in=180] (array1.west);
+\draw [arrow] (split.north) to[out=90, in=180] (array_intervals.west);
+\draw [arrow] (split.north) to[out=90, in=180] (packed.west);
+\draw [arrow] (split.north) to[out=90, in=180] (packed_intervals.west);
+\draw [arrow] (dataptr.east) to[out=0, in=180] ($(encode.west)+(0, 0.2)$);
+\draw [arrow] (strides.east) to[out=0, in=180] ($(encode.west)+(0, -0.2)$);
+\draw [arrow] (array1.east) to[out=0, in=270] ($(encode.south)+(-0.2, 0)$);
+\draw [arrow] ($(array_intervals.east)+(0, 0.4)$) to[out=0, in=270] ($(encode.south)+(0.2, 0)$);
+\end{tikzpicture}
+\caption{Window encode data flow}
+\end{figure*}
+
+Each \lighttt{MemWin} type can customize its window encoder (window struct), or declare that there is no window encoder (a compiler error gets generated if we try to materialize the window struct).
+
+\filbreak
+Like windows currently, the window struct can be customized over precision, dimensionality, and const-ness.
+The window encoder has to implement
+\begin{itemize}
+  \item \lighttt{decode\_dataptr():} extract the pointer member of the window struct (e.g. \lighttt{\{win\}.data})
+  \filbreak
+  \item \lighttt{decode\_array\_offset(n):} extract the offset for the $n^{th}$ array dimension (for current pointer+stride windows, this is always 0).
+  \filbreak
+  \item \lighttt{decode\_array\_stride(n):} extract the stride for the $n^{th}$ array dimension (e.g. \lighttt{\{win\}.strides[\{n\}]}). This is optional; if not implemented, then no other interfaces can query the stride.
+  \filbreak
+  \item \lighttt{encode\_window(...):} C syntax constructing the window struct, from the data pointer, array offsets, and array strides.
+  The constructor may assume all packed dimensions are indexed with complete intervals (``\lighttt{:}'' or the equivalent); we have a built-in assumption that encoded window can't point to slices of a packed tensor.
+\end{itemize}
+
+\filbreak
+For pointer+stride windows, \lighttt{encode\_window} will look something like
+
+\input{su_samples/encode_window.0.tex}
+
+\filbreak
+By default, all indices in a window expression must be intervals, so the dimensionality of a window doesn't change.
+The window encoder may optionally declare support for dimensionality changes.
+In this case, the window encoder will also receive \lighttt{interval\_sizes: List[Optional[\textit{C expr}]]}, giving \lighttt{None} for point indices and the interval size for interval indices.
+
+\filbreak
+Finally, we have to provide a \myKeyA{separate dataptr} mode, where the data pointer is stored separately from the rest of the window struct.
+This is an alternative to implementing \lighttt{decode\_dataptr}.
+We need this for \lighttt{CUtensorMap}, which has to be stored in a different memory type than the offsets (grid constant vs registers).
+
+\input{su_samples/tma_proc.0.tex}
+
+\filbreak
+Note: all of this occurs after distributed memory analysis, and removal of distributed dimensions.
+
+\filbreak
+\mainSub{Window Indexer}
+
+\filbreak
+The window indexer receives
+\begin{itemize}
+  \item the dataptr
+  \filbreak
+  \item a sequence of array indices
+  \filbreak
+  \item a sequence of packed indices
+  \filbreak
+  \item the array strides, if supported by the window encoder
+\end{itemize}
+
+\filbreak
+and needs to return a C expression giving the data at the position given by concatenating the array and packed indices.
+If the total number of indices is lower than the dimensionality of the window, the indexer can assume the remaining indices are full intervals (\lighttt{:}).
+This is the ``points before intervals'' assumption.
+
+\filbreak
+It's somewhat up to each \lighttt{MemWin} implementation to define what the exact behavior of the window indexer is, and what to do if there are fewer indices given than there are window dimensions (if this is allowed at all).
+For example, the previous \lighttt{AVX2} memory type will likely require that \lighttt{len(array\_indices)} is 1 less than the dimension, and that \lighttt{packed\_indices} is empty
+(i.e. that you can only read exactly one packed tensor, i.e., \lighttt{\_\_m256} vector, and you can't index into the vector).
+
+\filbreak
+The compiler has more information and can generate better quality errors, so, we require the indexer to declare one of the following support modes for array indices and packed indices: none, any number, or exact dimension match.
+This avoids us having to write repeated (and low quality / forgotten) error checking code.
+
+\begin{figure*}[!b]
+\sffamily
+\begin{tikzpicture}[node distance=0mm]
+\node(dataptr) [featurenode] {dataptr};
+\node(strides) [featurenode, below=of dataptr] {strides};
+\node(array0) [arraynode, below=of strides] {array offsets};
+\node(decode) [memnode, text width=3cm, below=of array0, yshift=-12mm] {MemWin: Window Decode};
+\node(defaults) [below=of decode] {(or built-in defaults)};
+\node(array1) [arraynode, right=of array0, xshift=16mm, yshift=8mm] {array offsets};
+\node(packed1) [packednode, below=of array1] {packed offsets};
+\node(array1_intervals) [arraynode, below=of packed1] {array interval sizes};
+\node(packed1_intervals) [packednode, below=of array1_intervals] {packed interval sizes};
+\node(array2) [arraynode, right=of array1, xshift=16mm] {array offsets};
+\node(packed2) [packednode, below=of array2] {packed offsets};
+\node(array2_intervals) [arraynode, below=of packed2] {array interval sizes};
+\node(packed2_intervals) [packednode, below=of array2_intervals] {packed interval sizes};
+\node(window_expr) [normalnode, below=of packed1_intervals, yshift=-5mm] {WindowExpr};
+\node(instr) [normalnode, below=of packed2_intervals, yshift=-5mm] {instr callback's index(...) args};
+\node(index) [memnode, right=of array2, yshift=15mm, text width=52mm] {MemWin: Window Indexer};
+\node [right=of array2] {(check MemWin supports idx count)};
+\node [right=of packed2] {(check MemWin supports idx count)};
+\node [right=of array2_intervals] {(check points before intervals)};
+\node [right=of packed2_intervals] {(check points before intervals)};
+\draw[arrow] ($(decode.north)$) -- ($(array0.south)$);
+\draw[arrow] ($(decode.north) - (0.2, 0)$) -- ($(array0.south) - (0.2, 0)$);
+\draw[arrow] ($(decode.north) + (0.2, 0)$) -- ($(array0.south) + (0.2, 0)$);
+\draw[arrow] ($(window_expr.north) - (0.3, 0)$) -- ($(packed1_intervals.south) - (0.3, 0)$);
+\draw[arrow] ($(window_expr.north) - (0.1, 0)$) -- ($(packed1_intervals.south) - (0.1, 0)$);
+\draw[arrow] ($(window_expr.north) + (0.1, 0)$) -- ($(packed1_intervals.south) + (0.1, 0)$);
+\draw[arrow] ($(window_expr.north) + (0.3, 0)$) -- ($(packed1_intervals.south) + (0.3, 0)$);
+\draw[arrow] ($(instr.north) - (0.3, 0)$) -- ($(packed2_intervals.south) - (0.3, 0)$);
+\draw[arrow] ($(instr.north) - (0.1, 0)$) -- ($(packed2_intervals.south) - (0.1, 0)$);
+\draw[arrow] ($(instr.north) + (0.1, 0)$) -- ($(packed2_intervals.south) + (0.1, 0)$);
+\draw[arrow] ($(instr.north) + (0.3, 0)$) -- ($(packed2_intervals.south) + (0.3, 0)$);
+\draw[arrow] (array0.east) to[out=0, in=180] (array1.west);
+\draw[arrow] (array1.east) -- (array2.west);
+\draw[arrow] (packed1.east) -- (packed2.west);
+\draw[arrow] (array1_intervals.east) -- (array2_intervals.west);
+\draw[arrow] (packed1_intervals.east) -- (packed2_intervals.west);
+\draw[arrow] (array1_intervals.east) to[out=0, in=180] (array2.west);
+\draw[arrow] (packed1_intervals.east) to[out=0, in=180] (packed2.west);
+\draw[arrow] (dataptr.east) to[out=10, in=180] ($(index.west) + (0, 0.2)$);
+\draw[arrow] (strides.east) to[out=20, in=180] ($(index.west) + (0, -0.2)$);
+\draw[arrow] ($(array2.east) + (0, 0.25)$) to[out=0, in=270] ($(index.south) + (-1.6, 0)$);
+\draw[arrow] ($(packed2.east) + (0, 0.25)$) to[out=45, in=270] ($(index.south) + (-1.4, 0)$);
+\end{tikzpicture}
+\caption{Window index data flow; note, the MemWin's \greenBox{packed tensor size} informs the split between \yellowBox{array} and \blueBox{packed} indices, which is omitted for space.} \label{fig:windowIndex}
+\end{figure*}
+
+\filbreak
+\mainSub{Instr Interface to Windows}
+
+The proposed instr C codegen callback will receive a tuple of named parameter values.
+Non-window values will probably stay as strings.
+Window values could be passed as objects that support functions
+\begin{itemize}
+  \item \lighttt{to\_struct()}: Encode as window struct; only supported if the \lighttt{MemWin} type supplied a window encoder.
+  \filbreak
+  \item \lighttt{to\_dataptr()}: For separate-dataptr windows only, get the separate dataptr.
+  \filbreak
+  \item \lighttt{get\_stride(n)}: Get the $n^{th}$ stride value; only supported if the \lighttt{MemWin} type supplied a window encoder that supports strides, or if there is no window encoder at all (use default strides).
+  \filbreak
+  \item \lighttt{index(idx...)}: Index into the window expression passed as the instruction parameter.
+    Only supported if the \lighttt{MemWin} type supplied a window indexer.
+    The indices passed are not directly passed to the window indexer, but are combined with the offsets given by the window expression and (if it exists) underlying decoded window struct.
+    This requires careful resolution of point and interval indices, which we will handle inside the compiler \textbf{(figure \ref{fig:windowIndex})}.
+  \filbreak
+  \item \lighttt{raw\_name():} Get the undecorated C name of the parameter passed as input.
+\end{itemize}
+\filbreak
+We can implement the older \lighttt{str.format} interface as a translation layer around this new interface:
+\begin{itemize}
+  \item \lighttt{\textit{arg\_name}} = \lighttt{to\_struct()}
+  \item \lighttt{\textit{arg\_name}\_data} = \lighttt{index()} with empty index list (if you need more control, don't use the legacy interface)
+  \item \lighttt{\textit{arg\_name}\_int} = \lighttt{raw\_name()}
+\end{itemize}
+
+\filbreak
+\mainSub{Predicate Helpers}
+
+We need to provide both the window encoder and indexer with helpers that check
+\begin{itemize}
+  \item that an offset or stride value is a compile-time constant;
+  \filbreak
+  \item that an offset or stride value is divisible by a certain value;
+  \filbreak
+  \item the alignment of memory (this will actually require cooperative changes to multiple parts of the language).
+\end{itemize}
+
+\newpage
+\myTitle{Instrs \& Distributed Memory}
+
 \end{document}
