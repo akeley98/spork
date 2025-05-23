@@ -245,18 +245,19 @@ class tma_multicast_f32_2d_linear:
             # TeX: color line *
             #          yyyy  yyyy
             src: [f32][box0, box1]):
-        for cta in cuda_threads(0, n_cta, unit=cuda_cta_in_cluster):
+        for cta in cuda_threads(0, n_cta, unit=cuda_warp_in_cluster):
             # TeX: color line *
-            #                rrr
-            distribute(n_cta[cta, :, :])
+            #              rrr
+            distribute(dst[cta, :, :])
             for i0 in seq(0, box0):
                 for i1 in seq(0, box1):
                     dst[cta, i0, i1] = src[i0, i1]
 
     def instance(self, n_cta, box0, box1):
         self.instr_format = # ... this is why I want the callback
-        self.coll_unit = n_cta * cuda_cta_in_cluster  # n_cta CTAs participate in multicast
+        # 1 warp each selected from n_cta-many CTAs participate in multicast
+        self.coll_unit = n_cta * cuda_warp_in_cluster
         # this syntax may change
-        self.access_info["src"] = Sm90_tensorMap(0, box0 // n_cta, box1)
+        self.access_info["src"].mem = Sm90_tensorMap(0, box0 // n_cta, box1)
         # ...
 # TeX: end tma_instr[0]
