@@ -100,7 +100,7 @@ This is aliased as \lighttt{namespace exo\_CudaUtil} in generated CUDA functions
 \filbreak
 \mainSub{Instr Format Function}
 
-The current system of generating C (or CUDA) code for instrs using \lighttt{str.format} is really unweildly.
+The current system of generating C (or CUDA) code for instrs using \lighttt{str.format} is really unwieldly.
 As an alternative, let's support codegen with a Python function that's given information on all runtime parameters and returns a C/C++ string.
 This ties into my proposed changes to the window system that allow deeper introspection of windows.
 
@@ -494,12 +494,12 @@ We explicitly annotate (with \redBox{\texttt{distributed:}}) window parameters t
 
 \filbreak
 Within the instruction's \lighttt{behavior} specification, we need to add new \lighttt{distribute(...)} statements to guide distributed memory analysis.
-For example,
+LoopIR\_unification should ignore the loop mode of the for loops (which already seems to be the case), and ignore the \lighttt{distribute(...)} statements \textbf{(figures \ref{fig:shfl} and \ref{fig:tma})}
 
+\begin{figure*}[!b]
 \input{su_samples/shfl_sync.0.tex}
-
-\filbreak
-LoopIR\_unification should ignore the loop mode of the for loops (which already seems to be the case), and ignore the \lighttt{distribute(...)} statements.
+\caption{Warp Shuffle Instr} \label{fig:shfl}
+\end{figure*}
 
 \filbreak
 It's somewhat questionable what the reasonable interpretation of the ``remove distributed dimensions'' compiler pass is here, given the distributed dimensions are in this case actually valuable information.
@@ -511,9 +511,9 @@ This means that the window \lighttt{index(...)} function is aware of array and p
 This should be OK as the goal at this late stage of the compilation is just to ``get the job done'' and generate C/C++ code;
 just make a mental note we did this in case there's problems later.
 
-\filbreak
-For completeness, the other use case, TMA multicast instructions, will look something like
-
+\begin{figure*}[!b]
 \input{su_samples/tma_instr.0.tex}
+\caption{TMA Multicast Instr} \label{fig:tma}
+\end{figure*}
 
 \end{document}
