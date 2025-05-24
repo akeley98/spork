@@ -261,3 +261,26 @@ class tma_multicast_f32_2d_linear:
         self.access_info["src"].mem = Sm90_tensorMap(0, box0 // n_cta, box1)
         # ...
 # TeX: end tma_instr[0]
+
+# TeX: version mbarrier_var 2
+# TeX: begin mbarrier_var
+cta_bars: barrier @ CudaMbarrier  # Currently no explicit array bounds
+# TeX: end mbarrier_var[0]
+warp_bars: barrier @ CudaMbarrier
+for cta in cuda_threads(0, 8, unit=cuda_cta_in_cluster):
+    # Each CTA owns one queue barrier in cta_bars
+    # TeX: color line *
+    #              rrr
+    Await(cta_bars[cta], cuda_temporal, ~2)
+    # TeX: color line *
+    #                        vv
+    for w in cuda_threads(0, nW, unit=cuda_warp):
+        # Each warp owns one queue barrier in warp_bars, i.e. all else being equal,
+        # TeX: color line *
+        #         vv
+        # there's nW times as many mbarriers in warp_bars as in cta_bars
+        # TeX: color line *
+        #               rrr  r
+        Await(warp_bars[cta, w], cuda_temporal, ~2)
+    # ...
+# TeX: end mbarrier_var[1:]

@@ -597,6 +597,8 @@ The visibility records consist of
   \item $V_A$: \myKeyA{async visibility set}: set of timeline signatures, with $V_S \subseteq V_A$
   \filbreak
   \item $L_O^i$: \myKeyA{original instruction timeline}
+  \filbreak
+  \item pending arrives: set of (queue barrier object, arrive count) pairs; not described in this section
 \end{itemize}
 \filbreak
 and (to be detailed) they are used as follows:
@@ -698,8 +700,8 @@ An interpreted fence or await statement \myKeyA{augments} a visibility record by
 
 \filbreak
 When we interpret a fence statement, it augments all visibility records that synchronize-with the fence.
-When we interpret an await statement, it augments all visibility records that synchronized-with the corresponding arrive
-(I will not precisely define here what ``corresponding arrive'' means).
+When we interpret an await statement, it augments all visibility records that synchronized-with a corresponding arrive statement
+(the next section defines what ``corresponding arrive'' means).
 This synchronizes-with check has to be done at the time the arrive is interpreted, as visibility records are mutable.
 
 Remarks:
@@ -710,5 +712,88 @@ Remarks:
   \item Furthermore, note $V_2^w \subseteq V_2^r$ as a consequence of $L_n^F \subseteq L_n^T$.
   \item $L_1^T$ is currently never used.
 \end{itemize}
+
+\filbreak
+\myTitle{Arrive/Await Pairing and Multicast}
+
+It's time to define the correspondence between arrive and await statements.
+In Exo-GPU's synchronization checking model, each \myKeyA{queue barrier} $Q$ contains non-negative integers \myKeyA{arrive count} $Q^1$ and \myKeyA{await count} $Q^2$, both initially zero (this conceptual state is distinct from the physical state of the real CUDA barrier type, which is specified with a \lighttt{@memory} annotation).
+Although we currently have no explicit syntax for it, allocated barrier variables are arrays of independent queue barriers, which can be indexed in arrive/await statements.
+We analyze indexing with distributed memory analysis (see coll\_algebra.pdf).
+
+\input{su_samples/mbarrier_var.1.tex}
+
+\filbreak
+Unlike non-barrier allocations, though, there is no native unit; we unconditionally interpret all dimensions as distributed (I might change this in the future), and thus, all indices must follow the distributed memory analysis requirements (e.g. they have to be \lighttt{cuda\_threads} loop iteration variables).
+
+\filbreak
+Furthermore, for mbarriers only, we support \lighttt{ReverseArrive} and \lighttt{ReverseAwait} statements, which behave and pair with each other just as \lighttt{Arrive} and \lighttt{Await} statements do, except that reversed statements use a hidden ``reverse barrier'' array parallel to the primary ``forward barrier'' array.
+For a queue barrier $Q$ in either array, let $\widehat{Q}$ denote the queue barrier in the corresponding position of the other array.
+
+\filbreak
+We would get almost the same program by replacing each \lighttt{ReverseArrive} and \lighttt{ReverseAwait} on some barrier \lighttt{my\_bar} with \lighttt{Arrive} and \lighttt{Await} on a new barrier variable \lighttt{my\_var\_2}.
+However, there is some tight coupling between the ``forward'' and ``reverse'' barriers that justifies this design (more on this when we talk about the mbarrier pairing requirement).
+
+\filbreak
+When a barrier variable is deallocated, each queue barrier must have $Q^1 = Q^2$.
+
+\filbreak
+\mainSub{Arrive Interpretation, N = 1}
+
+Assume for now that an arrive statement only takes one queue barrier as input (if not, multicasting is in effect, which is not yet described), with the syntax\\\lighttt{[Reverse]Arrive(L1: sync-tl, N: int) >> barrier\_name[idx...]}
+
+\filbreak
+Further assume $N = 1$.
+When we interpret such an arrive statement on some queue barrier $Q$, for each visibility record that synchronizes-with the arrive,
+\begin{itemize}
+  \item Add $(Q, Q^1)$ : (queue barrier object, arrive count) to the set of pending arrives
+  \item Increment $Q^1$
+\end{itemize}
+
+\filbreak
+\mainSub{Await Interpretation}
+
+Await statements always take only one queue barrier $Q$ as input, with syntax\\
+\lighttt{[Reverse]Await(barrier\_name[idx...], L2: sync-tl, N: int)}
+The interpretation depends on $N$.
+
+\filbreak
+If $N \geq 0$, then this is an ``arrive indexed'' barrier, which is only supported for commit-groups. Do:
+\begin{itemize}
+  \item Augment all visibility records containing $(Q, x)$ with $x < Q^1 - N$ [NB: strict inequality]
+  \item Set $Q^2 = \max(Q^1 - N, Q^2)$
+\end{itemize}
+This models the meaning of \lighttt{wait\_group N} in CUDA, i.e., wait for all but the last $N$-many \lighttt{commit\_group} instructions.
+
+\filbreak
+If $N < 0$, then this is an ``await indexed'' barrier, which is only supported for mbarriers.\\
+Let \lighttt{lag = \textasciitilde N} (complement, not negate), and do:
+\begin{itemize}
+  \item Augment all visibility records containing $(Q, x)$ with $x \leq Q^2 - \lighttt{lag}$ [trivially false if $Q^2 < \lighttt{lag}$]
+  \item Set $Q^2 = Q^2 + 1$
+\end{itemize}
+Essentially, the first \lighttt{lag}-many await statements are no-ops, and then arrives and awaits pair up 1:1.
+
+\filbreak
+\mainSub{Arrive Interpretation, N = \textasciitilde 0}
+
+This is a special case for satisfying the $Q^1 = Q^2$ requirement, only supported for mbarriers.
+When we interpret \lighttt{[Reverse]Arrive(L1, \textasciitilde 0) >> $Q$}, it's like running
+\lighttt{[Reverse]Arrive(L1, 1) >> $Q$} in a loop, with the iteration count being
+\begin{itemize}
+  \item $Q^1 - Q^2$, if there is never any usage of \lighttt{ReverseArrive} or \lighttt{ReverseAwait} for the barrier variable that $Q$ is from.
+  \item $Q^1 - \widehat{Q}^2$ otherwise.
+\end{itemize}
+This has the effect of equalizing $Q^1$ and $Q^2$, or $Q^1$ and $\widehat{Q}^2$, in the two respective cases.
+The iteration count will never be negative; this is a result of the to-be-described mbarrier pairing requirement.
+
+\filbreak
+\mainSub{mbarrier Ring Buffering \& Overrun}
+
+\filbreak
+\mainSub{Exo mbarrier Pairing Requirement}
+
+\filbreak
+\mainSub{Arrive Multicast}
 
 \end{document}
