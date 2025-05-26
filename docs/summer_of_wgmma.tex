@@ -725,6 +725,7 @@ We analyze indexing with distributed memory analysis (see coll\_algebra.pdf).
 
 \filbreak
 Unlike non-barrier allocations, though, there is no native unit; we unconditionally interpret all dimensions as distributed (I might change this in the future), and thus, all indices must follow the distributed memory analysis requirements (e.g. they have to be \lighttt{cuda\_threads} loop iteration variables).
+In other words, each distributed shard of the barrier array is only one queue barrier.
 
 \filbreak
 Furthermore, for mbarriers only, we support \lighttt{ReverseArrive} and \lighttt{ReverseAwait} statements, which behave and pair with each other just as \lighttt{Arrive} and \lighttt{Await} statements do, except that reversed statements use a hidden ``reverse barrier'' array parallel to the primary ``forward barrier'' array.
@@ -735,7 +736,25 @@ We would get almost the same program by replacing each \lighttt{ReverseArrive} a
 However, there is some tight coupling between the ``forward'' and ``reverse'' barriers that justifies this design (more on this when we talk about the mbarrier pairing requirement).
 
 \filbreak
-When a barrier variable is deallocated, each queue barrier must have $Q^1 = Q^2$.
+\mainSub{Valid Usage}
+
+The purpose of a single queue barrier $Q$ is to synchronize one specific set of arriving threads with another specific set of awaiting threads, in a predictable manner, and with the barrier being reset to a known-good state at the end.
+The requirements enforce that intended usage, to make lowering queue barriers to real barriers feasible:
+
+\filbreak
+\begin{itemize}
+  \item Each barrier variable must be used by at least one \lighttt{Arrive} and at least one \lighttt{Await} statement.
+  \filbreak
+  \item Only mbarriers may use \lighttt{ReverseArrive} and \lighttt{ReverseAwait}; both must be present or both not present.
+  \filbreak
+  \item For a given barrier variable, each \lighttt{Arrive} statement must use equivalent sync timelines (sync-tl); similarly for all \lighttt{Await}, \lighttt{ReverseArrive}, and \lighttt{ReverseAwait} statements.
+  \filbreak
+  \item Each queue barrier $Q$ (distributed shard of the barrier variable) must have one unique thread collective that executes \lighttt{Arrive} on $Q$; similarly for \lighttt{Await}, \lighttt{ReverseArrive}, and \lighttt{ReverseAwait} (if present). We enforce this statically by inspecting the collective tiling for each usage.
+  \filbreak
+  \item When a barrier variable is deallocated, each queue barrier must have $Q^1 = Q^2$.
+  \filbreak
+  \item mbarriers must follow the mbarrier pairing requirement, to be described later.
+\end{itemize}
 
 \filbreak
 \mainSub{Arrive Interpretation, N = 1}
@@ -788,71 +807,126 @@ This has the effect of equalizing $Q^1$ and $Q^2$, or $Q^1$ and $\widehat{Q}^2$,
 The iteration count will never be negative; this is a result of the to-be-described mbarrier pairing requirement.
 
 \filbreak
-\mainSub{mbarrier Ring Buffering \& Overrun}
+\mainSub{Exo mbarrier Pairing Requirement}
 
 Arrive-indexed queue barriers lower to commit groups trivially.
 The process for lowering await-indexed queue barriers to mbarriers is more involved, as the mbarrier does not hold any state corresponding to the queue arrive count $Q^1$.
-Each mbarrier contains:
-\begin{itemize}
-  \item expected thread arrival count\footnote{Just ``arrival count'' in the PTX docs; I use the ``thread'' prefix to distinguish from the queue arrival count $Q^1$.}; Exo initializes this to the number of threads in the box of the arriving thread collective
-  \item pending thread arrival count; initially 0
-  \item the completed-phase parity bit; initially 1
-\end{itemize}
-(ignore state corresponding to TMA, tcgen05, etc. as they're not relevant to this discussion).
+We will emulate this state using a ring buffer of mbarriers; informally, this means we have to limit the ``spread'' between the number of arrives and the number of awaits, so we don't overrun the ring buffer.
 
-\filbreak
-In CUDA terminology, each mbarrier has a hidden ``phase'' integer 0, 1, 2, 3...; each time a thread executes arrive-on an mbarrier, it atomically
+For a \lighttt{@CudaMbarrier} queue barrier $Q$, if \lighttt{ReverseArrive} and \lighttt{ReverseAwait} are used, then the pairing requirement is
 \begin{itemize}
-  \item increments the pending thread arrival count;
+  \item The $n^{th}$ (forward) \lighttt{Arrive} on $Q$ cannot \textit{finish} until the $n^{th}$ \lighttt{ReverseAwait} on $\widehat{Q}$ finishes.
   \filbreak
-  \item increments (completes) the phase and resets the pending arrival count to 0, if the pending thread arrival count matched the expected thread arrival count;
-  \filbreak
-  \item sets the parity bit to the parity of the phase just \textit{completed} [i.e., to the \textit{opposite} of the parity of the current phase]
+  \item The $n^{th}$ \lighttt{ReverseArrive} on $\widehat{Q}$ cannot \textit{finish} until the $n^{th}$ (forward) \lighttt{Await} on $Q$ finishes.
 \end{itemize}
 \filbreak
-The fact that only the parity is encoded is what makes encoding $Q^1$ tricky.
-There is no direct way to directly distinguish phase $p$ from phase $p + 2$.
-
-\filbreak
-Let's briefly restate the behavior required of await-indexed queue barriers:
+Otherwise
 \begin{itemize}
-  \item When all threads in the executing thread collective reach \lighttt{Arrive(sync-tl, 1) >> $Q$}, then increment $Q^1$.
-  \item No thread proceeds past the $Q^2$-th execution [0-indexed] of \lighttt{Await($Q$, sync-tl, \textasciitilde lag)} until $Q^1 > Q^2 - \lighttt{lag}$.
-  The first \lighttt{lag}-many awaits do nothing; call the awaits after that \myKeyA{non-trivial} awaits, so the $n^{th}$ non-trivial await waits for $Q^1 > n$.
+  \item The $n^{th}$ \lighttt{Arrive} on $Q$ cannot \textit{finish} until the $(n-1)^{th}$ \lighttt{Await} on $Q$ finishes.
 \end{itemize}
+
 \filbreak
-We'll implement the queue barrier as a ring buffer of $r$-many mbarriers ($r$ to be determined), and increment the phase of each mbarrier in a cycle.
-The total of the phases encodes $Q^1$; e.g., if $r = 3$, and the phases are [2, 2, 1], then $Q^1 = 5$.
-Alternatively, the phase of the $j^{th}$ mbarrier is $\lceil (Q^1 - j) / r \rceil$.
+``finish'' means that \textit{all} threads in the arriving/awaiting thread collective have passed the arrive/await statement.
+We will describe later why this requirement is needed for the ring buffer.
+
 \filbreak
-With this invariant in mind, we lower the queue barriers to mbarriers:
+To enforce this, we require that each thread using the mbarrier follows one of these expected usage patterns:
 \begin{itemize}
-  \item Implement \lighttt{[Reverse]Arrive} as arrive-on the mbarrier at position $Q^1~\%~r$ in the ring buffer; when all threads in the thread collective execute the arrive-on, the phase increments, because the expected thread arrival count was initialized to the number of threads in the thread collective (i.e. collective unit box size).
+  \item \lighttt{Await} on $Q$, followed by a (possibly conditional) \lighttt{ReverseArrive} on $\widehat{Q}$ [await-first usage]
   \filbreak
-  \item Each thread executing the $n^{th}$ non-trivial \lighttt{[Reverse]Await} has to detect that $Q^1 > n$. Let $j = n~\%~r$, then, we need to wait for the phase $p = \lceil (n - j) / r \rceil$ of the $j^{th}$ mbarrier to complete.
-  Detect this indirectly by checking the parity is $p~\%~2$.
-
-  We can implement with a per-thread, per-mbarrier, alternating ``expected phase'' bit, because all this really boils down to is that each thread's $n^{th}$ non-trivial arrive on $Q$ will be its $\lfloor n / r \rfloor$-th await on the $j^{th}$ mbarrier, and it waits for the completed phase parity to be $(\lfloor n / r \rfloor)~\%~2$.
+  \item \lighttt{ReverseAwait} on $\widehat{Q}$, followed by a (possibly conditional) \lighttt{Arrive} on $Q$ [await-first usage]
+  \filbreak
+  \item If there is no \lighttt{ReverseAwait} or \lighttt{ReverseArrive}, then we support \lighttt{Await} on $Q$, followed by a (possibly conditional) \lighttt{Arrive} on $Q$ [await-first usage]
+  \filbreak
+  \item If there is no \lighttt{ReverseAwait} or \lighttt{ReverseArrive}, we also support \lighttt{Arrive} on $Q$, followed by an unconditional \lighttt{Await} on $Q$ [arrive-first usage]
+  \item (Note: in the current implementation, arrive-first and await-first patterns are not simultanously supported for a single barrier variable)
 \end{itemize}
-\filbreak
-The indirect detection of the mbarrier phase fails if the phase of the mbarrier advances to $p+1$ before all awaiting threads detect phase $p$, as the phase bit will flip back.
-I don't know if there's an official name for this error, but I call it a \myKeyA{barrier overrun}.
-Besides avoiding phase ambiguity, we are required to avoid barrier overrun to uphold this (weaker) PTX requirement:
 
 \filbreak
-``For each phase of the mbarrier object, at least one \lighttt{test\_wait} or \lighttt{try\_wait} operation [Exo \lighttt{[Reverse]Await}] must be performed which returns True for waitComplete before an arrive-on operation in the subsequent phase.''
+In all these supported cases, we require no other usage of $Q$ or $\widehat{Q}$ by the thread between the statement pair.
+Unlike the other synchronization requirements, which are enforced by ``simulation'', this ``meta-synchronization'' requirement will be enforced by static analysis.
+These rules allow us to safely lower queue barriers to mbarrier ring buffers.
 
+Static analysis: for each \lighttt{[Reverse]Arrive} statement using $Q$, search forward/backwards \textit{syntactically} for the next/previous statement using $Q$ or $\widehat{Q}$ (forwards in the arrive-first case; backwards in the await-first case).
 \filbreak
-To avoid barrier overrun, we need to enforce that at least one thread of the arriving thread collective won't arrive on a physical mbarrier during phase $p+1$ until all awaiting threads have detected the completion of phase $p$. In Exo terms, the $(n+r)^{th}$ arrive on $Q$ cannot complete until the $n^{th}$ \myKeyA{non-trivial} await on $Q$ has fully finished (recall $r$ is the mbarrier ring buffer size). Handwavey, but this will inductively ensure that when we try to detect the completion of phase $p$, the only possibilities are that phase $p$ just completed, or phase $p-1$ just completed, and we avoid the ambiguous $p \pm 2\mathbb{N}$ cases.
-
-\filbreak
-In the next section, we'll calculate the ring buffer size $r$ and discuss how to prevent barrier overruns.
-Unlike the rest of synchronization checking, which is done with the simulator, I plan to use static analysis to enforce this ``meta-synchronization'' requirement (correctly synchronizing our usage of synchronization primitives).
-
-\filbreak
-\mainSub{Exo mbarrier Pairing Requirement}
+\begin{itemize}
+  \item If the sync statement is not the correct sort of \lighttt{[Reverse]Await} statement, the analysis fails.
+  \filbreak
+  \item If the sync statement's \lighttt{CollTiling} is not equivalent to that of the \lighttt{[Reverse]Arrive}, the analysis fails (this is asserting the set of threads executing the two statements is the same).
+  \filbreak
+  \item If the \lighttt{[Reverse]Await} is guarded by an if statement that the \lighttt{[Reverse]Arrive} isn't, the analysis fails.
+  \filbreak
+  \item If either the \lighttt{[Reverse]Await} or \lighttt{[Reverse]Arrive} is in the body of a \textit{sequential} for loop that the other isn't, the analysis fails.
+  \filbreak
+  \item Note, \lighttt{with} statements and parallel-for loops are ignored, as these don't have effect on a single thread's execution (given the \lighttt{CollTiling} equality check passed)
+\end{itemize}
 
 \filbreak
 \mainSub{Arrive Multicast}
+
+\filbreak
+\minorSub{mbarrier Ring Buffer}
+
+%% \filbreak
+%% \myTitle{WIP: mbarrier Details}
+
+%% Arrive-indexed queue barriers lower to commit groups trivially.
+%% The process for lowering await-indexed queue barriers to mbarriers is more involved, as the mbarrier does not hold any state corresponding to the queue arrive count $Q^1$.
+%% Each mbarrier contains:
+%% \begin{itemize}
+%%   \item expected thread arrival count\footnote{Just ``arrival count'' in the PTX docs; I use the ``thread'' prefix to distinguish from the queue arrival count $Q^1$.}; Exo initializes this to the number of threads in the box of the arriving thread collective
+%%   \item pending thread arrival count; initially 0
+%%   \item the completed-phase parity bit; initially 1
+%% \end{itemize}
+%% (ignore state corresponding to TMA, tcgen05, etc. as they're not relevant to this discussion).
+
+%% \filbreak
+%% In CUDA terminology, each mbarrier has a hidden ``phase'' integer 0, 1, 2, 3...; each time a thread executes arrive-on an mbarrier, it atomically
+%% \begin{itemize}
+%%   \item increments the pending thread arrival count;
+%%   \filbreak
+%%   \item increments (completes) the phase and resets the pending arrival count to 0, if the pending thread arrival count matched the expected thread arrival count;
+%%   \filbreak
+%%   \item sets the parity bit to the parity of the phase just \textit{completed} [i.e., to the \textit{opposite} of the parity of the current phase]
+%% \end{itemize}
+%% \filbreak
+%% The fact that only the parity is encoded is what makes encoding $Q^1$ tricky.
+%% There is no direct way to directly distinguish phase $p$ from phase $p + 2$.
+
+%% \filbreak
+%% Let's briefly restate the behavior required of await-indexed queue barriers:
+%% \begin{itemize}
+%%   \item When all threads in the executing thread collective reach \lighttt{Arrive(sync-tl, 1) >> $Q$}, then increment $Q^1$.
+%%   \item No thread proceeds past the $Q^2$-th execution [0-indexed] of \lighttt{Await($Q$, sync-tl, \textasciitilde lag)} until $Q^1 > Q^2 - \lighttt{lag}$.
+%%   The first \lighttt{lag}-many awaits do nothing; call the awaits after that \myKeyA{non-trivial} awaits, so the $n^{th}$ non-trivial await waits for $Q^1 > n$.
+%% \end{itemize}
+%% \filbreak
+%% We'll implement the queue barrier as a ring buffer of $r$-many mbarriers ($r$ to be determined), and increment the phase of each mbarrier in a cycle.
+%% The total of the phases encodes $Q^1$; e.g., if $r = 3$, and the phases are [2, 2, 1], then $Q^1 = 5$.
+%% Alternatively, the phase of the $j^{th}$ mbarrier is $\lceil (Q^1 - j) / r \rceil$.
+%% \filbreak
+%% With this invariant in mind, we lower the queue barriers to mbarriers:
+%% \begin{itemize}
+%%   \item Implement \lighttt{[Reverse]Arrive} as arrive-on the mbarrier at position $Q^1~\%~r$ in the ring buffer; when all threads in the thread collective execute the arrive-on, the phase increments, because the expected thread arrival count was initialized to the number of threads in the thread collective (i.e. collective unit box size).
+%%   \filbreak
+%%   \item Each thread executing the $n^{th}$ non-trivial \lighttt{[Reverse]Await} has to detect that $Q^1 > n$. Let $j = n~\%~r$, then, we need to wait for the phase $p = \lceil (n - j) / r \rceil$ of the $j^{th}$ mbarrier to complete.
+%%   Detect this indirectly by checking the parity is $p~\%~2$.
+
+%%   We can implement with a per-thread, per-mbarrier, alternating ``expected phase'' bit, because all this really boils down to is that each thread's $n^{th}$ non-trivial arrive on $Q$ will be its $\lfloor n / r \rfloor$-th await on the $j^{th}$ mbarrier, and it waits for the completed phase parity to be $(\lfloor n / r \rfloor)~\%~2$.
+%% \end{itemize}
+%% \filbreak
+%% The indirect detection of the mbarrier phase fails if the phase of the mbarrier advances to $p+1$ before all awaiting threads detect phase $p$, as the phase bit will flip back.
+%% I don't know if there's an official name for this error, but I call it a \myKeyA{barrier overrun}.
+%% Besides avoiding phase ambiguity, we are required to avoid barrier overrun to uphold this (weaker) PTX requirement:
+
+%% \filbreak
+%% ``For each phase of the mbarrier object, at least one \lighttt{test\_wait} or \lighttt{try\_wait} operation [Exo \lighttt{[Reverse]Await}] must be performed which returns True for waitComplete before an arrive-on operation in the subsequent phase.''
+
+%% \filbreak
+%% To avoid barrier overrun, we need to enforce that at least one thread of the arriving thread collective won't arrive on a physical mbarrier during phase $p+1$ until all awaiting threads have detected the completion of phase $p$. In Exo terms, the $(n+r)^{th}$ arrive on $Q$ cannot complete until the $n^{th}$ \myKeyA{non-trivial} await on $Q$ has fully finished (recall $r$ is the mbarrier ring buffer size). Handwavey, but this will inductively ensure that when we try to detect the completion of phase $p$, the only possibilities are that phase $p$ just completed, or phase $p-1$ just completed, and we avoid the ambiguous $p \pm 2\mathbb{N}$ cases.
+
+%% \filbreak
+%% In the next section, we'll calculate the ring buffer size $r$ and discuss how to prevent barrier overruns.
+%% Unlike the rest of synchronization checking, which is done with the simulator, I plan to use static analysis to enforce this ``meta-synchronization'' requirement (correctly synchronizing our usage of synchronization primitives).
 
 \end{document}
