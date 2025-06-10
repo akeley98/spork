@@ -67,8 +67,91 @@ In the initial product, we will support checking only for concrete problem sizes
 \filbreak
 \myTitle{Fundamental Language Concepts}
 
+In Exo-GPU, each statement is executed with a certain \myKeyA{thread collective}, or grouping of threads guaranteed to have uniform control flow, and with a certain \myKeyA{instruction timeline} (``actor kind'' today, but this will probably change).
+We statically analyze, for each statement of the program, its \myKeyA{instruction timeline} and \myKeyA{collective unit}; these are defined by the user via async blocks and cuda\_threads loops (``parallel for''), respectively.
+
+\filbreak
+The instruction timeline (\myKeyA{instr-tl}) categorizes instructions based on their synchronization requirements (e.g. CPU, in-order ``classic'' CUDA instructions, and various non-ordered asynchronous CUDA instructions, e.g. cp.async, wgmma, TMA).
+
+\filbreak
+The \myKeyA{collective unit} describes the thread count and ``shape'' of the concrete \myKeyA{thread collectives} assigned to execute the statement.
+For example, the collective unit ``warp'' describes the thread intervals [0,31], [32,63], [64,95],...
+
 \filbreak
 \myTitle{Object Code Features}
+
+\mainSub{Async Blocks (Instruction Timeline Control)}
+
+\begin{figure*}[!b]
+\input{guide/async_block.0.tex}
+\caption{Example async blocks, with sm\_80 cp.async instructions used}
+\label{fig:AsyncBlocks}
+\end{figure*}
+
+All procs consist of CPU code at the top level.
+Exo-GPU defines two kinds of async blocks, which overrides the instr-tl within the block \textbf{(figure \ref{fig:AsyncBlocks})}.
+
+\filbreak
+\lighttt{with CudaDeviceFunction(...)}: from CPU code, open a block of in-order CUDA code.
+This lowers to a CUDA kernel launch, parameterized with keyword arguments taken from the \lighttt{CudaDeviceFunction} object (e.g. \lighttt{clusterDim}, \lighttt{blockDim}, \lighttt{blocks\_per\_sm}).
+
+\filbreak
+\lighttt{with CudaAsync(<instr-tl>)}: within a CUDA device function, open a block of async CUDA code, using instructions with the specified instr-tl (``actor kind'').
+
+\filbreak
+The selection of instructions within async blocks is not automated, except simple scalar code.
+Each Exo instr declares its instr-tl, and each memory type declares the instr-tl needed for allocations, reads, and writes (e.g. CUDA global memory -- \lighttt{CudaGmemLinear} -- must be allocated from the CPU but can only be accessed from CUDA device code).
+The compiler checks each usage matches that of the instr-tl of the current scope.
+For example, in \textbf{figure \ref{fig:AsyncBlocks}}, if the \lighttt{Sm80\_cp\_async\_f32} gets moved outside of the \lighttt{CudaAsync} block, the compiler will issue a ``wrong instr-tl'' error.
+
+\minorKey{S/M Equivalence:} We need this feature to be able to reason about whether the correct barriers are used when checking S/M equivalence. For example, a barrier that lowers to \lighttt{\_\_syncthreads();} will be enough to ensure visibility across the CTA for prior in-order CUDA instructions, but not prior \lighttt{cp.async} instructions.
+
+\filbreak
+\mainSub{Loop Mode}
+
+\begin{figure*}[!b]
+\input{guide/intro_tasks_threads.0.tex}
+\caption{Simple vector addition example. We break \lighttt{X} and \lighttt{Y} into chunks of 128 values, each handled by one ``task''.}
+\label{fig:intro_tasks_threads}
+\end{figure*}
+
+Each for loop has an associated loop mode, conveyed using the syntax
+
+\input{guide/loop_mode_syntax.0.tex}
+
+The loop mode is a compile time object (i.e. a literal Python object created while scheduling) created using the supplied keyword arguments.
+In contrast, the \lighttt{iter} variable, and \lighttt{lo, hi} bounds, are runtime values.
+
+\filbreak
+Exo already defines \myKeyA{\texttt{seq}} (sequential) and \myKeyA{\texttt{par}} (OpenMP) loop modes.
+The new loops modes, \myKeyA{\texttt{cuda\_tasks}} and \myKeyA{\texttt{cuda\_threads}}, form a strict two-level hierarchy within a \lighttt{CudaDeviceFunction} block.
+
+\filbreak
+The only child statement of a \lighttt{CudaDeviceFunction} block is a loop nest of 1 or more \lighttt{cuda\_tasks} loops \textbf{(figure \ref{fig:intro_tasks_threads})}.
+The loop nest defines a space of ``tasks'' which are assigned round-robin to \myKeyA{top-level collectives} to execute (i.e. we implement persistent kernels).
+If \lighttt{clusterDim=1} (default), then the top-level collective is a CTA; otherwise, it's a cluster.
+
+\filbreak
+Within the inner-most \lighttt{cuda\_tasks} loops, both \lighttt{seq} and \lighttt{cuda\_threads} loops may appear.
+The \lighttt{cuda\_threads} modifies the collective unit, to be described in the next section.
+
+\minorKey{S/M Equivalence:} This is the core part of the S/M equivalence model, i.e., that the parallelism effected by the parallel loops doesn't change the program's output compared to sequential execution.
+
+\filbreak
+\mainSub{cuda\_threads Loops (Collective Unit Control)}
+
+% subdivides, not spawns
+% multiple threads per iteration; note about non-exactness of unit
+% lowers to i = index expr
+
+\filbreak
+\mainSub{Warp Specialization}
+
+\filbreak
+\mainSub{Distributed Memory}
+
+\filbreak
+\mainSub{Synchronization Statements}
 
 \filbreak
 \myTitle{Abstract Machine (Synchronization Model)}
