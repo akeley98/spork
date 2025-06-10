@@ -1,0 +1,76 @@
+%python3 code_to_tex.py guide_correct.py guide && python3 code_to_tex.py guide_wrong.py guide && xelatex spork_guide.tex < /dev/null
+\input{whitepaper_common.tex}
+
+\tikzstyle{smallnode} = [rectangle, minimum width=1.25cm, minimum height=1cm, text centered, text width=1.25cm, draw=black, fill=white]
+\tikzstyle{memnode} = [rectangle, minimum width=2.25cm, minimum height=1cm, text centered, text width=2.25cm, draw=greenBoxFg, fill=greenBoxBg, text=greenBoxFg]
+\tikzstyle{smallishnode} = [rectangle, minimum width=2cm, minimum height=1cm, text centered, text width=2cm, draw=black, fill=white]
+\tikzstyle{normalnode} = [rectangle, minimum width=3cm, minimum height=1cm, text centered, text width=3cm, draw=black, fill=white]
+\tikzstyle{widenode} = [rectangle, minimum width=62mm, minimum height=8mm, text centered, text width=62mm, draw=black, fill=white]
+\tikzstyle{bignode} = [rectangle, minimum width=3.5cm, minimum height=2cm, text centered, text width=3cm, draw=black, fill=white]
+\tikzstyle{smemnode} = [rectangle, minimum width=3cm, minimum height=1cm, text centered, text width=3cm, draw=keyColorB, fill=white]
+\tikzstyle{gmemnode} = [rectangle, minimum width=3cm, minimum height=1cm, text centered, text width=3cm, draw=keyColorA, fill=white]
+\tikzstyle{smallishsmemnode} = [rectangle, minimum width=2cm, minimum height=1cm, text centered, text width=2cm, draw=keyColorB, fill=white]
+\tikzstyle{arrow} = [thick,->,>=stealth]
+\tikzstyle{line} = [thick]
+
+\begin{document}
+\myTitle{Exo GPU -- Spork User Guide}
+
+We're extending Exo with constructs for generating CUDA device code, with the goals of supporting
+\begin{itemize}
+  \item explicit instruction selection, including support for asynchronous copies and tensor cores (wgmma)
+  \filbreak
+  \item explicit selection of memory types for variables
+  \filbreak
+  \item explicit assignment of work to threads (no implied parallelism; Exo's imperative C-style programming is preserved) and explicit synchronization (choice of barriers, mbarriers, commit group)
+  \filbreak
+  \item codegen to CUDA C++ headers and CPU C code, which will allow us to support mixed CPU/GPU code, and mixed Exo-generated and handwritten CUDA
+  \filbreak
+  \item ``sequential logic'' for scheduling; that is, Exo's existing analysis continues to use sequential semantics;
+    all parallelism features are expressed using existing concepts with ``annotations'' (e.g. parallel-for loops) that can be ignored to analyze the program as a sequential program
+  \filbreak
+\item S/M equivalence (single-threaded / multi-threaded equivalence); we check that the scheduled program, interpreted sequentially, will give the same results as the scheduled program interpreted as a parallel CUDA program.
+    This two phase checking (Exo scheduling with sequential semantics, S/M equivalence checking) proves that the unscheduled sequential program gives the same results as the final parallelized program.
+\end{itemize}
+\filbreak
+In the initial product, we will support checking only for concrete problem sizes, using a per-memory-access simulator.
+\filbreak
+\begin{tikzpicture}[node distance=8mm]
+\sffamily
+\node(proc0) [normalnode, text width=2cm, minimum width=2cm] {Original proc};
+\node(procNS) [normalnode, right=of proc0, text width=4cm, minimum width=4cm] {Scheduled proc, interpreted \myKeyA{sequentially}};
+\node(procNM) [normalnode, right=of procNS, text width=4cm, minimum width=4cm] {Scheduled proc, \myKeyB{parallel} interpretation};
+\node(cuda) [normalnode, right=of procNM] {CUDA C++ Header};
+
+\draw [arrow] (proc0) to node(exo)[]{} (procNS);
+\draw [arrow] (procNS) to node(SM)[]{} (procNM);
+\draw [arrow] (procNM) to node(toCuda)[]{} (cuda);
+
+\node(exo) [normalnode, text width=4cm, minimum width=4cm, below=of exo, draw=blueBoxFg, fill=blueBoxBg, text=blueBoxFg] {Existing Exo Rewrites};
+\node(sync) [normalnode, text width=5cm, below=of SM, draw=blueBoxFg, fill=blueBoxBg, text=blueBoxFg] {S/M equivalence check: ``above the waterline''};
+\node(spork) [normalnode, text width=6cm, xshift=1cm, below=of toCuda, draw=blueBoxFg, fill=blueBoxBg, text=blueBoxFg] {Spork Backend Compiler: ``below the waterline'' (not proven correct)};
+\node(note) [above=of SM, draw=redBoxFg, fill=redBoxBg, text=redBoxFg, xshift=15mm] {Physically same proc, \textbf{different interpretation}};
+\node(caption) [left=of note] {``\textbf{chain of equivalence}''};
+\node(c) [smallnode, right=of note] {C code};
+
+\draw [line, draw=blueBoxFg] (exo) -- (proc0);
+\draw [line, draw=blueBoxFg] (exo) -- (procNS);
+\draw [line, draw=blueBoxFg] (sync) -- (procNS);
+\draw [line, draw=blueBoxFg] (sync) -- (procNM);
+\draw [line, draw=redBoxFg] (note) -- (procNS);
+\draw [line, draw=redBoxFg] (note) -- (procNM);
+\draw [line, draw=blueBoxFg] (spork) -- (procNM);
+\draw [line, draw=blueBoxFg] (spork) -- (cuda);
+\draw [arrow] (procNM.east) to (c.west);
+\end{tikzpicture}
+
+\filbreak
+\myTitle{Fundamental Language Concepts}
+
+\filbreak
+\myTitle{Object Code Features}
+
+\filbreak
+\myTitle{Abstract Machine (Synchronization Model)}
+
+\end{document}
