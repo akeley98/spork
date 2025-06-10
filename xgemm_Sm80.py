@@ -90,14 +90,13 @@ def xgemm_Sm80_fence(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B:
                                                           B_rmem[k_seq,n_seq,:,:], K=MMA_K)
 
                     # Sm80_generic actor kind = (cuda_classic | Sm80_cp_async)
-                    # Fence(Sm80_generic, Sm80_generic)
-                    for w in cuda_threads(0, 8, unit=cuda_warp):
-                        cg : barrier @ CudaCommitGroup
-                        for tid in cuda_threads(0, 32):
-                            Arrive(Sm80_cp_async, cg[tid], 1)
-                            Await(cg[tid], cuda_classic, 0)
-                        # Fence(Sm80_generic, Sm80_generic)
-                    Fence(cuda_classic, Sm80_generic)
+                    Fence(Sm80_generic, Sm80_generic)
+                    # for w in cuda_threads(0, 8, unit=cuda_warp):
+                    #     cg : barrier @ CudaCommitGroup
+                    #     for tid in cuda_threads(0, 32):
+                    #         Arrive(Sm80_cp_async, cg[tid], 1)
+                    #         Await(cg[tid], cuda_classic, 0)
+                    # Fence(cuda_classic, Sm80_generic)
 
                 # for-k1 (K tiles) loop ends
 
