@@ -1,4 +1,4 @@
-%python3 code_to_tex.py guide_correct.py guide && python3 code_to_tex.py guide_wrong.py guide && xelatex spork_guide.tex < /dev/null
+%exocc guide_correct.py && python3 code_to_tex.py guide_correct.py guide && python3 code_to_tex.py guide_wrong.py guide && xelatex spork_guide.tex < /dev/null
 \input{whitepaper_common.tex}
 
 \tikzstyle{smallnode} = [rectangle, minimum width=1.25cm, minimum height=1cm, text centered, text width=1.25cm, draw=black, fill=white]
@@ -12,6 +12,15 @@
 \tikzstyle{smallishsmemnode} = [rectangle, minimum width=2cm, minimum height=1cm, text centered, text width=2cm, draw=keyColorB, fill=white]
 \tikzstyle{arrow} = [thick,->,>=stealth]
 \tikzstyle{line} = [thick]
+
+\tikzstyle{rednode} = [normalnode, draw=redBoxFg, fill=redBoxBg, text=redBoxFg]
+\tikzstyle{yellownode} = [normalnode, draw=yellowBoxFg, fill=yellowBoxBg, text=yellowBoxFg]
+\tikzstyle{greennode} = [normalnode, draw=greenBoxFg, fill=greenBoxBg, text=greenBoxFg]
+\tikzstyle{bluenode} = [normalnode, draw=blueBoxFg, fill=blueBoxBg, text=blueBoxFg]
+\tikzstyle{violetnode} = [normalnode, draw=violetBoxFg, fill=violetBoxBg, text=violetBoxFg]
+
+\tikzstyle{Mnode} = [greennode, text width=55mm, minimum width=55mm, minimum height=7mm]
+\tikzstyle{Nnode} = [violetnode, text width=7mm, minimum width=7mm, minimum height=7mm]
 
 \begin{document}
 \myTitle{Exo GPU -- Spork User Guide}
@@ -33,7 +42,7 @@ We're extending Exo with constructs for generating CUDA device code, with the go
     This two phase checking (Exo scheduling with sequential semantics, S/M equivalence checking) proves that the unscheduled sequential program gives the same results as the final parallelized program.
 \end{itemize}
 \filbreak
-In the initial product, we will support checking only for concrete problem sizes, using a per-memory-access simulator.
+In the initial product, we will support checking only for concrete problem sizes, using a simulator that tracks each memory access.
 \filbreak
 \begin{tikzpicture}[node distance=8mm]
 \sffamily
@@ -88,7 +97,7 @@ For example, the collective unit ``warp'' describes the thread intervals [0,31],
 \label{fig:AsyncBlocks}
 \end{figure*}
 
-All procs consist of CPU code at the top level.
+All non-\lighttt{@instr} procs consist of CPU code at the top level.
 Exo-GPU defines two kinds of async blocks, which overrides the instr-tl within the block \textbf{(figure \ref{fig:AsyncBlocks})}.
 
 \filbreak
@@ -121,6 +130,7 @@ Each for loop has an associated loop mode, conveyed using the syntax
 
 The loop mode is a compile time object (i.e. a literal Python object created while scheduling) created using the supplied keyword arguments.
 In contrast, the \lighttt{iter} variable, and \lighttt{lo, hi} bounds, are runtime values.
+We call the \lighttt{iter} variable a <loop-mode-name>-iterator (e.g. seq-iterator, cuda\_threads-iterator).
 
 \filbreak
 Exo already defines \myKeyA{\texttt{seq}} (sequential) and \myKeyA{\texttt{par}} (OpenMP) loop modes.
@@ -140,9 +150,72 @@ The \lighttt{cuda\_threads} modifies the collective unit, to be described in the
 \filbreak
 \mainSub{cuda\_threads Loops (Collective Unit Control)}
 
-% subdivides, not spawns
-% multiple threads per iteration; note about non-exactness of unit
-% lowers to i = index expr
+\input{guide/cuda_threads_syntax.0.tex}
+
+The \lighttt{cuda\_threads} loop takes a \myKeyA{collective unit} argument, and assigns one thread collective to execute each ``iteration'' of the loop.
+In the common case, the collective unit of the loop body is the same as the \lighttt{unit} argument passed; the standard library provides \lighttt{cuda\_thread}, \lighttt{cuda\_warp}, \lighttt{cuda\_warpgroup}, or \lighttt{cuda\_cta\_in\_cluster} as collective units.
+
+\filbreak
+Unlike some other systems, we do not have a fixed hierarchy of collective units, and the user can define their own.
+To expand the collective unit by a factor of \lighttt{N}, use the ``\lighttt{N *}'' prefix , e.g. \lighttt{32 * cuda\_thread} is the same as \lighttt{cuda\_warp}.
+More advanced cases (e.g. non-contiguous groups of threads) may be handled by creating a \lighttt{CollUnit} object directly.
+
+\filbreak
+Unlike CPU parallel-for loops, the \lighttt{cuda\_threads} loop
+\begin{itemize}
+  \item Supports assigning multiple threads to execute one iteration (when \lighttt{unit} is not \lighttt{cuda\_thread}).
+  \item Cannot spawn new threads, and instead subdivides threads supplied by the thread collective that executes the parallel-for.
+    For example, the loop \lighttt{for i in cuda\_threads(0, \redBox{10}, unit=\blueBox{4 * cuda\_thread})} will not compile when placed in a scope with collective unit warp, since \redBox{10} $\times$ \blueBox{4} = 40 exceeds the 32 threads available in a warp.
+  \item Requires \lighttt{lo} to be 0 and \lighttt{hi} to be a compile-time constant.
+\end{itemize}
+
+See \lighttt{coll\_algebra.pdf} for more detailed discussion (including the non-common case where the actual collective unit is different from the \lighttt{unit} parameter specified).
+
+\filbreak
+Use nested \lighttt{cuda\_threads} loops to define a multidimensional iteration space.
+The \lighttt{cuda\_threads} loops lower to C++ code that subdivide thread collectives by assigning different iterator values based on thread index:
+
+\input{guide/cuda_threads_cxx.0.tex}
+
+\begin{tikzpicture}[node distance=2mm]
+\sffamily
+\node (cta) [yellownode, text width=20mm, minimum width=20mm, minimum height=40mm] {CTA};
+
+\node (m2) [Mnode, right=of cta, xshift=16mm] {\texttt{m = 2}; threads [32, 47]};
+\node (m1) [Mnode, above=of m2] {\texttt{m = 1}; threads [16, 31]};
+\node (m0) [Mnode, above=of m1] {\texttt{m = 0}; threads [0, 15]};
+\node (m7) [Mnode, below=of m2, yshift=-9mm] {\texttt{m = 7}; threads [112, 127]};
+\draw [arrow] (cta) -- node[above] {\texttt{for \greenBox{m}}} (m2);
+\draw [dotted] (m2) -- (m7);
+\node (m0n0) [Nnode, right=of m0, xshift=16mm] {0};
+\node (m0n1) [Nnode, right=of m0n0] {1};
+\node (m0n2) [Nnode, right=of m0n1] {2};
+\node (m0n15) [Nnode, right=of m0n2, xshift=8mm] {15};
+\node (m1n0) [Nnode, below=of m0n0] {16};
+\node (m1n1) [Nnode, below=of m0n1] {17};
+\node (m1n2) [Nnode, below=of m0n2] {18};
+\node (m1n15) [Nnode, below=of m0n15] {31};
+\node (m2n0) [Nnode, below=of m1n0] {32};
+\node (m2n1) [Nnode, below=of m1n1] {33};
+\node (m2n2) [Nnode, below=of m1n2] {34};
+\node (m2n15) [Nnode, below=of m1n15] {47};
+\node (m7n0) [Nnode, right=of m7, xshift=16mm] {112};
+\node (m7n1) [Nnode, right=of m7n0] {113};
+\node (m7n2) [Nnode, right=of m7n1] {114};
+\node (m7n15) [Nnode, right=of m7n2, xshift=8mm] {127};
+\draw [arrow] (m0) -- node[above] {\texttt{for \violetBox{n}}} (m0n0);
+\draw [arrow] (m1) -- node[above] {\texttt{for \violetBox{n}}} (m1n0);
+\draw [arrow] (m2) -- node[above] {\texttt{for \violetBox{n}}} (m2n0);
+\draw [arrow] (m7) -- node[below] {\texttt{for \violetBox{n}}} (m7n0);
+\draw [dotted] (m2n0) -- node[] {\texttt{n=0}} (m7n0);
+\draw [dotted] (m2n1) -- node[] {\texttt{n=1}} (m7n1);
+\draw [dotted] (m2n2) -- node[] {\texttt{n=2}} (m7n2);
+\draw [dotted] (m2n15) --node[] {\texttt{n=15}} (m7n15);
+\draw [dotted] (m0n2) -- (m0n15);
+\draw [dotted] (m1n2) -- (m1n15);
+\draw [dotted] (m2n2) -- (m2n15);
+\draw [dotted] (m7n2) -- (m7n15);
+\end{tikzpicture}
 
 \filbreak
 \mainSub{Warp Specialization}

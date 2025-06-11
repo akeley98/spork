@@ -2,9 +2,29 @@ from exo import *
 from exo.platforms.cuda import *
 from exo.platforms.Sm80 import *
 
-from exo.spork.coll_algebra import CollUnit, blockDim, clusterDim  # naughty
-
 xyzzy = 1
+cuda_unit = cuda_thread
+lo, hi = 0, 1
+
+@proc
+def loop_example():
+    with CudaDeviceFunction(blockDim=32):
+        for task in cuda_tasks(0, xyzzy):
+            # TeX: version cuda_threads 1 
+            # TeX: begin cuda_threads[0]
+            # Parent collective tiling here (domain $D^P$, box $B^P$); assume domain completion so $D = D^P$
+            for iter in cuda_threads(lo, hi, unit=cuda_unit):
+                # New collective tiling here (domain $D$, tile $T$, box $B$, tile $O$)
+                # TeX: end cuda_threads[0]
+                pass
+
+@proc
+def tmp_weird():
+    with CudaDeviceFunction(clusterDim=4, blockDim=256):
+        for task in cuda_tasks(0, xyzzy):
+            for w in cuda_threads(0, 8, unit=cuda_warp):
+                for cta in cuda_threads(0, 4, unit=cuda_cta_in_cluster):
+                    pass
 
 @proc
 def simple_example():
@@ -21,16 +41,16 @@ def simple_example():
             #         rrrrrr  yyyy
             vals: f32[16, 16, 8, 4] @ CudaRmem
             # TeX: color remark simple[1]
-            # gggggggggg  rrrrrrrrrrrrrrrr
-            # m: 256->16, threadIdx.x / 16
+            # gggggggggggggggggg  rrrrrrrrrrrrrrrr
+            # m: $256\mapsto 16$, threadIdx.x / 16
             # TeX: color line *
             #   g
             for m in cuda_threads(0, 16, unit=16 * cuda_thread):
                 # TeX: remark simple[1]
                 # Tile here: (16,)
                 # TeX: color remark simple[1]
-                # vvvvvvvv  rrrrrrrrrrrrrrrr
-                # n: 16->1, threadIdx.x % 16
+                # vvvvvvvvvvvvvvvv  rrrrrrrrrrrrrrrr
+                # n: $16\mapsto 1$, threadIdx.x % 16
                 # TeX: color line *
                 #   v
                 for n in cuda_threads(0, 16, unit=cuda_thread):

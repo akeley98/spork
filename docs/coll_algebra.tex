@@ -299,6 +299,46 @@ For all dimensions $x$, $0 < B_x \le B_x + O_x \le T_x$.
 (Assume for now that \minorKey{domain completion} was done, so the dimensionality of $T$, $B$, $O$, $B^P$ match).
 
 \filbreak
+\mainKey{Tile Size Calculation}
+
+A \lighttt{cuda\_threads} loop defines a new collective tiling in-scope in the loop body, using the collective tiling of the outer scope:
+
+\input{coll_samples/cuda_threads.0.tex}
+
+In common cases, the collective unit of the loop body is the same as the \lighttt{unit} parameter specified.
+However, the collective unit may be modified to adapt to the parent collective tiling.
+The precise tile size calculation for the new collective tiling is:
+\begin{itemize}
+  \item Let $B^U$ be the box of the \lighttt{unit} parameter, after domain completion.
+    The box may be agnostic on some dimensions.
+    Note the domain $D$ for the \lighttt{unit} parameter, parent collective tiling, and new collective tiling are by definition identical after domain completion.
+  \filbreak
+  \item Define the tiled dimension $d$ as the index $i$ such that
+  \begin{itemize}
+    \item $B^U_i$ is not \lighttt{None} (i.e. the \lighttt{unit} parameter is not agnostic on the $i^{th}$ dimension)
+    \item $B^U_i \ne D_i$
+    \item $B^U_i \ne B^P_i$
+  \end{itemize}
+  \filbreak
+  \item If $d$ is not defined, then this is a degenerate tiling. Set $T = B^P$.
+  \filbreak
+  \item If $d$ is ambiguous, the \lighttt{cuda\_threads} loop fails to compile.
+  \filbreak
+  \item If the tiling is not degenerate, set $T_i = B^P_i$ for $i \ne d$ and set $T_d = B^U_d$.
+  \filbreak
+  \item Set $B = T$, and $O$ to all 0s, i.e. all threads in the tile are active. This can be changed inside a \lighttt{with CudaWarps} block.
+\end{itemize}
+
+\filbreak
+Note the collective unit for the loop body is primarily defined from the parent ($B^P$); it's only modified one the one dimension that ``matters'' ($d$).
+
+\filbreak
+In \textbf{(figure \ref{fig:warp_tiling})}, domain completion causes the unit \lighttt{cuda\_warp}, which originally had domain \lighttt{(blockDim,)} and box \lighttt{(32,)}, to be completed to domain $D$ = \lighttt{(clusterDim, blockDim)} and box $B^U$ = \lighttt{(None, 32)}.
+This leads to the true collective unit for the loop body to have domain \lighttt{(clusterDim, blockDim)} and box \lighttt{(\violetBox{4}, 32)}.
+This 4 is inherited from $B^P$ = \lighttt{(\violetBox{4}, 128)}.
+The for loop ``does the right thing'' implicitly for the \lighttt{blockIdx} dimension, which is not the focus of the \lighttt{cuda\_warps} loop.
+
+\filbreak
 \mainKey{Tiling Pattern:} Let $I^P$ be the intra-box exprs of threads in the parent box.
 Then the tile index of a thread is $j = \lfloor I^P_d / T_d \rfloor$ ($j = 0$ for the degenerate case).
 This expression is the \lighttt{CollIndexExpr} for the iteration variable $j$.
@@ -447,7 +487,7 @@ The \blueBox{thread pitch} is $T_0 D_1 = \mathit{blockDim}$.
 \caption{Example collective tiling: With the parent box being $B^P=(4, 128)$, we tile along the threads dimension ($d = 1$) in units of 32 threads (1 warp). Only 2 of 4 warps are used due to the loop bounds \lighttt{(0, 2)}.
 We have $T = (4, 32)$, $B = (4, 32)$ (one warp per CTA), and $O = (0, 0)$.
 $I = (I^P_0, I^P_1~\%~32)$, $j = \lfloor I^P_1 / 32 \rfloor$, and we deactivate threads that don't satisfy $j < c = 2$ (shown in \redBox{pink/red}).
-The resulting collective unit is a group of 4 warps cooperating along the CTA-in-cluster dimension.
+The resulting collective unit is a group of 4 warps cooperating along the CTA-in-cluster dimension; \textit{note this is different from the raw \lighttt{cuda\_warp} unit specified}.
 The \blueBox{thread pitch} is $T_1 = 32$.
 }
 \label{fig:warp_tiling}

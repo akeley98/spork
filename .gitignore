@@ -25,6 +25,7 @@ docs/gemms_tex
 docs/summer_of_wgmma.pdf
 docs/su_samples
 docs/guide_correct/
+docs/guide/
 gemm/gemm
 attn
 libattn.so

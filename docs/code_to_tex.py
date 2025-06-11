@@ -53,6 +53,7 @@ class TexLine:
         prev_color_char = None
         snippets = [r"\blacktt{"]
         in_comment = False
+        in_math = False
 
         for i, c in enumerate(py_text):
             # Comment detection (not very smart e.g. fooled by strings)
@@ -77,8 +78,15 @@ class TexLine:
                     raise ValueError(f"Line {self.lineno}: unknown color character {color_char!r} in {colors!r}")
                 snippets.append(fr"\{colorBox}{{")
 
-            # Sanitize character
-            snippets.append(char_dict.get(c, c))
+            # Sanitize characters, except for stuff surrounded by $ in comments.
+            if in_comment:
+                if c == "$":
+                    in_math = not in_math
+                elif not in_math:
+                    c = char_dict.get(c, c)
+            else:
+                c = char_dict.get(c, c)
+            snippets.append(c)
 
             prev_color_char = color_char
 
