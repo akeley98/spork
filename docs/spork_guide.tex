@@ -49,7 +49,7 @@ In the initial product, we will support checking only for concrete problem sizes
 \node(proc0) [normalnode, text width=2cm, minimum width=2cm] {Original proc};
 \node(procNS) [normalnode, right=of proc0, text width=4cm, minimum width=4cm] {Scheduled proc, interpreted \myKeyA{sequentially}};
 \node(procNM) [normalnode, right=of procNS, text width=4cm, minimum width=4cm] {Scheduled proc, \myKeyB{parallel} interpretation};
-\node(cuda) [normalnode, right=of procNM] {CUDA C++ Header};
+\node(cuda) [normalnode, right=of procNM] {CUDA C++ header};
 
 \draw [arrow] (proc0) to node(exo)[]{} (procNS);
 \draw [arrow] (procNS) to node(SM)[]{} (procNM);
@@ -329,10 +329,112 @@ The generated C++ contains only non-distributed indices \textbf{(figure \ref{fig
 More importantly for the Exo user, the compiler removes distributed dimensions and indices before calling code generation callbacks for memory types and instructions.
 So the authors of externalized stuff can remain completely ignorant of this system.
 
+\begin{figure*}[!b]
+\input{guide/why_dist.0.tex}
+\caption{Counterexample for S/M equivalence for a hypothetical design where variables are implicitly duplicated across threads. Note: in general we cannot fuse the \lighttt{tid} loops or sink the allocation of \lighttt{x} into the loop scope, since there may be required synchronization or other convergent code between them.}
+\label{fig:why_dist}
+\end{figure*}
+
+\filbreak
+\minorKey{S/M Equivalence:} The distributed dimensions of an allocation must be explicit in Exo object code for S/M equivalence to work.
+If we were to adopt the approach that each thread collective has its own implicit copy of a variable, then there would be unintended aliasing when intepreting the program sequentially \textbf{(figure \ref{fig:why_dist})}.
+
+\filbreak
+Another reason: although for now we describe each distributed shard as being accessible only by its owner thread collective, we plan to support instructions like warp shuffles and TMA multicast that allow limited exceptions to this rule (respectively, accessing registers of other threads in the same warp, and multicasting to SMEM in different CTAs of the cluster).
+This means it's really important that the distributed indices be explicit in Exo object code, so the user can vary them and control the indices used for shuffling.
+
 \filbreak
 \mainSub{Synchronization Statements}
 
+\begin{figure*}[b!]
+\input{guide/sync_warp_cta.0.tex}
+\caption{Synchronizing within a warp, and across warps}
+\label{fig:sync_warp_cta}
+\end{figure*}
+
+\begin{figure*}[b!]
+\input{guide/Sm80_cp_async_simple.0.tex}
+\caption{Synchronizing mixed synchronous and asynchronous instructions}
+\label{fig:Sm80_cp_async_simple}
+\end{figure*}
+
+Unlike everything else in Exo, synchronization statements support a somewhat declarative style, where the user just specifies which sets of threads and what category of instruction effects to synchronize, rather than directly calling wrapped CUDA synchronization instructions.
+We still support an imperative programming style (as opposed to automated synchronization, or a dependency graph approach or such), where synchronization statements appear in-line with and get executed in sequence with other imperative Exo code.
+
+\filbreak
+\mainKey{Timeline:} Each memory action (read or write) is performed with a certain instr-tl (instruction timeline), a certain usage-tl (usage timeline), and thread(s).
+The \myKeyA{instr-tl} and \myKeyA{threads} for a memory action are statically deduced from the instr-tl and collective unit in-scope; the \myKeyA{usage-tl} is programmed per-parameter for wgmma instructions (usage-tl is not relevant for non-wgmma instructions).
+See \lighttt{summer\_of\_wgmma.pdf}, ``Timelines and Synchronization'' for more details on usage-tl.
+
+\filbreak
+Parameterize synchronization statements with \myKeyA{sync-tl} objects (synchronization timelines), which are sets of $(\text{instr-tl} \times \text{usage-tl})$ pairs.
+
+\filbreak
+\mainKey{Fence:} The \lighttt{Fence(first\_tl, second\_tl)} statement expresses a non-split barrier.
+Informally, this causes all threads in the executing \myKeyA{thread collective} to wait for all other such threads.
+This means that syntactically-identical \lighttt{Fence} statements may lower to different code, depending on the collective unit in scope \textbf{(figure \ref{fig:sync_warp_cta})}.
+
+\filbreak 
+The sync-tl parameters filter the effects of the fence \textbf{(figure \ref{fig:Sm80_cp_async_simple})}.
+That is, the fence orders memory actions that
+\begin{enumerate}
+  \item use an $(\text{instr-tl}, \text{usage-tl})$ pair in \lighttt{first\_tl}.
+  \item executed with thread(s) of the fence's executing thread collective
+  \item executed before the fence
+\end{enumerate}
+\filbreak
+before memory actions that
+\begin{enumerate}
+  \item use an $(\text{instr-tl}, \text{usage-tl})$ pair in \lighttt{second\_tl}.
+  \item executed with thread(s) of the fence's executing thread collective
+  \item executed after the fence
+\end{enumerate}
+
+\filbreak
+TODO: implement the timeline system (replace actor kinds, actor signatures) and document them all.
+Anything you've seen anywhere else is probably really out of date now.
+
+\filbreak
+\mainKey{Split Barrier (Arrive, Await):}
+
+\filbreak
+\mainKey{Queue Barrier:}
+
+\filbreak
+\minorKey{S/M Equivalence:} We need this thin abstraction since checking that the user satisfied the requirements of the abstract machine is much more tractible than trying to model the semantics of, and check correct usage of, raw CUDA synchroniztaion instructions. See the next section for more justification.
+
 \filbreak
 \myTitle{Abstract Machine (Synchronization Model)}
+
+\filbreak
+\mainSub{User's View}
+
+To the language user, Exo-GPU consists of a
+This thin abstraction layer over raw CUDA synchronization enables 
+
+\filbreak
+\mainSub{Compiler's View}
+
+To the author of the compiler backend, Exo-GPU exposes a number of features that can, for the most part, be translated 1:1 to CUDA code.
+Only synchronization statements require more in-depth handling (for example, initializing mbarriers at startup).
+
+\filbreak
+Because of the static instr-tl and collective unit type systems, the compiler is empowered to (and must) diagnose straightforward incorrect usage of Exo-GPU: invalid parallel-for loops, incorrect collective units for instructions (convergence requirements not met), or incorrect instr-tl for memory/instr usage.
+Beyond that, checking correct parallelism is outside the scope of the Exo-to-CUDA compiler; we will check correct usage dynamically, or with hypothetical future language extensions.
+
+\filbreak
+\mainSub{Our View\footnote{The ``Our View'' section is a rhetorical device borrowed from the OpenGL spec.}}
+
+We view Exo-GPU programs as targetting a \textit{fundamentally sequential} abstract machine, but mechanically translatable to efficient and predictable code that is parallelized for execution on a physical device.
+This divides the labor of writing correct programs between the user and the compiler author: ``above the waterline'', language users must guarantee the valid usage requirements of the abstract machine are followed; ``below the waterline'', the compiler author must guarantee that correct programs written against the abstract machine translate into correct CUDA programs.
+
+\filbreak
+We anticipate this model will meet the needs of both programming language researchers and performance engineers.
+For PL researchers, this model reduces correctness checking to predicates on sequential programs, and abstracts away the minute details of GPU instructions, while still preserving the essential problem of enforcing correct usage of asynchronous instructions.
+For performance engineers, this model retains fine-grained control over instruction selection, mapping of work to threads, and synchronization (at least in the tile-and-tensor-oriented domain Exo is traditionally used for).
+
+\filbreak
+In the initial implementation, valid usage will be checked by literal simulation of the abstract machine.
+Ideally, this model will enable synchronization correctness checks (or programming language safety features) that are more abstract and efficient, which could be built upon existing formalism that, until now, supported only programs targetting physically sequential machines.
 
 \end{document}

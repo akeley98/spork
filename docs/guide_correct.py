@@ -188,3 +188,60 @@ if ([[maybe_unused]] int exo_32thr_m = (threadIdx.x / 32); 1) {  # $m: 512 \maps
   }
 }
 """
+
+# TeX: version sync_warp_cta 1
+@proc
+def sync_warp_cta():
+    with CudaDeviceFunction(blockDim=128):
+        # TeX: begin sync_warp_cta[0]
+        for task in cuda_tasks(0, xyzzy):
+            smem: f32[4] @ CudaSmemLinear
+            for w in cuda_threads(0, 4, unit=cuda_warp):
+                for tid in cuda_threads(0, 1, unit=cuda_thread):
+                    smem[w] = 42
+                # TeX: remark! *
+                # Collective unit here: warp (Fence lowers to __syncwarp() equivalent)
+                # TeX: color line *
+              #       gggggggggggg  gggggggggggg
+                Fence(cuda_classic, cuda_classic)
+                # Only threads in the same warp can see smem[w] = 42
+            # TeX: remark! *
+            # Collective unit here: CTA  (Fence lowers to __syncthreads() equivalent)
+            # TeX: color line *
+          #       gggggggggggg  gggggggggggg
+            Fence(cuda_classic, cuda_classic)
+            # Now all threads in the CTA can see smem[0:4] = [42, 42, 42, 42]
+            # TeX: color line *
+            #       gggggggggggg
+            # NOTE: cuda_classic means non-async CUDA instructions [FIXME use timelines]
+            # TeX: end sync_warp_cta[0]
+            
+            
+# TeX: version Sm80_cp_async_simple 1
+@proc
+def Sm80_cp_async_simple(src: f32[128] @ CudaGmemLinear):
+    with CudaDeviceFunction(blockDim=128):
+        for task in cuda_tasks(0, xyzzy):
+            # TeX: begin Sm80_cp_async_simple[0]
+            sync_dst: f32[128] @ CudaSmemLinear
+            async_dst: f32[128] @ CudaSmemLinear
+            for tid in cuda_threads(0, 128, unit=cuda_thread):
+                # TeX: color line *
+                #                           gggggggg
+                sync_dst[tid] = src[tid]  # in-order CUDA instruction (outside CudaAsync block)
+                with CudaAsync(Sm80_cp_async):
+                    # TeX: color line *
+                    #                            yyyyyyyyyyyyyy
+                    # async_dst[tid] = src[tid], asynchronously
+                    Sm80_cp_async_f32(async_dst[tid:tid+1], src[tid:tid+1], size=1)
+            # Here: only thread #tid can see sync_dst[tid] = src[tid]
+            # TeX: color line *
+            #     gggggggggggg  gggggggggggg
+            Fence(cuda_classic, cuda_classic)
+            # Here: sync_dst[tid] = src[tid] visible to all threads in CTA
+            # The write to async_dst[tid] is still pending
+            # TeX: color line *
+            #     yyyyyyyyyyyyy  gggggggggggg
+            Fence(Sm80_cp_async, cuda_classic)
+            # Here: all threads in the CTA can see sync_dst[tid] = src[tid] and async_dst[tid] = src[tid]
+            # TeX: end Sm80_cp_async_simple[0]
