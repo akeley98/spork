@@ -130,7 +130,7 @@ Each for loop has an associated loop mode, conveyed using the syntax
 
 The loop mode is a compile time object (i.e. a literal Python object created while scheduling) created using the supplied keyword arguments.
 In contrast, the \lighttt{iter} variable, and \lighttt{lo, hi} bounds, are runtime values.
-We call the \lighttt{iter} variable a <loop-mode-name>-iterator (e.g. seq-iterator, cuda\_threads-iterator).
+We call the \lighttt{iter} variable a \lighttt{loop-mode-name}-iterator (e.g. \lighttt{seq}-iterator, \lighttt{cuda\_threads}-iterator).
 
 \filbreak
 Exo already defines \myKeyA{\texttt{seq}} (sequential) and \myKeyA{\texttt{par}} (OpenMP) loop modes.
@@ -143,7 +143,7 @@ If \lighttt{clusterDim=1} (default), then the top-level collective is a CTA; oth
 
 \filbreak
 Within the inner-most \lighttt{cuda\_tasks} loops, both \lighttt{seq} and \lighttt{cuda\_threads} loops may appear.
-The \lighttt{cuda\_threads} modifies the collective unit, to be described in the next section.
+The \lighttt{cuda\_threads} loop modifies the collective unit, to be described in the next section.
 
 \minorKey{S/M Equivalence:} This is the core part of the S/M equivalence model, i.e., that the parallelism effected by the parallel loops doesn't change the program's output compared to sequential execution.
 
@@ -153,7 +153,7 @@ The \lighttt{cuda\_threads} modifies the collective unit, to be described in the
 \input{guide/cuda_threads_syntax.0.tex}
 
 The \lighttt{cuda\_threads} loop takes a \myKeyA{collective unit} argument, and assigns one thread collective to execute each ``iteration'' of the loop.
-In the common case, the collective unit of the loop body is the same as the \lighttt{unit} argument passed; the standard library provides \lighttt{cuda\_thread}, \lighttt{cuda\_warp}, \lighttt{cuda\_warpgroup}, or \lighttt{cuda\_cta\_in\_cluster} as collective units.
+In the common case, the collective unit of the loop body is the same as the \lighttt{unit} argument passed; the standard library provides \lighttt{cuda\_thread}, \lighttt{cuda\_warp}, \lighttt{cuda\_warpgroup}, and \lighttt{cuda\_cta\_in\_cluster} as collective units.
 
 \filbreak
 Unlike some other systems, we do not have a fixed hierarchy of collective units, and the user can define their own.
@@ -217,14 +217,15 @@ The \lighttt{cuda\_threads} loops lower to C++ code that subdivide thread collec
 \draw [dotted] (m7n2) -- (m7n15);
 \end{tikzpicture}
 
+Finally, similar to the instr-tl checks, Exo-GPU statically checks that scalar reduce/writes are performed using single threads only, and that all instructions are executed with the correct collective unit (e.g. wgmma instructions must be executed with a collective unit equivalent to \lighttt{cuda\_warpgroup}).
+
 \filbreak
 \mainSub{Warp Specialization}
 
 We primarily support warp specialization with the ``named warps'' feature.
 As an alternative to the \lighttt{blockDim} argument, the \lighttt{CudaDeviceFunction} block supports \lighttt{warp\_config}.
 Use this to populate the CTA with warps that have names, and optional register counts (using the PTX instruction \lighttt{setmaxnreg}).
-Then use \lighttt{with CudaWarps} to map a subtree of code to execute with the warps named.
-This changes the collective unit inside the body of the \lighttt{CudaWarps} block.
+Then use \lighttt{with CudaWarps} to map a subtree of code to execute with the warps named (this changes the collective unit inside the body of the \lighttt{CudaWarps} block).
 
 \input{guide/my_warp_config.0.tex}
 
@@ -254,6 +255,79 @@ For example, the following selects threads [64, 127] and [192, 255]:
 
 \filbreak
 \mainSub{Distributed Memory}
+
+A common pattern in CUDA tensor processing programs is to have a tile of values owned by a large thread collective (e.g., a full CTA), but stored in a memory type that is physically allocated at a finer granularity (e.g. registers, which are allocated per-thread).
+For example, each thread may allocate an $8 \times 4$ tile, and the threads in the CTA may be arranged in a $16 \times 32$ grid, causing the full CTA matrix to be $128 \times 128$.
+We call this pattern \myKeyA{distributed memory}, and the physically allocated pieces \myKeyA{distributed shards}.
+
+\filbreak
+Similar patterns may occur with larger granularity, for example, allocating per-warpgroup shards for wgmma, or per-CTA shards for (cluster) distributed SMEM.
+In Exo, this all falls under the umbrella of ``distributed memory''.
+
+\filbreak
+In handwritten CUDA C++, the declared size of the allocation (distributed shard) won't match the logical size of the tile\footnote{Template libraries like CuTe may smooth this over.}. In Exo-GPU, we want to
+\begin{itemize}
+  \item Have tensor allocations declare the logical size of the tile. This prioritizes expressing \textit{dataflow} in the object code, rather than lowering details (crucial for S/M equivalence).
+  \filbreak
+  \item Support predictable \& user-controllable subdivision of the tile into distributed shards (in contrast to, for example, Triton's automated approach).
+\end{itemize}
+
+\filbreak
+Exo-GPU meets these goals with \myKeyA{distributed memory deduction}, dividing dimensions into \redBox{distributed dimensions}, to the left, and \yellowBox{non-distributed dimensions}, to the right.
+Identically, windowing and indexing expressions divide into distributed indices and non-distributed indices, with distributed indices required to be plain reads of \lighttt{cuda\_threads}-iterators.
+The non-distributed dimensions give the size of the distributed shards.
+In Exo syntax, the previous example looks like:
+
+\filbreak
+\input{guide/simple_dist.0.tex}
+
+\filbreak
+Our goal is to have this ``just work'' for common cases, by inferring distributed memory from the memory's usage pattern (indexing expressions), rather than requiring explicit annotations on distributed memory allocations.
+The user still has full control over this via their loop structure and scheduling operations like \lighttt{reorder\_dim}.
+This guide contains only a summary of the deduction rules; \lighttt{coll\_algebra.py} contains precise documentation.
+
+\filbreak
+\mainKey{Rule 1/4, Native Units:} Each memory type has its own \myKeyA{native unit}, which is the collective unit expected for physically allocating the memory type; e.g., \lighttt{CudaRmem} has native unit \lighttt{cuda\_thread}, and \lighttt{CudaSmemLinear} has native unit CTA.
+The deduction assigns each distributed shard to be allocated by its own distinct thread collective that matches the native unit.
+We enforce this ``one-to-one'' distinctness requirement by deducing a tiling chain.
+
+\begin{figure*}[!b]
+\input{guide/simple_dist.1.tex}
+\caption{Distributed memory example, with tiling chain annotated}
+\label{fig:tiling_chain}
+\end{figure*}
+
+\begin{figure*}[!b]
+\input{guide/simple_dist_cxx.0.tex}
+\caption{Distributed memory example, compiled to CUDA C++}
+\label{fig:simple_dist_cxx}
+\end{figure*}
+
+\filbreak
+\mainKey{Rule 2/4, Tiling Chains:} 
+The \myKeyA{tile thread count} of a given scope is the number of threads in the scope's collective unit, \textbf{ignoring} the effects of warp specialization (see \lighttt{coll\_algebra.py} for more precise treatment).
+The \myKeyA{tiling operator} for a \lighttt{cuda\_threads}-iterator maps the tile thread count $t_0$ of the loop's parent scope to the tile thread count $t_1$ of the loop body; we denote this as $\mathit{iter}: t_0 \mapsto t_1$ \textbf{(figure \ref{fig:tiling_chain})}.
+A valid \myKeyA{tiling chain} is a permutation of \lighttt{cuda\_threads}-iterators such that
+\begin{itemize}
+  \item let $t_a$ be the tile thread count in the scope of the variable's allocation;
+  \item let $t_n$ be the number of threads in the native unit;
+  \item the permuted iterators' tiling operators form a chain $t_a \mapsto ... \mapsto t_n$.
+\end{itemize}
+\filbreak
+The permutation is unambiguous, aside from no-op tiling operators $\mathit{iter}: t_0 \mapsto t_1$ with $t_0 = t_1$.
+
+\filbreak
+Each time the distributed memory is indexed, we consume indices starting from the left, until the consumed indices form a valid tiling chain (successful deduction), or we conclude that deducing a valid tiling chain is impossible, or until we cannot consume another \lighttt{cuda\_threads}-iterator (the deduction fails; recall that distributed indices must be \lighttt{cuda\_threads}-iterators).
+The consumed indices are distributed, and the remaining indices are non-distributed.
+
+\filbreak
+\mainKey{Rule 3/4, Consistent Deduction:} Each time a given variable is indexed, we run the distributed memory deduction again, and the result must match that deduced from all other usages of the variable, i.e., the same thread collective is always used for a given distributed shard.
+
+\filbreak
+\mainKey{Rule 4/4, Lowering:} The distributed dimensions and indices get stripped away as part of the code lowering process.
+The generated C++ contains only non-distributed indices \textbf{(figure \ref{fig:simple_dist_cxx})}.
+More importantly for the Exo user, the compiler removes distributed dimensions and indices before calling code generation callbacks for memory types and instructions.
+So the authors of externalized stuff can remain completely ignorant of this system.
 
 \filbreak
 \mainSub{Synchronization Statements}

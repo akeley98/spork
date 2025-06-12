@@ -129,3 +129,62 @@ def warpgroup_CudaWarps():
                     # Collective unit here is 1 warp
                     # TeX: end warpgroup_CudaWarps[0]
                     pass
+
+@proc
+def simple_dist():
+    # TeX: version simple_dist 2
+    # TeX: begin simple_dist
+    with CudaDeviceFunction(blockDim=512):
+        for task in cuda_tasks(0, xyzzy):
+            # TeX: color remark simple_dist[0]
+            # rrrrrrrrrrrrrrrrrrrrr  yyyyyyyyyyyyyyyyyyyyyyy
+            # Distributed (16 x 32); non-distributed (8 x 4)
+            # TeX: color line *
+            #         rrrrrr  yyyy                                      yyyyy
+            vals: f32[16, 32, 8, 4] @ CudaRmem  # Each thread allocates 8 x 4 registers
+            # TeX: remark simple_dist[1]
+            # Tile here: (512,); $t_a = 512$; $t_n = 1$ (native unit cuda_thread for CudaRmem).
+            # TeX: color line *
+            #   g                                                   gggggggggggggggggg
+            for m in cuda_threads(0, 16, unit=32 * cuda_thread):  # $m: 512\mapsto 32$
+                # TeX: remark simple_dist[1]
+                # Tile here: (32,)
+                # TeX: color line *
+                #   v                                               vvvvvvvvvvvvvvvv
+                for n in cuda_threads(0, 32, unit=cuda_thread):   # $n: 32\mapsto 1$
+                    # TeX: remark simple_dist[1]
+                    # Tile here: (1,)
+                    # TeX: color line simple_dist
+                    #    g  v  yyyy
+                    vals[m, n, 0, 0] = 0
+                    # TeX: color line simple_dist
+                    #    g  v  yyyy
+                    vals[m, n, 0, 1] = 0
+                    # TeX: remark simple_dist[0]
+                    # ...
+                    # TeX: color remark simple_dist[1]
+                    #               ggggggggggggggggggg  vvvvvvvvvvvvvvvvv
+                    # Tiling chain: $m: 512 \mapsto 32$, $n: 32 \mapsto 1$
+                    # TeX: color remark simple_dist[1]
+                    #                       yyyyyyyyyyyyyyy
+                    # Remaining indices are non-distributed
+    # TeX: end simple_dist
+
+"""
+# TeX: version simple_dist_cxx 1
+# TeX: begin simple_dist_cxx[0]
+# TeX: color line *
+#          yyyyy                                rrrrrrr
+float vals[8 * 4];  # Distributed across CTA of 16 x 32 threads
+# TeX: color line *
+#                        ggggggggggg                               ggggggggggggggggggg
+if ([[maybe_unused]] int exo_32thr_m = (threadIdx.x / 32); 1) {  # $m: 512 \mapsto 32$
+# TeX: color line *
+#                          vvvvvvvvvv                               vvvvvvvvvvvvvvvvv
+  if ([[maybe_unused]] int exo_1thr_n = (threadIdx.x % 32); 1) {  # $n: 32 \mapsto 1$
+    vals[0] = 0.0f;
+    vals[1] = 0.0f;  # [m, n] (distributed indices) removed
+    # TeX: end simple_dist_cxx[0]
+  }
+}
+"""
