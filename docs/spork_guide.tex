@@ -220,6 +220,38 @@ The \lighttt{cuda\_threads} loops lower to C++ code that subdivide thread collec
 \filbreak
 \mainSub{Warp Specialization}
 
+We primarily support warp specialization with the ``named warps'' feature.
+As an alternative to the \lighttt{blockDim} argument, the \lighttt{CudaDeviceFunction} block supports \lighttt{warp\_config}.
+Use this to populate the CTA with warps that have names, and optional register counts (using the PTX instruction \lighttt{setmaxnreg}).
+Then use \lighttt{with CudaWarps} to map a subtree of code to execute with the warps named.
+This changes the collective unit inside the body of the \lighttt{CudaWarps} block.
+
+\input{guide/my_warp_config.0.tex}
+
+\filbreak
+We generate completely separate C++ code paths for each warp name.
+This way, warps don't pay static costs for code only executed by differently-named warps (particularly crucial for \lighttt{setmaxnreg}).
+For example, the above code generates C++ helper functions \lighttt{exo\_deviceTask\_consumer}, \lighttt{exo\_deviceTask\_producer}, and \lighttt{exo\_deviceTask\_unused}.
+
+\filbreak
+Additionally, \lighttt{with CudaWarps(lo, hi)} just selects a subset \lighttt{[lo, hi)} of the current thread collective's warps for executing child statements\footnote{This is compatible with named warps, but numbered \lighttt{CudaWarps} blocks must appear as children of named \lighttt{CudaWarps} blocks.} (indices are interpreted relative to the start of the thread collective).
+For example, the following selects threads [64, 127] and [192, 255]:
+
+\input{guide/warpgroup_CudaWarps.0.tex}
+
+\begin{tikzpicture}[node distance=2mm]
+\sffamily
+\node (wg1) [widenode] {\texttt{wg = 1}; threads [128, 255]};
+\node (wg0) [widenode, above=of wg1] {\texttt{wg = 0}; threads [0, 127]};
+\draw [draw=white] (wg1) to node(wg_midpoint)[]{} (wg0);
+\node (cta) [normalnode, text width=18mm, minimum width=18mm, minimum height=18mm, left=of wg_midpoint, xshift=-44mm] {CTA};
+\draw [arrow] (cta) -- node[above] {\texttt{for wg}} ($(wg_midpoint)-(3.2,0)$);
+\node (CudaWarps0) [normalnode, minimum height=8mm, right=of wg0, xshift=30mm] { [64, 127] };
+\node (CudaWarps1) [normalnode, minimum height=8mm, right=of wg1, xshift=30mm] { [192, 255] };
+\draw [arrow] (wg0) -- node[above] {\texttt{CudaWarps(2, 4)}} (CudaWarps0);
+\draw [arrow] (wg1) -- node[above] {\texttt{CudaWarps(2, 4)}} (CudaWarps1);
+\end{tikzpicture}
+
 \filbreak
 \mainSub{Distributed Memory}
 

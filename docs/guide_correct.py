@@ -90,3 +90,42 @@ def cuda_threads_cxx():
               if (int exo_1thr_n = (threadIdx.x % 16); 1) {
             # TeX: end cuda_threads_cxx[0]
 """
+
+# TeX: version my_warp_config 1
+# TeX: begin my_warp_config[0]
+my_warp_config = [
+    CudaWarpConfig("producer", 1, setmaxnreg_dec=40),  # 1 warp; reduce to 40 regs
+    CudaWarpConfig("unused", 3, setmaxnreg_dec=40),  # 3 warps; reduce to 40 regs
+    CudaWarpConfig("consumer", 8, setmaxnreg_inc=232),  # 8 warps; increase to 232 regs
+]  # Total: 12 warps: blockDim=384
+
+@proc
+def warp_config_example():
+    with CudaDeviceFunction(warp_config=my_warp_config):
+        for task in cuda_tasks(0, xyzzy):
+            smem: f32[3, 128, 256] @ CudaSmemLinear  # Common code executed by all warps
+            with CudaWarps(name="producer"):
+                # The string ``producer'' has no meaning to Exo,
+                # but it's less confusing if you put producer code here.
+                # TeX: end my_warp_config[0]
+                for tid in cuda_threads(0, 1):
+                    smem[0,0,0] = 0  # compiler warning fix
+            # TeX: begin my_warp_config[0]
+            with CudaWarps(name="consumer"):
+                # The string ``consumer'' has no meaning to Exo,
+                # but it's less confusing if you put consumer code here.
+                # TeX: end my_warp_config[0]
+                pass
+
+# TeX: version warpgroup_CudaWarps 1
+# TeX: begin warpgroup_CudaWarps[0]
+@proc
+def warpgroup_CudaWarps():
+    with CudaDeviceFunction(blockDim=256):
+        for task in cuda_tasks(0, xyzzy):
+            for wg in cuda_threads(0, 2, unit=cuda_warpgroup):
+                # Collective unit here is 1 warpgroup (4 warps)
+                with CudaWarps(3, 4):
+                    # Collective unit here is 1 warp
+                    # TeX: end warpgroup_CudaWarps[0]
+                    pass
