@@ -519,8 +519,7 @@ just make a mental note we did this in case there's problems later.
 \newpage
 \myTitle{Timelines \& Synchronization}
 
-This will not be a full description of my model for checking correct synchronization.
-For now I'll just sketch out the basics, and go over the changes entailed by moving from the actor kind / actor signature model to the new timeline model:
+For now I'll just sketch out the basics of how the abstract machine tracks read/write visibility, and go over the changes entailed by moving from the actor kind / actor signature model to the new timeline model:
 \begin{itemize}
   \item Each instruction has an ``instruction timeline'' (instr-tl) type, replacing the actor kind used to parameterize \lighttt{CudaAsync} blocks.
   \filbreak

@@ -245,3 +245,4 @@ def Sm80_cp_async_simple(src: f32[128] @ CudaGmemLinear):
             Fence(Sm80_cp_async, cuda_classic)
             # Here: all threads in the CTA can see sync_dst[tid] = src[tid] and async_dst[tid] = src[tid]
             # TeX: end Sm80_cp_async_simple[0]
+

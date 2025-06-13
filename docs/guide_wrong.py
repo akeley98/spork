@@ -47,3 +47,28 @@ for tid in cuda_threads(0, 2, unit=cuda_thread):
 for tid in cuda_threads(0, 2, unit=cuda_thread):
     b[tid] = x[tid]  # b[0] = a[0]; b[1] = a[1]
 # TeX: end why_dist[0]
+
+
+@proc
+def mbarrier_teams():
+    with CudaDeviceFunction(blockDim=512):
+        for task in cuda_tasks(0, xyzzy):
+            # TeX: version mbarrier_teams 1
+            # TeX: begin mbarrier_teams[0]
+            foo: f32[2, 128] @ CudaSmemLinear
+            my_mbarrier: barrier @ CudaMbarrier
+            # Split into two teams of 256 threads each
+            for team in cuda_threads(0, 2, unit=256 * cuda_thread):
+                with CudaWarps(0, 4):
+                    for tid in cuda_threads(0, 128, unit=cuda_thread):
+                        foo[team, tid] = 137
+                    # Threads [0, 127] arrive on my_mbarrier[0]; threads [256, 383] arrive on my_mbarrier[1]
+                    Arrive(cuda_classic, my_mbarrier[team], 1)
+            for team in cuda_threads(0, 2, unit=256 * cuda_thread):
+                with CudaWarps(4, 8):
+                    # Threads [128, 255] wait for my_mbarrier[0]; threads [384, 511] wait for my_mbarrier[1]
+                    Await(my_mbarrier[team], cuda_classic, ~0)
+                    for tid in cuda_threads(0, 128, unit=cuda_thread):
+                        bar: f32 @ CudaRmem
+                        bar = foo[team, tid]
+            # TeX: end mbarrier_teams[0]

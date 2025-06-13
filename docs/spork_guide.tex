@@ -358,16 +358,16 @@ This means it's really important that the distributed indices be explicit in Exo
 \label{fig:Sm80_cp_async_simple}
 \end{figure*}
 
-Unlike everything else in Exo, synchronization statements support a somewhat declarative style, where the user just specifies which sets of threads and what category of instruction effects to synchronize, rather than directly calling wrapped CUDA synchronization instructions.
+Unlike everything else in Exo, synchronization statements support a somewhat abstracted style, where the user just specifies which sets of threads and what category of instruction effects to synchronize, rather than directly calling wrapped CUDA synchronization instructions.
 We still support an imperative programming style (as opposed to automated synchronization, or a dependency graph approach or such), where synchronization statements appear in-line with and get executed in sequence with other imperative Exo code.
 
 \filbreak
-\mainKey{Timeline:} Each memory action (read or write) is performed with a certain instr-tl (instruction timeline), a certain usage-tl (usage timeline), and thread(s).
+\mainKey{Timeline:} Each memory action (read or write) is performed with a certain instr-tl (instruction timeline), a certain usage-tl (usage timeline), and thread(s)\footnote{plural, because some instructions are executed by multiple threads convergently, e.g. wgmma. How to precisely model this is a hole in my current model.}.
 The \myKeyA{instr-tl} and \myKeyA{threads} for a memory action are statically deduced from the instr-tl and collective unit in-scope; the \myKeyA{usage-tl} is programmed per-parameter for wgmma instructions (usage-tl is not relevant for non-wgmma instructions).
 See \lighttt{summer\_of\_wgmma.pdf}, ``Timelines and Synchronization'' for more details on usage-tl.
 
 \filbreak
-Parameterize synchronization statements with \myKeyA{sync-tl} objects (synchronization timelines), which are sets of $(\text{instr-tl} \times \text{usage-tl})$ pairs.
+Parameterize synchronization statements with compile-time \myKeyA{sync-tl} values (synchronization timelines), which contain sets of $(\text{instr-tl} \times \text{usage-tl})$ pairs (additional state described in \lighttt{summer\_of\_wgmma.pdf}, ``Timelines and Synchronization'').
 
 \filbreak
 \mainKey{Fence:} The \lighttt{Fence(first\_tl, second\_tl)} statement expresses a non-split barrier.
@@ -378,16 +378,16 @@ This means that syntactically-identical \lighttt{Fence} statements may lower to 
 The sync-tl parameters filter the effects of the fence \textbf{(figure \ref{fig:Sm80_cp_async_simple})}.
 That is, the fence orders memory actions that
 \begin{enumerate}
-  \item use an $(\text{instr-tl}, \text{usage-tl})$ pair in \lighttt{first\_tl}.
-  \item executed with thread(s) of the fence's executing thread collective
-  \item executed before the fence
-\end{enumerate}
-\filbreak
-before memory actions that
-\begin{enumerate}
-  \item use an $(\text{instr-tl}, \text{usage-tl})$ pair in \lighttt{second\_tl}.
+  \item use an $(\text{instr-tl}, \text{usage-tl})$ pair in \lighttt{second\_tl}
   \item executed with thread(s) of the fence's executing thread collective
   \item executed after the fence
+\end{enumerate}
+\filbreak
+after memory actions that
+\begin{enumerate}
+  \item use an $(\text{instr-tl}, \text{usage-tl})$ pair in \lighttt{first\_tl}
+  \item executed with thread(s) of the fence's executing thread collective
+  \item executed before the fence
 \end{enumerate}
 
 \filbreak
@@ -397,36 +397,133 @@ Anything you've seen anywhere else is probably really out of date now.
 \filbreak
 \mainKey{Split Barrier (Arrive, Await):}
 
-\filbreak
-\mainKey{Queue Barrier:}
+A combination of \lighttt{Arrive(first\_tl, barrier\_name[...], N)} (syntax to change\footnote{\lighttt{Arrive(first\_tl, N) >> barrier\_name[...]}}) and \lighttt{Await(barrier\_name[...], second\_tl, N)} statements express split barriers.
+\lighttt{first\_tl} and \lighttt{second\_tl} are sync-tl values, as before; \lighttt{barrier\_name} is a \lighttt{barrier}-typed variable, and \lighttt{N} is an integer (to be explained in the ``Queue Barrier'' section).
 
 \filbreak
-\minorKey{S/M Equivalence:} We need this thin abstraction since checking that the user satisfied the requirements of the abstract machine is much more tractible than trying to model the semantics of, and check correct usage of, raw CUDA synchroniztaion instructions. See the next section for more justification.
+Declare a barrier variable as \lighttt{<varname>: barrier @ <Memory>}, where \lighttt{<Memory>} is one of \lighttt{CudaCommitGroup}, \lighttt{CudaMbarrier}, or \lighttt{CudaEvent}.
+The memory type controls how the barrier is implemented in CUDA.
+
+\filbreak
+Indices may be supplied in the \lighttt{barrier\_name}; each separate position is a logically separate barrier.
+Currently the \lighttt{barrier} variable declaration doesn't express if it's an ``array'' or not ... maybe change this.
+Interpret all indices as distributed indices (unlike non-barrier allocations, there is no native unit that tells distributed memory deduction when to stop).
+
+\filbreak
+When an arrive statement executes, it orders memory actions that
+\begin{enumerate}
+  \item use an $(\text{instr-tl}, \text{usage-tl})$ pair in \lighttt{second\_tl}
+  \item executed with thread(s) of the arrive statement's executing thread collective
+  \item executed after the arrive statement
+\end{enumerate}
+\filbreak
+after memory actions that
+\begin{enumerate}
+  \item use an $(\text{instr-tl}, \text{usage-tl})$ pair in \lighttt{first\_tl}
+  \item executed with thread(s) of the paired await statement's executing thread collective (pairing to be described in the ``Queue Barrier'' section)
+  \item executed before the paired await statement\footnote{For TMA, we will have to directly associate instructions with awaits, hence the move to \lighttt{>>} syntax. It will look something like \lighttt{some\_tma\_instr(...) >> barrier\_name[...]}.}.
+\end{enumerate}
+
+\filbreak
+For \lighttt{CudaMbarrier} only, we support \lighttt{ReverseArrive} and \lighttt{ReverseAwait} statements, which behave and pair with each other just an \lighttt{Arrive} and \lighttt{Await} statements do, except that reversed statements use a hidden ``reverse barrier'' array parallel to the primary ``forward barrier'' array.
+TODO: this seems bizarre at first glance; explain why this exists.
+
+\filbreak
+See \lighttt{summer\_of\_wgmma.pdf}, ``Arrive/Await Pairing and Multicast'', for detailed usage requirements of barriers.
+
+\filbreak
+\mainKey{Queue Barrier:} In our abstraction, an arrive and await statement use the same \myKeyA{queue barrier} state iff they use the same barrier variable and index values (same for reverse arrive and reverse await statements, which use separate queue barriers from their non-reverse counterparts).
+We control pairing with the \lighttt{N} parameter.
+
+\filbreak
+For simple usage, $N = 1$ for arrive statements.
+
+\filbreak
+For await statements with $N \ge 0$, the await pairs with the $N^{th}$ prior arrive statement using the same queue barrier
+(0-indexed, so $N = 0$ causes await statements to pair with the latest arrive statement).
+This models the meaning of \lighttt{wait\_group N} in CUDA, i.e., wait for all but the last N-many \lighttt{commit\_group} instructions.
+
+\filbreak
+For await statements with $N < 0$, let \lighttt{lag = \textasciitilde N}, and let $Q^2$ be the number of awaits executed using the queue barrier (including this one).
+Then the await statement pairs with the $(Q^2 - \lighttt{lag})^{th}$ arrive statement using the same queue barrier.
+
+\filbreak
+\minorKey{S/M Equivalence:} We need this thin abstraction since checking that the user satisfied the requirements of the abstract machine is much more tractible than trying to model the semantics of, and check correct usage of, raw CUDA synchronization instructions. See the next section for more justification.
 
 \filbreak
 \myTitle{Abstract Machine (Synchronization Model)}
 
+We will only sketch the basic concepts behind ``synchronization checking'' (which is a somewhat misleading term).
+In this process, we will store, in each memory location, a history of each read and write performed on that location.
+These ``read visibility records'' and ``write visibility records'' store the set of threads (and on what timelines) that can observe the read or write.
+These records start only with the thread/timeline that issued the memory action, but they may grow as a result of synchronization statements.
+
+\filbreak
+This process is really defining the semantics and correct usage requirements of the abstract machine that Exo-GPU code executes on, rather than ``synchronization checking'', as synchronization checking is any possible algorithm for verifying a program meets those correct usage requirements (which need not be our initial, simulate-each-memory-access algorithm).
+Given that the Exo-GPU program passes these requirements, it's guaranteed to lower to a correctly-synchronized CUDA C++ program.
+
+\filbreak
+A \myKeyA{timeline signature} is a 3-tuple $(\text{instr-tl}, \text{usage-tl}, \text{thread ID})$; each memory action is performed with a certain timeline signature.
+
+\filbreak  
+A \myKeyA{visibility record} contains an \myKeyA{async visibility set} $V_A$ and a \myKeyA{sync visibility set} $V_S$, both consisting of timeline signatures.
+
+\filbreak
+The abstract machine interprets the program sequentially; for each read or write, we add a new read or write visibility record for that location.
+$V_A$ is initialized with the timeline signature of the memory action, and $V_S$ is initialized either the same as $V_A$, or as the empty set, for synchronous and asynchronous instructions, respectively.
+
+\filbreak
+When interpreting a read, a RAW hazard (read-after-write) gets detected if \textit{any} $V_S$ of a write visibility record for the read location does not contain the timeline signature of the interpreted read.
+
+\filbreak
+When interpreting a write, a WAW or RAW hazard gets detected if \textit{any} $V_S$ of a write or read visibility record for the written location does not contain the timeline signature of the interpreted write.
+
+\filbreak
+If no hazards occur, the program has correct usage.
+Note that the read and write visibility sets are \textit{not} ``allowed to read'' and ``allowed to write'' sets.
+
+\filbreak
+Each fence and await statement interpreted defines a ``second visibility set'' $V_2 = L_2 \times C$, with $L_2$ being a set of $(\text{instr-tl} \times \text{usage-tl})$ from \lighttt{second\_tl: sync-tl}, and $C$ being the threads of the executing thread collective.
+When we interpret the statement, we check for visibility records that synchronize-with the fence or the paired arrive statement.
+Roughly, a visibility record synchronizes-with a fence or an arrive if it contains a timeline signature in $V_A$ that is targetted by the fence or arrive statement\footnote{The precise requirements are in the linked document, and involve a similar first visibility set $V_1$}.
+All such visibility records get augmented, setting $V_A \leftarrow V_A \cup V_2$ and $V_S \leftarrow V_S \cup V_2$.
+In this way, $V_S$ grows (including cases where timeline signatures ``graduate'' from $V_A$ to $V_S$), which resolves potential future hazards.
+
+\filbreak
+See \lighttt{summer\_of\_wgmma.pdf}, ``Timelines and Synchronization'' for more details.
+
 \filbreak
 \mainSub{User's View}
 
-To the language user, Exo-GPU consists of a
-This thin abstraction layer over raw CUDA synchronization enables 
+To the language user, Exo-GPU consists of a sequential language with added parallelization directives that cause the Exo program to predictably transform into parallel CUDA C++ code.
+These constructs, with the exception of some synchronization code, transform 1:1 to CUDA C++, i.e., the generated CUDA C++ code will be syntactically ``isomorphic'' to the scheduled imperative Exo-GPU code.
+
+\filbreak
+The user generally starts scheduling their proc as sequential code, postponing substituting GPU instructions and inserting parallelization directives (parallelize for loop, etc.) as long as possible.
+After the ``skeleton'' of sequential code is ready, the user may issue scheduling directives to move subtrees of code from the CPU to the CUDA device, to parallelize loops, to explicitly assign variables to different CUDA memory types, to substitute asynchronous instructions, and to insert needed synchronization.
+
+\filbreak
+After issuing these directives, the user must ensure that the program, when dynamically executed on the abstract machine, meets the visibility requirements of the abstract machine, at least for the concrete problem size they care about.
+The user may view the abstract machine as a sequential computer that tracks additional per-memory-location state that's relevant for ensuring the final compiled CUDA C++ program is correctly synchronized.
+
+\filbreak
+This thin abstraction layer over raw CUDA synchronization enables S/M equivalence (allowing use of Exo's existing scheduling) and enables synchronization checking tools that can comprehend the user's intent more clearly than if they were at the level of analyzing raw CUDA code.
 
 \filbreak
 \mainSub{Compiler's View}
 
-To the author of the compiler backend, Exo-GPU exposes a number of features that can, for the most part, be translated 1:1 to CUDA code.
+To the author of the compiler backend, Exo-GPU exposes a number of features that can, for the most part, be translated mechanically into CUDA code.
 Only synchronization statements require more in-depth handling (for example, initializing mbarriers at startup).
 
 \filbreak
 Because of the static instr-tl and collective unit type systems, the compiler is empowered to (and must) diagnose straightforward incorrect usage of Exo-GPU: invalid parallel-for loops, incorrect collective units for instructions (convergence requirements not met), or incorrect instr-tl for memory/instr usage.
-Beyond that, checking correct parallelism is outside the scope of the Exo-to-CUDA compiler; we will check correct usage dynamically, or with hypothetical future language extensions.
+Fully checking correct parallelism is outside the scope of the Exo-to-CUDA compiler; we will check correct usage dynamically, or with hypothetical future language extensions.
 
 \filbreak
 \mainSub{Our View\footnote{The ``Our View'' section is a rhetorical device borrowed from the OpenGL spec.}}
 
-We view Exo-GPU programs as targetting a \textit{fundamentally sequential} abstract machine, but mechanically translatable to efficient and predictable code that is parallelized for execution on a physical device.
-This divides the labor of writing correct programs between the user and the compiler author: ``above the waterline'', language users must guarantee the valid usage requirements of the abstract machine are followed; ``below the waterline'', the compiler author must guarantee that correct programs written against the abstract machine translate into correct CUDA programs.
+We view Exo-GPU programs as targetting a fundamentally sequential abstract machine, but mechanically translatable to efficient and predictable code that is parallelized for execution on a physical device.
+This divides the labor of writing correct programs between the user and the compiler author: ``above the waterline'', language users and checking tools must guarantee the correct usage requirements of the abstract machine are followed; ``below the waterline'', the compiler author must guarantee that correct programs written against the abstract machine translate into correct CUDA programs.
 
 \filbreak
 We anticipate this model will meet the needs of both programming language researchers and performance engineers.
@@ -434,7 +531,7 @@ For PL researchers, this model reduces correctness checking to predicates on seq
 For performance engineers, this model retains fine-grained control over instruction selection, mapping of work to threads, and synchronization (at least in the tile-and-tensor-oriented domain Exo is traditionally used for).
 
 \filbreak
-In the initial implementation, valid usage will be checked by literal simulation of the abstract machine.
+In the initial implementation, correct usage will be checked by literal simulation of the abstract machine.
 Ideally, this model will enable synchronization correctness checks (or programming language safety features) that are more abstract and efficient, which could be built upon existing formalism that, until now, supported only programs targetting physically sequential machines.
 
 \end{document}
