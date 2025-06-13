@@ -591,4 +591,20 @@ This is another place that \lighttt{D\_rmem} is subject to distributed memory de
 
 \input{guide/xgemm_Sm80_fence.3.tex}
 
+See the next example for split barriers!
+
+\newpage
+\myTitle{Example with mbarrier}
+
+This is similar to the previous sm\_80 GEMM, except we replaced the \lighttt{Fence} statement with mbarrier synchronization, and generalized the double buffer to a ring buffer (of depth given by the \lighttt{RING} constant).
+
+\input{guide/xgemm_Sm80_mbarrier.0.tex}
+
+\newpage
+\mainSub{mbarrier Code Detail}
+
+Besides replacing the synchronization statements, we just have to change the SMEM ring buffer indexing logic.
+
+\input{guide/xgemm_Sm80_mbarrier.1.tex}
+
 \end{document}

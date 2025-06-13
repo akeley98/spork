@@ -128,7 +128,7 @@ def xgemm_Sm80_mbarrier(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear,
                 # Per CTA code
                 ringbar: barrier @ CudaMbarrier
 
-                # Tiles (double buffered)
+                # Tiles (ring buffer)
                 A_smem : f32[RING, M1, K0] @ CudaSmemLinear
                 B_smem : f32[RING, K0, N1] @ CudaSmemLinear
 
@@ -140,7 +140,7 @@ def xgemm_Sm80_mbarrier(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear,
                             for n_seq in seq(0, Nw/8):
                                 Sm80_mma_zero_d_tf32(D_rmem[mw,nw,m_seq, n_seq,:,:])
 
-                # K tiles loop, double buffered
+                # K tiles loop, ring buffered
                 # Don't accum tile in first LAG-many iterations.
                 # Don't load tile in last LAG-many iterations.
                 # LAG iteration delay between load and use.
