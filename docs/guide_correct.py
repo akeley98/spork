@@ -1,5 +1,6 @@
 from __future__ import annotations
 from exo import *
+from exo.stdlib.scheduling import *
 from exo.platforms.x86 import *
 from exo.platforms.cuda import *
 from exo.platforms.Sm80 import *
@@ -218,8 +219,8 @@ def sync_warp_cta():
             #       gggggggggggg
             # NOTE: cuda_classic means non-async CUDA instructions [FIXME use timelines]
             # TeX: end sync_warp_cta[0]
-            
-            
+
+
 # TeX: version Sm80_cp_async_simple 1
 @proc
 def Sm80_cp_async_simple(src: f32[128] @ CudaGmemLinear):
@@ -249,3 +250,188 @@ def Sm80_cp_async_simple(src: f32[128] @ CudaGmemLinear):
             # Here: all threads in the CTA can see sync_dst[tid] = src[tid] and async_dst[tid] = src[tid]
             # TeX: end Sm80_cp_async_simple[0]
 
+# TeX: version xgemm_Sm80_fence 4
+# TeX: begin xgemm_Sm80_fence[0]
+Mw, Nw = 96, 64
+M1, N1 = 192, 256
+K0, MMA_K = 16, 4
+@proc
+def xgemm_Sm80_fence(M: size, N: size, K: size,
+                     A: f32[M,K] @ CudaGmemLinear, B: f32[K,N] @ CudaGmemLinear,
+                     C: f32[M,N] @ CudaGmemLinear):
+    assert M % M1 == 0
+    assert N % N1 == 0
+    assert K % K0 == 0
+    with CudaDeviceFunction(blockDim = 256, blocks_per_sm = 1):
+        for m2 in cuda_tasks(0, M / M1):
+            for n2 in cuda_tasks(0, N / N1):
+                # TeX: end xgemm_Sm80_fence[0]
+                # TeX: begin xgemm_Sm80_fence
+                # Per CTA code: each CTA handles (M1 x N1) tile
+                A_smem : f32[2, M1, K0] @ CudaSmemLinear  # Input tiles (double buffered)
+                B_smem : f32[2, K0, N1] @ CudaSmemLinear
+                # Accumulator tiles
+                # TeX: color remark xgemm_Sm80_fence[1] xgemm_Sm80_fence[3]
+                #                                       rrrrrrrrrrrrrrrrrrrrrr
+                # Distributed memory: suballocated into (M1/Mw = 2, N1/Nw = 4) grid of warps
+                # TeX: color remark xgemm_Sm80_fence[1]
+                #                   yyyyyyyyyyyyyyyyyyyyy
+                # Each warp holds a (Mw/16 = 6, Nw/8 = 4) grid of MMA D tiles, themselves
+                # TeX: color remark xgemm_Sm80_fence[1]
+                #         bbbbbbbbbbbbb
+                # holding $16 \times 8$ values in a CUDA-defined packed format. $t_a = 256$, $t_n = 32$
+                # TeX: color line xgemm_Sm80_fence[1]
+                #            rrrrrrrrrrrr  yyyyyyyyyyy  bbbbb
+                # TeX: color line xgemm_Sm80_fence[3]
+                #            rrrrrrrrrrrr
+                D_rmem : f32[M1/Mw, N1/Nw, Mw/16, Nw/8, 16, 8] @ Sm80_RmemMatrixD
+                # TeX: end xgemm_Sm80_fence
+                # TeX: begin xgemm_Sm80_fence[0]
+                # TeX: begin xgemm_Sm80_fence[1]
+                # TeX: color line xgemm_Sm80_fence[1]
+                #   gg
+                for mw in cuda_threads(0, M1/Mw, unit=(N1/Nw) * cuda_warp):
+                    # TeX: color line xgemm_Sm80_fence[1]
+                    #   vv
+                    for nw in cuda_threads(0, N1/Nw, unit=cuda_warp):
+                        # TeX: end xgemm_Sm80_fence[0]
+                        # TeX: summary
+                        # Each warp zeros out its accumulators
+                        for m_seq in seq(0, Mw/16):
+                            for n_seq in seq(0, Nw/8):
+                                # TeX: color line xgemm_Sm80_fence[1]
+                                #                           gg  vv
+                                Sm80_mma_zero_d_tf32(D_rmem[mw, nw, m_seq, n_seq,:,:])
+                                # TeX: color remark xgemm_Sm80_fence[1]
+                                # ggggggggggggggggggggg  vvvvvvvvvvvvvvvvvvvv
+                                # $mw: 256 \mapsto 128$, $nw: 128 \mapsto 32$
+                # TeX: end xgemm_Sm80_fence[1]
+
+                # TeX: begin xgemm_Sm80_fence
+                # K tiles loop, double buffered. 1 iteration delay between load and use.
+                # Don't accum tile in first iteration; don't load tile in last iteration.
+                for k1 in seq(0, K / K0 + 1):
+                    if k1 < K / K0:
+                        # TeX: end xgemm_Sm80_fence
+                        # TeX: begin xgemm_Sm80_fence[2]
+                        # TeX: color line *
+                        #    yyyyyyyyy
+                        with CudaAsync(Sm80_cp_async):  # We must wrap cp.async usage with CudaAsync
+                            # TeX: summary
+                            # Load A tile using cp.async
+                            # TeX: color line *
+                            #         yyy
+                            for m1 in seq(0, M1 / 64):
+                                # Split CTA into (m0, k0) grid of (64, 4) threads
+                                for m0 in cuda_threads(0, 64, unit=4 * cuda_thread):
+                                    for k0 in cuda_threads(0, 4, unit=cuda_thread):
+                                        Sm80_cp_async_f32(  # Exo cp.async instr; double buffer with k1 % 2
+                                            # TeX: color line *
+                                            #      yyyyyy
+                                            A_smem[k1 % 2, m1 * 64 + m0, 4 * k0 : 4 * k0 + 4],
+                                            A[m2 * M1 + m1 * 64 + m0, k1 * K0 + k0 * 4 : k1 * K0 + k0 * 4 + 4],
+                                            size=4)
+                            # TeX: summary
+                            # Load B tile using cp.async
+                            # TeX: color line *
+                            #             yyy
+                            for k0_seq in seq(0, 4):
+                                # Split CTA into (k0_par, n0) grid of (4, 64) threads
+                                for k0_par in cuda_threads(0, 4, unit=64 * cuda_thread):
+                                    for n0 in cuda_threads(0, 64, unit=cuda_thread):
+                                        Sm80_cp_async_f32(  # Exo cp.async instr; double buffer with k1 % 2
+                                            # TeX: color line *
+                                            #      yyyyyy
+                                            B_smem[k1 % 2, k0_seq * 4 + k0_par, 4 * n0 : 4 * n0 + 4],
+                                            B[k1 * K0 + k0_seq * 4 + k0_par,
+                                              n2 * N1 + 4 * n0 : n2 * N1 + 4 * n0 + 4],
+                                            size=4)
+                    # TeX: end xgemm_Sm80_fence[2]
+                    # TeX: begin xgemm_Sm80_fence
+                    if k1 > 0:
+                        # TeX: remark! xgemm_Sm80_fence[3]
+                        # Split CTA into (mw, nw) grid of (2, 4) warps
+                        # TeX: color line *
+                        #   rr
+                        for mw in cuda_threads(0, M1 / Mw, unit=(N1/Nw) * cuda_warp):
+                            # TeX: color line *
+                            #   rr
+                            for nw in cuda_threads(0, N1 / Nw, unit=cuda_warp):
+                                # TeX: end xgemm_Sm80_fence
+                                # TeX: begin xgemm_Sm80_fence[3]
+                                # Load all B matrix tiles ahead of time
+                                # Note double buffer index 1 - k1 % 2 (opposite buffer as used by cp.async)
+                                B_rmem : f32[K0/MMA_K, Nw/8, MMA_K, 8] @ Sm80_RmemMatrixB
+                                for n_seq in seq(0, Nw / 8, pragma_unroll=0):
+                                    for k_seq in seq(0, K0 / MMA_K, pragma_unroll=0):
+                                        # TeX: color line *
+                                        #                                                    yyyyyyyyyy
+                                        Sm80_mma_load_b_tf32(B_rmem[k_seq,n_seq,:,:], B_smem[1 - k1 % 2,
+                                                             k_seq*MMA_K:(k_seq+1)*MMA_K,
+                                                             nw*Nw + n_seq*8 : nw*Nw + (n_seq+1)*8], K=MMA_K)
+                                # TeX: color line *
+                                #                   ggggggg
+                                for m_seq in seq(0, Mw / 16, pragma_unroll=0):
+                                    # Load A matrix tiles needed for m iteration
+                                    A_rmem : f32[K0/MMA_K, 16, MMA_K] @ Sm80_RmemMatrixA
+                                    for k_seq in seq(0, K0 / MMA_K, pragma_unroll=0):
+                                        # TeX: color line *
+                                        #                                              yyyyyyyyyy
+                                        Sm80_mma_load_a_tf32(A_rmem[k_seq,:,:], A_smem[1 - k1 % 2,
+                                                             mw*Mw + m_seq*16 : mw*Mw + (m_seq+1)*16,
+                                                             k_seq*MMA_K:(k_seq+1)*MMA_K], K=MMA_K)
+                                    # TeX: summary
+                                    # Accumulate to tile owned by warp.
+                                    # TeX: color line *
+                                    #                      ggggggg  vvvvvv
+                                    # Each warp handles a (Mw / 16, Nw / 8) grid of $16 \times 8$ packed tiles
+                                    # TeX: color line *
+                                    #                   vvvvvv
+                                    for n_seq in seq(0, Nw / 8, pragma_unroll=0):
+                                        for k_seq in seq(0, K0 / MMA_K, pragma_unroll=0):
+                                            # TeX: color line *
+                                            #                    rr  rr
+                                            Sm80_mma_tf32(D_rmem[mw, nw, m_seq, n_seq, :,:],
+                                                          A_rmem[k_seq,:,:], B_rmem[k_seq,n_seq,:,:], K=MMA_K)
+                                            # TeX: color remark xgemm_Sm80_fence[3]
+                                            # rrrrrrrrrrrrrrrrrrrrr  rrrrrrrrrrrrrrrrrrrr
+                                            # $mw: 256 \mapsto 128$, $nw: 128 \mapsto 32$
+                                # TeX: end xgemm_Sm80_fence[3]
+
+                    # TeX: begin xgemm_Sm80_fence
+                    # Sm80_generic = (cuda_classic | Sm80_cp_async)
+                    # TeX: color line xgemm_Sm80_fence[0]
+                  # yyyyy
+                    Fence(Sm80_generic, Sm80_generic)
+                # for-k1 (K tiles) loop ends
+                # TeX: end xgemm_Sm80_fence
+
+                # TeX: begin xgemm_Sm80_fence[0]
+                # TeX: color line xgemm_Sm80_fence[1]
+                #   gg
+                for mw in cuda_threads(0, M1 / Mw, unit=(N1/Nw) * cuda_warp):
+                    # TeX: color line xgemm_Sm80_fence[1]
+                    #   vv
+                    for nw in cuda_threads(0, N1 / Nw, unit=cuda_warp):
+                        # TeX: end xgemm_Sm80_fence[0]
+                        # TeX: begin xgemm_Sm80_fence[1]
+                        # TeX: summary
+                        # Write out per-warp accumulators D to GMEM C
+                        for m_seq in seq(0, Mw / 16, pragma_unroll=0):
+                            for n_seq in seq(0, Nw / 8, pragma_unroll=0):
+                                Sm80_mma_store_d_tf32(
+                                    C[m2 * M1 + mw * Mw + m_seq * 16 : m2 * M1 + mw * Mw + (m_seq+1) * 16,
+                                    n2 * N1 + nw * Nw + n_seq * 8 : n2 * N1 + nw * Nw + (n_seq+1) * 8],
+                                    # TeX: color line xgemm_Sm80_fence[1]
+                                    #      gg  vv
+                                    D_rmem[mw, nw, m_seq,n_seq,:,:])
+                                # TeX: color remark xgemm_Sm80_fence[1]
+                                # ggggggggggggggggggggg  vvvvvvvvvvvvvvvvvvvv
+                                # $mw: 256 \mapsto 128$, $nw: 128 \mapsto 32$
+                        # TeX: end xgemm_Sm80_fence[1]
+                # TeX: begin xgemm_Sm80_fence
+                # End per-CTA code
+                # TeX: end xgemm_Sm80_fence
+# TeX: begin xgemm_Sm80_fence[0]
+xgemm_Sm80_fence = simplify(xgemm_Sm80_fence)
+# TeX: end xgemm_Sm80_fence[0]

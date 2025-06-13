@@ -543,4 +543,52 @@ For performance engineers, this model retains fine-grained control over instruct
 In the initial implementation, correct usage will be checked by literal simulation of the abstract machine.
 Ideally, this model will enable synchronization correctness checks (or programming language safety features) that are more abstract and efficient, which could be built upon existing formalism that, until now, supported only programs targetting physically sequential machines.
 
+\newpage
+\myTitle{Appendix: sm\_80 cp.async GEMM Example}
+
+The appendix builds up an output stationary matmul example, using sm\_80 \lighttt{cp.async} and \lighttt{mma} (warp-cooperative matrix multiply-accumulate).
+
+The kernel
+\begin{itemize}
+  \item Divides the output matrix into \lighttt{M1 $\times$ N1} tiles; each is a task assigned to one CTA.
+  \item Subdivides the CTA tile into sub-tiles, each assigned to one warp of the CTA.
+  \item Tiles the input block-row of $A$ and block-column of $B$ by \lighttt{K1=16} on the $k$ dimension.
+  \item Caches $A$ and $B$ tiles in a double buffer; one buffer is the destination of in-flight \lighttt{cp.async} instructions and the other is being read from by \lighttt{mma} instructions.
+  \item Loops over the $k$-tiles, simultaneously accumulating this iteration's $k$ tiles and issuing the async copies for the next iteration's $k$-tiles.
+\end{itemize}
+
+\newpage
+\mainSub{Skeleton Code}
+
+We'll fill in the \codecomment{\#...} code later.
+
+The \texttt{\yellowBox{Fence}} statement ensures that the consumer (\lighttt{mma}) code waits for the producer (\lighttt{cp.async}) code to finish, and that the producer code doesn't overwrite a tile that the consumer is still reading from.
+
+\input{guide/xgemm_Sm80_fence.0.tex}
+
+\newpage
+\mainSub{Per-Warp Tiles: Distributed Memory}
+
+Here we filled out the code for declaring the accumulator tile \lighttt{D\_rmem}, initializing it to 0 (using \lighttt{Sm80\_mma\_zero\_d\_tf32}), and writing the final accumulator back to global memory (using \lighttt{Sm80\_mma\_store\_d\_tf32}). The native unit for \lighttt{D\_rmem @ Sm80\_RmemMatrixD} is \lighttt{cuda\_warp}, but the variable is declared at CTA-scope, so it's subject to distributed memory deduction.
+
+\input{guide/xgemm_Sm80_fence.1.tex}
+
+\newpage
+\mainSub{Async Copies}
+
+The \lighttt{cp.async} instruction gets called by individual threads (unlike warp-cooperative \lighttt{mma}) and, in our usage, copies 16 bytes at a time.
+We split the CTA into individual threads with \lighttt{cuda\_threads} loops.
+Note that there's too many values to copy all at once, so we have \lighttt{seq} loops; each thread issues multiple \lighttt{cp.async} instructions for loading the $A$ and $B$ tiles.
+
+\input{guide/xgemm_Sm80_fence.2.tex}
+
+\newpage
+\mainSub{MMA Instructions}
+
+In the consumer code, we split the CTA into warps.
+Each warp owns a distributed shard of \lighttt{D\_rmem} with dimensions \lighttt{[Mw/16, Nw/8, 16, 8]}, but the actual \lighttt{mma} instruction (\lighttt{Sm80\_mma\_tf32} in Exo) operates only on packed $16 \times 8$ tiles, so we need a lot of \lighttt{seq} loops to load the packed tiles from SMEM and accumulate them.
+This is another place that \lighttt{D\_rmem} is subject to distributed memory deduction; the compiler checks consistency with the other deductions for \lighttt{D\_rmem}.
+
+\input{guide/xgemm_Sm80_fence.3.tex}
+
 \end{document}

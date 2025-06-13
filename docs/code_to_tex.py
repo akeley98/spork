@@ -192,7 +192,7 @@ def parse_filter(s):
                     return VersionFilter(name, lo, hi)
         raise ValueError("Expect 'name[{lo}:{hi}]'")
     except Exception as e:
-        raise ValueError(f"Line {lineno}: could not parse filter {s}: {e}") from e
+        raise ValueError(f"Could not parse filter {s}: {e}") from e
 
 def parse_filters(version_names, frags):
     if not frags:
