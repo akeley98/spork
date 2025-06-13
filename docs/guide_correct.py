@@ -196,10 +196,13 @@ def sync_warp_cta():
         # TeX: begin sync_warp_cta[0]
         for task in cuda_tasks(0, xyzzy):
             smem: f32[4] @ CudaSmemLinear
+            # TeX: color line *
+            #                                bbbbbbbbb
             for w in cuda_threads(0, 4, unit=cuda_warp):
                 for tid in cuda_threads(0, 1, unit=cuda_thread):
                     smem[w] = 42
-                # TeX: remark! *
+                # TeX: color remark! *
+                #                       bbbb
                 # Collective unit here: warp (Fence lowers to __syncwarp() equivalent)
                 # TeX: color line *
               #       gggggggggggg  gggggggggggg

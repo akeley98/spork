@@ -98,7 +98,7 @@ For example, the collective unit ``warp'' describes the thread intervals [0,31],
 \end{figure*}
 
 All non-\lighttt{@instr} procs consist of CPU code at the top level.
-Exo-GPU defines two kinds of async blocks, which overrides the instr-tl within the block \textbf{(figure \ref{fig:AsyncBlocks})}.
+Exo-GPU defines two kinds of async blocks, which override the instr-tl within the block \textbf{(figure \ref{fig:AsyncBlocks})}.
 
 \filbreak
 \lighttt{with CudaDeviceFunction(...)}: from CPU code, open a block of in-order CUDA code.
@@ -236,7 +236,7 @@ For example, the above code generates C++ helper functions \lighttt{exo\_deviceT
 
 \filbreak
 Additionally, \lighttt{with CudaWarps(lo, hi)} just selects a subset \lighttt{[lo, hi)} of the current thread collective's warps for executing child statements\footnote{This is compatible with named warps, but numbered \lighttt{CudaWarps} blocks must appear as children of named \lighttt{CudaWarps} blocks.} (indices are interpreted relative to the start of the thread collective).
-For example, the following selects threads [64, 127] and [192, 255]:
+For example, the following selects threads [96, 127] and [224, 255]:
 
 \input{guide/warpgroup_CudaWarps.0.tex}
 
@@ -247,10 +247,10 @@ For example, the following selects threads [64, 127] and [192, 255]:
 \draw [draw=white] (wg1) to node(wg_midpoint)[]{} (wg0);
 \node (cta) [normalnode, text width=18mm, minimum width=18mm, minimum height=18mm, left=of wg_midpoint, xshift=-44mm] {CTA};
 \draw [arrow] (cta) -- node[above] {\texttt{for wg}} ($(wg_midpoint)-(3.2,0)$);
-\node (CudaWarps0) [normalnode, minimum height=8mm, right=of wg0, xshift=30mm] { [64, 127] };
-\node (CudaWarps1) [normalnode, minimum height=8mm, right=of wg1, xshift=30mm] { [192, 255] };
-\draw [arrow] (wg0) -- node[above] {\texttt{CudaWarps(2, 4)}} (CudaWarps0);
-\draw [arrow] (wg1) -- node[above] {\texttt{CudaWarps(2, 4)}} (CudaWarps1);
+\node (CudaWarps0) [normalnode, minimum height=8mm, right=of wg0, xshift=30mm] { [96, 127] };
+\node (CudaWarps1) [normalnode, minimum height=8mm, right=of wg1, xshift=30mm] { [224, 255] };
+\draw [arrow] (wg0) -- node[above] {\texttt{CudaWarps(3, 4)}} (CudaWarps0);
+\draw [arrow] (wg1) -- node[above] {\texttt{CudaWarps(3, 4)}} (CudaWarps1);
 \end{tikzpicture}
 
 \filbreak
@@ -321,7 +321,7 @@ Each time the distributed memory is indexed, we consume indices starting from th
 The consumed indices are distributed, and the remaining indices are non-distributed.
 
 \filbreak
-\mainKey{Rule 3/4, Consistent Deduction:} Each time a given variable is indexed, we run the distributed memory deduction again, and the result must match that deduced from all other usages of the variable, i.e., the same thread collective is always used for a given distributed shard.
+\mainKey{Rule 3/4, Consistent Deductions:} Each time a given variable is indexed, we run the distributed memory deduction again, and the result must match that deduced from all other usages of the variable, i.e., the same thread collective is always used for a given distributed shard.
 
 \filbreak
 \mainKey{Rule 4/4, Lowering:} The distributed dimensions and indices get stripped away as part of the code lowering process.
@@ -410,6 +410,9 @@ Currently the \lighttt{barrier} variable declaration doesn't express if it's an 
 Interpret all indices as distributed indices (unlike non-barrier allocations, there is no native unit that tells distributed memory deduction when to stop).
 
 \filbreak
+TODO: I'm summarizing the behavior of split barriers in the abstract machine, but for real users it will likely make much more sense to lead with ``this is the barrier you need to generate CUDA construct X''.
+
+\filbreak
 When an arrive statement executes, it orders memory actions that
 \begin{enumerate}
   \item use an $(\text{instr-tl}, \text{usage-tl})$ pair in \lighttt{second\_tl}
@@ -480,7 +483,6 @@ When interpreting a write, a WAW or RAW hazard gets detected if \textit{any} $V_
 
 \filbreak
 If no hazards occur, the program has correct usage.
-Note that the read and write visibility sets are \textit{not} ``allowed to read'' and ``allowed to write'' sets.
 
 \filbreak
 Each fence and await statement interpreted defines a ``second visibility set'' $V_2 = L_2 \times C$, with $L_2$ being a set of $(\text{instr-tl} \times \text{usage-tl})$ from \lighttt{second\_tl: sync-tl}, and $C$ being the threads of the executing thread collective.
@@ -490,9 +492,16 @@ All such visibility records get augmented, setting $V_A \leftarrow V_A \cup V_2$
 In this way, $V_S$ grows (including cases where timeline signatures ``graduate'' from $V_A$ to $V_S$), which resolves potential future hazards.
 
 \filbreak
+Common point of confusion: the read and write visibility sets are \textit{not} ``allowed to read'' and ``allowed to write'' sets.
+Hazard checking is essentially a ``conjunction of disjunctions''; ``disjunction'', because visibility sets grow as a union of $V_2$ sets, and ``conjunction'', because of how all visibility sets $V_S$ must contain the checked timeline signature.
+A single visibility set by itself doesn't give enough permission information.
+
+\filbreak
 See \lighttt{summer\_of\_wgmma.pdf}, ``Timelines and Synchronization'' for more details.
 
 \filbreak
+\myTitle{Conclusion}
+
 \mainSub{User's View}
 
 To the language user, Exo-GPU consists of a sequential language with added parallelization directives that cause the Exo program to predictably transform into parallel CUDA C++ code.
@@ -503,7 +512,7 @@ The user generally starts scheduling their proc as sequential code, postponing s
 After the ``skeleton'' of sequential code is ready, the user may issue scheduling directives to move subtrees of code from the CPU to the CUDA device, to parallelize loops, to explicitly assign variables to different CUDA memory types, to substitute asynchronous instructions, and to insert needed synchronization.
 
 \filbreak
-After issuing these directives, the user must ensure that the program, when dynamically executed on the abstract machine, meets the visibility requirements of the abstract machine, at least for the concrete problem size they care about.
+After issuing these directives, the user must ensure that the program, when dynamically executed on the abstract machine, meets the correct usage requirements of the abstract machine, at least for the concrete problem size they care about.
 The user may view the abstract machine as a sequential computer that tracks additional per-memory-location state that's relevant for ensuring the final compiled CUDA C++ program is correctly synchronized.
 
 \filbreak
