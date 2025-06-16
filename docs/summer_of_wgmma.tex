@@ -863,6 +863,96 @@ Static analysis: for each \lighttt{[Reverse]Arrive} statement using $Q$, search 
 \filbreak
 \mainSub{Arrive Multicast}
 
+See this \webText{Colfax Research Article}{https://research.colfax-intl.com/cutlass-tutorial-gemm-with-thread-block-clusters-on-nvidia-blackwell-gpus/}, especially ``Constructing bitmasks'', for background.
+This is for tcgen05 (Blackwell), but the cluster and CTA mask content applies to wgmma as well.
+
+\filbreak
+CUDA supports arriving on mbarriers in other CTAs of the same cluster.
+Each queue barrier (with \lighttt{CudaMbarrier} memory type) lowers to a ring buffer of mbarriers, and we use distributed memory to model the full ``array'' of per-CTA mbarriers in a cluster.
+So it would be intuitive to extend the distributed indices feature to express such multicasting, e.g., something like
+
+\filbreak
+\input{su_samples/intro_multicast_mbarrier.0.tex}
+
+\filbreak
+In the abstract machine, the meaning of this is instead of adding a single pending arrive $(Q, Q^1)$ to visibility records that synchronize-with the arrive, we add $(Q, Q^1)$ for each queue barrier $Q$ named in any of the expressions following \lighttt{>>} (removing duplicates).
+
+\filbreak
+If there's multiple \lighttt{Arrive} or \lighttt{ReverseArrive} statements for the same barrier variable, their multicasting must be the same (so the above example illustrating multiple possible patterns is not valid within a single Exo proc).
+
+Multicasting poses some challenges for our model:
+\begin{itemize}
+\item Since a distributed index was replaced with \lighttt{:}, how do we adapt distributed memory deduction to match?
+\filbreak
+\item The arrive count $Q^1$ is per-queue-barrier state in our model, but having this vary dynamically in different CTAs is not really implementable (nor useful), so we have to ensure $Q^1$ is uniform for all queue barriers involved in the arrive statement.
+\filbreak
+\item How does this interact with mbarrier pairing?
+\end{itemize}
+
+\filbreak
+\mainKey{Distributed Memory Deduction:} Each \lighttt{>> barrier-name[idxs...]} is a \myKeyA{barrier expression}.
+Await statements may not take multiple barrier expressions.
+Arrive statements may take multiple barrier expressions, subject to the rules:
+\begin{itemize}
+  \item All barrier names, and length of the indices list, must be identical.
+  \filbreak
+  \item Each index is either a \lighttt{cuda\_threads}-iterator, or \lighttt{:}.
+  \filbreak
+  \item For each \lighttt{i}, at least one \lighttt{idxs} must have \lighttt{idxs[i]} being a \lighttt{cuda\_threads}-iterator\footnote{This is the reason for the ``redundant'' barrier expressions earlier. The expression \lighttt{>> ringbar[m\_cta, :]} alone would have had the lone \lighttt{:} flagged as an error.} (instead of \lighttt{:}).
+    This is the \lighttt{i}-th shared \lighttt{cuda\_threads} iterator.
+    If multiple \lighttt{idxs} have \lighttt{idxs[i]} being a \lighttt{cuda\_threads}-iterator, they must all agree.
+\end{itemize}
+
+\filbreak
+We reduce the raw queue barrier expressions to a shared barrier variable name and \lighttt{cuda\_threads}-iterator list, and a per-barrier-expression ``multicast flags'' list (True means \lighttt{:}).
+For example, in the case \lighttt{>> ringbar[m\_cta, n\_cta] >> ringbar[:, n\_cta]}, the state would be
+\begin{itemize}
+  \item variable name: \lighttt{ringbar}
+  \filbreak
+  \item iterators: \lighttt{[m\_cta, n\_cta]}
+  \filbreak
+  \item per-expression multicast flags: \lighttt{[False, False]}, \lighttt{[True, False]}
+\end{itemize}
+
+The variable name and \lighttt{cuda\_threads} iterators get used for distirbuted memory deduction (which ignores multicasting).
+We say that a barrier expression \textit{multicasts} the $n^{th}$ iterator if its $n^{th}$ multicast flag is true (e.g., in the previous example, \lighttt{ringbar[:, n\_cta]} multicasts \lighttt{\textit{m}\_cta}).
+
+\filbreak
+\mainKey{Arrive Count:} I'm not super happy with this solution, but this is what I have so far.
+
+\filbreak
+These multicast barriers are a bit awkward because, on the one hand, they are cluster-wide operations, and so should go \textit{outside} the per-CTA loops, but on the other hand, they have to be \textit{inside} the per-CTA loops so we have access to the \lighttt{cuda\_threads}-iterators needed to program the multicasting behavior (see the Colfax article earlier to see that the ``same \lighttt{m\_cta} OR same \lighttt{n\_cta}'' use case is real; we can't just trivially support ``multicast to all CTAs'').
+
+\filbreak
+For now my compromise is to require multicast \lighttt{[Reverse]Arrive} statements to appear in a \lighttt{cuda\_threads} loop nest containing only the arrive statement.
+We search outwards and enforce this until all multicast variables are found.
+This allows the abstract machine to execute the loop nest as a single compound statement; each queue barrier $Q$ involved has $Q^1$ incremented exactly once in the compound statement.
+
+\filbreak
+\input{su_samples/multicast_loop_nest.0.tex}
+
+\filbreak
+\input{su_samples/multicast_loop_nest.1.tex}
+
+\filbreak
+(TODO: either find a better way to model this, or carefully specify the behavior of this compound statement in the context of the rest of the abstract machine).
+
+\filbreak
+The palatability of this solution hinges on whether we can add good scheduling operators or scheduling libraries to help users deal with this issue.
+
+\filbreak
+\mainKey{Mbarrier Pairing:} I have not fully figured out the best way to adapt the mbarrier pairing requirement.
+Currently, I plan to support multicast for barriers using \lighttt{ReverseArrive} and \lighttt{ReverseAwait}, and perhaps assert that a queue barrier $Q$ is \lighttt{Arrive}'d on iff $\widehat{Q}$ is \lighttt{ReverseArrive}'d on:
+
+\input{su_samples/multicast_pairing_fail.0.tex}
+
+\filbreak
+\mainSub{Instr Barrier Parameter}
+
+%% \filbreak
+%% TMA GMEM-to-SMEM instructions specifically require an mbarrier, and multicasting information (a.k.a. CTA mask) to operate.
+%% The \lighttt{expect-tx}
+
 \filbreak
 \minorSub{mbarrier Ring Buffer}
 

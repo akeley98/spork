@@ -284,3 +284,111 @@ for cta in cuda_threads(0, 8, unit=cuda_cta_in_cluster):
         Await(warp_bars[cta, w], cuda_temporal, ~2)
     # ...
 # TeX: end mbarrier_var[1:]
+
+# TeX: version intro_multicast_mbarrier 1
+# TeX: begin intro_multicast_mbarrier[0]
+# 4 x 2 grid of CTAs in cluster (assume clusterDim = 8).
+ringbar: barrier @ CudaMbarrier
+for m_cta in cuda_threads(0, 4, unit=2 * cuda_cta_in_cluster):
+    for n_cta in cuda_threads(0, 2, unit=cuda_cta_in_cluster):
+        # TeX: color line intro_multicast_mbarrier[0]
+        #           bbbbbbbbbb
+        # Arrive on this CTA's mbarriers
+        # TeX: color line intro_multicast_mbarrier[0]
+        #                                  bbbbbbbbbbbb
+        Arrive(cuda_classic, 1) >> ringbar[m_cta, n_cta]
+for m_cta in cuda_threads(0, 4, unit=2 * cuda_cta_in_cluster):
+    for n_cta in cuda_threads(0, 2, unit=cuda_cta_in_cluster):
+        # Arrive on this CTA's mbarriers, as well as on the mbarriers of any
+        # CTA with the same m_cta value (redundancy to be explained).
+        # TeX: color line intro_multicast_mbarrier[0]
+        #                                                                  b
+        Arrive(cuda_classic, 1) >> ringbar[m_cta, n_cta] >> ringbar[m_cta, :]
+for m_cta in cuda_threads(0, 4, unit=2 * cuda_cta_in_cluster):
+    for n_cta in cuda_threads(0, 2, unit=cuda_cta_in_cluster):
+        # Arrive on the mbarriers of any CTA with the same n_cta value
+        # TeX: color line intro_multicast_mbarrier[0]
+        #                                                           b
+        Arrive(cuda_classic, 1) >> ringbar[m_cta, n_cta] >> ringbar[:, n_cta]
+for m_cta in cuda_threads(0, 4, unit=2 * cuda_cta_in_cluster):
+    for n_cta in cuda_threads(0, 2, unit=cuda_cta_in_cluster):
+        # Arrive on any mbarriers named in either expression.
+        # i.e., any with the same m_cta or the same n_cta.
+        Arrive(cuda_classic, 1) >> ringbar[m_cta, :] >> ringbar[:, n_cta]
+# TeX: end intro_multicast_mbarrier[0]
+
+# TeX: version multicast_mbarrier_dist 1
+# TeX: begin multicast_mbarrier_dist[0]
+# 4 x 2 grid of CTAs in cluster (assume clusterDim = 8). Let $B$ = blockDim
+ringbar: barrier @ CudaMbarrier
+# TeX: color line *
+#   ggggg                                                                      gggg
+for m_cta in cuda_threads(0, 4, unit=2 * cuda_cta_in_cluster):  # Thread pitch $2B$
+    # TeX: color line *
+    #   vvvvv                                                                  vvv
+    for n_cta in cuda_threads(0, 2, unit=cuda_cta_in_cluster):  # Thread pitch $B$
+        # TeX: color line *
+        #             ggggg  vvvvv                       gggggggggggggggggggggg  vvvvvvvvvvvvvvvvvvvvv
+        Await(ringbar[m_cta, n_cta], cuda_classic, 1)  # m_cta: $8B \mapsto 2B$, n_cta: $2B \mapsto B$
+for m_cta in cuda_threads(0, 4, unit=2 * cuda_cta_in_cluster):
+    for n_cta in cuda_threads(0, 2, unit=cuda_cta_in_cluster):
+        # Arrive on the mbarriers of any CTA with the same m_cta value
+        Arrive(cuda_classic, 1) >> ringbar[:, n_cta]
+# TeX: end multicast_mbarrier_dist[0]
+
+# TeX: version multicast_loop_nest 2
+# TeX: begin multicast_loop_nest[0]
+for m_cta in cuda_threads(0, 4, unit=2 * cuda_cta_in_cluster):
+    # TeX: remark! *
+    # Begin compound statement
+    # TeX: color line *
+    #   vvvvv
+    for n_cta in cuda_threads(0, 2, unit=cuda_cta_in_cluster):
+        # Only n_cta is multicast. Enforce loop nest requirement up to n_cta loop.
+        # TeX: color line *
+        #                                         vvvvv                    v
+        Arrive(cuda_classic, 1) >> ringbar[m_cta, n_cta] >> ringbar[m_cta, :]
+    # TeX: remark! *
+    # End compound statement
+    # A statement here would be valid, since it's outside the compound statement.
+# TeX: end multicast_loop_nest[0]
+
+# TeX: begin multicast_loop_nest[1]
+# TeX: remark! *
+# Begin compound statement
+# TeX: color line *
+#   ggggg
+for m_cta in cuda_threads(0, 4, unit=2 * cuda_cta_in_cluster):
+    for n_cta in cuda_threads(0, 2, unit=cuda_cta_in_cluster):
+        # Only m_cta is multicast. Enforce loop nest requirement up to m_cta loop.
+        # TeX: color line *
+        #                                  ggggg                    g
+        Arrive(cuda_classic, 1) >> ringbar[m_cta, n_cta] >> ringbar[:, n_cta]
+    # A statement here would not be valid, and will interrupt the compound statement.
+# TeX: remark! *
+# End compound statement
+# TeX: end multicast_loop_nest[1]
+
+# TeX: version multicast_pairing_fail 1
+# TeX: begin multicast_pairing_fail[0]
+with CudaWarps(name="producer"):
+    for m_cta in cuda_threads(0, 4, unit=2 * cuda_cta_in_cluster):
+        for n_cta in cuda_threads(0, 2, unit=cuda_cta_in_cluster):
+            ReverseAwait(ringbar[m_cta, n_cta], cuda_temporal, ~0)
+            # ...
+            # Will not arrive on ringbar[M, N] with M != m_cta and N != n_cta
+            # TeX: color line *
+            #                                b             b
+            Arrive(..., 1) >> ringbar[m_cta, :] >> ringbar[:, n_cta]
+with CudaWarps(name="consumer"):
+    for m_cta in cuda_threads(0, 4, unit=2 * cuda_cta_in_cluster):
+        for n_cta in cuda_threads(0, 2, unit=cuda_cta_in_cluster):
+            Await(ringbar[m_cta, n_cta], ..., ~0)
+            # ...
+            # Error: mismatch with paired arrive:
+            # Will match ringbar[M, N] with M != m_cta and N != n_cta
+            # TeX: color line *
+            #                                                         rrrr
+            ReverseArrive(..., 1) >> ringbar[m_cta, n_cta] >> ringbar[:, :]
+        
+# TeX: end multicast_pairing_fail[0]
