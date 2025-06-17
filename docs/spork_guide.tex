@@ -411,6 +411,7 @@ Interpret all indices as distributed indices (unlike non-barrier allocations, th
 
 \filbreak
 TODO: I'm summarizing the behavior of split barriers in the abstract machine, but for real users it will likely make much more sense to lead with ``this is the barrier you need to generate CUDA construct X''.
+We also need to document the sync timeline values, and implementable usage of various barriers (most notably, the mbarrier pairing requirement -- see \lighttt{summer\_of\_wgmma.pdf}, ``Exo mbarrier Pairing Requirement'').
 
 \filbreak
 When an arrive statement executes, it orders memory actions that
@@ -526,6 +527,7 @@ Only synchronization statements require more in-depth handling (for example, ini
 
 \filbreak
 Because of the static instr-tl and collective unit type systems, the compiler is empowered to (and must) diagnose straightforward incorrect usage of Exo-GPU: invalid parallel-for loops, incorrect collective units for instructions (convergence requirements not met), or incorrect instr-tl for memory/instr usage.
+Furthermore, the compiler may have restrictions on implementable usages of synchronization statements (including restrictions on valid combinations timelines and collective units).
 Fully checking correct parallelism is outside the scope of the Exo-to-CUDA compiler; we will check correct usage dynamically, or with hypothetical future language extensions.
 
 \filbreak
@@ -540,7 +542,7 @@ For PL researchers, this model reduces correctness checking to predicates on seq
 For performance engineers, this model retains fine-grained control over instruction selection, mapping of work to threads, and synchronization (at least in the tile-and-tensor-oriented domain Exo is traditionally used for).
 
 \filbreak
-In the initial implementation, correct usage will be checked by literal simulation of the abstract machine.
+A correct Exo-GPU must comply with correct usage requirements when executed on the abstract machine, but there may be more efficient ways to guarantee this than direct simulation.
 Ideally, this model will enable synchronization correctness checks (or programming language safety features) that are more abstract and efficient, which could be built upon existing formalism that, until now, supported only programs targetting physically sequential machines.
 
 \newpage
