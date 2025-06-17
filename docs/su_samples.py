@@ -390,5 +390,72 @@ with CudaWarps(name="consumer"):
             # TeX: color line *
             #                                                         rrrr
             ReverseArrive(..., 1) >> ringbar[m_cta, n_cta] >> ringbar[:, :]
-        
+
 # TeX: end multicast_pairing_fail[0]
+
+# TeX: version tma_2_arrives 1
+# TeX: begin tma_2_arrives[0]
+Sm90_copy_tensor_to_smem_linear_2f32(...)
+Arrive(tma_to_smem, 1) >> barrier_A
+Arrive(tma_to_smem, 1) >> barrier_B
+# ...
+with CudaWarps(...):
+    Await(barrier_A, cuda_classic, 1)
+    # ... stuff reliant on the TMA to complete
+with CudaWarps(...):
+    Await(barrier_B, cuda_classic, 1)
+    # ... stuff also reliant on the TMA to complete
+# TeX: end tma_2_arrives[0]
+
+# TeX: version tma_instr_barrier 1
+# TeX: begin tma_instr_barrier[0]
+@instr
+class tma_multicast_f32_2d_linear:
+    def behavior(
+            n_cta: size, box0: size, box1: size,
+            dst: [f32][distributed: n_cta, dense: box0, box1] @ CudaSmemLinear,
+            src: [f32][box0, box1],
+            # TeX: color line *
+          # rrr
+            bar: barrier @ CudaMbarrier):
+        for cta in cuda_threads(0, n_cta, unit=cuda_warp_in_cluster):
+            distribute(dst[cta, :, :])
+            # TeX: color line *
+            #          rrrrrrrr
+            distribute(bar[cta])  # Multicast to n_cta-many adjacent CTA's mbarrier
+            for i0 in seq(0, box0):
+                for i1 in seq(0, box1):
+                    dst[cta, i0, i1] = src[i0, i1]
+# TeX: end tma_instr_barrier[0]
+
+
+# TeX: version tma_pairing_multicast 2
+# TeX: begin tma_pairing_multicast[0]
+with CudaAsync(name="producer"):
+    for m_cta in cuda_threads(0, 4, unit=2 * cuda_cta_in_cluster):
+        for n_cta in cuda_threads(0, 2, unit=cuda_cta_in_cluster):
+            ReverseAwait(ringbar[m_cta, n_cta], cuda_temporal, 1)
+    for m_cta in cuda_threads(0, 4, unit=2 * cuda_cta_in_cluster):
+        # TeX: color line *
+        #                  bbbbbbbbbbbbbbbbbbbb
+        tma_foo_instr(...) >> ringbar[m_cta, :]
+    for n_cta in cuda_threads(0, 2,
+            unit=CollUnit((2, blockDim), (1, blockDim), "every_other_cta", None)):
+            # We need better syntax to express ``every other CTA''
+        # TeX: color line *
+        #                  bbbbbbbbbbbbbbbbbbbb
+        tma_bar_instr(...) >> ringbar[:, n_cta]
+    for m_cta in cuda_threads(0, 4, unit=2 * cuda_cta_in_cluster):
+        for n_cta in cuda_threads(0, 2, unit=cuda_cta_in_cluster):
+            Arrive(cuda_temporal, 1) >> ringbar[m_cta, n_cta]
+# TeX: end tma_pairing_multicast[0]
+# TeX: begin tma_pairing_multicast[1]
+with CudaWarps(name="consumer"):
+    for m_cta in cuda_threads(0, 4, unit=2 * cuda_cta_in_cluster):
+        for n_cta in cuda_threads(0, 2, unit=cuda_cta_in_cluster):
+            Await(ringbar[m_cta, n_cta], cuda_classic, 1)
+            # ...
+            # TeX: color line *
+            #                              rrrrrrrrrrrrrrr
+            ReverseArrive(cuda_classic, 1) >> ringbar[???]
+# TeX: end tma_pairing_multicast[1]
