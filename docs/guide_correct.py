@@ -147,12 +147,12 @@ def simple_dist():
             # Tile here: (512,); $t_a = 512$; $t_n = 1$ (native unit cuda_thread for CudaRmem).
             # TeX: color line *
             #   g                                                   gggggggggggggggggg
-            for m in cuda_threads(0, 16, unit=32 * cuda_thread):  # $m: 512\mapsto 32$
+            for m in cuda_threads(0, 16, unit=32 * cuda_thread):  # m: $512\mapsto 32$
                 # TeX: remark simple_dist[1]
                 # Tile here: (32,)
                 # TeX: color line *
                 #   v                                               vvvvvvvvvvvvvvvv
-                for n in cuda_threads(0, 32, unit=cuda_thread):   # $n: 32\mapsto 1$
+                for n in cuda_threads(0, 32, unit=cuda_thread):   # n: $32\mapsto 1$
                     # TeX: remark simple_dist[1]
                     # Tile here: (1,)
                     # TeX: color line simple_dist
@@ -165,7 +165,7 @@ def simple_dist():
                     # ...
                     # TeX: color remark simple_dist[1]
                     #               ggggggggggggggggggg  vvvvvvvvvvvvvvvvv
-                    # Tiling chain: $m: 512 \mapsto 32$, $n: 32 \mapsto 1$
+                    # Tiling chain: m: $512 \mapsto 32$, n: $32 \mapsto 1$
                     # TeX: color remark simple_dist[1]
                     #                       yyyyyyyyyyyyyyy
                     # Remaining indices are non-distributed
@@ -179,10 +179,10 @@ def simple_dist():
 float vals[8 * 4];  # Distributed across CTA of 16 x 32 threads
 # TeX: color line *
 #                        ggggggggggg                               ggggggggggggggggggg
-if ([[maybe_unused]] int exo_32thr_m = (threadIdx.x / 32); 1) {  # $m: 512 \mapsto 32$
+if ([[maybe_unused]] int exo_32thr_m = (threadIdx.x / 32); 1) {  # m: $512 \mapsto 32$
 # TeX: color line *
 #                          vvvvvvvvvv                               vvvvvvvvvvvvvvvvv
-  if ([[maybe_unused]] int exo_1thr_n = (threadIdx.x % 32); 1) {  # $n: 32 \mapsto 1$
+  if ([[maybe_unused]] int exo_1thr_n = (threadIdx.x % 32); 1) {  # n: $32 \mapsto 1$
     vals[0] = 0.0f;
     vals[1] = 0.0f;  # [m, n] (distributed indices) removed
     # TeX: end simple_dist_cxx[0]
@@ -304,7 +304,7 @@ def xgemm_Sm80_fence(M: size, N: size, K: size,
                                 Sm80_mma_zero_d_tf32(D_rmem[mw, nw, m_seq, n_seq,:,:])
                                 # TeX: color remark xgemm_Sm80_fence[1]
                                 # ggggggggggggggggggggg  vvvvvvvvvvvvvvvvvvvv
-                                # $mw: 256 \mapsto 128$, $nw: 128 \mapsto 32$
+                                # mw: $256 \mapsto 128$, nw: $128 \mapsto 32$
                 # TeX: end xgemm_Sm80_fence[1]
 
                 # TeX: begin xgemm_Sm80_fence
@@ -395,7 +395,7 @@ def xgemm_Sm80_fence(M: size, N: size, K: size,
                                                           A_rmem[k_seq,:,:], B_rmem[k_seq,n_seq,:,:], K=MMA_K)
                                             # TeX: color remark xgemm_Sm80_fence[3]
                                             # rrrrrrrrrrrrrrrrrrrrr  rrrrrrrrrrrrrrrrrrrr
-                                            # $mw: 256 \mapsto 128$, $nw: 128 \mapsto 32$
+                                            # mw: $256 \mapsto 128$, nw: $128 \mapsto 32$
                                 # TeX: end xgemm_Sm80_fence[3]
 
                     # TeX: begin xgemm_Sm80_fence
@@ -427,7 +427,7 @@ def xgemm_Sm80_fence(M: size, N: size, K: size,
                                     D_rmem[mw, nw, m_seq,n_seq,:,:])
                                 # TeX: color remark xgemm_Sm80_fence[1]
                                 # ggggggggggggggggggggg  vvvvvvvvvvvvvvvvvvvv
-                                # $mw: 256 \mapsto 128$, $nw: 128 \mapsto 32$
+                                # mw: $256 \mapsto 128$, nw: $128 \mapsto 32$
                         # TeX: end xgemm_Sm80_fence[1]
                 # TeX: begin xgemm_Sm80_fence
                 # End per-CTA code

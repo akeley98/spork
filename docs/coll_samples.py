@@ -103,17 +103,17 @@ if False:
                         # TeX: color line *
                         #   b
                         for s in seq(0, 16):
-                            # Expecting tiling chain 256 -> ... -> 1
+                            # Expecting tiling chain 256 $\mapsto$ ... $\mapsto$ 1
                             # TeX: color line *
-          #                                    b                            gggggggggg
-          # Failure: non-cuda_threads variable s consumed when we only have m: 256->16
+          #                                    b                            gggggggggggggggggg
+          # Failure: non-cuda_threads variable s consumed when we only have m: $256\mapsto 16$
                             # TeX: color line *
                             #    g  b  v
                             vals[m, s, n, 0] = 0
                             # Remedy: reorder s and n
                             # TeX: color line *
-                            #    g  v  b            gggggggggg  vvvvvvvv
-                            vals[m, n, s, 0] = 0  # m: 256->16, n: 16->1
+                            #    g  v  b            gggggggggggggggggg  vvvvvvvvvvvvvvvv
+                            vals[m, n, s, 0] = 0  # m: $256\mapsto 16$, n: $16\mapsto 1$
         # TeX: end seq_fail
 
 if False:
@@ -131,8 +131,8 @@ if False:
                     #   v
                     for n in cuda_threads(0, 4, unit=cuda_thread):# n = threadIdx.x % 4
                         # TeX: color line *
-                        #    g  v            gggggg  vvvvvvv
-                        vals[m, n] = 0  # m: 256->4, n: 4->1
+                        #    g  v         ggggggggggggggggg  vvvvvvvvvvvvvvv
+                        vals[m, n] = 0  # m: $256\mapsto 4$, n: $4\mapsto 1$
                 # TeX: color line *
                 #            rrrrrrrrrrrrrrr ggg  rrrrrrrrrrrrrrr vvv
                 # Deduction: threadIdx.x / 4 (m), threadIdx.x % 4 (n)
@@ -140,8 +140,8 @@ if False:
                     for m in cuda_threads(0, 16, unit=4 * cuda_thread):# m = (threadIdx.x - 32) / 4
                         for n in cuda_threads(0, 4, unit=cuda_thread): # n = threadIdx.x % 4
                             # TeX: color line *
-                            #    g  v            gggggg  vvvvvvv
-                            vals[m, n] = 0  # m: 256->4, n: 4->1
+                            #    g  v         ggggggggggggggggg  vvvvvvvvvvvvvvv
+                            vals[m, n] = 0  # m: $256\mapsto 4$, n: $4\mapsto 1$
                     # TeX: color line *
                     #                       rrrrrrrrrrrrrrrrrrrrrr ggg  rrrrrrrrrrrrrrr vvv
                     # Mismatched deduction: (threadIdx.x - 32) / 4 (m), threadIdx.x % 4 (n)
@@ -152,8 +152,8 @@ if False:
                     #   b
                     for s in seq(0, 4):
                         # TeX: color line *
-                        #    y  b         yyyyyyyyy   b
-                        vals[t, s] = 0  # t: 256->1;  s not distributed
+                        #    y  b         yyyyyyyyyyyyyyyyy   b
+                        vals[t, s] = 0  # t: $256\mapsto 1$;  s not distributed
                 # TeX: color line *
                 #                       rrrrrrrrrrr  y
                 # Mismatched deduction: threadIdx.x (t)  [1 dims != 2 dims]
@@ -173,8 +173,8 @@ def matched():
                 #   v
                 for n in cuda_threads(0, 8, unit=cuda_thread):# n = threadIdx.x % 8
                     # TeX: color line *
-                    #    g  v         ggggggggg  vvvvvvv
-                    vals[m, n] = 0  # m: 128->8, n: 8->1
+                    #    g  v         ggggggggggggggggg  vvvvvvvvvvvvvvv
+                    vals[m, n] = 0  # m: $128\mapsto 8$, n: $8\mapsto 1$
             # TeX: color line *
             #            rrrrrrrrrrrrrrr ggg  rrrrrrrrrrrrrrr vvv
             # Deduction: threadIdx.x / 8 (m), threadIdx.x % 8 (n)
@@ -204,8 +204,8 @@ def matched():
                 #   g
                 for m in cuda_threads(0, 16, unit=cuda_thread):  # m = threadIdx.x / 8
                     # TeX: color line *
-                    #    g  v         vvvvvvvvvv  ggggggg
-                    vals[m, n] = 0  # n: 128->16, m:16->1 (not same order as indices)
+                    #    g  v         vvvvvvvvvvvvvvvvvv  gggggggggggggggg
+                    vals[m, n] = 0  # n: $128\mapsto 16$, m: $16\mapsto 1$ (not same order as indices)
             # TeX: color line *
             #            rrrrrrrrrrrrrrr ggg  rrrrrrrrrrrrrrr vvv
             # Deduction: threadIdx.x / 8 (m), threadIdx.x % 8 (n)
@@ -219,23 +219,23 @@ if False:
         with CudaDeviceFunction(blockDim=256):
             for task in cuda_tasks(0, xyzzy):
                 # TeX: color line *
-                #                                 rrrrrrrrrrrrrrrrrr
-                vals: f32[16, 8, 2] @ CudaRmem  # t_a = 256; t_n = 1
+                #                                 rrrrrrrrrrrrrrrrrrrrrr
+                vals: f32[16, 8, 2] @ CudaRmem  # $t_a = 256$; $t_n = 1$
                 # TeX: color line *
-                #   y                                                   yyyyyyyyyyyyy
-                for b in cuda_threads(0, 2, unit=128 * cuda_thread):  # b: 256->128
+                #   y                                                   yyyyyyyyyyyyyyyyyyy
+                for b in cuda_threads(0, 2, unit=128 * cuda_thread):  # b: $256\mapsto 128$
                     # TeX: color line *
-                    #   g                                                  ggggggggggg
-                    for m in cuda_threads(0, 16, unit=8 * cuda_thread):  # m: 128->8
+                    #   g                                                  ggggggggggggggggg
+                    for m in cuda_threads(0, 16, unit=8 * cuda_thread):  # m: $128\mapsto 8$
                         # TeX: color line *
-                        #   v                                             vvvvvvvvv
-                        for n in cuda_threads(0, 8, unit=cuda_thread):  # n: 8->1
+                        #   v                                             vvvvvvvvvvvvvvv
+                        for n in cuda_threads(0, 8, unit=cuda_thread):  # n: $8\mapsto 1$
                             # TeX: color line *
                             #   b
                             for s in seq(0, 2):
                                 # TeX: color line *
-                # ggggggggg     vvvvvvv                                   rrrrrr
-                # m: 128->8 and n: 8->1 is insufficient to reach the goal 256->1
+                # ggggggggggggggggg     vvvvvvvvvvvvvvv                                   rrrrrrrrrrrrrr
+                # m: $128\mapsto 8$ and n: $8\mapsto 1$ is insufficient to reach the goal $256\mapsto 1$
                 # TeX: color line *
                 #                                                  b
                 # Distributed memory analysis fails upon consuming s (non-cuda_threads iter)
@@ -256,8 +256,8 @@ def warp_example():
     with CudaDeviceFunction(blockDim=256):
         for task in cuda_tasks(0, xyzzy):
             # TeX: color line *
-            #      rrrr                                  rrrrrrrrrrrrrrrrrrr
-            D: f32[2, 4, 6, 16, 8] @ Sm80_RmemMatrixD  # t_a = 256, t_n = 32
+            #      rrrr                                  rrrrrrrrrrrrrrrrrrrrrrr
+            D: f32[2, 4, 6, 16, 8] @ Sm80_RmemMatrixD  # $t_a = 256$, $t_n = 32$
             # TeX: color line *
             #            rrrrrrrrrrrrrrrrr  rrrrrrrrrrrrrrrrrrrrrrrr
             # Deduction: threadIdx.x / 128, threadIdx.x % 128 / 32
@@ -272,11 +272,11 @@ def warp_example():
                     #   b
                     for s in seq(0, 6):
                         # TeX: color line *
-                        #                      gg  vv  b           gggggggggggg  vvvvvvvvvv
-                        Sm80_mma_zero_d_tf32(D[mw, nw, s, :, :]) # mw: 256->128, nw:128->32
+                        #                      gg  vv  b           gggggggggggggggggggg  vvvvvvvvvvvvvvvvvvv
+                        Sm80_mma_zero_d_tf32(D[mw, nw, s, :, :]) # mw: $256\mapsto 128$, nw: $128\mapsto 32$
                 # TeX: color line *
-                #                                   b                                        rrrrrrrr
-                # Indexing by seq-for iter variable s is OK as we already reached the target t_n = 32
+                #                                   b                                        rrrrrrrrrr
+                # Indexing by seq-for iter variable s is OK as we already reached the target $t_n$ = 32
 # TeX: end warp_example[0]
 
 # TeX: version chain 2
@@ -287,8 +287,8 @@ def chain_0():
     with CudaDeviceFunction(blockDim=256):
         for task in cuda_tasks(0, xyzzy):
             # TeX: color line *
-            #         rrrrr                   rrrrrrrrrrrrrrrrrr
-            vals: f32[16, 8, 2] @ CudaRmem  # t_a = 256; t_n = 1
+            #         rrrrr                   rrrrrrrrrrrrrrrrrrrrrr
+            vals: f32[16, 8, 2] @ CudaRmem  # $t_a = 256$; $t_n = 1$
             # TeX: color line *
             #            rrrrrrrrrrrrrrrrrrrrrr  rrrrrrrrrrrrrrr
             # Deduction: (threadIdx.x - 64) / 8, threadIdx.x % 8
@@ -298,21 +298,21 @@ def chain_0():
                 #        gggggg
                 # tile = (256,), box = (128,), offset=(64,)
                 # TeX: color line *
-                #   g                                                  ggggggggg
-                for m in cuda_threads(0, 16, unit=8 * cuda_thread):  # m: 256->8
+                #   g                                                  ggggggggggggggggg
+                for m in cuda_threads(0, 16, unit=8 * cuda_thread):  # m: $256\mapsto 8$
                     # TeX: color line *
                     #        gggg
                     # tile = (8,), box = (8,), offset = (0,)
                     # TeX: color line *
-                    #   v                                             vvvvvvv
-                    for n in cuda_threads(0, 8, unit=cuda_thread):  # n: 8->1
+                    #   v                                             vvvvvvvvvvvvvvv
+                    for n in cuda_threads(0, 8, unit=cuda_thread):  # n: $8\mapsto 1$
                         # tile = (1,), box = (1,), offset = (0,)
                         # TeX: color line *
                         #   b
                         for s in seq(0, 2):
                             # TeX: color line *
-                            #    g  v  b         ggggggggg  vvvvvvv
-                            vals[m, n, s] = 0  # m: 256->8, n: 8->1
+                            #    g  v  b         ggggggggggggggggg  vvvvvvvvvvvvvvv
+                            vals[m, n, s] = 0  # m: $256\mapsto 8$, n: $8\mapsto 1$
 # TeX: end chain[0]
 
 @proc
@@ -321,23 +321,23 @@ def chain_1():
     with CudaDeviceFunction(blockDim=256):
         for task in cuda_tasks(0, xyzzy):
             # TeX: color line *
-            #         rrrrrrrr                rrrrrrrrrrrrrrrrrr
-            vals: f32[16, 8, 2] @ CudaRmem  # t_a = 256; t_n = 1
+            #         rrrrrrrr                rrrrrrrrrrrrrrrrrrrrrr
+            vals: f32[16, 8, 2] @ CudaRmem  # $t_a = 256$; $t_n = 1$
             # TeX: color line *
             #            rrrrrrrrrrrrrrrrrrrrr  rrrrrrrrrrrrrrr  rrrrrrrrrrrrrrrrr
             # Deduction: threadIdx.x % 128 / 8, threadIdx.x % 8, threadIdx.x / 128
             # TeX: color line *
-            #   y                                                   yyyyyyyyyyyyy
-            for b in cuda_threads(0, 2, unit=128 * cuda_thread):  # b: 256->128
+            #   y                                                   yyyyyyyyyyyyyyyyyyy
+            for b in cuda_threads(0, 2, unit=128 * cuda_thread):  # b: $256\mapsto 128$
                 # TeX: color line *
-                #   g                                                  ggggggggggg
-                for m in cuda_threads(0, 16, unit=8 * cuda_thread):  # m: 128->8
+                #   g                                                  ggggggggggggggggg
+                for m in cuda_threads(0, 16, unit=8 * cuda_thread):  # m: $128\mapsto 8$
                     # TeX: color line *
-                    #   v                                             vvvvvvvvv
-                    for n in cuda_threads(0, 8, unit=cuda_thread):  # n: 8->1
+                    #   v                                             vvvvvvvvvvvvvvv
+                    for n in cuda_threads(0, 8, unit=cuda_thread):  # n: $8\mapsto 1$
                         # TeX: color line *
-                        #    g  v  y         yyyyyyyyyyy  ggggggggg  vvvvvvv
-                        vals[m, n, b] = 0  # b: 256->128, m: 128->8, n: 8->1
+                        #    g  v  y         yyyyyyyyyyyyyyyyyyy  ggggggggggggggggg  vvvvvvvvvvvvvvv
+                        vals[m, n, b] = 0  # b: $256\mapsto 128$, m: $128\mapsto 8$, n: $8\mapsto 1$
 # TeX: end chain[1]
 
 # TeX: version repeated 2
@@ -349,8 +349,8 @@ if False:
         with CudaDeviceFunction(blockDim=256):
             for task in cuda_tasks(0, xyzzy):
                 # TeX: color line *
-                #                                   rrrrrrrrrrrrrrrrrr
-                vals: f32[16, 16, 16] @ CudaRmem  # t_a = 256, t_n = 1
+                #                                   rrrrrrrrrrrrrrrrrrrrrr
+                vals: f32[16, 16, 16] @ CudaRmem  # $t_a = 256$, $t_n = 1$
                 # TeX: color line *
                 #   g
                 for m in cuda_threads(0, 16, unit=16 * cuda_thread):
@@ -358,11 +358,11 @@ if False:
                     #   v
                     for n in cuda_threads(0, 16, unit=cuda_thread):
                         # TeX: color line *
-                        #    g  g  v         gggggggggg  gggggggggg
-                        vals[m, m, n] = 0  # m: 256->16, m: 256->16
+                        #    g  g  v         gggggggggggggggggg  gggggggggggggggggg
+                        vals[m, m, n] = 0  # m: $256\mapsto 16$, m: $256\mapsto 16$
                 # TeX: color line *
-                #                                       ggggggggg                            rrrrrrr
-                # Fail: we encounter another index with t_0 = 256 before we reach the target t_n = 1
+                #                                       ggggggggggg                            rrrrrrrrr
+                # Fail: we encounter another index with $t_0 = 256$ before we reach the target $t_n = 1$
 # TeX: end repeated[0]
 
 @proc
@@ -371,8 +371,8 @@ def repeated_index():
     with CudaDeviceFunction(blockDim=256):
         for task in cuda_tasks(0, xyzzy):
             # TeX: color line *
-            #         rrrrrr  yy                rrrrrrrrrrrrrrrrrr
-            vals: f32[16, 16, 16] @ CudaRmem  # t_a = 256, t_n = 1
+            #         rrrrrr  yy                rrrrrrrrrrrrrrrrrrrrrr
+            vals: f32[16, 16, 16] @ CudaRmem  # $t_a = 256$, $t_n = 1$
             # TeX: color line *
             #            rrrrrrrrrrrrrrrr  rrrrrrrrrrrrrrrr
             # Deduction: threadIdx.x % 16, threadIdx.x / 16
@@ -383,11 +383,11 @@ def repeated_index():
                 #   v
                 for n in cuda_threads(0, 16, unit=cuda_thread):# n = threadIdx.x % 16
                     # TeX: color line *
-                    #    v  g            gggggggggg  vvvvvvvv
-                    vals[n, m, m] = 0  # m: 256->16, n: 16->1
+                    #    v  g            gggggggggggggggggg  vvvvvvvvvvvvvvvv
+                    vals[n, m, m] = 0  # m: $256\mapsto 16$, n: $16\mapsto 1$
             # TeX: color line *
-            #                                                                             rrrrrrr
-            # Second m not deduced as distributed idx since we already reached the target t_n = 1
+            #                                                                             rrrrrrrrr
+            # Second m not deduced as distributed idx since we already reached the target $t_n = 1$
 # TeX: end repeated[1]
 
 """
