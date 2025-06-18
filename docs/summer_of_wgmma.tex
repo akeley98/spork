@@ -34,8 +34,30 @@ These instruction templates can be instantiated to create a family of similar in
 \item Improvements to Arrive/Await statements to support TMA and multicast: we need to allow arriving on multiple barriers, and associating a barrier with a specific instruction, and no prior instructions, in an instruction stream.
 \end{itemize}
 
+\filbreak
+\myTitle{Chapters}
+
+This document is meant more as a reference guide, and not something to read end-to-end.
+
+{\sffamily
+\myChapterLink{ch:InstrClass}{Instr Class}
+
+\myChapterLink{ch:Windows}{Make Windows Better}
+
+\myChapterLink{ch:Instrs}{Instrs \& Distributed Memory}
+
+\myChapterLink{ch:Timelines}{Timelines \& Synchronization}
+
+\myChapterLink{ch:ArriveAwaitPairing}{Arrive/Await Pairing}
+
+\myChapterLink{ch:Multicasting}{Multicasting: mbarriers \& TMA}
+
+\myChapterLink{ch:mbarrier}{Exo mbarrier Pairing Requirement}
+}
+
 \newpage
-\myTitle{Instr Class}
+\mySection{Instr Class}
+\label{ch:InstrClass}
 
 ``New-style'' instruction templates are created as \lighttt{@instr}-decorated Python classes, rather than functions.
 The class must have two functions
@@ -105,7 +127,8 @@ As an alternative, let's support codegen with a Python function that's given inf
 This ties into my proposed changes to the window system that allow deeper introspection of windows.
 
 \newpage
-\myTitle{Make Windows Better}
+\mySection{Make Windows Better}
+\label{ch:Windows}
 
 Windows serve two purposes in Exo
 \begin{itemize}
@@ -486,8 +509,9 @@ We need to provide both the window encoder and indexer with helpers that check
   \item the alignment of memory (this will actually require cooperative changes to multiple parts of the language).
 \end{itemize}
 
-\filbreak
-\myTitle{Instrs \& Distributed Memory}
+\newpage
+\mySection{Instrs \& Distributed Memory}
+\label{ch:Instrs}
 
 The vast majority of instructions follow the ``each thread collective owns its own distributed shard'' model, i.e., any window parameters passed in refer to a portion of just one distributed shard.
 We explicitly annotate (with \redBox{\texttt{distributed:}}) window parameters that break this assumption.
@@ -517,7 +541,8 @@ just make a mental note we did this in case there's problems later.
 \end{figure*}
 
 \newpage
-\myTitle{Timelines \& Synchronization}
+\mySection{Timelines \& Synchronization}
+\label{ch:Timelines}
 
 For now I'll just sketch out the basics of how the abstract machine tracks read/write visibility, and go over the changes entailed by moving from the actor kind / actor signature model to the new timeline model:
 \begin{itemize}
@@ -712,8 +737,9 @@ Remarks:
   \item $L_1^T$ is currently never used.
 \end{itemize}
 
-\filbreak
-\myTitle{Arrive/Await Pairing and Multicast}
+\newpage
+\mySection{Arrive/Await Pairing}
+\label{ch:ArriveAwaitPairing}
 
 It's time to define the correspondence between arrive and await statements.
 In Exo-GPU's synchronization checking model, each \myKeyA{queue barrier} $Q$ contains non-negative integers \myKeyA{arrive count} $Q^1$ and \myKeyA{await count} $Q^2$, both initially zero (this conceptual state is distinct from the physical state of the real CUDA barrier type, which is specified with a \lighttt{@memory} annotation).
@@ -752,7 +778,7 @@ The requirements enforce that intended usage, to make lowering queue barriers to
   \filbreak
   \item When a barrier variable is deallocated, each queue barrier must have $Q^1 = Q^2$.
   \filbreak
-  \item mbarriers must follow the mbarrier pairing requirement, to be described later.
+  \item mbarriers must follow the mbarrier pairing requirement, to be described in another chapter.
 \end{itemize}
 
 \filbreak
@@ -805,63 +831,9 @@ When we interpret \lighttt{[Reverse]Arrive(L1, \textasciitilde 0) >> $Q$}, it's 
 This has the effect of equalizing $Q^1$ and $Q^2$, or $Q^1$ and $\widehat{Q}^2$, in the two respective cases.
 The iteration count will never be negative; this is a result of the to-be-described mbarrier pairing requirement.
 
-\filbreak
-\mainSub{Exo mbarrier Pairing Requirement}
-
-Arrive-indexed queue barriers lower to commit groups trivially.
-The process for lowering await-indexed queue barriers to mbarriers is more involved, as the mbarrier does not hold any state corresponding to the queue arrive count $Q^1$.
-We will emulate this state using a ring buffer of mbarriers; informally, this means we have to limit the ``spread'' between the number of arrives and the number of awaits, so we don't overrun the ring buffer.
-
-For a \lighttt{@CudaMbarrier} queue barrier $Q$, if \lighttt{ReverseArrive} and \lighttt{ReverseAwait} are used, then the pairing requirement is
-\begin{itemize}
-  \item The $n^{th}$ (forward) \lighttt{Arrive} on $Q$ cannot \textit{finish} until the $n^{th}$ \lighttt{ReverseAwait} on $\widehat{Q}$ finishes.
-  \filbreak
-  \item The $n^{th}$ \lighttt{ReverseArrive} on $\widehat{Q}$ cannot \textit{finish} until the $n^{th}$ (forward) \lighttt{Await} on $Q$ finishes.
-\end{itemize}
-\filbreak
-Otherwise
-\begin{itemize}
-  \item The $n^{th}$ \lighttt{Arrive} on $Q$ cannot \textit{finish} until the $(n-1)^{th}$ \lighttt{Await} on $Q$ finishes.
-\end{itemize}
-
-\filbreak
-``finish'' means that \textit{all} threads in the arriving/awaiting thread collective have passed the arrive/await statement.
-See ``mbarrier Ring Buffer'' for why this requirement is needed for the ring buffer.
-
-\filbreak
-To enforce this, we require that each thread using the mbarrier follows one of these expected usage patterns:
-\begin{itemize}
-  \item \lighttt{Await} on $Q$, followed by a (possibly conditional) \lighttt{ReverseArrive} on $\widehat{Q}$ [await-first usage]
-  \filbreak
-  \item \lighttt{ReverseAwait} on $\widehat{Q}$, followed by a (possibly conditional) \lighttt{Arrive} on $Q$ [await-first usage]
-  \filbreak
-  \item If there is no \lighttt{ReverseAwait} or \lighttt{ReverseArrive}, then we support \lighttt{Await} on $Q$, followed by a (possibly conditional) \lighttt{Arrive} on $Q$ [await-first usage]
-  \filbreak
-  \item If there is no \lighttt{ReverseAwait} or \lighttt{ReverseArrive}, we also support \lighttt{Arrive} on $Q$, followed by an unconditional \lighttt{Await} on $Q$ [arrive-first usage]
-  \item (Note: in the current implementation, arrive-first and await-first patterns are not simultanously supported for a single barrier variable)
-\end{itemize}
-
-\filbreak
-In all these supported cases, we require no other usage of $Q$ or $\widehat{Q}$ by the thread between the statement pair.
-Unlike the other synchronization requirements, which are enforced by ``simulation'', this ``meta-synchronization'' requirement will be enforced by static analysis.
-These rules allow us to safely lower queue barriers to mbarrier ring buffers.
-
-Static analysis: for each \lighttt{[Reverse]Arrive} statement using $Q$, search forward/backwards \textit{syntactically} for the next/previous statement using $Q$ or $\widehat{Q}$ (forwards in the arrive-first case; backwards in the await-first case).
-\filbreak
-\begin{itemize}
-  \item If the sync statement is not the correct sort of \lighttt{[Reverse]Await} statement, the analysis fails.
-  \filbreak
-  \item If the sync statement's \lighttt{CollTiling} is not equivalent to that of the \lighttt{[Reverse]Arrive}, the analysis fails (this is asserting the set of threads executing the two statements is the same).
-  \filbreak
-  \item If the \lighttt{[Reverse]Await} is guarded by an if statement that the \lighttt{[Reverse]Arrive} isn't, the analysis fails.
-  \filbreak
-  \item If either the \lighttt{[Reverse]Await} or \lighttt{[Reverse]Arrive} is in the body of a \textit{sequential} for loop that the other isn't, the analysis fails.
-  \filbreak
-  \item Note, \lighttt{with} statements and parallel-for loops are ignored, as these don't have effect on a single thread's execution (given the \lighttt{CollTiling} equality check passed)
-\end{itemize}
-
-\filbreak
-\mainSub{Arrive Multicast}
+\newpage
+\mySection{Multicasting: mbarriers \& TMA}
+\label{ch:Multicasting}
 
 See this \webText{Colfax Research Article}{https://research.colfax-intl.com/cutlass-tutorial-gemm-with-thread-block-clusters-on-nvidia-blackwell-gpus/}, especially ``Constructing bitmasks'', for background.
 This is for tcgen05 (Blackwell), but the cluster and CTA mask content applies to wgmma as well.
@@ -1015,8 +987,64 @@ This may be an argument that statically enforcing mbarrier restrictions isn't th
 \filbreak
 For the sake of time, it may be best to just acknowledge this as a known limitation of the model.
 
+\newpage
+\mySection{Exo mbarrier Pairing Requirement}
+\label{ch:mbarrier}
+
+Arrive-indexed queue barriers lower to commit groups trivially.
+The process for lowering await-indexed queue barriers to mbarriers is more involved, as the mbarrier does not hold any state corresponding to the queue arrive count $Q^1$.
+We will emulate this state using a ring buffer of mbarriers; informally, this means we have to limit the ``spread'' between the number of arrives and the number of awaits, so we don't overrun the ring buffer.
+
+For a \lighttt{@CudaMbarrier} queue barrier $Q$, if \lighttt{ReverseArrive} and \lighttt{ReverseAwait} are used, then the pairing requirement is
+\begin{itemize}
+  \item The $n^{th}$ (forward) \lighttt{Arrive} on $Q$ cannot \textit{finish} until the $n^{th}$ \lighttt{ReverseAwait} on $\widehat{Q}$ finishes.
+  \filbreak
+  \item The $n^{th}$ \lighttt{ReverseArrive} on $\widehat{Q}$ cannot \textit{finish} until the $n^{th}$ (forward) \lighttt{Await} on $Q$ finishes.
+\end{itemize}
 \filbreak
-\minorSub{mbarrier Ring Buffer}
+Otherwise
+\begin{itemize}
+  \item The $n^{th}$ \lighttt{Arrive} on $Q$ cannot \textit{finish} until the $(n-1)^{th}$ \lighttt{Await} on $Q$ finishes.
+\end{itemize}
+
+\filbreak
+``finish'' means that \textit{all} threads in the arriving/awaiting thread collective have passed the arrive/await statement.
+See ``mbarrier Ring Buffer'' for why this requirement is needed for the ring buffer.
+
+\filbreak
+To enforce this, we require that each thread using the mbarrier follows one of these expected usage patterns:
+\begin{itemize}
+  \item \lighttt{Await} on $Q$, followed by a (possibly conditional) \lighttt{ReverseArrive} on $\widehat{Q}$ [await-first usage]
+  \filbreak
+  \item \lighttt{ReverseAwait} on $\widehat{Q}$, followed by a (possibly conditional) \lighttt{Arrive} on $Q$ [await-first usage]
+  \filbreak
+  \item If there is no \lighttt{ReverseAwait} or \lighttt{ReverseArrive}, then we support \lighttt{Await} on $Q$, followed by a (possibly conditional) \lighttt{Arrive} on $Q$ [await-first usage]
+  \filbreak
+  \item If there is no \lighttt{ReverseAwait} or \lighttt{ReverseArrive}, we also support \lighttt{Arrive} on $Q$, followed by an unconditional \lighttt{Await} on $Q$ [arrive-first usage]
+  \item (Note: in the current implementation, arrive-first and await-first patterns are not simultanously supported for a single barrier variable)
+\end{itemize}
+
+\filbreak
+In all these supported cases, we require no other usage of $Q$ or $\widehat{Q}$ by the thread between the statement pair.
+Unlike the other synchronization requirements, which are enforced by ``simulation'', this ``meta-synchronization'' requirement will be enforced by static analysis.
+These rules allow us to safely lower queue barriers to mbarrier ring buffers.
+
+Static analysis: for each \lighttt{[Reverse]Arrive} statement using $Q$, search forward/backwards \textit{syntactically} for the next/previous statement using $Q$ or $\widehat{Q}$ (forwards in the arrive-first case; backwards in the await-first case).
+\filbreak
+\begin{itemize}
+  \item If the sync statement is not the correct sort of \lighttt{[Reverse]Await} statement, the analysis fails.
+  \filbreak
+  \item If the sync statement's \lighttt{CollTiling} is not equivalent to that of the \lighttt{[Reverse]Arrive}, the analysis fails (this is asserting the set of threads executing the two statements is the same).
+  \filbreak
+  \item If the \lighttt{[Reverse]Await} is guarded by an if statement that the \lighttt{[Reverse]Arrive} isn't, the analysis fails.
+  \filbreak
+  \item If either the \lighttt{[Reverse]Await} or \lighttt{[Reverse]Arrive} is in the body of a \textit{sequential} for loop that the other isn't, the analysis fails.
+  \filbreak
+  \item Note, \lighttt{with} statements and parallel-for loops are ignored, as these don't have effect on a single thread's execution (given the \lighttt{CollTiling} equality check passed)
+\end{itemize}
+
+\filbreak
+\minorSub{Hardware Detail: mbarrier Ring Buffer}
 
 Mbarriers do not directly encode anything akin to the Exo queue barrier's $Q^1$ and $Q^2$ (queue arrive count, queue await count).
 We implement a queue barrier as a ring buffer of mbarriers.

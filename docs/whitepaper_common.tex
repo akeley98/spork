@@ -30,15 +30,15 @@
 \newcommand{\webText}[2]{{\color{webColor} \href{#2}{#1}}}
 \newcommand{\email}[2]{{\small \color{webColor} \textsf{\href{mailto:#1@#2}{#1[at]#2}}}}
 \definecolor{titleColor}{RGB}{0, 0, 0}
-\ifdefined\RESUME
-\newcommand{\myTitle}[1]{{\large \color{titleColor} \hspace{-12mm} \textbf{\textsf{#1}}}}
-\else
 \newcommand{\myTitle}[1]{{ \vspace{2mm} \large \color{titleColor} \hspace{-12mm} \textbf{\textsf{#1}} \vspace{2mm}}}
-\fi
 \definecolor{subColor}{RGB}{170, 149, 0}
 \newcommand{\mySub}[1]{{\color{subColor}\hspace{-9mm} \textsf{#1}}}
 \definecolor{keyColor}{RGB}{118, 185, 0}
 \newcommand{\myKey}[1]{{\color{keyColor}\textbf{#1}}}
+
+\setcounter{secnumdepth}{0}
+\newcommand{\mySection}[1]{{ \vspace{2mm} \section{\large \color{titleColor} \hspace{-12mm} \textbf{\textsf{#1}}} \vspace{2mm}}}
+\newcommand{\myChapterLink}[2]{Page \pageref{#1}: { \color{webColor} \hyperref[#1]{#2}}}
 
 \definecolor{keyColorA}{RGB}{170, 149, 0}
 \definecolor{keyColorB}{RGB}{170, 210, 0}
