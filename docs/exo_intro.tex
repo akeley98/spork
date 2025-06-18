@@ -1,0 +1,166 @@
+% exocc intro.py && python3 code_to_tex.py intro.py intro && xelatex exo_intro.tex < /dev/null
+\input{whitepaper_common.tex}
+
+\begin{document}
+
+\myTitle{Exo Baseline (CPU) Summary}
+
+Exo is a Python-embedded metaprogramming language targetting Tensor-like algorithms that can accept a strict separation of ``data'' and ``control'' types, where
+\begin{itemize}
+  \item Data values are freely allocatable, readable, and writeable, but cannot be used to index into tensors.
+  \item Control values are only defined as immutable function (proc) parameters and as for loop iterators, but can be used to specify size and index values for tensors.
+\end{itemize}
+
+\filbreak
+The Exo language provides
+\begin{itemize}
+  \item An imperative language that maps ``one-to-one'' to C code, which is embedded in Python code.
+    Python functions decorated with \lighttt{@proc} get parsed as Exo procs.
+  \filbreak
+  \item Type annotations on variables that give either a data type (e.g. \lighttt{:f32}, \lighttt{:i8}), or a control type (e.g. \lighttt{:size})
+  \filbreak
+  \item Memory annotations on data variables (e.g. \lighttt{@ DRAM} for main memory, \lighttt{@ AVX2} for x86 AVX vector register).
+  \filbreak
+  \item Wrappers for hardware instructions, which specify both the behavior of the instruction (conveyed in the same syntax as Exo procs) and how the instruction is implemented in C code.
+  \filbreak
+  \item Rewrite operations that create modified copies of Exo procs that provably have the same output as the original (besides changes in precision and floating point re-ordering).
+\end{itemize}
+
+\filbreak
+Note, this is not a system that magically compiles Python code to faster C (like Cython).
+Exo procs are not executable as Python code; we just recycle Python's AST parser and translate the captured Python AST into Exo code.
+
+\filbreak
+The user may write Exo code manually and have it compiled as-is to C code.
+However, the intended use case for Exo is for the user to write relatively simple procs by hand, and use rewrites to create modified procs that have better performance (for better or worse, this is called ``scheduling'')
+
+\filbreak
+\mainSub{Language Basics}
+
+\mainKey{Variable declarations:} \lighttt{variable-name: type}, plus an optional trailing \lighttt{@ memory-type}.
+    This may appear in the argument list of a proc, or, for data values, this may be declared anywhere in the proc body.
+
+\filbreak
+\mainKey{Tensors:} Convey tensor types with syntax \lighttt{data-typename[idx0, idx1,...]}.
+Integer constants or \lighttt{size} variables may be used to size the tensor, e.g. {\lighttt{foo: f32[16, C]}} makes \lighttt{foo} a $16 \times C$ tile of float32.
+Index $N$-dimensional tensors with a comma-separated list of $N$ \textit{point} expressions \lighttt{x} or \textit{interval} expressions \lighttt{lo:hi}, where \lighttt{x}, \lighttt{lo}, and \lighttt{hi} are control values.
+If all indices are points, the result is a scalar; otherwise, the result is a window.
+
+\filbreak
+\mainKey{Windows:} Aliased view to a sub-tile of a tensor.
+The type is conveyed with syntax \lighttt{[data-typename][idx0, idx1,...]}, which is the same as tensors except with extra brackets.
+
+\filbreak
+\mainKey{Calls:} Calls to other procs and instructions use typical Python syntax.
+
+\filbreak
+\mainKey{Arithmetic:} Same as in Python, e.g. \lighttt{foo[a,b] = bar[4] * 3}.
+Of the \lighttt{\textit{op}=} operators, only \lighttt{+=} is supported for now.
+
+\filbreak
+\mainKey{Control flow:} Exo supports \lighttt{if} conditions, and supports \lighttt{for} loops with syntax \lighttt{for \textit{iter} in seq(\textit{lo}, \textit{hi}):}.
+We will be extending the \lighttt{for} statement for GPU support; providing a choice between sequential (\lighttt{seq}) loops and parallel-for loops.
+
+\filbreak
+Example: trivial vector in-place add:
+
+\input{intro/simple_vec_add.0.tex}
+
+\filbreak
+\myTitle{Scheduling Example}
+
+We'll schedule the simple vector in-place add to use AVX instructions.
+
+\filbreak
+\mainSub{Divide Loop}
+
+Divide the \lighttt{i} loop into outer \lighttt{ii} and inner \lighttt{lane} loops, with the inner loop having 8 iterations.
+This makes the code structure amenable to vectorization.
+
+\input{intro/divide_loop.0.tex}
+
+For this simple example, we assumed the size of the vector is divisible by 8 (no tail case).
+
+\filbreak
+\mainSub{Stage Memory}
+
+At the level between the outer (\lighttt{ii}) loop and inner (\lighttt{lane}) loop, we will cache 8-wide subsections of the main \lighttt{a} and \lighttt{b} vectors.
+These get stored in the newly allocated \lighttt{a\_vec} and \lighttt{b\_vec} variables.
+
+\input{intro/stage_mem.0.tex}
+
+\filbreak
+\mainSub{AVX Memory}
+
+Change the memory type of the cached 8-vectors to \lighttt{AVX2}.
+
+\input{intro/set_memory.0.tex}
+
+\filbreak
+\mainSub{AVX Instructions}
+
+%% In Exo, hardware instructions get wrapped as an \lighttt{@instr}-decorated function, where the decoration specifies the C syntax for the instruction, and the function body specifies the behavior.
+%% For example,
+
+%% \input{intro/mm256_iadd_ps.0.tex}
+
+%% \filbreak
+We replace the portions of the code that interact with the allocated AVX registers to use AVX instructions.
+
+\input{intro/replace.0.tex}
+\filbreak
+\input{intro/mm256_iadd_ps.0.tex}
+
+\filbreak
+Exo uses the declared behavior of the substituted instructions to check that the output of the program is preserved following the rewrite.
+
+\filbreak
+\myTitle{Scheduling Real Code}
+
+TODO: improve documentation of rewrites and cursors.
+However, a deep understanding of this isn't needed to understand the context for Exo-GPU.
+
+\filbreak
+In the previous examples, we just showed the rewritten Exo procs resulting from rewrite operations.
+For completeness, we also show the full example as Python code, where scheduling is done by passing Exo proc objects to rewrite functions.
+
+\filbreak
+\input{intro/avx_add_full.0.tex}
+\filbreak
+\input{intro/avx_add_full.1.tex}
+\filbreak
+\input{intro/avx_add_full.2.tex}
+\filbreak
+\input{intro/avx_add_full.3.tex}
+\filbreak
+\input{intro/avx_add_full.4.tex}
+
+\filbreak
+\myTitle{Exo-GPU Goals}
+
+The Exo rewrite system relies on programs to not contain parallelism.
+More generally, the vast majority of known formal methods rely on sequential logic; work on extending this to parallel processors is extremely limited.
+We would like to extend Exo to support GPU features by expressing parallelism as annotations (``pragmas'') on fundamentially sequential programs, so that we can still take advantage of existing formal methods that do not take parallelism into account.
+We will also build upon the existing instruction and memory systems to add GPU features (e.g. tensor cores, shared memory).
+
+\filbreak
+The goal is \textit{not} to write another system that ingests sequential code and magically parallelizes it.
+Exo-GPU will allow users to explicitly parallelize loops, and to insert wrapped synchronization statements (which, similar to instructions, have effects known to the compiler).
+The resulting annotated procs may be interpreted in multiple ways:
+
+\begin{itemize}
+  \item as sequential programs (the perspective takes by Exo scheduling), where the new parallelism constructs are simply ignored;
+  \item as programs for the Exo-GPU ``abstract machine'', which operates sequentially, but tracks the ``visibility'' of each position\footnote{A position is a scalar variable, or a scalar value within a tensor.} to threads;
+  visibility will be used to define correct (hazard-free) usage of the abstract machine;
+  \item as a specification for generating real CUDA code, where the parallelism constructs are directives that imperatively guide the code generation.
+\end{itemize}
+
+\filbreak
+Exo-GPU will check correct usage of the abstract machine as a separate step from scheduling.
+This is key to ensuring that it's valid to continue to do most program analysis with sequential logic; we just ``pay for the parallelism'' at the end, and ensure that the results generated by the (sequential) abstract machine will match the results generated by the real parallel CUDA program.
+
+\filbreak
+Ideally, the payoff of this research is to promulgate a new abstract model that is both amenable to analysis as a sequential program, and provides performance engineers a high degree of control over parallelism of the generated code.
+As a proof-of-concept, we will deliver a concrete artifact, Exo-GPU, that builds upon the fundamentally-sequential Exo programming language.
+
+\end{document}

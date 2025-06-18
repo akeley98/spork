@@ -26,6 +26,8 @@ docs/summer_of_wgmma.pdf
 docs/su_samples
 docs/guide_correct/
 docs/guide/
+docs/intro/
+docs/exo_intro.pdf
 gemm/gemm
 attn
 libattn.so
