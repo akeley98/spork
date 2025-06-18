@@ -284,7 +284,7 @@ In Exo syntax, the previous example looks like:
 \filbreak
 Our goal is to have this ``just work'' for common cases, by inferring distributed memory from the memory's usage pattern (indexing expressions), rather than requiring explicit annotations on distributed memory allocations.
 The user still has full control over this via their loop structure and scheduling operations like \lighttt{reorder\_dim}.
-This guide contains only a summary of the deduction rules; \lighttt{coll\_algebra.py} contains precise documentation.
+This guide contains only a summary of the deduction rules; \lighttt{coll\_algebra.pdf} contains precise documentation.
 
 \filbreak
 \mainKey{Rule 1/4, Native Units:} Each memory type has its own \myKeyA{native unit}, which is the collective unit expected for physically allocating the memory type; e.g., \lighttt{CudaRmem} has native unit \lighttt{cuda\_thread}, and \lighttt{CudaSmemLinear} has native unit CTA.
@@ -305,7 +305,7 @@ We enforce this ``one-to-one'' distinctness requirement by deducing a tiling cha
 
 \filbreak
 \mainKey{Rule 2/4, Tiling Chains:} 
-The \myKeyA{tile thread count} of a given scope is the number of threads in the scope's collective unit, \textbf{ignoring} the effects of warp specialization (see \lighttt{coll\_algebra.py} for more precise treatment).
+The \myKeyA{tile thread count} of a given scope is the number of threads in the scope's collective unit, \textbf{ignoring} the effects of warp specialization (see \lighttt{coll\_algebra.pdf} for more precise treatment).
 The \myKeyA{tiling operator} for a \lighttt{cuda\_threads}-iterator maps the tile thread count $t_0$ of the loop's parent scope to the tile thread count $t_1$ of the loop body; we denote this as $\mathit{iter}: t_0 \mapsto t_1$ \textbf{(figure \ref{fig:tiling_chain})}.
 A valid \myKeyA{tiling chain} is a permutation of \lighttt{cuda\_threads}-iterators such that
 \begin{itemize}
