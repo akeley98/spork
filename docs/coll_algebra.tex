@@ -156,10 +156,10 @@ Splitting factors: \yellowBox{8}, \greenBox{16}
 
 A collective unit consists of a \myKeyA{domain} and \myKeyA{box} size.
 The box is $\textit{Optional}[\mathbb{Z}]^N$-valued, where $N$ is the dimension of the domain.
-If the box contains a None coordinate, it's said to be \myKeyA{agnostic} on that dimension, and can't match any real thread collective.
+If the box contains a None coordinate, it's said to be \myKeyA{agnostic} on that dimension, and can match any integer value.
 
 \filbreak
-Otherwise, given a certain domain, the collective unit for a thread collective is defined by the said domain and the shape of the filled axis-aligned box the threads form when arranged in the domain grid.\footnote{If the threads don't form a filled box, no collective unit with the given domain can match the thread collective.}
+Given a certain domain, the collective unit for a thread collective is defined by the said domain and the shape of the filled axis-aligned box the threads form when arranged in the domain grid.\footnote{If the threads don't form a filled box, no collective unit with the given domain can match the thread collective.}
 For example, with the domain being (\lighttt{clusterDim}, \lighttt{blockDim}), the box for a single warp is (1, 32), while the box for ``one warp chosen from each CTA in the cluster'' is (\lighttt{clusterDim}, 32) \textbf{(figure \ref{fig:units})}.
 
 \filbreak
@@ -243,14 +243,10 @@ Domain completion won't affect matching of aligned thread collectives.
 \filbreak
 \mainSub{Collective Unit Code Details}
 
-The implemented \lighttt{CollUnit} object differs from the above description:
-
-\filbreak
-\begin{itemize}
-\item The box cannot contain None (be agnostic) initially. This should only arise due to domain completion.
-\filbreak
-\item The domain and box are tuples of \lighttt{CollSizeExpr}, which are converted to integers by looking up the \myKeyA{collective environment}, which maps \lighttt{clusterDim} and \lighttt{blockDim} to concrete values.
-\end{itemize}
+The domain and box are tuples of \lighttt{CollSizeExpr}, which are converted to integers by looking up the \myKeyA{collective environment} (\lighttt{CollParam -> int}), which maps \lighttt{clusterDim} and \lighttt{blockDim} to concrete values.
+The box may contain None (agnostic dimensions).
+The syntax \lighttt{scale * unit} means \lighttt{unit} with the $0^{th}$ box coordinates scaled by \lighttt{scale}.
+(e.g. \lighttt{8 * warp} means 8 warps, i.e. \lighttt{CollUnit((blockDim,), (8 * 32,), ...)})
 
 \filbreak
 \myTitle{Collective Tiling}
