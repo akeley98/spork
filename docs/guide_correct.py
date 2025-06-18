@@ -437,7 +437,7 @@ xgemm_Sm80_fence = simplify(xgemm_Sm80_fence)
 # TeX: end xgemm_Sm80_fence[0]
 
 
-# TeX: version xgemm_Sm80_mbarrier 2
+# TeX: version xgemm_Sm80_mbarrier 3
 # TeX: begin xgemm_Sm80_mbarrier[0]
 RING = 3
 LAG = 1
@@ -491,25 +491,31 @@ def xgemm_Sm80_mbarrier(M: size, N: size, K: size,
                             for m1 in seq(0, M1 / 64):
                                 for m0 in cuda_threads(0, 64, unit=4 * cuda_thread):
                                     for k0 in cuda_threads(0, 4, unit=cuda_thread):
+                                        Sm80_cp_async_f32(
                                         # TeX: color line xgemm_Sm80_mbarrier[1]
-                                        #                        yyyyyyyyy
-                                        Sm80_cp_async_f32(A_smem[k1 % RING, m1 * 64 + m0, 4 * k0 : 4 * k0 + 4],
-                                                          A[m2 * M1 + m1 * 64 + m0,
-                                                          k1 * K0 + k0 * 4 : k1 * K0 + k0 * 4 + 4], size=4)
+                                        #          yyyyyyyyy
+                                            A_smem[k1 % RING, m1 * 64 + m0, 4 * k0 : 4 * k0 + 4],
+                                            A[m2 * M1 + m1 * 64 + m0,
+                                              k1 * K0 + k0 * 4 : k1 * K0 + k0 * 4 + 4],
+                                            size=4)
                             # TeX: summary
                             # Load B tile
                             for k0_seq in seq(0, 4):
                                 for k0_par in cuda_threads(0, 4, unit=64 * cuda_thread):
                                     for n0 in cuda_threads(0, 64, unit=cuda_thread):
+                                        Sm80_cp_async_f32(
                                         # TeX: color line xgemm_Sm80_mbarrier[1]
-                                        #                        yyyyyyyyy
-                                        Sm80_cp_async_f32(B_smem[k1 % RING, k0_seq * 4 + k0_par, 4 * n0 : 4 * n0 + 4],
-                                                          B[k1 * K0 + k0_seq * 4 + k0_par,
-                                                          n2 * N1 + 4 * n0 : n2 * N1 + 4 * n0 + 4], size=4)
+                                        #          yyyyyyyyy
+                                            B_smem[k1 % RING, k0_seq * 4 + k0_par, 4 * n0 : 4 * n0 + 4],
+                                            B[k1 * K0 + k0_seq * 4 + k0_par,
+                                              n2 * N1 + 4 * n0 : n2 * N1 + 4 * n0 + 4],
+                                            size=4)
                             # TeX: begin xgemm_Sm80_mbarrier[0]
                             # TeX: color line xgemm_Sm80_mbarrier
                             #                     bbbbbbb
                             Arrive(Sm80_cp_async, ringbar, 1)
+                # TeX: end xgemm_Sm80_mbarrier[1]
+                # TeX: begin xgemm_Sm80_mbarrier[2]
                 # for-k1 (K tiles) loop continues
                     if k1 >= LAG:
                         # Wait for ring buffer to be filled
@@ -525,7 +531,7 @@ def xgemm_Sm80_mbarrier(M: size, N: size, K: size,
                                 for n_seq in seq(0, Nw / 8, pragma_unroll=0):
                                     for k_seq in seq(0, K0 / MMA_K, pragma_unroll=0):
                                         Sm80_mma_load_b_tf32(B_rmem[k_seq,n_seq,:,:],
-                                        # TeX: color line xgemm_Sm80_mbarrier[1]
+                                        # TeX: color line xgemm_Sm80_mbarrier[2]
                                         #                           yyyyyyyyyyyyyyyyy
                                                              B_smem[(k1 - LAG) % RING,
                                                              k_seq*MMA_K:(k_seq+1)*MMA_K,
@@ -536,7 +542,7 @@ def xgemm_Sm80_mbarrier(M: size, N: size, K: size,
                                     A_rmem : f32[K0/MMA_K, 16, MMA_K] @ Sm80_RmemMatrixA
                                     for k_seq in seq(0, K0 / MMA_K, pragma_unroll=0):
                                         Sm80_mma_load_a_tf32(A_rmem[k_seq,:,:],
-                                        # TeX: color line xgemm_Sm80_mbarrier[1]
+                                        # TeX: color line xgemm_Sm80_mbarrier[2]
                                         #                           yyyyyyyyyyyyyyyyy
                                                              A_smem[(k1 - LAG) % RING,
                                                              mw*Mw + m_seq*16 : mw*Mw + (m_seq+1)*16,
@@ -566,10 +572,10 @@ def xgemm_Sm80_mbarrier(M: size, N: size, K: size,
                                     C[m2 * M1 + mw * Mw + m_seq * 16 : m2 * M1 + mw * Mw + (m_seq+1) * 16,
                                     n2 * N1 + nw * Nw + n_seq * 8 : n2 * N1 + nw * Nw + (n_seq+1) * 8],
                                     D_rmem[mw,nw,m_seq,n_seq,:,:])
-                # TeX: begin xgemm_Sm80_mbarrier
+                # TeX: begin xgemm_Sm80_mbarrier[0]
                 # End per-CTA code
-                # TeX: end xgemm_Sm80_mbarrier
-                # TeX: end xgemm_Sm80_mbarrier[1]
+                # TeX: end xgemm_Sm80_mbarrier[0]
+                # TeX: end xgemm_Sm80_mbarrier[2]
 # TeX: begin xgemm_Sm80_mbarrier[0]
 xgemm_Sm80_mbarrier = simplify(xgemm_Sm80_mbarrier)
 # TeX: end xgemm_Sm80_mbarrier[0]

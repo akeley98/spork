@@ -513,7 +513,8 @@ The user generally starts scheduling their proc as sequential code, postponing s
 After the ``skeleton'' of sequential code is ready, the user may issue scheduling directives to move subtrees of code from the CPU to the CUDA device, to parallelize loops, to explicitly assign variables to different CUDA memory types, to substitute asynchronous instructions, and to insert needed synchronization.
 
 \filbreak
-After issuing these directives, the user must ensure that the program, when dynamically executed on the abstract machine, meets the correct usage requirements of the abstract machine, at least for the concrete problem size they care about.
+After issuing these directives, the user must ensure that the program, when dynamically executed on the abstract machine, meets the correct usage requirements of the abstract machine.
+In the initial product, Exo-GPU will provide a separate linter step that checks this for concrete problem sizes.
 The user may view the abstract machine as a sequential computer that tracks additional per-memory-location state that's relevant for ensuring the final compiled CUDA C++ program is correctly synchronized.
 
 \filbreak
@@ -542,7 +543,7 @@ For PL researchers, this model reduces correctness checking to predicates on seq
 For performance engineers, this model retains fine-grained control over instruction selection, mapping of work to threads, and synchronization (at least in the tile-and-tensor-oriented domain Exo is traditionally used for).
 
 \filbreak
-A correct Exo-GPU must comply with correct usage requirements when executed on the abstract machine, but there may be more efficient ways to guarantee this than direct simulation.
+A correct Exo-GPU must comply with correct usage requirements when executed on the abstract machine, but there may be more effective ways to guarantee this than direct simulation.
 Ideally, this model will enable synchronization correctness checks (or programming language safety features) that are more abstract and efficient, which could be built upon existing formalism that, until now, supported only programs targetting physically sequential machines.
 
 \newpage
@@ -608,5 +609,7 @@ This is similar to the previous sm\_80 GEMM, except we replaced the \lighttt{Fen
 Besides replacing the synchronization statements, we just have to change the SMEM ring buffer indexing logic.
 
 \input{guide/xgemm_Sm80_mbarrier.1.tex}
+\filbreak
+\input{guide/xgemm_Sm80_mbarrier.2.tex}
 
 \end{document}
