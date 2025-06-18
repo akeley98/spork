@@ -149,8 +149,8 @@ Exo-GPU will allow users to explicitly parallelize loops, and to insert wrapped 
 The resulting annotated procs may be interpreted in multiple ways:
 
 \begin{itemize}
-  \item as sequential programs (the perspective takes by Exo scheduling), where the new parallelism constructs are simply ignored;
-  \item as programs for the Exo-GPU ``abstract machine'', which operates sequentially, but tracks the ``visibility'' of each position\footnote{A position is a scalar variable, or a scalar value within a tensor.} to threads;
+  \item as sequential programs (the perspective taken by Exo scheduling), where the new parallelism constructs are simply ignored;
+  \item as programs for the Exo-GPU ``abstract machine'', which operates sequentially, but tracks the ``visibility'' of each position\footnote{A position is a scalar variable, or a scalar value within a tensor variable.} to threads;
   visibility will be used to define correct (hazard-free) usage of the abstract machine;
   \item as a specification for generating real CUDA code, where the parallelism constructs are directives that imperatively guide the code generation.
 \end{itemize}
