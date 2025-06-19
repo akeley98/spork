@@ -429,7 +429,7 @@ class tma_multicast_f32_2d_linear:
 # TeX: end tma_instr_barrier[0]
 
 
-# TeX: version tma_pairing_multicast 2
+# TeX: version tma_pairing_multicast 1
 # TeX: begin tma_pairing_multicast[0]
 with CudaAsync(name="producer"):
     for m_cta in cuda_threads(0, 4, unit=2 * cuda_cta_in_cluster):
@@ -437,25 +437,28 @@ with CudaAsync(name="producer"):
             ReverseAwait(ringbar[m_cta, n_cta], cuda_temporal, 1)
     for m_cta in cuda_threads(0, 4, unit=2 * cuda_cta_in_cluster):
         # TeX: color line *
-        #                  bbbbbbbbbbbbbbbbbbbb
+        #                     ggggggggggggggggg
         tma_foo_instr(...) >> ringbar[m_cta, :]
     for n_cta in cuda_threads(0, 2,
             unit=CollUnit((2, blockDim), (1, blockDim), "every_other_cta", None)):
             # We need better syntax to express ``every other CTA''
         # TeX: color line *
-        #                  bbbbbbbbbbbbbbbbbbbb
+        #                     vvvvvvvvvvvvvvvvv
         tma_bar_instr(...) >> ringbar[:, n_cta]
     for m_cta in cuda_threads(0, 4, unit=2 * cuda_cta_in_cluster):
         for n_cta in cuda_threads(0, 2, unit=cuda_cta_in_cluster):
-            Arrive(cuda_temporal, 1) >> ringbar[m_cta, n_cta]
-# TeX: end tma_pairing_multicast[0]
-# TeX: begin tma_pairing_multicast[1]
+            # Both queue barrier expressions are needed, otherwise one of the previous
+            # two TMA instructions' barriers won't be a subset of those named here.
+            # TeX: color line *
+            #                           ggggggggggggggggg    vvvvvvvvvvvvvvvvv
+            Arrive(cuda_temporal, 1) >> ringbar[m_cta, :] >> ringbar[:, n_cta]
 with CudaWarps(name="consumer"):
     for m_cta in cuda_threads(0, 4, unit=2 * cuda_cta_in_cluster):
         for n_cta in cuda_threads(0, 2, unit=cuda_cta_in_cluster):
             Await(ringbar[m_cta, n_cta], cuda_classic, 1)
             # ...
+            # The barriers expressions here are needed to match the previous Arrive statement
             # TeX: color line *
-            #                              rrrrrrrrrrrrrrr
-            ReverseArrive(cuda_classic, 1) >> ringbar[???]
-# TeX: end tma_pairing_multicast[1]
+            #                                 ggggggggggggggggg    vvvvvvvvvvvvvvvvv
+            ReverseArrive(cuda_classic, 1) >> ringbar[m_cta, :] >> ringbar[:, n_cta]
+# TeX: end tma_pairing_multicast[0]
