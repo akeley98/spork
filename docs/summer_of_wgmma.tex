@@ -50,7 +50,9 @@ This document is meant more as a reference guide, and not something to read end-
 
 \myChapterLink{ch:ArriveAwaitPairing}{Arrive/Await Pairing}
 
-\myChapterLink{ch:Multicasting}{Multicasting: mbarriers \& TMA}
+\myChapterLink{ch:Multicasting}{Multicasting mbarriers}
+
+\myChapterLink{ch:tma}{TMA Instruction Barrier Parameter}
 
 \myChapterLink{ch:mbarrier}{Exo mbarrier Pairing Requirement}
 }
@@ -782,7 +784,7 @@ The requirements enforce that intended usage, to make lowering queue barriers to
   \filbreak
   \item When a barrier variable is deallocated, each queue barrier must have $Q^1 = Q^2$.
   \filbreak
-  \item mbarriers must follow the mbarrier pairing requirement, to be described in another chapter.
+  \item mbarriers must follow the \myChapterLink{ch:mbarrier}{mbarrier pairing requirement}
 \end{itemize}
 
 \filbreak
@@ -792,10 +794,10 @@ Assume for now that an arrive statement only takes one queue barrier as input (i
 
 \filbreak
 Further assume $N = 1$.
-When we interpret such an arrive statement on some queue barrier $Q$, for each visibility record that synchronizes-with the arrive,
+When we interpret such an arrive statement on some queue barrier $Q$:
 \begin{itemize}
-  \item Add $(Q, Q^1)$ : (queue barrier object, arrive count) to the set of pending arrives
-  \item Increment $Q^1$
+  \item For each visibility record that synchronizes-with the arrive, add $(Q, Q^1)$ : (queue barrier object, arrive count) to the set of pending arrives.
+  \item Increment $Q^1$.
 \end{itemize}
 
 \filbreak
@@ -838,7 +840,7 @@ This has the effect of equalizing $Q^1$ and $Q^2$, or $Q^1$ and $\widehat{Q}^2$,
 The iteration count will never be negative; this is a result of the to-be-described mbarrier pairing requirement.
 
 \newpage
-\mySection{Multicasting: mbarriers \& TMA}
+\mySection{Multicasting mbarriers}
 \label{ch:Multicasting}
 
 See this \webText{Colfax Research Article}{https://research.colfax-intl.com/cutlass-tutorial-gemm-with-thread-block-clusters-on-nvidia-blackwell-gpus/}, especially ``Constructing bitmasks'', for background.
@@ -847,13 +849,14 @@ This is for tcgen05 (Blackwell), but the cluster and CTA mask content applies to
 \filbreak
 CUDA supports arriving on mbarriers in other CTAs of the same cluster.
 Each queue barrier (with \lighttt{CudaMbarrier} memory type) lowers to a ring buffer of mbarriers, and we use distributed memory to model the full ``array'' of per-CTA mbarriers in a cluster.
-So it would be intuitive to extend the distributed indices feature to express such multicasting, e.g., something like
+So, for \lighttt{CudaMbarrier}-type barriers, it would be intuitive to extend the distributed indices feature to express such multicasting, e.g., something like
 
 \filbreak
 \input{su_samples/intro_multicast_mbarrier.0.tex}
 
 \filbreak
-In the abstract machine, the meaning of this is instead of adding a single pending arrive $(Q, Q^1)$ to visibility records that synchronize-with the arrive, we add $(Q, Q^1)$ for each queue barrier $Q$ named in any of the expressions following \lighttt{>>} (removing duplicates).
+In the abstract machine, the meaning of this is instead of adding a single pending arrive $(Q, Q^1)$ to visibility records that synchronize-with the arrive, we add $(Q_n, Q^1)$ for each queue barrier $Q_n$ named in any of the expressions following \lighttt{>>} (removing duplicates).
+We will give details on how the queue arrive count $Q^1$ behaves later.
 
 \filbreak
 If there's multiple \lighttt{Arrive} or \lighttt{ReverseArrive} statements for the same barrier variable, their multicasting must be the same (so the above example illustrating multiple possible patterns is not valid within a single Exo proc).
@@ -862,11 +865,13 @@ Multicasting poses some challenges for our model:
 \begin{itemize}
 \item Since a distributed index was replaced with \lighttt{:}, how do we adapt distributed memory deduction to match?
 \filbreak
-\item The arrive count $Q^1$ is per-queue-barrier state in our model, but having this vary dynamically in different CTAs is not really implementable (nor useful), so we have to ensure $Q^1$ is uniform for all queue barriers involved in the arrive statement.
+\item The arrive count $Q^1$ is per-queue-barrier state in our model, but having this vary dynamically in different CTAs is not really implementable (nor useful), so we have to ensure some notion of $Q^1$ uniformity for all queue barriers involved in the arrive statement.
 \end{itemize}
 
 \filbreak
-\mainKey{Distributed Memory Deduction:} Each \lighttt{>> barrier-name[idxs...]} is a \myKeyA{barrier expression}.
+\mainSub{Distributed Memory Deduction}
+
+Each \lighttt{>> barrier-name[idxs...]} is a \myKeyA{barrier expression}.
 Await statements may not take multiple barrier expressions.
 Arrive statements may take multiple barrier expressions, subject to the rules:
 \begin{itemize}
@@ -890,34 +895,162 @@ For example, in the case \lighttt{>> ringbar[m\_cta, n\_cta] >> ringbar[:, n\_ct
   \item per-expression multicast flags: \lighttt{[False, False]}, \lighttt{[True, False]}
 \end{itemize}
 
-The variable name and \lighttt{cuda\_threads} iterators get used for distirbuted memory deduction (which ignores multicasting).
+The variable name and \lighttt{cuda\_threads} iterators get used for distributed memory deduction (which ignores multicasting).
 We say that a barrier expression \textit{multicasts} the $n^{th}$ iterator if its $n^{th}$ multicast flag is true (e.g., in the previous example, \lighttt{ringbar[:, n\_cta]} multicasts \lighttt{\textit{m}\_cta}).
 
-\filbreak
-\mainKey{Arrive Count:} I'm not super happy with this solution, but this is what I have so far.
+\begin{figure*}[!b]
+\input{su_samples/multicast_convergence.0.tex}
+\caption{Illustration of mbarrier multicast convergence requirements} \label{fig:multicast_convergence}
+\end{figure*}
 
 \filbreak
-These multicast barriers are a bit awkward because, on the one hand, they are cluster-wide operations, and so should go \textit{outside} the per-CTA loops, but on the other hand, they have to be \textit{inside} the per-CTA loops so we have access to the \lighttt{cuda\_threads}-iterators needed to program the multicasting behavior (see the Colfax article earlier to see that the ``same \lighttt{m\_cta} OR same \lighttt{n\_cta}'' use case is real; we can't just trivially support ``multicast to all CTAs'').
+\mainSub{Proposed Behavior \& Requirements}
+
+We impose a convergence requirement for arrives.
+For each \lighttt{cuda\_threads}-iterator that is multicast by some barrier expression, search the syntax tree for the \lighttt{cuda\_threads} loop that defines this iterator \textbf{(figure \ref{fig:multicast_convergence})}.
+There must not be any statements along the path between this for statement and the arrive statement, except for
+\begin{itemize}
+  \item \lighttt{with} statements
+  \filbreak
+  \item \lighttt{cuda\_threads} loops
+\end{itemize}
 
 \filbreak
-For now my compromise is to require multicast \lighttt{[Reverse]Arrive} statements to appear in a \lighttt{cuda\_threads} loop nest containing only the arrive statement.
-We search outwards and enforce this until all multicast variables are found.
-This allows the abstract machine to execute the loop nest as a single compound statement; each queue barrier $Q$ involved has $Q^1$ incremented exactly once in the compound statement.
+For $N=1$, the behavior of an arrive statement is:
+\begin{itemize}
+  \item Let $Q$ be the \myKeyA{home queue barrier}, i.e., the queue barrier named by the variable name and iterators deduced above (this is \lighttt{ringbar[m\_cta, n\_cta]} in all above examples).
+    This corresponds to the mbarriers resident within the CTA that is executing the current arrive statement.
+  \filbreak
+  \item Let $Q^1$ be the queue arrive count for the home queue barrier.
+  \filbreak
+  \item For each visibility record that synchronizes-with the arrive, and for each queue barrier $Q_n$ named in any barrier expression of the arrive, add $(Q_n, Q^1)$ : (queue barrier object, arrive count) to the visibility record's set of pending arrives.
+  \filbreak
+  \item Increment $Q^1$.
+    The queue arrive count of all barriers $Q_n \ne Q$ isn't affected.
+\end{itemize}
 
 \filbreak
-\input{su_samples/multicast_loop_nest.0.tex}
+The last step in particular doesn't map too clearly to the underlying hardware.
+As optional reading, in the next section, I'll explain the correspondence between this model and the hardware state, and the motivations and problems with this design.
 
 \filbreak
+TODO either extend this for \lighttt{N = \textasciitilde 0}, or kill off the \lighttt{N = \textasciitilde 0} feature.
+
+\filbreak
+\minorSub{Hardware State}
+
+Some of the background is more deeply explained in \myChapterLink{ch:mbarrier}{Exo mbarrier Pairing Requirement}.
+
+Let $C$ be the thread collective executing an arrive statement.
+Ignoring multicasting, the relevant hardware features, and their correspondence to the abstract machine state (queue barriers), are
+\begin{itemize}
+  \item A ring buffer of mbarriers (resident within one CTA) comprise a queue barrier of \lighttt{CudaMbarrier} MemWin type.
+  \filbreak
+  \item The expected thread arrival count of an mbarrier corresponds to the number of threads in the collective unit that executes the arrive statement, i.e., $\abs{C}$; each thread executes \lighttt{mbarrier.arrive} on the current mbarrier of the ring buffer.
+  \filbreak
+  \item The pending thread arrival count of an mbarrier increments for each CUDA thread that executes \lighttt{mbarrier.arrive} on the mbarrier; when this reaches the expected thread arrival count, it resets, and the phase of the barrier increments.
+  The phase change is what signals awaiting threads to continue.
+  \filbreak
+  \item Incrementing $Q^1$ corresponds to incrementing the phase of the mbarrier and moving on to the next mbarrier in the ring buffer.
+\end{itemize}
+
+\filbreak
+A cornerstone of Exo-GPU is the idea that we statically enforce convergence requirements using the collective unit type system.
+For example, a \lighttt{Fence} inside a scope with collective unit \lighttt{cuda\_cta\_in\_cluster} will lower to \lighttt{\_\_syncthreads()} or similar CTA-wide synchronization.
+This is guaranteed to be be executed uniformly by the CTA, since no variables in such a scope can depend on \lighttt{threadIdx.x}; it is literally impossible for the user to vary control flow as a function of \lighttt{threadIdx.x} except using a sub-CTA-level \lighttt{cuda\_threads} loop, which the collective unit type system will detect.
+This is even the case if we combine Exo-GPU with Chexo\footnote{Chexo allows data-dependent branching. It will still be impossible to bypass the collective unit system with this, since in a scope without access to \lighttt{threadIdx.x}-dependent Exo variables, it will be impossible to have different threads read different data. Exceptions: if the program has a race condition (which would be detected by the abstract machine simulator), then the same read could yield nondeterministic values. The user could also cook up a custom instr that leaks \lighttt{threadIdx.x}, which isn't valid Exo (the user would have to lie about the behavior of such an instr).}.
+
+\filbreak
+Similarly, the collective unit system makes sure the earlier hardware state corresponds correctly with queue barrier state.
+Each time a thread collective $C$ executes an mbarrier arrive statement, that corresponds to $\abs{C}$-many CUDA threads executing \lighttt{mbarrier.arrive} on an mbarrier.
+This cycles the pending thread arrival count from 0 to $\abs{C}$, so the phase advances exactly once, which corresponds to the abstract machine incrementing $Q^1$ upon interpreting the Exo arrive statement.
+
+\filbreak
+This design is undermined for multicasting.
+If we wanted to synchronize all CTAs in the cluster with all other CTAs in the cluster, then we could adapt this design by multiplying the thread arrival count by the cluster size, moving the arrive/await statements up to cluster-scope, and making a queue barrier in this case correspond to per-CTA mbarrier ring buffers duplicated across the cluster.
+This would statically enforce convergence requirements.
+
+\filbreak
+Unfortunately, this can't work, because real programs don't do this all-to-all cluster sync, and use irregularly-shaped dependencies like ``wait for all CTAs with the same row OR the same column'' (this would not be a collective unit in the current type system, since it's not axis-aligned, nor does it allow for subdividing the cluster into disjoint thread sets).
+We need to program dependencies at a finer granularity.
+With the current Exo-GPU design, the only way to program this is to be able to directly refer to the CTA-dependent variables (\greenBox{\texttt{m\_cta}} and \violetBox{\texttt{n\_cta}} in the ongoing example) and that means the synchronization statements have to appear under the per-CTA loops that define those variables.
+
+\filbreak
+For the current design, the plan is to keep everything as it is in the non-multicast case, except
+\begin{itemize}
+  \item Let $B$ be the number of queue barriers being multicast to.
+  \filbreak
+  \item An Exo arrive operation corresponds to each thread in $C$ executing \lighttt{mbarrier.arrive} on an mbarrier selected from each mbarrier ring buffer (queue barrier) named in the barrier expressions of the arrive statement.
+  This is a total of $B\times\abs{C}$-many \lighttt{mbarrier.arrive} executions; each thread issues $B$-many, each mbarrier is the target of $\abs{C}$-many.
+  \filbreak
+  \item Increase the expected thread arrival count of each mbarrier to $B\times\abs{C}$
+\end{itemize}
+
+\filbreak
+Note in particular that the implementation for await statements isn't changed at all.
+Awaits only require threads to wait for their own CTA's mbarrier.
+
+\filbreak
+The cleanliness of the non-multicast design breaks down here, because now the phase of an mbarrier increments only as a result of $B$-many Exo arrive statements, issued from $B$-many different CTAs, instead of just 1.
+This motivates the convergence requirement: we need to ensure either all CTAs arrive on the mbarrier, or none of them do, so we don't leave mbarriers in some weird partial state.
+This may make more sense in the example of the next section.
+
+\filbreak
+\minorSub{Divergence Issues}
+
+We'll use this simplified 2-CTA example\footnote{This example doesn't exhibit the irregular synchronization pattern that demotivates the ``full cluster sync'' approach, but this is not relevant to the issue illustrated.} to illustrate why the convergence requirement is important:
+
+\input{su_samples/multicast_2cta.0.tex}
+
+\filbreak
+The hardware state is
+\begin{itemize}
+  \item $B = 2$ (number of queue barriers, i.e. per-CTA mbarrier ring buffers).
+  \filbreak
+  \item Each Exo \lighttt{Arrive} operation causes $\abs{C}$-many \lighttt{mbarrier.arrive} instructions to be executed on an mbarrier from each CTA (so $2\abs{C}$ \lighttt{mbarrier.arrive} in total).
+  \filbreak
+  \item Expected thread arrival count is $2\abs{C}$.
+\end{itemize}
+
+\filbreak
+The abstract machine will have state like this:
+
+\input{su_samples/multicast_2cta.1.tex}
+
+\filbreak
+However, this doesn't correspond to the actual hardware behavior:
+
+\input{su_samples/multicast_2cta.2.tex}
+
+\filbreak
+Note: here we surgically added an if statement directly branching on the CTA index.
+In principle we could be lenient towards if and seq-for loops that don't depend on the CTA index.
+This would not interact too well with Chexo, however, where dependencies can be indirect.
+
+\filbreak
+Earlier, we noted that incrementing $Q^1$ for only the home queue barrier isn't very accurate to the hardware.
+In a way, a more hardware-centric model would be to increment $Q_n^1$ by $1/B$ for each queue barrier $Q_n$ involved in the arrive operation, as each Exo arrive operation contributes $1/B$ of the $B\times\abs{C}$ threads needed to advance the phase of an mbarrier.
+But given the convergence requirement, the effect of incrementing $Q^1$ exactly once is the same as incrementing it by $1/B$, $B$-many times.
+
+\begin{figure*}[!b]
 \input{su_samples/multicast_loop_nest.1.tex}
+\\
+\\
+\input{su_samples/multicast_loop_nest.0.tex}
+\caption{Could we replace the bracketed sections with compound statements that don't involve parallel for loops?} \label{fig:multicast_loop_nest}
+\end{figure*}
 
 \filbreak
-(TODO: either find a better way to model this, or carefully specify the behavior of this compound statement in the context of the rest of the abstract machine).
+\minorSub{Opinion}
 
-\filbreak
-The palatability of this solution hinges on whether we can add good scheduling operators or scheduling libraries to help users deal with this issue.
+I'm really not a fan of this design because it seriously undermines one of the core ideas I'm peddling with Exo-GPU type system.
+Probably I'm going to have to accept a ``worse is better'' approach here.
+In a way, the cleanest design would be to have some sort of ``compound statement'' that appears at cluster scope and an alternate way to program the inter-CTA dependencies, instead of parallel-for loops \textbf{(figure \ref{fig:multicast_loop_nest})}.
+I do not have any concrete ideas in this direction, or even confidence that this will be worth it from a language design standpoint and not cause all sorts of other issues down the line (including the interaction with \myChapterLink{ch:tma}{TMA Instruction Barrier Parameter}).
 
-\filbreak
-\mainSub{TMA Instruction Barrier Parameter}
+\newpage
+\mySection{TMA Instruction Barrier Parameter}
+\label{ch:tma}
 
 TMA GMEM-to-SMEM instructions specifically require an mbarrier, and multicasting information (a.k.a. CTA mask) to operate.
 The special \lighttt{expect-tx} mechanism, which is separate from the normal mbarrier arrive operation, also means the TMA operation synchronizes with only a specific mbarrier, i.e. something like this
@@ -933,11 +1066,13 @@ What I plan to do to support this is
   \filbreak
   \item Extend distributed memory deductions for instrs to handle this trailing barrier expression.
   \filbreak
-  \item Extend the mbarrier pairing requirement to handle TMA [see \myChapterLink{ch:Multicasting}{Multicasting: mbarriers \& TMA}]
+  \item Extend the mbarrier pairing requirement to handle TMA [see \myChapterLink{ch:mbarrier}{Exo mbarrier Pairing Requirement}]
 \end{itemize}
 
 \filbreak
-\mainKey{Instr Barrier Expression:} For instructions called with syntax \lighttt{instr(...) >>} $Q$, all visibility records generated by the instruction, when executed by the abstract machine, have $(Q, Q^1)$ immediately added to their pending arrives.
+\mainSub{Instr Barrier Expression}
+
+For instructions called with syntax \lighttt{instr(...) >>} $Q$, all visibility records generated by the instruction, when executed by the abstract machine, have $(Q, Q^1)$ immediately added to their pending arrives.
 $Q^1$ is \textit{not} incremented, unlike for arrive statements.
 The barrier expression may contain the \lighttt{:} index (multicasting), in which case the previous is done for each $Q$ named in the barrier expression.
 
@@ -950,7 +1085,9 @@ This may be an argument for considering the whole \lighttt{ReverseArrive} and \l
 However, I consider this concept (of tight coupling between the forward and reverse directions) to be essential, but maybe we could have better syntax for it, e.g. \lighttt{barrier\_name} and \lighttt{\textasciitilde barrier\_name}?
 
 \filbreak
-\mainKey{Distributed Memory Deduction:} Unlike for synchronization statements, we do not need to disambiguate \lighttt{:} indices.
+\mainSub{Distributed Memory Deduction}
+
+Unlike for synchronization statements, we do not need to disambiguate \lighttt{:} indices.
 Instead, we can use \lighttt{distribute(...)} statements in the instruction's \lighttt{behavior} specification to complete distributed memory deduction.
 
 \input{su_samples/tma_instr_barrier.0.tex}
@@ -1063,7 +1200,7 @@ Recall that
 \filbreak
 Ignoring TMA and tx-count, each CUDA mbarrier contains
 \begin{itemize}
-  \item An expected thread\footnote{The ``thread'' is not part of the official CUDA name; I add this prefix to disambiguate with $Q^1$ (queue arrival count).} arrival count
+  \item An expected thread\footnote{The ``thread'' is not part of the official CUDA name; I add this prefix to disambiguate with $Q^1$ (queue arrive count).} arrival count
   \filbreak
   \item A pending thread arrival count (initially 0)
   \filbreak

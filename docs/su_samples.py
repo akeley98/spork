@@ -336,35 +336,94 @@ for m_cta in cuda_threads(0, 4, unit=2 * cuda_cta_in_cluster):
         Arrive(cuda_classic, 1) >> ringbar[:, n_cta]
 # TeX: end multicast_mbarrier_dist[0]
 
+# TeX: version multicast_convergence 1
+# TeX: begin multicast_convergence[0]
+# TeX: color line *
+#   ggggg
+for m_cta in cuda_threads(0, 4, unit=2 * cuda_cta_in_cluster):
+    # TeX: color line *
+  # rrrrrrrrrrrrrrrr
+    if foo_condition:
+        # TeX: color line *
+        #   vvvvv
+        for n_cta in cuda_threads(0, 2, unit=cuda_cta_in_cluster):
+            with CudaWarps(4, 8):
+                # This is invalid, because m_cta is multicast, and there's an if statement between 
+                # this arrive statement and the m_cta cuda_threads loop.
+                # TeX: color line *
+                #                                      v          g
+                Arrive(cuda_classic, 1) >> bar1[m_cta, :] >> bar1[:, n_cta]
+                # This is valid. Only n_cta is multicast, and there's no forbidden statement
+                # between here and the n_cta cuda_threads loop (CudaWarps is OK).
+                # TeX: color line *
+                #                                      v
+                Arrive(cuda_classic, 1) >> bar2[m_cta, :] >> bar2[m_cta, n_cta]
+# TeX: end multicast_convergence[0]
+
+# TeX: version multicast_2cta 3
+# TeX: begin multicast_2cta
+for cta in cuda_threads(0, 2, unit=cuda_cta_in_cluster):
+    do_something_to(foo[cta, :])
+    # TeX: color line *
+    #  rrrrrrrr
+    if cta == 0:
+        # TeX: remark multicast_2cta[1]
+        # Write to foo[0, :] will synchronize-with this arrive when cta=0
+        # TeX: remark multicast_2cta[1]
+        # Write to foo[1, :] will synchronize-with this arrive when cta=1,
+        # TeX: remark multicast_2cta[1]
+        # but this case is skipped by the above if statement.
+        # TeX: remark multicast_2cta[2]
+        # CTA 0 executes $\abs{C}$-many mbarrier.arrive instructions each on barriers[0] and barriers[1]
+        # TeX: remark multicast_2cta[2]
+        # CTA 1 does not execute this code
+        Arrive(cuda_classic, 1) >> barriers[cta] >> barriers[:]
+        # TeX: remark multicast_2cta[1]
+        # foo[0, :] will have pending arrives (barriers[0], 0) and (barriers[1], 0)
+        # TeX: remark multicast_2cta[1]
+        # foo[1, :] will have no pending arrives
+    Await(barriers[cta], cuda_classic, 1)
+    # TeX: remark multicast_2cta[1]
+    # At this point, the write to foo[0, :] will be visible to both CTA 0 and CTA 1,
+    # TeX: remark multicast_2cta[1]
+    # with the latter due to foo[0, :] containing pending arrive (barriers[1], 0)
+    # TeX: remark multicast_2cta[1]
+    # The write to foo[1, :] will still be visible only to CTA 1
+    # TeX: remark multicast_2cta[2]
+    # Both mbarriers have only $\abs{C}$ pending thread arrivals, but the
+    # TeX: remark multicast_2cta[2]
+    # expected thread arrival count is $2\abs{C}$. Deadlock.
+# TeX: end multicast_2cta
+
 # TeX: version multicast_loop_nest 2
 # TeX: begin multicast_loop_nest[0]
+# TeX: color line *
+#   ggggg
 for m_cta in cuda_threads(0, 4, unit=2 * cuda_cta_in_cluster):
     # TeX: remark! *
-    # Begin compound statement
+    # Begin hypothetical compound statement
     # TeX: color line *
     #   vvvvv
     for n_cta in cuda_threads(0, 2, unit=cuda_cta_in_cluster):
-        # Only n_cta is multicast. Enforce loop nest requirement up to n_cta loop.
         # TeX: color line *
-        #                                         vvvvv                    v
+        #                                                                  v
         Arrive(cuda_classic, 1) >> ringbar[m_cta, n_cta] >> ringbar[m_cta, :]
     # TeX: remark! *
     # End compound statement
-    # A statement here would be valid, since it's outside the compound statement.
 # TeX: end multicast_loop_nest[0]
 
 # TeX: begin multicast_loop_nest[1]
 # TeX: remark! *
-# Begin compound statement
+# Begin hypothetical compound statement
 # TeX: color line *
 #   ggggg
 for m_cta in cuda_threads(0, 4, unit=2 * cuda_cta_in_cluster):
+    # TeX: color line *
+    #   vvvvv
     for n_cta in cuda_threads(0, 2, unit=cuda_cta_in_cluster):
-        # Only m_cta is multicast. Enforce loop nest requirement up to m_cta loop.
         # TeX: color line *
-        #                                  ggggg                    g
-        Arrive(cuda_classic, 1) >> ringbar[m_cta, n_cta] >> ringbar[:, n_cta]
-    # A statement here would not be valid, and will interrupt the compound statement.
+        #                                         v             g
+        Arrive(cuda_classic, 1) >> ringbar[m_cta, :] >> ringbar[:, n_cta]
 # TeX: remark! *
 # End compound statement
 # TeX: end multicast_loop_nest[1]
