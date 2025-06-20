@@ -72,3 +72,126 @@ def mbarrier_teams():
                         bar: f32 @ CudaRmem
                         bar = foo[team, tid]
             # TeX: end mbarrier_teams[0]
+
+
+# TeX: version with_grammar 1
+# TeX: begin with_grammar[0]
+# First 2 are for metaprogramming
+<with-statement> ::=
+    with exo : <body>
+  | with python: <body>
+  | with <with-context>: <body>
+
+<with-context> ::= <async-ctx> | <warps-ctx>
+
+# These make the with statement into an async block
+<async-ctx> ::=
+    CudaDeviceFunction(<clusterDim><blocks-per-sm> blockDim=<int>)
+  | CudaDeviceFunction(<clusterDim><blocks-per-sm> warp_config=[<warp-configs>])
+  | CudaAsync(<async-instr-tl>)
+
+# These do not make the with statement into an async block
+<warps-ctx> ::=
+    CudaWarps(<int>, <int>)  # (lo, hi)
+  | CudaWarps(name=<pystr>)  # name must match one of the warp-config
+  | CudaWarps(<int>, <int>, name=<pystr>)  # (lo, hi, name=name)
+
+<clusterDim> ::= clusterDim=<int> |  # Defaults to 1 if not given
+
+<blocks-per-sm> ::= blocks_per_sm=<int> |  # Defaults to 1 if not given
+
+<warp-config> ::=
+    CudaWarpConfig(<pystr>, <int>)  # (Warp name, warp count)
+  | CudaWarpConfig(<pystr>, <int>, setmaxnreg_dec=<int>)
+  | CudaWarpConfig(<pystr>, <int>, setmaxnreg_inc=<int>)
+
+<warp-configs> ::= <warp-config> | <warp-config>, <warp-configs>
+# TeX: end with_grammar[0]
+
+# TeX: version for_grammar 1
+# TeX: begin for_grammar[0]
+<for-loop> ::=
+    for <name> in seq(<expr>, <expr>): <body>
+  | for <name> in seq(<expr>, <expr>, pragma_unroll=<int>): <body>
+  | for <name> in par(<expr>, <expr>): <body>  # OpenMP, predates Exo-GPU
+  | for <name> in cuda_tasks(<expr>, <expr>): <body>
+  | for <name> in cuda_threads(0, <int>, unit=<coll-unit>): <body>
+
+<loop-mode> ::= seq | par | cuda_tasks | cuda_threads
+# Each ``for <name>'' loop defines a new variable of type index; we call this a
+# <loop-mode> iterator, with <loop-mode> being that of the defining for loop.
+# TeX: end for_grammar[0]
+
+# TeX: version coll_grammar 1
+# TeX: begin coll_grammar[0]
+<coll-unit> ::= cuda_thread | cuda_warp | cuda_warpgroup | cuda_cta_in_cluster
+  | <int> * <coll-unit>
+  | CollUnit([<coll-size-exprs>], [<coll-size-exprs>], <pystr>)
+
+<coll-size-expr> ::= clusterDim | blockDim | <int>
+
+<coll-size-exprs> ::= <coll-size-expr> | <coll-size-exprs>, <coll-size-expr>
+# TeX: end coll_grammar[0]
+
+# TeX: version sync_grammar 1
+# TeX: begin sync_grammar[0]
+<instr-tl> ::= cpu | cuda_classic | <async-instr-tl>
+
+<async-instr-tl> ::= Sm80_cp_async | tma_to_smem_async | tma_to_gmem_async | wgmma_async
+
+<usage-tl> ::= # TODO list them all
+
+<sync-tl> ::= # TODO list them all
+
+<barrier-mem> ::= CudaMbarrier | CudaCommitGroup | CudaEvent
+
+<barrier-alloc> ::= <name> : barrier @ <barrier-mem>  # NB currently no explicit array size
+
+<sync-stmt> ::= <fence-stmt> | <arrive-stmt> | <await-stmt>
+
+<fence-stmt> ::= Fence(<sync-tl>, <sync-tl>)  # (first timeline, second timeline)
+
+<arrive-fname> ::= Arrive | ReverseArrive  # TODO consider changing this
+
+<await-fname> ::= Await | ReverseAwait  # TODO consider changing this
+
+# (first timeline, N)
+<arrive-stmt> ::= <arrive-fname>(<sync-tl>, <int>) <trailing-barrier-exprs>
+
+# (barrier, second timeline, N)
+<await-stmt> ::= <await-fname>(<barrier-expr>, <sync-tl>, <int>)
+
+<barrier-expr> ::= <name> | <name>[<barrier-idxs>]  # <name> : barrier
+
+<barrier-idx> ::= : | <name>  # where <name> identifies a cuda_threads-iterator
+
+<barrier-idxs> ::= <barrier-idx> | <barrier-idx>, <barrier-idxs>
+
+<trailing-barrier-exprs> ::= >> <barrier-expr> | <trailing-barrier-expr> >> <barrier-expr>
+# TeX: end sync_grammar[0]
+
+# TeX: version misc_grammar 1
+# TeX: begin misc_grammar[0]
+<special-window> ::=
+    Sm90_tensorMap(<swizzle>, <int>)  # 1D box
+  | Sm90_tensorMap(<swizzle>, <int>, <int>)  # 2D box
+  | Sm90_tensorMap(<swizzle>, <int>, <int>, <int>)  # 3D box
+  | Sm90_tensorMap(<swizzle>, <int>, <int>, <int>, <int>)  # 4D box
+  | Sm90_tensorMap(<swizzle>, <int>, <int>, <int>, <int>, <int>)  # 5D box
+
+<swizzle> ::= 0 | 32 | 64 | 128
+
+<window-stmt> ::= <normal-window-stmt> | <special-window-stmt>
+
+<normal-window-stmt> ::= <name> = <window-expr>
+
+<special-window-stmt> ::= <name> = <window-expr> @ <special-window>
+
+<window-expr> ::= # as defined in Exo currently
+
+<call> ::= <normal-call> | <call-with-barrier>
+
+<call-with-barrier> ::= <normal-call> >> <barrier-expr>
+
+<normal-call> ::= # function call as defined in Exo currently
+# TeX: end misc_grammar[0]

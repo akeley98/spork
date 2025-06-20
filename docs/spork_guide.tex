@@ -547,6 +547,32 @@ A correct Exo-GPU must comply with correct usage requirements when executed on t
 Ideally, this model will enable synchronization correctness checks (or programming language safety features) that are more abstract and efficient, which could be built upon existing formalism that, until now, supported only programs targetting physically sequential machines.
 
 \newpage
+\myTitle{Appendix: New Grammar}
+
+\texttt{<body>} will mean a valid sequence of Exo statements, \texttt{<expr>} a valid Exo expression, \texttt{<int>} a constant integer, \texttt{<name>} a valid Exo (C-like) identifier, and \texttt{<pystr>} a Python string literal.
+
+\mainSub{With Statements}
+
+All with statements (excluding those defined by metaprogramming) are interpreted as \lighttt{if True:} in S-semantics (which scheduling rewrites use), \textit{except}, \lighttt{simplify} does not optimize them out.
+
+\input{guide/with_grammar.0.tex}
+
+\mainSub{For Loops}
+
+\input{guide/for_grammar.0.tex}
+
+\mainSub{Collective Units}
+
+\input{guide/coll_grammar.0.tex}
+
+\mainSub{Synchronization}
+
+\input{guide/sync_grammar.0.tex}
+
+\mainSub{Misc}
+
+\input{guide/misc_grammar.0.tex}
+
 \myTitle{Appendix: sm\_80 cp.async GEMM Example}
 
 The appendix builds up an output stationary matmul example, using sm\_80 \lighttt{cp.async} and \lighttt{mma} (warp-cooperative matrix multiply-accumulate).
