@@ -615,7 +615,8 @@ These are 3-tuples of (instr-tl, usage-tl, tid); tid being a linearized thread i
 \filbreak
 \mainSub{Visibility Record}
 
-During synchronization checking, we interpret the program sequentially and associate \textit{mutable} read and write \myKeyA{visibility records} with each memory location.
+During synchronization checking, we interpret the program sequentially and associate \textit{mutable} read and write \myKeyA{visibility records} with each position.
+A position is an instance of a scalar variable, or an indexed scalar within a tensor variable.
 The visibility records consist of
 \begin{itemize}
   \item $V_S$: \myKeyA{sync visibility set}: set of timeline signatures
@@ -629,7 +630,7 @@ The visibility records consist of
 \filbreak
 and (to be detailed) they are used as follows:
 \begin{itemize}
-  \item We check for visibility of prior read/write visibility records associated with the memory location when interpreting a read/write of that location.
+  \item We check for visibility of prior read/write visibility records associated with the position when interpreting a read/write of that location.
   \filbreak
   \item We further add a new read/write visibility record after checking the validity of a read/write.
   \filbreak
@@ -708,8 +709,8 @@ In addition to $L_1$ and $L_2$ defined above, define $C$ for each interpreted sy
 Define these sets of timeline signatures:
 \begin{itemize}
   \item The first visibility set $V_1 = L_1^F \times C$
-  \item The second read visibility set $V_2^r = L_2^T \times C$
-  \item The second write visibility set $V_2^w = L_2^F \times C$
+  \item The second temporal visibility set $V_2^T = L_2^T \times C$
+  \item The second full visibility set $V_2^F = L_2^F \times C$
 \end{itemize}
 
 \filbreak
@@ -722,23 +723,22 @@ A visibility record $(V_S, V_A, L_O^i)$ \myKeyA{synchronizes-with} a fence or ar
 \filbreak
 
 \filbreak
-An interpreted fence or await statement \myKeyA{augments} a visibility record by setting $V_A \leftarrow V_A \cup V_2$ and $V_S \leftarrow V_S \cup V_2$, where $V_2$ is $V_2^r$ or $V_2^w$ for read visibility records and write visibility records, respectively.
+An interpreted fence or await statement \myKeyA{augments} a visibility record by setting $V_A \leftarrow V_A \cup V_2$ and $V_S \leftarrow V_S \cup V_2$, where $V_2$ is $V_2^T$ (temporal) or $V_2^F$ (full) for read visibility records and write visibility records, respectively.
 
 \filbreak
 When we interpret a fence statement, it augments all visibility records that synchronize-with the fence.
 When we interpret an await statement, it augments all visibility records that synchronized-with a corresponding arrive statement
 (the next section defines what ``corresponding arrive'' means).
 This synchronizes-with check has to be done at the time the arrive is interpreted, as visibility records are mutable.
-
-\filbreak
 Remarks:
+\filbreak
 \begin{itemize}
   \item ``synchronizes-with'' is defined in terms of the async visibility set $V_A$ while ``augments'' modifies both $V_A$ and $V_S$; in this way, timeline signatures can graduate from $V_A$ to $V_S$.
   \filbreak
   \item Guarding against a write-after-read (WAR) hazard has looser requirements than RAW or WAW hazards, in that we only need to ensure temporal separation of the prior read and subsequent write, and do not actually need to preserve or communicate any value in memory (e.g. we can tolerate stale caches, or, in CUDA terms, we can elide proxy fences).
-  This is the reason for having separate $V_2^w$ and $V_2^r$.
+  This is the reason for having separate $V_2^T$ and $V_2^F$.
   \filbreak
-  \item Furthermore, note $V_2^w \subseteq V_2^r$ as a consequence of $L_n^F \subseteq L_n^T$.
+  \item Furthermore, note $V_2^F \subseteq V_2^T$ as a consequence of $L_n^F \subseteq L_n^T$.
   \filbreak
   \item $L_1^T$ is currently never used.
 \end{itemize}
