@@ -863,8 +863,6 @@ Multicasting poses some challenges for our model:
 \item Since a distributed index was replaced with \lighttt{:}, how do we adapt distributed memory deduction to match?
 \filbreak
 \item The arrive count $Q^1$ is per-queue-barrier state in our model, but having this vary dynamically in different CTAs is not really implementable (nor useful), so we have to ensure $Q^1$ is uniform for all queue barriers involved in the arrive statement.
-\filbreak
-\item How does this interact with mbarrier pairing?
 \end{itemize}
 
 \filbreak
@@ -935,7 +933,7 @@ What I plan to do to support this is
   \filbreak
   \item Extend distributed memory deductions for instrs to handle this trailing barrier expression.
   \filbreak
-  \item Extend the mbarrier pairing requirement to handle TMA
+  \item Extend the mbarrier pairing requirement to handle TMA [see \myChapterLink{ch:Multicasting}{Multicasting: mbarriers \& TMA}]
 \end{itemize}
 
 \filbreak
@@ -985,7 +983,7 @@ Otherwise
 
 \filbreak
 ``finish'' means that \textit{all} threads in the arriving/awaiting thread collective have passed the arrive/await statement.
-See \myChapterLink{ch:mbarrier}{``mbarrier Ring Buffer''} for why this requirement is needed for the ring buffer.
+See ``mbarrier Ring Buffer'' for why this requirement is needed for the ring buffer.
 
 \filbreak
 To enforce this, we require that each thread using the mbarrier follows one of these expected usage patterns; in all cases, the await-type statements ``guard'' the arrive-type statements and prevent there from being too many finished arrives:
