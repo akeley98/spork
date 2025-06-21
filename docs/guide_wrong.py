@@ -96,9 +96,9 @@ def mbarrier_teams():
   | CudaWarps(name=<pystr>)  # name must match one of the warp-config
   | CudaWarps(<int>, <int>, name=<pystr>)  # (lo, hi, name=name)
 
-<clusterDim> ::= clusterDim=<int> |  # Defaults to 1 if not given
+<clusterDim> ::= clusterDim=<int>, |  # Defaults to 1 if not given
 
-<blocks-per-sm> ::= blocks_per_sm=<int> |  # Defaults to 1 if not given
+<blocks-per-sm> ::= blocks_per_sm=<int>, |  # Defaults to 1 if not given
 
 <warp-config> ::=
     CudaWarpConfig(<pystr>, <int>)  # (Warp name, warp count)
@@ -167,7 +167,7 @@ def mbarrier_teams():
 
 <barrier-idxs> ::= <barrier-idx> | <barrier-idx>, <barrier-idxs>
 
-<trailing-barrier-exprs> ::= >> <barrier-expr> | <trailing-barrier-expr> >> <barrier-expr>
+<trailing-barrier-exprs> ::= >> <barrier-expr> | <trailing-barrier-exprs> >> <barrier-expr>
 # TeX: end sync_grammar[0]
 
 # TeX: version misc_grammar 1
