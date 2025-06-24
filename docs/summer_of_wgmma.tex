@@ -55,6 +55,8 @@ This document is meant more as a reference guide, and not something to read end-
 \myChapterLink{ch:tma}{TMA Instruction Barrier Parameter}
 
 \myChapterLink{ch:mbarrier}{Exo mbarrier Pairing Requirement}
+
+\myChapterLink{ch:AbstractMachineGrammar}{Abstract Machine Grammar}
 }
 
 \newpage
@@ -923,7 +925,7 @@ For $N=1$, the behavior of an arrive statement is:
   \filbreak
   \item Let $Q^1$ be the queue arrive count for the home queue barrier.
   \filbreak
-  \item For each visibility record that synchronizes-with the arrive, and for each queue barrier $Q_n$ named in any barrier expression of the arrive, add $(Q_n, Q^1)$ : (queue barrier object, arrive count) to the visibility record's set of pending arrives.
+  \item For each read visibility record that synchronizes-with the arrive, and for each queue barrier $Q_n$ named in any barrier expression of the arrive, add $(Q_n, Q^1)$ : (queue barrier object, arrive count) to the visibility record's set of pending arrives.
   \filbreak
   \item Increment $Q^1$.
     The queue arrive count of all barriers $Q_n \ne Q$ isn't affected.
@@ -1287,5 +1289,238 @@ Let $r = \lighttt{F\_lag} + \lighttt{R\_lag}$ (the needed ring buffer size) and 
   (n+r)^{th} \text{ arrive on $Q$ finished} \implies n^{th} \text{ non-trivial await on $Q$ finished}
 \end{equation*}
 Substitute $x = n + \lighttt{R\_lag}$, $y = n+r$, to get the same conclusion from (c), (d), and (a) for $\widehat{Q}$.
+
+\newpage
+\mySection{Abstract Machine Grammar}
+\label{ch:AbstractMachineGrammar}
+
+\mainSub{Timeline Types}
+
+\input{su_samples/tl_grammar.0.tex}
+
+\filbreak
+\mainSub{Abstract Machine Instructions}
+
+\input{su_samples/abstract_machine_instructions.0.tex}
+
+\filbreak
+\mainSub{Abstract Machine Variables}
+
+\input{su_samples/abstract_machine_variables.0.tex}
+
+\filbreak
+\mainSub{Exo to Abstract Machine}
+
+The correspondence between Exo code and the abstract machine code isn't fully spec'd out yet, but the rough correspondence is
+
+\begin{itemize}
+  \item Each statement is executed by some thread collective \lighttt{int* C}, as defined by \lighttt{coll\_algebra.pdf}.
+    This thread collective will be an additional input in the transition functions defined later.
+  \filbreak
+  \item Each live scalar value of data type (either a scalar data variable, or a scalar inside a tensor) comprises a \textit{position},
+    which holds both a numeric value and metadata for synchronization checking.
+    The numeric values are manipulated by read, assign, and reduce statements like in Exo.
+    The synchronization metadata gets manipulated by \lighttt{Check*} statements added prior to data allocation, free, read, and modification statements,
+    unless the position is \textit{sync-exempt} (to be discussed).
+  \filbreak
+  \item Control types are basically unchanged from Exo.
+  \filbreak
+  \item Allocations and frees for barrier types get replaced with \lighttt{AllocBarrierArray} and \lighttt{FreeBarrierArray}.
+\end{itemize}
+
+\filbreak
+\mainKey{Sync-exempt:} Positions allocated in memory types that we are confident won't be involved in a race condition are sync-exempt.
+Most importantly, this is the case for grid constant memory, since Exo has no way to make explicit the copy from CPU to GPU that happens in the CUDA driver (this copy is neither properly on the CPU timeline or any CUDA timeline).
+For performance reasons, we might also do this for non-wgmma register types.
+
+\filbreak
+\mainKey{Data Allocation:} A shard of a data allocation is identified by the variable's name plus values for the distributed indices.
+Each allocation of a non-sync-exempt data variable is followed by calls to \lighttt{CheckAllocShard} for each distributed shard, with \lighttt{C} being the thread collective that owns the shard.
+
+\filbreak
+\mainKey{Data Free:} Each free of a non-sync-exempt data variable is followed, \textit{after a Memory-type-defined delay}, with calls to \lighttt{CheckFreeShard} for each distributed shard, with \lighttt{C} being the thread collective that owns the shard.
+For shared memory types, the free is deferred until the next shared memory allocation, or the end of the scope, whichever comes first.
+
+\filbreak
+\mainKey{Data Read:} Prior to statements that include a read of a non-sync-exempt position, issue a \lighttt{CheckRead} for that position, with the instr-tl defined by the current scope, and usage-tl and the out-of-order flag defined by the memory type defaults.
+
+\filbreak
+\mainKey{Data Mutate:} Prior\footnote{With strict control and data value separation, whether this is prior (as specified) or following the assign/reduce statement is immaterial, but with Chexo, this could be important, in case the mutation is to a variable used as an index value within the mutation statement.}
+to an assign or reduce to a non-sync-exempt position, issue a \lighttt{CheckMutate} for that position, with instr-tl, usage-tl, and the out-of-order flag defined as for a data read.
+
+\filbreak
+\mainKey{Instr Call:} Add \lighttt{CheckInstr} prior to each call to an instruction, using the instruction info for the called instruction, and the same args as the call.
+
+The optional \lighttt{barrier} value is initialized from the optional trailing barrier expression; see \myChapterLink{ch:tma}{TMA Instruction Barrier Parameter}.
+
+\filbreak
+\mainKey{Instr Info:} The \lighttt{name}, \lighttt{basetype}, and \lighttt{shape} are as defined by the instruction's \lighttt{behavior()} specification.
+The instr-tl, usage-tl, extended instr-tl, extended usage-tl, and out-of-order flag are defined by the instruction's \lighttt{instance()} function.
+The mode is \lighttt{ExemptArg()} for control variables and sync-exempt memory types, otherwise \lighttt{MutateArg()} if the instr modifies the argument, otherwise \lighttt{ReadArg()}.
+TODO \lighttt{access\_by\_owner\_only}.
+
+\filbreak
+\mainKey{Synchronization:} Currently each Exo barrier variable corresponds to either one or two queue barrier arrays, depending on whether \lighttt{ReverseArrive} and \lighttt{ReverseAwait} are used.
+TODO improve this.
+Replace each alloc/free of a barrier type variable with \lighttt{AllocBarrierArray} and \lighttt{FreeBarrierArray} issued for the queue barrier array(s) corresponding to the Exo barrier variable.
+
+\filbreak
+Translate synchronization statements to Fence, Arrive, and Await literally (see \myChapterLink{ch:Multicasting}{Multicasting mbarriers}, for multicast flags).
+
+\filbreak
+\mainSub{Definitions}
+
+A visibility record \myKeyA{synchronizes-with} $V_1$: set of \lighttt{tl\_sig} when the $V_A$ of that visibility record satisfies $V_A \cap V_1 \ne \varnothing$.
+
+\filbreak
+A visibility record is \myKeyA{visible-to} a checked read, mutate, or free when, for each $t \in$ \lighttt{C}, $V_S \cap (L_X^i \times L_X^u \times \{ t \})$ is non-empty ($V_S$ being the \lighttt{sync\_visibility\_set} of the visibility record, and $L_X^i$, $L_X^u$, and \lighttt{C} being from the context of the \lighttt{CheckRead}, \lighttt{CheckMutate}, or \lighttt{CheckFreeShard}).
+
+\filbreak
+A visibility record is \myKeyA{augmented with} $V_2$: set of \lighttt{tl\_sig} by setting $V_S \leftarrow V_S \cup V_2$ and $V_A \leftarrow V_A \cup V_2$.
+
+\filbreak
+A program has \myKeyA{correct usage} when no assertion fails in any transition function and look up in the environment never fails (e.g. due to out-of-bounds error).
+
+\filbreak
+Define \lighttt{multicast\_ids(queue\_barrier\_array\_id barriers, int* iterators, multicast\_flags multicast)} to be the set of \lighttt{id: queue\_barrier\_id} where
+\begin{itemize}
+  \item \lighttt{barriers} $=$ \lighttt{id.barriers}
+  \filbreak
+  \item Dimensionality of \lighttt{id.barriers} matches that of \lighttt{iterators} and \lighttt{multicast.flags}.
+  \filbreak
+  \item For each \lighttt{i}, \lighttt{iterators[i]} $=$ \lighttt{id.iterators[i]}, or \lighttt{multicast.flags[i]} is true.
+\end{itemize}
+
+\filbreak
+\mainSub{Transition Functions}
+
+The environment maps \lighttt{position\_id} to \lighttt{position} variable values, and \lighttt{queue\_barrier\_id} to \lighttt{queue\_barrier} variable values.
+Besides the enviroment, the transition functions take an executing thread collective \lighttt{C}.
+
+\filbreak
+\mainKey{\texttt{AllocBarrierArray(barriers, shape)}:} For each integer tuple \lighttt{idx} of the same dimension as \lighttt{shape} with \lighttt{0 $\le$ idx[i] $<$ shape[i]}, initialize the variable value for \lighttt{queue\_barrier\_id(barriers, idx)} to \lighttt{queue\_barrier(0, 0)}.
+
+\filbreak
+\mainKey{\texttt{FreeBarrierArray(barriers)}:} For each \lighttt{id: queue\_barrier\_id} with \lighttt{id.barriers} = \lighttt{barriers}, \myKeyA{assert} that the \lighttt{queue\_barrier} value for \lighttt{id} has $Q^1 = Q^2$. (\lighttt{arrive\_count = await\_count}).
+
+\filbreak
+\mainKey{Exo Alloc:} When allocating a new position with a normal Exo allocation statement, initialize all positions in the allocated scalar or tensor to an undefined \lighttt{numeric\_value}, an empty \lighttt{assignment\_record}, and empty \lighttt{owner\_tids}.
+
+\filbreak
+\mainKey{\texttt{CheckAllocShard(name, distributed\_iterators)}:} For each \lighttt{id: position\_id} with \lighttt{id.name} = \lighttt{name} and with \lighttt{distributed\_iterators} being a prefix of \lighttt{id.idx}, look up the \lighttt{position} variable value for \lighttt{id} and set \lighttt{owner\_tids} to \lighttt{C} (thread collective that owns this distributed shard).
+
+\filbreak
+\mainKey{\texttt{CheckFreeShard(name, distributed\_iterators, $L_X^i$, $L_X^u$)}:} For each \lighttt{id: position\_id} with \lighttt{id.name} = \lighttt{name} and with \lighttt{distributed\_iterators} being a prefix of \lighttt{id.idx}, look up the \lighttt{val: position} for that \lighttt{id} and
+\begin{itemize}
+  \item \myKeyA{assert} \lighttt{C} = \lighttt{val.owner\_tids}.
+  \filbreak
+  \item If \lighttt{val.assignment\_record.mutate} exists, \myKeyA{assert} that it is visible-to the free.
+  \filbreak
+  \item For each \lighttt{read\_vis\_record} in \lighttt{val.assignment\_record.reads}, \myKeyA{assert} that it is visible-to the free.
+\end{itemize}
+
+\filbreak
+\mainKey{\texttt{CheckRead(name, idx, $L^i$, $L^u$, $L_X^i$, $L_X^u$, $OOO$)}:} Look up \lighttt{val: position} and,
+\begin{itemize}
+  \item If \lighttt{val.assignment\_record.mutate} exists, \myKeyA{assert} that it is visible-to the read.
+  \filbreak
+  \item Let $V_A = \{ L^i \} \times \{ L^u \} \times \lighttt{C}$
+  \filbreak
+  \item Let $V_S = \varnothing$ if $OOO$, otherwise $V_S = V_A$.
+  \filbreak
+  \item Add \lighttt{read\_vis\_record}$(V_S, V_A, L^i, \varnothing)$ to \lighttt{val.assignment\_records.reads}, where the last $\varnothing$ is an empty set of \lighttt{pending\_arrives}.
+\end{itemize}
+
+\filbreak
+\mainKey{\texttt{CheckMutate(name, idx, $L^i$, $L^u$, $L_X^i$, $L_X^u$, $OOO$)}:} Look up \lighttt{val: position} and,
+\begin{itemize}
+  \item If \lighttt{val.assignment\_record.mutate} exists, \myKeyA{assert} that it is visible-to the mutate.
+  \filbreak
+  \item For all visibility records in\lighttt{val.assignment\_record.reads}, \myKeyA{assert} that it is visible-to the mutate.
+  \filbreak
+  \item Let $V_A = \{ L^i \} \times \{ L^u \} \times \lighttt{C}$
+  \filbreak
+  \item Let $V_S = \varnothing$ if $OOO$, otherwise $V_S = V_A$.
+  \filbreak
+  \item Set \lighttt{val.assignment\_record.mutate} to \lighttt{mutate\_vis\_record}$(V_S, V_A, L^i, \varnothing)$, where the last $\varnothing$ is an empty set of \lighttt{pending\_arrives}.
+  \filbreak
+  \item Clear \lighttt{val.assignment\_record.reads}.
+\end{itemize}
+
+\filbreak
+\mainKey{\texttt{CheckInstr(instr\_info, args, ?barrier)}:} For each \lighttt{args[i]} of the instr call, if \lighttt{instr\_info.arg\_info[i].mode} is not \lighttt{ExemptArg()}, do, for each \lighttt{id: position\_id} naming a position passed in the window expression for the arg,
+\begin{itemize}
+  \item Look up \lighttt{val: position} for \lighttt{id}.
+  \filbreak
+  \item For the upcoming uses of visible-to, let $L^i$: instr-tl be that of \lighttt{instr\_info}, and let $L^u, L_X^i, L_X^u, OOO,$ and \lighttt{mode} be that of \lighttt{instr\_info.arg\_info[i]}.
+  \filbreak
+  \item If \lighttt{val.assignment\_record.mutate} exists, \myKeyA{assert} that it is visible-to the read/mutate through the instr.
+  \filbreak
+  \item If \lighttt{mode} is \lighttt{MutateArg()}, for each read visibility record in \lighttt{val.assignment\_record.reads}, \myKeyA{assert} that it is visible-to the mutate.
+  \filbreak
+  \item Let $V_A = \{ L^i \} \times \{ L^u \} \times \lighttt{C}$ if no \lighttt{barrier} was specified, otherwise $V_A = \varnothing$.
+  \filbreak
+  \item Let $V_S = \varnothing$ if $OOO$, otherwise $V_S = V_A$.
+  \filbreak
+  \item Let $A_p = \varnothing$ if no \lighttt{barrier} was specified; otherwise, look up $Q$ (home queue barrier) from \lighttt{queue\_barrier\_id(barriers.barriers, barriers.iterators)}, and let\\
+    $A_p = \{ (q, Q^1) \mid q \in \lighttt{multicast\_ids(barriers.barriers, barriers.iterators, barriers.multicast)} \}$
+  \filbreak
+  \item If \lighttt{mode} is \lighttt{ReadArg()}, add \lighttt{read\_vis\_record}$(V_S, V_A, L^i, A_p)$ to\\ \lighttt{val.assignment\_records.reads}.
+  \filbreak
+  \item If \lighttt{mode} is \lighttt{MutateArg()}, set \lighttt{val.assignment\_records.mutate} to\\ \lighttt{mutate\_vis\_record}$(V_S, V_A, L^i, A_p)$, and clear \lighttt{val.assignment\_records.reads}.
+\end{itemize}
+
+\filbreak
+\mainKey{\texttt{Fence($L_1$, $L_2$)}:} For each \lighttt{asn: assignment\_record} in the entire environment,
+\begin{itemize}
+  \item Define $V_1 = L_1.\lighttt{full\_timeline\_set} \times \lighttt{C}$.
+  \filbreak
+  \item Define $V_2^F = L_2.\lighttt{full\_timeline\_set} \times \lighttt{C}$.
+  \filbreak
+  \item Define $V_2^T = L_2.\lighttt{temporal\_timeline\_set} \times \lighttt{C}$.
+  \filbreak
+  \item If \lighttt{asn.mutate} exists and it synchronizes-with $V_1$, augment it with $V_2^F$.
+  \filbreak
+  \item For each read visibility record in \lighttt{asn.reads} that synchronizes-with $V_1$, augment it with $V_2^T$.
+\end{itemize}
+
+\filbreak
+\mainKey{\texttt{Arrive($L_1$, $N$, barriers, iterators, multicasts):}} For each \lighttt{asn: assignment\_record} in the entire environment,
+\begin{itemize}
+  \item Define $V_1 = L_1.\lighttt{full\_timeline\_set} \times \lighttt{C}$.
+  \filbreak
+  \item Look up $Q$ (home queue barrier) from \lighttt{queue\_barrier\_id(barriers, iterators)}.
+  \item Let $A = \bigcup_{\blacktt{M} \in \blacktt{multicast}} \{ (q, Q^1) \mid q \in \lighttt{multicast\_ids(barriers, iterators, M)} \}$.
+  \filbreak
+  \item If \lighttt{asn.mutate} exists and it synchronizes-with $V_1$, set $A_p \leftarrow A_p \cup A$.
+  \filbreak
+  \item For each read visibility record in \lighttt{asn.reads} that synchronizes-with $V_1$, set $A_p \leftarrow A_p \cup A$.
+\end{itemize}
+Finally, increment $Q^1$ (arrive count).
+
+\filbreak
+\mainKey{\texttt{Await(barriers, iterators, $L_2$, $N$):}} For each \lighttt{asn: assignment\_record} in the entire environment,
+\begin{itemize}
+  \item Define $V_2^F = L_2.\lighttt{full\_timeline\_set} \times \lighttt{C}$.
+  \filbreak
+  \item Define $V_2^T = L_2.\lighttt{temporal\_timeline\_set} \times \lighttt{C}$.
+  \filbreak
+  \item Let $q =$ \lighttt{queue\_barrier\_id(barriers, iterators)}.
+  \filbreak
+  \item Look up $Q$: \lighttt{queue\_barrier} from $q$.
+  \filbreak
+  \item If $N \ge 0$ (arrive-indexed), let $A = \{ (q, x) \mid 0 \le x < Q^1 - N, x \in \mathbb{Z} \}$.
+  \filbreak
+  \item If $N < 0$ (await-indexed), let \lighttt{lag = \textasciitilde}$N$, $A = \{ (q, x) \mid 0 \le x \le Q^2 - \lighttt{lag} \}$.
+  \filbreak
+  \item If \lighttt{asn.mutate} exists and satisfies $\lighttt{asn.mutate.}A_p \cap A \ne \varnothing$, then augment it with $V_2^F$.
+  \filbreak
+  \item For each read visibility record $v$ in \lighttt{asn.reads} that satisfies $v.A_p \cap A \ne \varnothing$, augment it with $V_2^T$.
+\end{itemize}
+Finally,
+\begin{itemize}
+  \item If $N \ge 0$ (arrive-indexed), set $Q^2 \leftarrow \text{max}(Q^1 - N, Q^2)$.
+  \item If $N < 0$ (await-indexed), set $Q^2 \leftarrow Q^2 + 1$.
+\end{itemize}
 
 \end{document}

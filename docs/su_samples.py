@@ -348,7 +348,7 @@ for m_cta in cuda_threads(0, 4, unit=2 * cuda_cta_in_cluster):
         #   vvvvv
         for n_cta in cuda_threads(0, 2, unit=cuda_cta_in_cluster):
             with CudaWarps(4, 8):
-                # This is invalid, because m_cta is multicast, and there's an if statement between 
+                # This is invalid, because m_cta is multicast, and there's an if statement between
                 # this arrive statement and the m_cta cuda_threads loop.
                 # TeX: color line *
                 #                                      v          g
@@ -521,3 +521,144 @@ with CudaWarps(name="consumer"):
             #                                 ggggggggggggggggg    vvvvvvvvvvvvvvvvv
             ReverseArrive(cuda_classic, 1) >> ringbar[m_cta, :] >> ringbar[:, n_cta]
 # TeX: end tma_pairing_multicast[0]
+
+
+# TeX: version tl_grammar 1
+# TeX: begin tl_grammar
+# Instruction Timeline
+instr_tl = cpu_in_order
+         | cuda_in_order
+         | Sm80_cp_async
+         | tma_to_smem_async
+         | tma_to_gmem_async
+         | wgmma_async
+         | tcgen05_async  # Proposed for Blackwell
+# TeX: filbreak
+# Usage Timeline
+usage_tl = cuda_ram_usage
+         | cuda_sync_rmem_usage
+         | cuda_async_a_rmem_usage
+         | cuda_async_d_rmem_usage
+         | cuda_async_a_tmem_usage  # Proposed for Blackwell
+         | cuda_async_d_tmem_usage  # Proposed for Blackwell
+# TeX: filbreak
+qual_tl = (instr_tl instr_tl, usage_tl usage_tl)  # Qualitative Timeline
+# TeX: filbreak
+tl_sig = (instr_tl instr_tl, usage_tl usage_tl, int tid)  #  Timeline Signature
+# TeX: filbreak
+# Synchronization Timeline
+sync_tl = (qual_tl* full_timeline_set,      # $L_1^F, L_2^F$
+           qual_tl* temporal_timeline_set,  # $L_1^T, L_2^T$
+           bool V1_transitive)
+# TeX: end tl_grammar
+
+# TeX: version abstract_machine_instructions 1
+# TeX: begin abstract_machine_instructions
+spork_instr = (instr_tl         instr_tl,  # $L^i$
+               spork_fnarg*     arg_info)
+# TeX: filbreak
+fnarg_mode = ReadArg() | MutateArg() | ExemptArg()
+# TeX: filbreak
+spork_fnarg = (
+      sym          name,          # name: basetype[shape...]
+      basetype     basetype,
+      expr*        shape,
+      fnarg_mode   mode,
+      usage_tl     usage_tl,      # $L^u$
+      instr_tl*    ext_instr_tl,  # $L_X^i$
+      usage_tl*    ext_usage_tl,  # $L_X^u$
+      bool         out_of_order,  # $OOO$
+      bool         access_by_owner_only)
+# TeX: filbreak
+barrier_param = (queue_barrier_array_id barriers, sym* iterators, multicast_flags multicast)
+# TeX: filbreak
+multicast_flags = (bool* flags)
+# TeX: filbreak
+expr = # Similar to Exo LoopIR
+# TeX: filbreak
+stmt = # Similar to Exo LoopIR, plus extra statements
+  | AllocBarrierArray(queue_barrier_array_id barriers, int* shape)
+# TeX: filbreak
+  | FreeBarrierArray(queue_barrier_array_id barriers)
+# TeX: filbreak
+  | CheckAllocShard(
+      sym       name,
+      sym*      distributed_iterators)
+# TeX: filbreak
+  | CheckFreeShard(
+      sym       name,
+      sym*      distributed_iterators,
+      instr_tl* ext_instr_tl,        # $L_X^i$
+      usage_tl* ext_usage_tl)        # $L_X^u$
+# TeX: filbreak
+  | CheckRead(
+      sym             name,
+      expr*           idx,
+      instr_tl        instr_tl,      # $L^i$
+      usage_tl        usage_tl,      # $L^u$
+      instr_tl*       ext_instr_tl,  # $L_X^i$
+      usage_tl*       ext_usage_tl,  # $L_X^u$
+      bool            out_of_order)  # $OOO$
+# TeX: filbreak
+  | CheckMutate(
+      sym             name,
+      expr*           idx,
+      instr_tl        instr_tl,      # $L^i$
+      usage_tl        usage_tl,      # $L^u$
+      instr_tl*       ext_instr_tl,  # $L_X^i$
+      usage_tl*       ext_usage_tl,  # $L_X^u$
+      bool            out_of_order)  # $OOO$
+# TeX: filbreak
+  | CheckInstr(
+      spork_instr     instr_info,
+      expr*           args,
+      barrier_param?  barrier)
+# TeX: filbreak
+  | Fence(
+      sync_tl                 first_sync_timeline,  # $L_1$
+      sync_tl                 second_sync_timeline) # $L_2$
+# TeX: filbreak
+  | Arrive(
+      sync_tl                 first_sync_timeline,  # $L_1$
+      int                     N,
+      queue_barrier_array_id  barriers,
+      sym*                    iterators,
+      multicast_flags*        multicasts)
+# TeX: filbreak
+  | Await(
+      queue_barrier_array_id  barriers,
+      sym*                    iterators,
+      sync_tl                 second_sync_timeline, # $L_2$
+      int                     N)
+# TeX: end abstract_machine_instructions
+
+# TeX: version abstract_machine_variables 1
+# TeX: begin abstract_machine_variables
+position_id = (sym name, int* idx)
+# TeX: filbreak
+position = (number              numeric_value,
+            assignment_record   assignment_record,
+            int*                owner_tids)
+# TeX: filbreak
+assignment_record = (mutate_vis_record? mutate, read_vis_record* reads)
+# TeX: filbreak
+# Read Visibility Record
+read_vis_record = (
+      tl_sig*           sync_visibility_set,  # $V_S$
+      tl_sig*           async_visibility_set, # $V_A$
+      instr_tl          original_instr_tl,    # $L_O^i$
+      pending_arrive*   pending_arrives)      # $A_p$
+# TeX: filbreak
+# Mutation Visibility Record
+mutate_vis_record = (
+      tl_sig*           sync_visibility_set,  # $V_S$
+      tl_sig*           async_visibility_set, # $V_A$
+      instr_tl          original_instr_tl,    # $L_O^i$
+      pending_arrive*   pending_arrives)      # $A_p$
+# TeX: filbreak
+queue_barrier_id = (queue_barrier_array_id barriers, int* iterators)
+# TeX: filbreak
+queue_barrier = (int arrive_count, int await_count)  # $(Q^1, Q^2)$
+# TeX: filbreak
+pending_arrive = (queue_barrier_id barrier, int arrive_count)  # $(\text{id of }Q, Q^1)$
+# TeX: end abstract_machine_variables

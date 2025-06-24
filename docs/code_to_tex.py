@@ -36,14 +36,20 @@ class TexLine:
     raw_text: str
     color_letters: str
     bold: bool = False
+    raw_text_is_latex: bool = False
 
     def leading_spaces(self):
+        if self.raw_text_is_latex:
+            return float("inf")
         for i, c in enumerate(self.raw_text):
             if not c.isspace():
                 return i
         return float("inf")
 
     def gen_tex(self, dedent):
+        if self.raw_text_is_latex:
+            return self.raw_text
+
         py_text = self.raw_text[dedent:]
         if self.is_summary:
             py_text = py_text.replace("#", "# ...", 1)
@@ -93,7 +99,7 @@ class TexLine:
         if prev_color_char:
             snippets.append("}")
         snippets.append(r"}")
-        
+
         if self.is_summary:
             snippets = [r"\textit{"] + snippets + ["}"]
         if self.bold:
@@ -161,6 +167,10 @@ class RemarkDirective(BaseFilterImpl):
 class ColorDirective(BaseFilterImpl):
     filters: List[VersionFilter]
     color_letters: str
+
+@dataclass(slots=True)
+class FilbreakDirective:
+    lineno: int
 
 @dataclass(slots=True)
 class SourceLine:
@@ -270,6 +280,10 @@ def file_to_lines_directives(f):
                     if not color_letters:
                         raise ValueError("line directive with no/empty color info")
                     result.append(ColorDirective(parse_filters(version_names, args), color_letters))
+                elif directive == "filbreak":
+                    if len(args) != 0:
+                        raise ValueError("filbreak expects no filters")
+                    result.append(FilbreakDirective(lineno))
                 else:
                     raise ValueError(f"Unknown directive {directive!r}")
             else:
@@ -312,6 +326,11 @@ def lines_directives_to_tex(lines_directives, name, version_number):
         elif isinstance(directive, ColorDirective):
             if directive.passes_filter(name, version_number):
                 source_color_letters = directive.color_letters
+        elif isinstance(directive, FilbreakDirective):
+            if refcnt > 0:
+                line = TexLine(directive.lineno, False, False, "\\filbreak", "")
+                line.raw_text_is_latex = True
+                tex_lines.append(line)
         else:
             assert 0, str(type(directive))
 
@@ -325,14 +344,26 @@ def lines_directives_to_tex(lines_directives, name, version_number):
         else:
             break
     tex_lines = tex_lines[leading_count:]
-    
+
     # Determine leading whitespace to strip
     dedent = min((line.leading_spaces() for line in tex_lines), default=0)
     if math.isinf(dedent):
         dedent = 0
-    
+
     # Join lines
-    return "\\\\\n".join(line.gen_tex(dedent) for line in tex_lines)
+    output_lines = [line.gen_tex(dedent) for line in tex_lines]
+    snippets = []
+    for i, line in enumerate(output_lines):
+        # Add LaTeX endlines to all lines except \filbreak and those followed by \filbreak
+        snippets.append(line)
+        if line == "\\filbreak":
+            snippets.append("\n")
+        elif i + 1 == len(output_lines) or output_lines[i + 1] != "\\filbreak":
+            snippets.append("\\\\\n")
+        else:
+            snippets.append("\n")
+    return "".join(snippets)
+    return "\n".join(line.gen_tex(dedent) for line in tex_lines)
 
 def main(argv):
     if len(argv) != 3:
