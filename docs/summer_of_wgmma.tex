@@ -564,23 +564,8 @@ For now I'll just sketch out the basics of how the abstract machine tracks read/
 \filbreak
 \mainSub{Instruction Timelines}
 
-Each instruction has one of the following instr-tl types:
+Each instruction has an instr-tl type (see list in \myChapterLink{ch:AbstractMachineGrammar}{Abstract Machine Grammar}).
 
-\begin{itemize}
-  \item \lighttt{cpu\_instr}
-  \filbreak
-  \item \lighttt{cuda\_classic\_instr}
-  \filbreak
-  \item \lighttt{Sm80\_cp\_async\_instr}
-  \filbreak
-  \item \lighttt{tma\_to\_smem\_instr}
-  \filbreak
-  \item \lighttt{tma\_to\_gmem\_instr}
-  \filbreak
-  \item \lighttt{wgmma\_instr}
-  \filbreak
-  \item \lighttt{tcgen05\_instr}  [Blackwell Tensor Core, if we support it]
-\end{itemize}
 \filbreak
 All Exo code has a certain instr-tl in scope: \lighttt{cpu\_instr} in CPU code, \lighttt{cuda\_classic\_instr} within a \lighttt{CudaDeviceFunction} block, and one of the remaining types in a \lighttt{CudaAsync(*\_instr)} block.
 All instrs used must have the same instr-tl type as the current scope.
@@ -595,18 +580,7 @@ In many cases, the instruction timeline would have been specific enough; however
   \item Some async instructions may take some register parameters synchronously, i.e., after issuing the instruction, you can immediately re-use the register without waiting for the instruction to complete.
 \end{itemize}
 \filbreak
-Dealing with these special cases is the purpose of the per-instr-parameter usage-tl type:
-\begin{itemize}
-  \item \lighttt{cuda\_ram\_usage}: non-register parameters (``random access'' supported)
-  \filbreak
-  \item \lighttt{cuda\_sync\_rmem\_usage}: synchronous access to registers
-  \filbreak
-  \item \lighttt{cuda\_async\_a\_rmem\_usage}: async access to registers holding $A$ matrix fragments
-  \filbreak
-  \item \lighttt{cuda\_async\_d\_rmem\_usage}: async access to registers holding $D$ matrix fragments
-  \filbreak
-  \item (possibly TMEM usage-tl types as well, for Blackwell)
-\end{itemize}
+Dealing with these special cases is the purpose of the per-instr-parameter usage-tl type (see \myChapterLink{ch:AbstractMachineGrammar}{Abstract Machine Grammar}, for list)
 
 \filbreak
 \mainSub{Timeline Signature}
@@ -654,6 +628,7 @@ Each instruction configures:
   \filbreak
   \item per-parameter extended usage timelines: $L_X^u$: set of usage-tl; we require $L^u \in L_X^u$
 \end{itemize}
+\filbreak
 In Exo source code, we assume $L^i$ is \lighttt{cpu\_instr} if not configured otherwise (for backwards compatibility).
 We initialize all per-parameter info with defaults as a function of the instr-tl and parameter \lighttt{MemWin} type, but this can be overrided in \lighttt{InstrClass.instance} if needed.
 This defaulting cuts down on boilerplate and makes it easier for us to make bulk changes to the model later.
@@ -1379,10 +1354,10 @@ A visibility record is \myKeyA{visible-to} a checked read, mutate, or free when,
 A visibility record is \myKeyA{augmented with} $V_2$: set of \lighttt{tl\_sig} by setting $V_S \leftarrow V_S \cup V_2$ and $V_A \leftarrow V_A \cup V_2$.
 
 \filbreak
-A program has \myKeyA{correct usage} when no assertion fails in any transition function and look up in the environment never fails (e.g. due to out-of-bounds error).
+A program has \myKeyA{correct usage} when no assertion fails in any transition function, and look up in the environment never fails (e.g. due to out-of-bounds error).
 
 \filbreak
-Define \lighttt{multicast\_ids(queue\_barrier\_array\_id barriers, int* iterators, multicast\_flags multicast)} to be the set of \lighttt{id: queue\_barrier\_id} where
+Define \lighttt{\myKeyA{multicast\_ids}(queue\_barrier\_array\_id barriers, int* iterators, multicast\_flags multicast)} to be the set of \lighttt{id: queue\_barrier\_id} where
 \begin{itemize}
   \item \lighttt{barriers} $=$ \lighttt{id.barriers}
   \filbreak
@@ -1454,6 +1429,8 @@ Besides the enviroment, the transition functions take an executing thread collec
   \filbreak
   \item For the upcoming uses of visible-to, let $L^i$: instr-tl be that of \lighttt{instr\_info}, and let $L^u, L_X^i, L_X^u, OOO,$ and \lighttt{mode} be that of \lighttt{instr\_info.arg\_info[i]}.
   \filbreak
+\item If \lighttt{instr\_info.arg\_info[i].access\_by\_owner\_only}, then let \lighttt{C} $=$ \lighttt{val.owner\_tids} for the uses of visible-to below; otherwise, inherit \lighttt{C} from the calling environment.
+  \filbreak
   \item If \lighttt{val.assignment\_record.mutate} exists, \myKeyA{assert} that it is visible-to the read/mutate through the instr.
   \filbreak
   \item If \lighttt{mode} is \lighttt{MutateArg()}, for each read visibility record in \lighttt{val.assignment\_record.reads}, \myKeyA{assert} that it is visible-to the mutate.
@@ -1487,10 +1464,12 @@ Besides the enviroment, the transition functions take an executing thread collec
 \filbreak
 \mainKey{\texttt{Arrive($L_1$, $N$, barriers, iterators, multicasts):}} For each \lighttt{asn: assignment\_record} in the entire environment,
 \begin{itemize}
+  \item Assume $N=1$; TODO, either spec out $N \ne 1$ behavior or eliminate it.
+  \filbreak
   \item Define $V_1 = L_1.\lighttt{full\_timeline\_set} \times \lighttt{C}$.
   \filbreak
   \item Look up $Q$ (home queue barrier) from \lighttt{queue\_barrier\_id(barriers, iterators)}.
-  \item Let $A = \bigcup_{\blacktt{M} \in \blacktt{multicast}} \{ (q, Q^1) \mid q \in \lighttt{multicast\_ids(barriers, iterators, M)} \}$.
+  \item Let $A = \bigcup_{\blacktt{M} \in \blacktt{multicasts}} \{ (q, Q^1) \mid q \in \lighttt{multicast\_ids(barriers, iterators, M)} \}$.
   \filbreak
   \item If \lighttt{asn.mutate} exists and it synchronizes-with $V_1$, set $A_p \leftarrow A_p \cup A$.
   \filbreak
