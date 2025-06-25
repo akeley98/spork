@@ -583,6 +583,11 @@ In many cases, the instruction timeline would have been specific enough; however
 Dealing with these special cases is the purpose of the per-instr-parameter usage-tl type (see \myChapterLink{ch:AbstractMachineGrammar}{Abstract Machine Grammar}, for list)
 
 \filbreak
+\mainSub{Qualitative Timelines}
+
+A pair (instr-tl, usage-tl) is a qualitative timeline: \myKeyA{qual-tl}.
+
+\filbreak
 \mainSub{Timeline Signature}
 
 We characterize ``who'' performed a read/write  using \myKeyA{timeline signatures}.
@@ -599,7 +604,7 @@ The visibility records consist of
   \filbreak
   \item $V_A$: \myKeyA{async visibility set}: set of timeline signatures, with $V_S \subseteq V_A$
   \filbreak
-  \item $L_O^i$: \myKeyA{original instruction timeline}
+  \item $L_O$: \myKeyA{original timeline}: qual-tl
   \filbreak
   \item pending arrives: set of (queue barrier object, arrive count) pairs; not described in this section
 \end{itemize}
@@ -656,7 +661,7 @@ The \myKeyA{initial extended timeline signatures} $L_X^s$ are $L_X^i \times L_X^
   \filbreak
   \item $V_S = V_A$ if $OOO$ is false, otherwise initialize $V_S$ to be empty
   \filbreak
-  \item $L_O^i = L^i$
+  \item $L_O = (L^i, L^u)$
 \end{itemize}
 
 \filbreak
@@ -668,9 +673,9 @@ An arrive statement has only $L_1$, and an await statement has only $L_2$.
 
 A sync timeline $L_n$ contains
 \begin{itemize}
-  \item $L_n^F$: full timeline set: $L_n^{Fi} \times L_n^{Fu}$, where these are a set of instr-tl and usage-tl, respectively.
+  \item $L_n^F$: full timeline set: set of qual-tl
   \filbreak
-  \item $L_n^T$: temporal timeline set: $L_n^{Ti} \times L_n^{Tu}$, of the same type as above, with $L_n^F \subseteq L_n^T$
+  \item $L_n^T$: temporal timeline set: set of qual-tl, with $L_n^F \subseteq L_n^T$
   \filbreak
   \item $V_1$-transitive flag (only relevant for first sync timelines)
 \end{itemize}
@@ -691,11 +696,11 @@ Define these sets of timeline signatures:
 \end{itemize}
 
 \filbreak
-A visibility record $(V_S, V_A, L_O^i)$ \myKeyA{synchronizes-with} a fence or arrive statement when
+A visibility record $(V_S, V_A, L_O)$ \myKeyA{synchronizes-with} a fence or arrive statement when
 \begin{itemize}
   \item $V_1 \cap V_A$ is non-empty, if $L_1$ is $V_1$-transitive;
   \filbreak
-  \item $V_1 \cap V_A$ is non-empty AND $L_O^i \in L_1^{Fi}$, otherwise.
+  \item $V_1 \cap V_A$ is non-empty AND $L_O \in L_1^F$, otherwise.
 \end{itemize}
 \filbreak
 
@@ -1345,7 +1350,12 @@ Translate synchronization statements to Fence, Arrive, and Await literally (see 
 \filbreak
 \mainSub{Definitions}
 
-A visibility record \myKeyA{synchronizes-with} $V_1$: set of \lighttt{tl\_sig} when the $V_A$ of that visibility record satisfies $V_A \cap V_1 \ne \varnothing$.
+With $V_1 = L_1^F \times \lighttt{C}$ (F: full timeline set), a visibility record \myKeyA{synchronizes-with} ($L_1$: sync-tl, \lighttt{C}: thread collective) when the visibility record's $V_A$ and $L_O$ satisfy
+\begin{itemize}
+  \item $V_1 \cap V_A \ne \varnothing$, if $L_1$ is $V_1$-transitive.
+  \filbreak
+  \item $V_1 \cap V_A \ne \varnothing$ AND $L_O \in L_1^F$, otherwise.
+\end{itemize}
 
 \filbreak
 A visibility record is \myKeyA{visible-to} a checked read, mutate, or free when, for each $t \in$ \lighttt{C}, $V_S \cap (L_X^i \times L_X^u \times \{ t \})$ is non-empty ($V_S$ being the \lighttt{sync\_visibility\_set} of the visibility record, and $L_X^i$, $L_X^u$, and \lighttt{C} being from the context of the \lighttt{CheckRead}, \lighttt{CheckMutate}, or \lighttt{CheckFreeShard}).
@@ -1455,15 +1465,13 @@ However, if we merge this with Chexo, then we will have to care about a subset o
 \filbreak
 \mainKey{\texttt{Fence($L_1$, $L_2$)}:} For each \lighttt{asn: assignment\_record} in the entire environment,
 \begin{itemize}
-  \item Define $V_1 = L_1.\lighttt{full\_timeline\_set} \times \lighttt{C}$.
+  \item Define $V_2^F = L_2^F \times \lighttt{C}$ (full timeline set).
   \filbreak
-  \item Define $V_2^F = L_2.\lighttt{full\_timeline\_set} \times \lighttt{C}$.
+  \item Define $V_2^T = L_2^T \times \lighttt{C}$ (temporal timeline set).
   \filbreak
-  \item Define $V_2^T = L_2.\lighttt{temporal\_timeline\_set} \times \lighttt{C}$.
+  \item If \lighttt{asn.mutate} exists and it synchronizes-with $L_1, \lighttt{C}$, augment it with $V_2^F$.
   \filbreak
-  \item If \lighttt{asn.mutate} exists and it synchronizes-with $V_1$, augment it with $V_2^F$.
-  \filbreak
-  \item For each read visibility record in \lighttt{asn.reads} that synchronizes-with $V_1$, augment it with $V_2^T$.
+  \item For each read visibility record in \lighttt{asn.reads} that synchronizes-with $L_1, \lighttt{C}$, augment it with $V_2^T$.
 \end{itemize}
 
 \filbreak
@@ -1471,23 +1479,21 @@ However, if we merge this with Chexo, then we will have to care about a subset o
 \begin{itemize}
   \item Assume $N=1$; TODO, either spec out $N \ne 1$ behavior or eliminate it.
   \filbreak
-  \item Define $V_1 = L_1.\lighttt{full\_timeline\_set} \times \lighttt{C}$.
-  \filbreak
   \item Look up $Q$ (home queue barrier) from \lighttt{queue\_barrier\_id(barriers, iterators)}.
   \item Let $A = \bigcup_{\blacktt{M} \in \blacktt{multicasts}} \{ (q, Q^1) \mid q \in \lighttt{multicast\_ids(barriers, iterators, M)} \}$.
   \filbreak
-  \item If \lighttt{asn.mutate} exists and it synchronizes-with $V_1$, set $A_p \leftarrow A_p \cup A$.
+  \item If \lighttt{asn.mutate} exists and it synchronizes-with $L_1, \lighttt{C}$, set $A_p \leftarrow A_p \cup A$.
   \filbreak
-  \item For each read visibility record in \lighttt{asn.reads} that synchronizes-with $V_1$, set $A_p \leftarrow A_p \cup A$.
+  \item For each read visibility record in \lighttt{asn.reads} that synchronizes-with $L_1, \lighttt{C}$, set $A_p \leftarrow A_p \cup A$.
 \end{itemize}
 Finally, increment $Q^1$ (arrive count).
 
 \filbreak
 \mainKey{\texttt{Await(barriers, iterators, $L_2$, $N$):}} For each \lighttt{asn: assignment\_record} in the entire environment,
 \begin{itemize}
-  \item Define $V_2^F = L_2.\lighttt{full\_timeline\_set} \times \lighttt{C}$.
+  \item Define $V_2^F = L_2^F \times \lighttt{C}$ (full timeline set).
   \filbreak
-  \item Define $V_2^T = L_2.\lighttt{temporal\_timeline\_set} \times \lighttt{C}$.
+  \item Define $V_2^T = L_2^T \times \lighttt{C}$ (temporal timeline set).
   \filbreak
   \item Let $q =$ \lighttt{queue\_barrier\_id(barriers, iterators)}.
   \filbreak
