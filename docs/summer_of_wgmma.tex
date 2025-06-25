@@ -1373,6 +1373,11 @@ The environment maps \lighttt{position\_id} to \lighttt{position} variable value
 Besides the enviroment, the transition functions take an executing thread collective \lighttt{C}.
 
 \filbreak
+We don't define the behavior of statements that only affect the \lighttt{numeric\_value} of a position; we inherit this behavior from Exo.
+Actually, if there's strict separation of control and data values, then for the purposes of checking correct usage of the abstract machine, we don't have to care about data values at all.
+However, if we merge this with Chexo, then we will have to care about a subset of values, those integer data values used to index tensors.
+
+\filbreak
 \mainKey{\texttt{AllocBarrierArray(barriers, shape)}:} For each integer tuple \lighttt{idx} of the same dimension as \lighttt{shape} with \lighttt{0 $\le$ idx[i] $<$ shape[i]}, initialize the variable value for \lighttt{queue\_barrier\_id(barriers, idx)} to \lighttt{queue\_barrier(0, 0)}.
 
 \filbreak
