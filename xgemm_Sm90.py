@@ -37,7 +37,7 @@ def make_Sm90_gemm(N):
             for m_task in cuda_tasks(0, M / smem_m):
                 for n_task in cuda_tasks(0, N / smem_n):
                     ringbar : barrier @ CudaMbarrier
-                    cg : barrier @ CudaCommitGroup
+                    cg : barrier[2] @ CudaCommitGroup
                     D_rmem : f32[2, wg_m, wg_n] @ Sm90_RmemMatrixD
                     A_smem : f32[ring, smem_m / 8, 8, smem_k] @ Sm90_SmemSwizzled(128)
                     B_smem : f32[ring, smem_n / 8, 8, smem_k] @ Sm90_SmemSwizzled(128)

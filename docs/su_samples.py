@@ -264,7 +264,7 @@ class tma_multicast_f32_2d_linear:
 
 # TeX: version mbarrier_var 2
 # TeX: begin mbarrier_var
-cta_bars: barrier @ CudaMbarrier  # Currently no explicit array bounds
+cta_bars: barrier[8] @ CudaMbarrier
 # TeX: end mbarrier_var[0]
 warp_bars: barrier @ CudaMbarrier
 for cta in cuda_threads(0, 8, unit=cuda_cta_in_cluster):
@@ -288,7 +288,7 @@ for cta in cuda_threads(0, 8, unit=cuda_cta_in_cluster):
 # TeX: version intro_multicast_mbarrier 1
 # TeX: begin intro_multicast_mbarrier[0]
 # 4 x 2 grid of CTAs in cluster (assume clusterDim = 8).
-ringbar: barrier @ CudaMbarrier
+ringbar: barrier[4, 2] @ CudaMbarrier
 for m_cta in cuda_threads(0, 4, unit=2 * cuda_cta_in_cluster):
     for n_cta in cuda_threads(0, 2, unit=cuda_cta_in_cluster):
         # TeX: color line intro_multicast_mbarrier[0]
@@ -320,7 +320,7 @@ for m_cta in cuda_threads(0, 4, unit=2 * cuda_cta_in_cluster):
 # TeX: version multicast_mbarrier_dist 1
 # TeX: begin multicast_mbarrier_dist[0]
 # 4 x 2 grid of CTAs in cluster (assume clusterDim = 8). Let $B$ = blockDim
-ringbar: barrier @ CudaMbarrier
+ringbar: barrier[4, 2] @ CudaMbarrier
 # TeX: color line *
 #   ggggg                                                                      gggg
 for m_cta in cuda_threads(0, 4, unit=2 * cuda_cta_in_cluster):  # Thread pitch $2B$
@@ -476,7 +476,7 @@ class tma_multicast_f32_2d_linear:
             src: [f32][box0, box1],
             # TeX: color line *
           # rrr
-            bar: barrier @ CudaMbarrier):
+            bar: barrier[n_cta] @ CudaMbarrier):
         for cta in cuda_threads(0, n_cta, unit=cuda_warp_in_cluster):
             distribute(dst[cta, :, :])
             # TeX: color line *

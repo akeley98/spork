@@ -56,7 +56,7 @@ def mbarrier_teams():
             # TeX: version mbarrier_teams 1
             # TeX: begin mbarrier_teams[0]
             foo: f32[2, 128] @ CudaSmemLinear
-            my_mbarrier: barrier @ CudaMbarrier
+            my_mbarrier: barrier[2] @ CudaMbarrier
             # Split into two teams of 256 threads each
             for team in cuda_threads(0, 2, unit=256 * cuda_thread):
                 with CudaWarps(0, 4):
@@ -148,7 +148,10 @@ def mbarrier_teams():
 # TeX: filbreak
 <barrier-mem> ::= CudaMbarrier | CudaCommitGroup | CudaEvent
 # TeX: filbreak
-<barrier-alloc> ::= <name> : barrier @ <barrier-mem>  # NB currently no explicit array size
+<barrier-alloc> ::= <name> : barrier [<barrier-array-shape>] @ <barrier-mem>
+                  | <name> : barrier @ <barrier-mem>
+# TeX: filbreak
+<barrier-array-shape> ::= <int> | <int> , <barrier-array-shape>
 # TeX: filbreak
 <sync-stmt> ::= <fence-stmt> | <arrive-stmt> | <await-stmt>
 # TeX: filbreak
