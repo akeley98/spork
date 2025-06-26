@@ -556,11 +556,13 @@ The rules for our deduction should enforce that
 \filbreak
 \mainSub{State Model}
 
-Each \lighttt{cuda\_threads} iterator variable (previous example : \texttt{\greenBox{m}, \violetBox{n}}) has two relevant pieces of state:
+Each \lighttt{cuda\_threads} iterator variable (previous example : \texttt{\greenBox{m}, \violetBox{n}}) has three relevant pieces of state:
 \begin{itemize}
   \item Its \myKeyA{\texttt{CollIndexExpr}}, mapping \lighttt{threadIdx.x} or \lighttt{blockIdx.x} to the iteration variable value.
   \filbreak
   \item Its \myKeyA{tiling operator} $t_0 \mapsto t_1$, where $t_1$ is the number of threads in the \myKeyA{tile} of the collective tiling defined by the \lighttt{cuda\_threads} loop, and $t_0$ is the number of threads in the tile of the parent collective unit.
+  \filbreak
+  \item Its range \lighttt{[0, hi)} as defined by the for loop bounds.
 \end{itemize}
 
 \filbreak
@@ -569,8 +571,14 @@ We deduce from each usage a tuple of \lighttt{CollIndexExpr}; the length of this
 \input{coll_samples/simple.1.tex}
 
 \filbreak
-All usages must deduce the same tuple of \lighttt{CollIndexExpr}.
-Recall the tile size includes inactive threads, which isn't relevant in this simple example, but will matter later.
+\mainSub{Requirements}
+\begin{itemize}
+  \item Each usage of distributed memory must successfully deduce a tiling chain.
+  \filbreak
+  \item Each usage must deduce the an algebraically-identical\footnote{As opposed to syntactically identical} tuple of \lighttt{CollIndexExpr}.
+  \filbreak
+  \item The range of each index variable used must match the extents of the indexed dimension.
+\end{itemize}
 
 \filbreak
 \mainSub{Deduction Algorithm}
@@ -585,6 +593,7 @@ The goal of the deduction is to find a valid \myKeyA{tiling chain}; this is a pe
 \filbreak
 In the earlier example, $t_a = 256$, $t_n = 1$, and the tiling chain is \greenBox{$m: 256 \mapsto 16$}, \violetBox{$n: 16 \mapsto 1$}.
 The collective tiling defined by the \lighttt{cuda\_threads} loop of the last variable in the tiling chain is the \myKeyA{leaf tiling}.
+Recall the tile size includes inactive threads, which isn't relevant in this simple example, but will matter later.
 
 \filbreak
 If the native unit mismatches the collective unit, we do distributed memory analysis for each index expression.
