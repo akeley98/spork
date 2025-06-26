@@ -647,14 +647,14 @@ assignment_record = (mutate_vis_record? mutate, read_vis_record* reads)
 read_vis_record = (
       tl_sig*           sync_visibility_set,  # $V_S$
       tl_sig*           async_visibility_set, # $V_A$
-      instr_tl          original_instr_tl,    # $L_O^i$
+      qual_tl           original_qual_tl,     # $L_O$
       pending_arrive*   pending_arrives)      # $A_p$
 # TeX: filbreak
 # Mutation Visibility Record
 mutate_vis_record = (
       tl_sig*           sync_visibility_set,  # $V_S$
       tl_sig*           async_visibility_set, # $V_A$
-      instr_tl          original_instr_tl,    # $L_O^i$
+      qual_tl           original_qual_tl,     # $L_O$
       pending_arrive*   pending_arrives)      # $A_p$
 # TeX: filbreak
 queue_barrier_id = (queue_barrier_array_id barriers, int* iterators)
