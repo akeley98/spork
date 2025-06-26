@@ -555,14 +555,14 @@ sync_tl = (qual_tl* full_timeline_set,      # $L_1^F, L_2^F$
 
 # TeX: version abstract_machine_instructions 1
 # TeX: begin abstract_machine_instructions
+proc = (name name, fnarg* args, expr* preds, stmt* body, spork_instr? instr_info)
+# TeX: filbreak
 spork_instr = (instr_tl         instr_tl,  # $L^i$
                spork_fnarg*     arg_info)
 # TeX: filbreak
 fnarg_mode = ReadArg() | MutateArg() | ExemptArg()
 # TeX: filbreak
 spork_fnarg = (
-      sym          name,          # name: basetype[shape...]
-      basetype     basetype,
       expr*        shape,
       fnarg_mode   mode,
       usage_tl     usage_tl,      # $L^u$
