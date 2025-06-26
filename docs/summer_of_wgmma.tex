@@ -567,7 +567,7 @@ For now I'll just sketch out the basics of how the abstract machine tracks read/
 Each instruction has an instr-tl type (see list in \myChapterLink{ch:AbstractMachineGrammar}{Abstract Machine Grammar}).
 
 \filbreak
-All Exo code has a certain instr-tl in scope: \lighttt{cpu\_instr} in CPU code, \lighttt{cuda\_classic\_instr} within a \lighttt{CudaDeviceFunction} block, and one of the remaining types in a \lighttt{CudaAsync(*\_instr)} block.
+All Exo code has a certain instr-tl in scope: \lighttt{cpu\_in\_order\_instr} in CPU code, \lighttt{cuda\_in\_order\_instr} within a \lighttt{CudaDeviceFunction} block, and one of the remaining types in a \lighttt{CudaAsync(*\_instr)} block.
 All instrs used must have the same instr-tl type as the current scope.
 
 \filbreak

@@ -206,18 +206,18 @@ def sync_warp_cta():
                 #                       bbbb
                 # Collective unit here: warp (Fence lowers to __syncwarp() equivalent)
                 # TeX: color line *
-              #       gggggggggggg  gggggggggggg
-                Fence(cuda_classic, cuda_classic)
+              #       ggggggggggggg  ggggggggggggg
+                Fence(cuda_in_order, cuda_in_order)
                 # Only threads in the same warp can see smem[w] = 42
             # TeX: remark! *
             # Collective unit here: CTA  (Fence lowers to __syncthreads() equivalent)
             # TeX: color line *
-          #       gggggggggggg  gggggggggggg
-            Fence(cuda_classic, cuda_classic)
+          #       ggggggggggggg  ggggggggggggg
+            Fence(cuda_in_order, cuda_in_order)
             # Now all threads in the CTA can see smem[0:4] = [42, 42, 42, 42]
             # TeX: color line *
-            #       gggggggggggg
-            # NOTE: cuda_classic means non-async CUDA instructions [FIXME use timelines]
+            #       ggggggggggggg
+            # NOTE: cuda_in_order means non-async CUDA instructions
             # TeX: end sync_warp_cta[0]
 
 
@@ -240,13 +240,13 @@ def Sm80_cp_async_simple(src: f32[128] @ CudaGmemLinear):
                     Sm80_cp_async_f32(async_dst[tid:tid+1], src[tid:tid+1], size=1)
             # Here: only thread #tid can see sync_dst[tid] = src[tid]
             # TeX: color line *
-            #     gggggggggggg  gggggggggggg
-            Fence(cuda_classic, cuda_classic)
+            #     ggggggggggggg  ggggggggggggg
+            Fence(cuda_in_order, cuda_in_order)
             # Here: sync_dst[tid] = src[tid] visible to all threads in CTA
             # The write to async_dst[tid] is still pending
             # TeX: color line *
-            #     yyyyyyyyyyyyy  gggggggggggg
-            Fence(Sm80_cp_async, cuda_classic)
+            #     yyyyyyyyyyyyy  ggggggggggggg
+            Fence(Sm80_cp_async, cuda_in_order)
             # Here: all threads in the CTA can see sync_dst[tid] = src[tid] and async_dst[tid] = src[tid]
             # TeX: end Sm80_cp_async_simple[0]
 
@@ -399,7 +399,7 @@ def xgemm_Sm80_fence(M: size, N: size, K: size,
                                 # TeX: end xgemm_Sm80_fence[3]
 
                     # TeX: begin xgemm_Sm80_fence
-                    # Sm80_generic = (cuda_classic | Sm80_cp_async)
+                    # Sm80_generic = (cuda_in_order | Sm80_cp_async)
                     # TeX: color line xgemm_Sm80_fence[0]
                   # yyyyy
                     Fence(Sm80_generic, Sm80_generic)
@@ -521,7 +521,7 @@ def xgemm_Sm80_mbarrier(M: size, N: size, K: size,
                         # Wait for ring buffer to be filled
                         # TeX: color line xgemm_Sm80_mbarrier
                         #     bbbbbbb
-                        Await(ringbar, cuda_classic, ~0)
+                        Await(ringbar, cuda_in_order, ~0)
                         # TeX: end xgemm_Sm80_mbarrier[0]
 
                         for mw in cuda_threads(0, M1 / Mw, unit=(N1/Nw) * cuda_warp):
@@ -557,8 +557,8 @@ def xgemm_Sm80_mbarrier(M: size, N: size, K: size,
                         # TeX: begin xgemm_Sm80_mbarrier[0]
                         # Signal that it's safe to overwrite ring buffer entry
                         # TeX: color line xgemm_Sm80_mbarrier
-                        #                           bbbbbbb
-                        ReverseArrive(cuda_classic, ringbar, 1)
+                        #                            bbbbbbb
+                        ReverseArrive(cuda_in_order, ringbar, 1)
                 # for-k1 (K tiles) loop ends
                 # TeX: end xgemm_Sm80_mbarrier[0]
 

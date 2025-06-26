@@ -44,7 +44,7 @@ def xgemm_Sm80_fence(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B:
                 # 1 iteration delay between load and use.
                 for k1 in seq(0, K / K0 + 1):
                     if k1 < K / K0:
-                        with CudaAsync(Sm80_cp_async):
+                        with CudaAsync(Sm80_cp_async_instr):
                             # Load A tile
                             for m1 in seq(0, M1 / 64):
                                 for m0 in cuda_threads(0, 64, unit=4 * cuda_thread):
@@ -89,14 +89,14 @@ def xgemm_Sm80_fence(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B:
                                                           A_rmem[k_seq,:,:],
                                                           B_rmem[k_seq,n_seq,:,:], K=MMA_K)
 
-                    # Sm80_generic actor kind = (cuda_classic | Sm80_cp_async)
+                    # Sm80_generic sync-tl = (cuda_in_order | Sm80_cp_async)
                     Fence(Sm80_generic, Sm80_generic)
                     # for w in cuda_threads(0, 8, unit=cuda_warp):
                     #     cg : barrier @ CudaCommitGroup
                     #     for tid in cuda_threads(0, 32):
                     #         Arrive(Sm80_cp_async, cg[tid], 1)
-                    #         Await(cg[tid], cuda_classic, 0)
-                    # Fence(cuda_classic, Sm80_generic)
+                    #         Await(cg[tid], cuda_in_order, 0)
+                    # Fence(cuda_in_order, Sm80_generic)
 
                 # for-k1 (K tiles) loop ends
 
@@ -170,7 +170,7 @@ def xgemm_Sm80_mbarrier(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear,
                 # for-k1 (K tiles) loop continues
                     if k1 >= LAG:
                         # Wait for ring buffer to be filled
-                        Await(ringbar, cuda_classic, ~0)
+                        Await(ringbar, cuda_in_order, ~0)
 
                         for mw in cuda_threads(0, M1 / Mw, unit=(N1/Nw) * cuda_warp):
                             for nw in cuda_threads(0, N1 / Nw, unit=cuda_warp):
@@ -198,7 +198,7 @@ def xgemm_Sm80_mbarrier(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear,
                                                           A_rmem[k_seq,:,:],
                                                           B_rmem[k_seq,n_seq,:,:], K=MMA_K)
                         # Signal that it's safe to overwrite ring buffer entry
-                        ReverseArrive(cuda_classic, ringbar, 1)
+                        ReverseArrive(cuda_in_order, ringbar, 1)
                 # for-k1 (K tiles) loop ends
 
                 # Write out accumulator
@@ -274,7 +274,7 @@ def xgemm_Sm80_split(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B:
                         # Consumer warpgroup
 
                         # Wait for ring buffer to be filled
-                        Await(ringbar, cuda_classic, ~0)
+                        Await(ringbar, cuda_in_order, ~0)
 
                         for mw in cuda_threads(0, M1 / Mw, unit=(N1/Nw) * cuda_warp):
                             for nw in cuda_threads(0, N1 / Nw, unit=cuda_warp):
@@ -302,7 +302,7 @@ def xgemm_Sm80_split(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B:
                                                           A_rmem[k_seq,:,:],
                                                           B_rmem[k_seq,n_seq,:,:], K=MMA_K)
                         # Signal that it's safe to overwrite ring buffer entry
-                        ReverseArrive(cuda_classic, ringbar, 1)
+                        ReverseArrive(cuda_in_order, ringbar, 1)
                 # for-k1 (K tiles) loop ends
 
                 # Write out accumulator
@@ -316,7 +316,7 @@ def xgemm_Sm80_split(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B:
                                         n2 * N1 + nw * Nw + n_seq * 8 : n2 * N1 + nw * Nw + (n_seq+1) * 8],
                                         D_rmem[mw,nw,m_seq,n_seq,:,:])
 
-                Fence(cuda_classic, cuda_classic)
+                Fence(cuda_in_order, cuda_in_order)
 
 xgemm_Sm80_split = simplify(xgemm_Sm80_split)
 
@@ -410,7 +410,7 @@ def gemm_simple_smem(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B:
                             for k0 in cuda_threads(0, 32):
                                 B_smem[n1*8 + n0, k0] = B[n2*256 + n1*8 + n0, k1*32 + k0]
 
-                    Fence(cuda_classic, cuda_classic)
+                    Fence(cuda_in_order, cuda_in_order)
 
                     for m1 in cuda_threads(0, 16, unit=16 * cuda_thread):
                         for n1 in cuda_threads(0, 16, unit=cuda_thread):
@@ -419,7 +419,7 @@ def gemm_simple_smem(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B:
                                     for n0 in seq(0, 16):
                                         accum[m1, n1, m0, n0] += A_smem[m1*8 + m0, k0] * B_smem[n1*16 + n0, k0]
 
-                    Fence(cuda_classic, cuda_classic)
+                    Fence(cuda_in_order, cuda_in_order)
 
                 for m1 in cuda_threads(0, 16, unit=16 * cuda_thread):
                     for n1 in cuda_threads(0, 16, unit=cuda_thread):

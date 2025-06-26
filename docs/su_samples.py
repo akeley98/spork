@@ -295,26 +295,26 @@ for m_cta in cuda_threads(0, 4, unit=2 * cuda_cta_in_cluster):
         #           bbbbbbbbbb
         # Arrive on this CTA's mbarriers
         # TeX: color line intro_multicast_mbarrier[0]
-        #                                  bbbbbbbbbbbb
-        Arrive(cuda_classic, 1) >> ringbar[m_cta, n_cta]
+        #                                   bbbbbbbbbbbb
+        Arrive(cuda_in_order, 1) >> ringbar[m_cta, n_cta]
 for m_cta in cuda_threads(0, 4, unit=2 * cuda_cta_in_cluster):
     for n_cta in cuda_threads(0, 2, unit=cuda_cta_in_cluster):
         # Arrive on this CTA's mbarriers, as well as on the mbarriers of any
         # CTA with the same m_cta value (redundancy to be explained).
         # TeX: color line intro_multicast_mbarrier[0]
-        #                                                                  b
-        Arrive(cuda_classic, 1) >> ringbar[m_cta, n_cta] >> ringbar[m_cta, :]
+        #                                                                   b
+        Arrive(cuda_in_order, 1) >> ringbar[m_cta, n_cta] >> ringbar[m_cta, :]
 for m_cta in cuda_threads(0, 4, unit=2 * cuda_cta_in_cluster):
     for n_cta in cuda_threads(0, 2, unit=cuda_cta_in_cluster):
         # Arrive on the mbarriers of any CTA with the same n_cta value
         # TeX: color line intro_multicast_mbarrier[0]
-        #                                                           b
-        Arrive(cuda_classic, 1) >> ringbar[m_cta, n_cta] >> ringbar[:, n_cta]
+        #                                                            b
+        Arrive(cuda_in_order, 1) >> ringbar[m_cta, n_cta] >> ringbar[:, n_cta]
 for m_cta in cuda_threads(0, 4, unit=2 * cuda_cta_in_cluster):
     for n_cta in cuda_threads(0, 2, unit=cuda_cta_in_cluster):
         # Arrive on any mbarriers named in either expression.
         # i.e., any with the same m_cta or the same n_cta.
-        Arrive(cuda_classic, 1) >> ringbar[m_cta, :] >> ringbar[:, n_cta]
+        Arrive(cuda_in_order, 1) >> ringbar[m_cta, :] >> ringbar[:, n_cta]
 # TeX: end intro_multicast_mbarrier[0]
 
 # TeX: version multicast_mbarrier_dist 1
@@ -328,12 +328,12 @@ for m_cta in cuda_threads(0, 4, unit=2 * cuda_cta_in_cluster):  # Thread pitch $
     #   vvvvv                                                                  vvv
     for n_cta in cuda_threads(0, 2, unit=cuda_cta_in_cluster):  # Thread pitch $B$
         # TeX: color line *
-        #             ggggg  vvvvv                       gggggggggggggggggggggg  vvvvvvvvvvvvvvvvvvvvv
-        Await(ringbar[m_cta, n_cta], cuda_classic, 1)  # m_cta: $8B \mapsto 2B$, n_cta: $2B \mapsto B$
+        #             ggggg  vvvvv                        gggggggggggggggggggggg  vvvvvvvvvvvvvvvvvvvvv
+        Await(ringbar[m_cta, n_cta], cuda_in_order, 1)  # m_cta: $8B \mapsto 2B$, n_cta: $2B \mapsto B$
 for m_cta in cuda_threads(0, 4, unit=2 * cuda_cta_in_cluster):
     for n_cta in cuda_threads(0, 2, unit=cuda_cta_in_cluster):
         # Arrive on the mbarriers of any CTA with the same m_cta value
-        Arrive(cuda_classic, 1) >> ringbar[:, n_cta]
+        Arrive(cuda_in_order, 1) >> ringbar[:, n_cta]
 # TeX: end multicast_mbarrier_dist[0]
 
 # TeX: version multicast_convergence 1
@@ -351,13 +351,13 @@ for m_cta in cuda_threads(0, 4, unit=2 * cuda_cta_in_cluster):
                 # This is invalid, because m_cta is multicast, and there's an if statement between
                 # this arrive statement and the m_cta cuda_threads loop.
                 # TeX: color line *
-                #                                      v          g
-                Arrive(cuda_classic, 1) >> bar1[m_cta, :] >> bar1[:, n_cta]
+                #                                       v          g
+                Arrive(cuda_in_order, 1) >> bar1[m_cta, :] >> bar1[:, n_cta]
                 # This is valid. Only n_cta is multicast, and there's no forbidden statement
                 # between here and the n_cta cuda_threads loop (CudaWarps is OK).
                 # TeX: color line *
-                #                                      v
-                Arrive(cuda_classic, 1) >> bar2[m_cta, :] >> bar2[m_cta, n_cta]
+                #                                       v
+                Arrive(cuda_in_order, 1) >> bar2[m_cta, :] >> bar2[m_cta, n_cta]
 # TeX: end multicast_convergence[0]
 
 # TeX: version multicast_2cta 3
@@ -377,12 +377,12 @@ for cta in cuda_threads(0, 2, unit=cuda_cta_in_cluster):
         # CTA 0 executes $\abs{C}$-many mbarrier.arrive instructions each on barriers[0] and barriers[1]
         # TeX: remark multicast_2cta[2]
         # CTA 1 does not execute this code
-        Arrive(cuda_classic, 1) >> barriers[cta] >> barriers[:]
+        Arrive(cuda_in_order, 1) >> barriers[cta] >> barriers[:]
         # TeX: remark multicast_2cta[1]
         # foo[0, :] will have pending arrives (barriers[0], 0) and (barriers[1], 0)
         # TeX: remark multicast_2cta[1]
         # foo[1, :] will have no pending arrives
-    Await(barriers[cta], cuda_classic, 1)
+    Await(barriers[cta], cuda_in_order, 1)
     # TeX: remark multicast_2cta[1]
     # At this point, the write to foo[0, :] will be visible to both CTA 0 and CTA 1,
     # TeX: remark multicast_2cta[1]
@@ -406,8 +406,8 @@ for m_cta in cuda_threads(0, 4, unit=2 * cuda_cta_in_cluster):
     #   vvvvv
     for n_cta in cuda_threads(0, 2, unit=cuda_cta_in_cluster):
         # TeX: color line *
-        #                                                                  v
-        Arrive(cuda_classic, 1) >> ringbar[m_cta, n_cta] >> ringbar[m_cta, :]
+        #                                                                   v
+        Arrive(cuda_in_order, 1) >> ringbar[m_cta, n_cta] >> ringbar[m_cta, :]
     # TeX: remark! *
     # End compound statement
 # TeX: end multicast_loop_nest[0]
@@ -422,8 +422,8 @@ for m_cta in cuda_threads(0, 4, unit=2 * cuda_cta_in_cluster):
     #   vvvvv
     for n_cta in cuda_threads(0, 2, unit=cuda_cta_in_cluster):
         # TeX: color line *
-        #                                         v             g
-        Arrive(cuda_classic, 1) >> ringbar[m_cta, :] >> ringbar[:, n_cta]
+        #                                          v             g
+        Arrive(cuda_in_order, 1) >> ringbar[m_cta, :] >> ringbar[:, n_cta]
 # TeX: remark! *
 # End compound statement
 # TeX: end multicast_loop_nest[1]
@@ -459,10 +459,10 @@ Arrive(tma_to_smem, 1) >> barrier_A
 Arrive(tma_to_smem, 1) >> barrier_B
 # ...
 with CudaWarps(...):
-    Await(barrier_A, cuda_classic, 1)
+    Await(barrier_A, cuda_in_order, 1)
     # ... stuff reliant on the TMA to complete
 with CudaWarps(...):
-    Await(barrier_B, cuda_classic, 1)
+    Await(barrier_B, cuda_in_order, 1)
     # ... stuff also reliant on the TMA to complete
 # TeX: end tma_2_arrives[0]
 
@@ -514,28 +514,29 @@ with CudaAsync(name="producer"):
 with CudaWarps(name="consumer"):
     for m_cta in cuda_threads(0, 4, unit=2 * cuda_cta_in_cluster):
         for n_cta in cuda_threads(0, 2, unit=cuda_cta_in_cluster):
-            Await(ringbar[m_cta, n_cta], cuda_classic, 1)
+            Await(ringbar[m_cta, n_cta], cuda_in_order, 1)
             # ...
             # The barriers expressions here are needed to match the previous Arrive statement
             # TeX: color line *
-            #                                 ggggggggggggggggg    vvvvvvvvvvvvvvvvv
-            ReverseArrive(cuda_classic, 1) >> ringbar[m_cta, :] >> ringbar[:, n_cta]
+            #                                  ggggggggggggggggg    vvvvvvvvvvvvvvvvv
+            ReverseArrive(cuda_in_order, 1) >> ringbar[m_cta, :] >> ringbar[:, n_cta]
 # TeX: end tma_pairing_multicast[0]
 
 
 # TeX: version tl_grammar 1
 # TeX: begin tl_grammar
 # Instruction Timeline
-instr_tl = cpu_in_order
-         | cuda_in_order
-         | Sm80_cp_async
-         | tma_to_smem_async
-         | tma_to_gmem_async
-         | wgmma_async
-         | tcgen05_async  # Proposed for Blackwell
+instr_tl = cpu_in_order_instr
+         | cuda_in_order_instr
+         | Sm80_cp_async_instr
+         | tma_to_smem_async_instr
+         | tma_to_gmem_async_instr
+         | wgmma_async_instr
+         | tcgen05_async_instr  # Proposed for Blackwell
 # TeX: filbreak
 # Usage Timeline
-usage_tl = cuda_ram_usage
+usage_tl = cpu_usage
+         | cuda_ram_usage
          | cuda_sync_rmem_usage
          | cuda_async_a_rmem_usage
          | cuda_async_d_rmem_usage

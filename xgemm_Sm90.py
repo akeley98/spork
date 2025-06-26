@@ -75,14 +75,14 @@ def make_Sm90_gemm(N):
                                             B_smem[k_iter % ring,:,:,k_mma*8:k_mma*8+8], M=wg_m, N=wg_n)
                                     Arrive(wgmma_async, cg[wg], 1)
                                 if k_iter >= 1:
-                                    Await(cg[wg], cuda_classic, 1)
+                                    Await(cg[wg], cuda_in_order, 1)
                             if k_iter >= 1:
-                                ReverseArrive(cuda_classic, ringbar, 1)
+                                ReverseArrive(cuda_in_order, ringbar, 1)
 
                     with CudaWarps(name="consumer"):
                         for wg in cuda_threads(0, 2, unit=cuda_warpgroup):
-                            Await(cg[wg], cuda_classic, 0)
-                        ReverseArrive(cuda_classic, ringbar, ~0)
+                            Await(cg[wg], cuda_in_order, 0)
+                        ReverseArrive(cuda_in_order, ringbar, ~0)
 
                     with CudaWarps(name="consumer"):
                         for wg in cuda_threads(0, 2, unit=cuda_warpgroup):
@@ -91,7 +91,7 @@ def make_Sm90_gemm(N):
                                   m_task * smem_m + wg * wg_m : m_task * smem_m + wg * wg_m + wg_m],
                                 D_rmem[wg,:,:], M=wg_m, N=wg_n)
 
-                    Fence(cuda_classic, cuda_classic)
+                    Fence(cuda_in_order, cuda_in_order)
 
 
     xgemm_Sm90_wgmma = simplify(xgemm_Sm90_wgmma)

@@ -1,4 +1,4 @@
-% python3 code_to_tex.py gemms.py gemms_tex && xelatex </dev/null spork_gemm.tex
+% exocc gemms.py && python3 code_to_tex.py gemms.py gemms_tex && python3 code_to_tex.py gemms_extras.py gemms_tex && xelatex </dev/null spork_gemm.tex
 \input{slides_common.tex}
 
 \begin{document}
@@ -74,16 +74,16 @@ Exo-GPU annotates Exo with parallelization directives.
 
 Each statement of an Exo-GPU program has these 2 static properties:
 
-\mySub{Actor Kind}
+\mySub{Instruction Timeline (instr-tl)}
 
 Intuitively, the ``timeline'' the statement runs on
 \begin{itemize}
-  \item \texttt{cpu}: host CPU
-  \item \texttt{cuda\_classic}: most CUDA device code
+  \item \texttt{cpu\_in\_order\_instr}: host CPU
+  \item \texttt{cuda\_in\_order\_instr}: most CUDA code
   \item async CUDA instructions
 \end{itemize}
 \texttt{with CudaDeviceFunction} wraps CUDA code.\\
-Changes the actor kind from \texttt{cpu} to \texttt{cuda\_classic}
+Changes the instr-tl from \texttt{cpu\_in\_order\_instr} to \texttt{cuda\_in\_order\_instr}
 
 \mySub{Collective Unit}
 
@@ -100,12 +100,13 @@ Manipulated with parallel for loops
 \end{minipage}
 
 \newpage
-\myTitle{Starter Example: Actor Kinds}
+\myTitle{Starter Example: Instruction Timelines (instr-tl)}
 
 Output stationary example: each thread computes one value of the output matrix $C$.
 
 Threads grouped into 256 thread CTAs that compute a $16 \times 16$ tile.
 
+\vspace{-2mm}
 \input{gemms_tex/intro.0.tex}
 \newpage
 \myTitle{Starter Example: Memory Types}
@@ -322,9 +323,9 @@ In contrast, increasing the \blueBox{$K$} tile size yields no re-use.
 
 \input{gemms_tex/smem_alloc.0.tex}
 
-\texttt{Fence(cuda\_classic, cuda\_classic)} is an all-threads-to-all-threads sync in Exo-GPU, where ``all'' is defined by the collective unit.
+\texttt{Fence(cuda\_in\_order, cuda\_in\_order)} is an all-threads-to-all-threads sync in Exo-GPU, where ``all'' is defined by the collective unit.
 
-\texttt{cuda\_classic}: actor kind; for now, we don't need to worry about this.
+\texttt{cuda\_in\_order}: parameter corresponding to instr-tl \texttt{cuda\_in\_order\_instr} (don't worry for now)
 
 \newpage
 \myTitle{Broken SMEM 0}
@@ -569,9 +570,7 @@ We use \blueBox{\texttt{with CudaWarps}} in Exo to control work assignment to th
 \draw [arrow] ($(smem.east)-(0,0.2)$) -- ($(gmem.west)-(0,0.2)$);
 \draw [arrow] ($(gmem.west)+(0,0.2)$) -- ($(smem.east)+(0,0.2)$);
 \end{tikzpicture}
-\end{minipage}
-\hfill
-\begin{minipage}[t]{0.48\textwidth}\fixminipage
+
 \mySub{Contrast with synchronous copy instructions}
 \begin{itemize}
   \item Copies large tiles instead of only 4/8/16 bytes at a time.
@@ -579,18 +578,26 @@ We use \blueBox{\texttt{with CudaWarps}} in Exo to control work assignment to th
   \item Async copy: execution continues \textit{without waiting for copy to finish}
   \item Async copies don't interact with normal synchronization, e.g. \texttt{\_\_syncthreads();}
 \end{itemize}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.48\textwidth}\fixminipage
+\mySub{instr-tl: Instruction Timeline}
 
-\mySub{Actor Kind}
-
-Exo-GPU will categorize instructions based on \myKeyA{actor kind}; essentially, instructions that operate on different timelines have different actor kinds.
+Exo-GPU will categorize instructions based on \myKeyA{instr-tl}; essentially, instructions that operate on different timelines have different instr-tl.
 \begin{itemize}
-  \item \texttt{cpu}: CPU instructions
-  \item \texttt{cuda\_classic}: CUDA non-async instr
-  \item \texttt{tma\_to\_smem\_async}: async copies to SMEM
-  \item \texttt{wgmma\_async}: Async H100 tensor core
+  \item \texttt{cpu\_in\_order\_instr}: CPU instructions
+  \item \texttt{cuda\_in\_order\_instr}: CUDA non-async instr
+  \item \texttt{tma\_to\_smem\_async\_instr}: async copies to SMEM
+  \item \texttt{wgmma\_async\_instr}: Async H100 tensor core
   \item ...
 \end{itemize}
-Parameterize sync statements (Fence/Arrive/Await) with \myKeyA{actor kind}; lowers to barriers that target a specific instruction category.
+
+\mySub{sync-tl: Synchronization Timeline}
+
+Parameterize sync statements (Fence/Arrive/Await) with \myKeyA{sync-tl} (synchronization timeline); lowers to barriers that target a specific category of instruction effects.
+
+Each instr-tl \texttt{\textit{foo}\_instr} corresponds to a sync-tl \texttt{\textit{foo}}, but there are other sync-tl values, not covered in these slides.
+
 \end{minipage}
 
 \newpage
@@ -599,7 +606,7 @@ Parameterize sync statements (Fence/Arrive/Await) with \myKeyA{actor kind}; lowe
 \input{gemms_tex/ring.3.tex}
 
 \newpage
-\myTitle{Prep for TMA: Change actor kind with CudaAsync}
+\myTitle{Prep for TMA: Change instr-tl with a CudaAsync block}
 
 \input{gemms_tex/prep_tma.0.tex}
 
@@ -634,7 +641,7 @@ Parameterize sync statements (Fence/Arrive/Await) with \myKeyA{actor kind}; lowe
 \input{gemms_tex/prep_tma.2.tex}
 
 \newpage
-\myTitle{TMA :Reverse Synchronization}
+\myTitle{TMA: Reverse Synchronization}
 
 \input{gemms_tex/prep_tma.3.tex}
 

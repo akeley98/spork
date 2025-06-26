@@ -63,11 +63,11 @@ def mbarrier_teams():
                     for tid in cuda_threads(0, 128, unit=cuda_thread):
                         foo[team, tid] = 137
                     # Threads [0, 127] arrive on my_mbarrier[0]; threads [256, 383] arrive on my_mbarrier[1]
-                    Arrive(cuda_classic, my_mbarrier[team], 1)
+                    Arrive(cuda_in_order, my_mbarrier[team], 1)
             for team in cuda_threads(0, 2, unit=256 * cuda_thread):
                 with CudaWarps(4, 8):
                     # Threads [128, 255] wait for my_mbarrier[0]; threads [384, 511] wait for my_mbarrier[1]
-                    Await(my_mbarrier[team], cuda_classic, ~0)
+                    Await(my_mbarrier[team], cuda_in_order, ~0)
                     for tid in cuda_threads(0, 128, unit=cuda_thread):
                         bar: f32 @ CudaRmem
                         bar = foo[team, tid]
@@ -81,30 +81,30 @@ def mbarrier_teams():
     with exo : <body>
   | with python: <body>
   | with <with-context>: <body>
-
+# TeX: filbreak
 <with-context> ::= <async-ctx> | <warps-ctx>
-
+# TeX: filbreak
 # These make the with statement into an async block
 <async-ctx> ::=
     CudaDeviceFunction(<clusterDim><blocks-per-sm> blockDim=<int>)
   | CudaDeviceFunction(<clusterDim><blocks-per-sm> warp_config=[<warp-configs>])
   | CudaAsync(<async-instr-tl>)
-
+# TeX: filbreak
 # These do not make the with statement into an async block
 <warps-ctx> ::=
     CudaWarps(<int>, <int>)  # (lo, hi)
   | CudaWarps(name=<pystr>)  # name must match one of the warp-config
   | CudaWarps(<int>, <int>, name=<pystr>)  # (lo, hi, name=name)
-
+# TeX: filbreak
 <clusterDim> ::= clusterDim=<int>, |  # Defaults to 1 if not given
-
+# TeX: filbreak
 <blocks-per-sm> ::= blocks_per_sm=<int>, |  # Defaults to 1 if not given
-
+# TeX: filbreak
 <warp-config> ::=
     CudaWarpConfig(<pystr>, <int>)  # (Warp name, warp count)
   | CudaWarpConfig(<pystr>, <int>, setmaxnreg_dec=<int>)
   | CudaWarpConfig(<pystr>, <int>, setmaxnreg_inc=<int>)
-
+# TeX: filbreak
 <warp-configs> ::= <warp-config> | <warp-config>, <warp-configs>
 # TeX: end with_grammar[0]
 
@@ -116,7 +116,7 @@ def mbarrier_teams():
   | for <name> in par(<expr>, <expr>): <body>  # OpenMP, predates Exo-GPU
   | for <name> in cuda_tasks(<expr>, <expr>): <body>
   | for <name> in cuda_threads(0, <int>, unit=<coll-unit>): <body>
-
+# TeX: filbreak
 <loop-mode> ::= seq | par | cuda_tasks | cuda_threads
 # Each ``for <name>'' loop defines a new variable of type index; we call this a
 # <loop-mode> iterator, with <loop-mode> being that of the defining for loop.
@@ -127,46 +127,49 @@ def mbarrier_teams():
 <coll-unit> ::= cuda_thread | cuda_warp | cuda_warpgroup | cuda_cta_in_cluster
   | <int> * <coll-unit>
   | CollUnit([<coll-size-exprs>], [<coll-size-exprs>], <pystr>)
-
+# TeX: filbreak
 <coll-size-expr> ::= clusterDim | blockDim | <int>
-
+# TeX: filbreak
 <coll-size-exprs> ::= <coll-size-expr> | <coll-size-exprs>, <coll-size-expr>
 # TeX: end coll_grammar[0]
 
 # TeX: version sync_grammar 1
 # TeX: begin sync_grammar[0]
-<instr-tl> ::= cpu | cuda_classic | <async-instr-tl>
-
-<async-instr-tl> ::= Sm80_cp_async | tma_to_smem_async | tma_to_gmem_async | wgmma_async
-
+<instr-tl> ::= cpu_in_order_instr | cuda_in_order_instr | <async-instr-tl>
+# TeX: filbreak
+<async-instr-tl> ::= Sm80_cp_async_instr
+                     | tma_to_smem_async_instr
+                     | tma_to_gmem_async_instr
+                     | wgmma_async_instr
+# TeX: filbreak
 <usage-tl> ::= # TODO list them all
-
+# TeX: filbreak
 <sync-tl> ::= # TODO list them all
-
+# TeX: filbreak
 <barrier-mem> ::= CudaMbarrier | CudaCommitGroup | CudaEvent
-
+# TeX: filbreak
 <barrier-alloc> ::= <name> : barrier @ <barrier-mem>  # NB currently no explicit array size
-
+# TeX: filbreak
 <sync-stmt> ::= <fence-stmt> | <arrive-stmt> | <await-stmt>
-
+# TeX: filbreak
 <fence-stmt> ::= Fence(<sync-tl>, <sync-tl>)  # (first timeline, second timeline)
-
+# TeX: filbreak
 <arrive-fname> ::= Arrive | ReverseArrive  # TODO consider changing this
-
+# TeX: filbreak
 <await-fname> ::= Await | ReverseAwait  # TODO consider changing this
-
+# TeX: filbreak
 # (first timeline, N)
 <arrive-stmt> ::= <arrive-fname>(<sync-tl>, <int>) <trailing-barrier-exprs>
-
+# TeX: filbreak
 # (barrier, second timeline, N)
 <await-stmt> ::= <await-fname>(<barrier-expr>, <sync-tl>, <int>)
-
+# TeX: filbreak
 <barrier-expr> ::= <name> | <name>[<barrier-idxs>]  # <name> : barrier
-
+# TeX: filbreak
 <barrier-idx> ::= : | <name>  # where <name> identifies a cuda_threads-iterator
-
+# TeX: filbreak
 <barrier-idxs> ::= <barrier-idx> | <barrier-idx>, <barrier-idxs>
-
+# TeX: filbreak
 <trailing-barrier-exprs> ::= >> <barrier-expr> | <trailing-barrier-exprs> >> <barrier-expr>
 # TeX: end sync_grammar[0]
 
@@ -178,20 +181,20 @@ def mbarrier_teams():
   | Sm90_tensorMap(<swizzle>, <int>, <int>, <int>)  # 3D box
   | Sm90_tensorMap(<swizzle>, <int>, <int>, <int>, <int>)  # 4D box
   | Sm90_tensorMap(<swizzle>, <int>, <int>, <int>, <int>, <int>)  # 5D box
-
+# TeX: filbreak
 <swizzle> ::= 0 | 32 | 64 | 128
-
+# TeX: filbreak
 <window-stmt> ::= <normal-window-stmt> | <special-window-stmt>
-
+# TeX: filbreak
 <normal-window-stmt> ::= <name> = <window-expr>
-
+# TeX: filbreak
 <special-window-stmt> ::= <name> = <window-expr> @ <special-window>
-
+# TeX: filbreak
 <window-expr> ::= # as defined in Exo currently
-
+# TeX: filbreak
 <call> ::= <normal-call> | <call-with-barrier>
-
+# TeX: filbreak
 <call-with-barrier> ::= <normal-call> >> <barrier-expr>
-
+# TeX: filbreak
 <normal-call> ::= # function call as defined in Exo currently
 # TeX: end misc_grammar[0]

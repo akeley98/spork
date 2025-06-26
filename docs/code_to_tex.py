@@ -354,14 +354,14 @@ def lines_directives_to_tex(lines_directives, name, version_number):
     output_lines = [line.gen_tex(dedent) for line in tex_lines]
     snippets = []
     for i, line in enumerate(output_lines):
-        # Add LaTeX endlines to all lines except \filbreak and those followed by \filbreak
+        # Add LaTeX endlines to all lines except the last one, \filbreak, and those followed by \filbreak
         snippets.append(line)
         if line == "\\filbreak":
             snippets.append("\n")
-        elif i + 1 == len(output_lines) or output_lines[i + 1] != "\\filbreak":
-            snippets.append("\\\\\n")
-        else:
+        elif i + 1 == len(output_lines) or output_lines[i + 1] == "\\filbreak":
             snippets.append("\n")
+        else:
+            snippets.append("\\\\\n")
     return "".join(snippets)
     return "\n".join(line.gen_tex(dedent) for line in tex_lines)
 

@@ -76,11 +76,11 @@ In the initial product, we will support checking only for concrete problem sizes
 \filbreak
 \myTitle{Fundamental Language Concepts}
 
-In Exo-GPU, each statement is executed with a certain \myKeyA{thread collective}, or grouping of threads guaranteed to have uniform control flow, and with a certain \myKeyA{instruction timeline} (``actor kind'' today, but this will probably change).
+In Exo-GPU, each statement is executed with a certain \myKeyA{thread collective}, or grouping of threads guaranteed to have uniform control flow, and with a certain \myKeyA{instruction timeline}.
 We statically analyze, for each statement of the program, its \myKeyA{instruction timeline} and \myKeyA{collective unit}; these are defined by the user via async blocks and cuda\_threads loops (``parallel for''), respectively.
 
 \filbreak
-The instruction timeline (\myKeyA{instr-tl}) categorizes instructions based on their synchronization requirements (e.g. CPU, in-order ``classic'' CUDA instructions, and various non-ordered asynchronous CUDA instructions, e.g. cp.async, wgmma, TMA).
+The instruction timeline (\myKeyA{instr-tl}) categorizes instructions based on their synchronization requirements (e.g. CPU, in-order CUDA instructions, and various non-ordered asynchronous CUDA instructions, e.g. cp.async, wgmma, TMA).
 
 \filbreak
 The \myKeyA{collective unit} describes the thread count and ``shape'' of the concrete \myKeyA{thread collectives} assigned to execute the statement.
@@ -105,7 +105,7 @@ Exo-GPU defines two kinds of async blocks, which override the instr-tl within th
 This lowers to a CUDA kernel launch, parameterized with keyword arguments taken from the \lighttt{CudaDeviceFunction} object (e.g. \lighttt{clusterDim}, \lighttt{blockDim}, \lighttt{blocks\_per\_sm}).
 
 \filbreak
-\lighttt{with CudaAsync(<instr-tl>)}: within a CUDA device function, open a block of async CUDA code, using instructions with the specified instr-tl (``actor kind'').
+\lighttt{with CudaAsync(<instr-tl>)}: within a CUDA device function, open a block of async CUDA code, using instructions with the specified instr-tl.
 
 \filbreak
 The selection of instructions within async blocks is not automated, except simple scalar code.
@@ -368,6 +368,7 @@ See \lighttt{summer\_of\_wgmma.pdf}, ``Timelines and Synchronization'' for more 
 
 \filbreak
 Parameterize synchronization statements with compile-time \myKeyA{sync-tl} values (synchronization timelines), which contain sets of $(\text{instr-tl} \times \text{usage-tl})$ pairs (additional state described in \lighttt{summer\_of\_wgmma.pdf}, ``Timelines and Synchronization'').
+All instr-tl values have corresponding sync-tl values that express all possible effects of that category of instruction; just drop the \lighttt{\_instr} prefix (e.g. \lighttt{cuda\_in\_order\_instr} $\to$ \lighttt{cuda\_in\_order}).
 
 \filbreak
 \mainKey{Fence:} The \lighttt{Fence(first\_tl, second\_tl)} statement expresses a non-split barrier.
@@ -391,10 +392,6 @@ after memory actions that
 \end{enumerate}
 
 \filbreak
-TODO: implement the timeline system (replace actor kinds, actor signatures) and document them all.
-Anything you've seen anywhere else is probably really out of date now.
-
-\filbreak
 \mainKey{Split Barrier (Arrive, Await):}
 
 A combination of \lighttt{Arrive(first\_tl, barrier\_name[...], N)} (syntax to change\footnote{\lighttt{Arrive(first\_tl, N) >> barrier\_name[...]}}) and \lighttt{Await(barrier\_name[...], second\_tl, N)} statements express split barriers.
@@ -410,8 +407,10 @@ Currently the \lighttt{barrier} variable declaration doesn't express if it's an 
 Interpret all indices as distributed indices (unlike non-barrier allocations, there is no native unit that tells distributed memory deduction when to stop).
 
 \filbreak
-TODO: I'm summarizing the behavior of split barriers in the abstract machine, but for real users it will likely make much more sense to lead with ``this is the barrier you need to generate CUDA construct X''.
+TODO: No one understands what I'm talking about.
+I'm summarizing the behavior of split barriers in the abstract machine, but for real users it will likely make much more sense to lead with ``this is the barrier you need to generate CUDA construct X''.
 We also need to document the sync timeline values, and implementable usage of various barriers (most notably, the mbarrier pairing requirement -- see \lighttt{summer\_of\_wgmma.pdf}, ``Exo mbarrier Pairing Requirement'').
+In general there's tension between describing things as imperative directives for generating real CUDA programs, and as instructions for our abstract machine.
 
 \filbreak
 When an arrive statement executes, it orders memory actions that
@@ -556,23 +555,23 @@ Ideally, this model will enable synchronization correctness checks (or programmi
 All with statements (excluding those defined by metaprogramming) are interpreted as \lighttt{if True:} in S-semantics (which scheduling rewrites use), \textit{except}, \lighttt{simplify} does not optimize them out.
 
 \input{guide/with_grammar.0.tex}
-
+\filbreak
 \mainSub{For Loops}
 
 \input{guide/for_grammar.0.tex}
-
+\filbreak
 \mainSub{Collective Units}
 
 \input{guide/coll_grammar.0.tex}
-
+\filbreak
 \mainSub{Synchronization}
 
 \input{guide/sync_grammar.0.tex}
-
+\filbreak
 \mainSub{Misc}
 
 \input{guide/misc_grammar.0.tex}
-
+\vfill
 \myTitle{Appendix: sm\_80 cp.async GEMM Example}
 
 The appendix builds up an output stationary matmul example, using sm\_80 \lighttt{cp.async} and \lighttt{mma} (warp-cooperative matrix multiply-accumulate).
