@@ -781,7 +781,7 @@ The requirements enforce that intended usage, to make lowering queue barriers to
 Assume for now that an arrive statement only takes one queue barrier as input (if not, multicasting is in effect, which is not yet described), with the syntax\\\lighttt{Arrive(L1: sync-tl, N: int) >> \{+|-|\}barrier\_name[idx...]}
 
 \filbreak
-Further assume $N = 1$.
+We require $N = 1$ for an arrive statement now.
 When we interpret such an arrive statement on some queue barrier $Q$:
 \begin{itemize}
   \item For each visibility record that synchronizes-with the arrive, add $(Q, Q^1)$ : (queue barrier object, arrive count) to the set of pending arrives.
@@ -811,21 +811,6 @@ Let \lighttt{lag = \textasciitilde N} (complement, not negate), and do:
   \item Set $Q^2 = Q^2 + 1$
 \end{itemize}
 Essentially, the first \lighttt{lag}-many await statements are no-ops, and then arrives and awaits pair up 1:1.
-
-\filbreak
-\mainSub{Arrive Interpretation, N = \textasciitilde 0}
-
-TODO: maybe we can avoid the need for this?
-
-This is a special case for satisfying the $Q^1 = Q^2$ requirement, only supported for mbarriers.
-When we interpret \lighttt{Arrive(L1, \textasciitilde 0) >> $Q$}, it's like running
-\lighttt{Arrive(L1, 1) >> $Q$} in a loop, with the iteration count being
-\begin{itemize}
-  \item $Q^1 - Q^2$, if there is no back queue barrier array for the barrier variable that $Q$ is from.
-  \item $Q^1 - \widehat{Q}^2$ otherwise.
-\end{itemize}
-This has the effect of equalizing $Q^1$ and $Q^2$, or $Q^1$ and $\widehat{Q}^2$, in the two respective cases.
-The iteration count will never be negative; this is a result of the to-be-described mbarrier pairing requirement.
 
 \newpage
 \mySection{Multicasting mbarriers}
@@ -920,9 +905,6 @@ For $N=1$, the behavior of an arrive statement is:
 \filbreak
 The last step in particular doesn't map too clearly to the underlying hardware.
 As optional reading, in the next section, I'll explain the correspondence between this model and the hardware state, and the motivations and problems with this design.
-
-\filbreak
-TODO either extend this for \lighttt{N = \textasciitilde 0}, or kill off the \lighttt{N = \textasciitilde 0} feature.
 
 \filbreak
 \minorSub{Hardware State}
@@ -1116,8 +1098,7 @@ To enforce this, we require that each thread using the mbarrier follows one of t
   \item If there is no back queue barrier array, we also support \lighttt{Arrive} on $Q$ with $N=1$, followed by an unconditional \lighttt{Await} on $Q$ [arrive-first usage]
   \item (Note: in the current implementation, arrive-first and await-first patterns are not simultanously supported for a single barrier variable)
 \end{itemize}
-
-Arrives with $N = \text{\textasciitilde}0$ do not need to be paired.
+TODO: the ``conditional'' cases make no sense in light of the $Q^1 = Q^2$ requirement.
 
 \filbreak
 In all these supported cases, we require no other usage of $Q$ or $\widehat{Q}$ by the thread between the statement pair (except the special TMA case, to be discussed).
@@ -1138,7 +1119,7 @@ These rules allow us to safely lower queue barriers to mbarrier ring buffers.
   \item Note, \lighttt{with} statements and parallel-for loops are ignored, as these don't have effect on a single thread's execution (given the \lighttt{CollTiling} equality check passed)
 \end{itemize}
 
-TODO this is probably not exactly what's implemented, especially issues with $N = \text{\textasciitilde}0$.
+TODO this is probably not exactly what's implemented.
 And we really should not be describing this in terms of how the compiler works.
 Alternatively, we could give up on static analysis and just add this to the abstract machine model, although I'd rather not, to avoid polluting the model (which maybe I'll sell to theorists) with messy implementation details.
 
@@ -1478,7 +1459,7 @@ However, if we merge this with Chexo, then we will have to care about a subset o
 \filbreak
 \mainKey{\texttt{Arrive($L_1$, $N$, barriers, iterators, multicasts):}} For each \lighttt{asn: assignment\_record} in the entire environment,
 \begin{itemize}
-  \item Assume $N=1$; TODO, either spec out $N \ne 1$ behavior or eliminate it.
+  \item Assume $N=1$ (we reserved $N$ for future use if needed).
   \filbreak
   \item Look up $Q$ (home queue barrier) from \lighttt{queue\_barrier\_id(barriers, iterators)}.
   \item Let $A = \bigcup_{\blacktt{M} \in \blacktt{multicasts}} \{ (q, Q^1) \mid q \in \lighttt{multicast\_ids(barriers, iterators, M)} \}$.

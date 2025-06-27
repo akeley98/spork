@@ -433,7 +433,7 @@ In a producer-consumer style kernel, generally one handles the producer-to-consu
 TODO: this seems bizarre at first glance; explain (it's related to the mbarrier pairing requirement in \lighttt{summer\_of\_wgmma.pdf}).
 
 \filbreak
-\lighttt{Arrive} and \lighttt{Await} statements that use the same queue barrier pair with each other, with delay controlled by the \lighttt{N} parameter. For simple usage, $N = 1$ for arrive statements.
+\lighttt{Arrive} and \lighttt{Await} statements that use the same queue barrier pair with each other, with delay controlled by the \lighttt{N} parameter. We currently require $N = 1$ for arrive statements.
 
 \filbreak
 For await statements with $N \ge 0$, the await pairs with the $N^{th}$ prior arrive statement using the same queue barrier

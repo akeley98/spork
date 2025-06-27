@@ -50,7 +50,7 @@ def make_Sm90_gemm(N):
                         with CudaWarps(name="producer"):
                             # TMA producer warp
                             with CudaAsync(tma_to_smem_async):
-                                Await(-ringbar, cuda_temporal, ~ring)
+                                Await(-ringbar, cuda_temporal, ~(ring-1))
                                 Sm90_copy_tensor_to_smem_swizzled_2f32(
                                     A_smem[k_iter % ring,:,:,:],
                                     A_tensorMap[m_task * smem_m:(m_task+1)* smem_m, k_iter * smem_k:(k_iter+1) * smem_k],
@@ -76,13 +76,11 @@ def make_Sm90_gemm(N):
                                     Arrive(wgmma_async, 1) >> cg[wg]
                                 if k_iter >= 1:
                                     Await(cg[wg], cuda_in_order, 1)
-                            if k_iter >= 1:
-                                Arrive(cuda_in_order, 1) >> -ringbar
+                            Arrive(cuda_in_order, 1) >> -ringbar
 
                     with CudaWarps(name="consumer"):
                         for wg in cuda_threads(0, 2, unit=cuda_warpgroup):
                             Await(cg[wg], cuda_in_order, 0)
-                        Arrive(cuda_in_order, ~0) >> -ringbar
 
                     with CudaWarps(name="consumer"):
                         for wg in cuda_threads(0, 2, unit=cuda_warpgroup):
