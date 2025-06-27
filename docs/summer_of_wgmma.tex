@@ -1223,7 +1223,7 @@ Substitute $x=n+r$ and $r=\lighttt{lag}+1$ (the needed ring buffer size) to get 
 \filbreak
 \minorKey{Case 2: Back Queue Barrier Array:}
 Let \lighttt{F\_lag} be the \lighttt{lag} value used for the front \lighttt{Await} statements and \lighttt{B\_lag} be the \lighttt{lag} values used for the back \lighttt{Await} statements ($N =$ \lighttt{\textasciitilde lag}).
-Assume here that $Q$ denotes a queue barrier from the front queue barrie r array.
+Assume here that $Q$ denotes a queue barrier from the front queue barrier array.
 
 \filbreak
 The mbarrier pairing requirements guarantee that
@@ -1323,7 +1323,6 @@ TODO \lighttt{access\_by\_owner\_only}.
 
 \filbreak
 \mainKey{Synchronization:} Currently each Exo barrier variable corresponds to either one or two queue barrier arrays, depending on whether the back queue barrier array (\lighttt{-varname}) exists.
-TODO improve this.
 Replace each alloc/free of a barrier type variable with \lighttt{AllocBarrierArray} and \lighttt{FreeBarrierArray} issued for the queue barrier array(s) corresponding to the Exo barrier variable.
 
 \filbreak
