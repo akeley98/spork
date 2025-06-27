@@ -575,7 +575,7 @@ We deduce from each usage a tuple of \lighttt{CollIndexExpr}; the length of this
 \begin{itemize}
   \item Each usage of distributed memory must successfully deduce a tiling chain.
   \filbreak
-  \item Each usage must deduce the an algebraically-identical\footnote{As opposed to syntactically identical} tuple of \lighttt{CollIndexExpr}.
+  \item Each usage must deduce an algebraically-identical\footnote{As opposed to syntactically identical} tuple of \lighttt{CollIndexExpr}.
   \filbreak
   \item The range of each index variable used must match the extents of the indexed dimension.
 \end{itemize}
@@ -608,7 +608,7 @@ We save the result of the deduction as a tuple of \lighttt{CollIndexExpr} (the o
 \filbreak
 Failure conditions:
 \begin{itemize}
-  \item We don't find a valid tiling chain before we consume an invalid index expression or run out of indices.
+  \item We don't find a valid tiling chain before we consume an invalid index expression or run out of indices, where a ``valid index expression'' means a \lighttt{cuda\_threads}-iterator whose range is \lighttt{[0, sz)}, \lighttt{sz} being the extent of the dimension being indexed.
   \filbreak
   \item The leaf collective tiling's collective unit doesn't match the native unit.\footnote{Tile thread count alone isn't enough to guard against this; we could have a mismatch due to incorrect shape, or due to misalignment.}
   \filbreak

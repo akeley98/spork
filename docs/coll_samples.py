@@ -106,7 +106,7 @@ if False:
                             # Expecting tiling chain 256 $\mapsto$ ... $\mapsto$ 1
                             # TeX: color line *
           #                                    b                            gggggggggggggggggg
-          # Failure: non-cuda_threads variable s consumed when we only have m: $256\mapsto 16$
+          # Failure: non-cuda_threads iterator s consumed when we only have m: $256\mapsto 16$
                             # TeX: color line *
                             #    g  b  v
                             vals[m, s, n, 0] = 0
