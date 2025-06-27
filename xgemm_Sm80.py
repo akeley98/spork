@@ -94,8 +94,8 @@ def xgemm_Sm80_fence(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B:
                     # for w in cuda_threads(0, 8, unit=cuda_warp):
                     #     cg : barrier @ CudaCommitGroup
                     #     for tid in cuda_threads(0, 32):
-                    #         Arrive(Sm80_cp_async, cg[tid], 1)
-                    #         Await(cg[tid], cuda_in_order, 0)
+                    #         Arrive(Sm80_cp_async, 1) >> cg[tid]
+                    #         Await(+cg[tid], cuda_in_order, 0)
                     # Fence(cuda_in_order, Sm80_generic)
 
                 # for-k1 (K tiles) loop ends
@@ -148,7 +148,7 @@ def xgemm_Sm80_mbarrier(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear,
                     if k1 < K / K0:
                         with CudaAsync(Sm80_cp_async):
                             # Wait for ring buffer to be consumed; don't wait for first RING-many iterations
-                            ReverseAwait(ringbar, Sm80_cp_async, ~RING)
+                            Await(-ringbar, Sm80_cp_async, ~RING)
 
                             # Load A tile
                             for m1 in seq(0, M1 / 64):
@@ -165,7 +165,7 @@ def xgemm_Sm80_mbarrier(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear,
                                         Sm80_cp_async_f32(B_smem[k1 % RING, k0_seq * 4 + k0_par, 4 * n0 : 4 * n0 + 4],
                                                           B[k1 * K0 + k0_seq * 4 + k0_par,
                                                           n2 * N1 + 4 * n0 : n2 * N1 + 4 * n0 + 4], size=4)
-                            Arrive(Sm80_cp_async, ringbar, 1)
+                            Arrive(Sm80_cp_async, 1) >> +ringbar
                         # end CudaAsync(Sm80_cp_async)
                 # for-k1 (K tiles) loop continues
                     if k1 >= LAG:
@@ -198,7 +198,7 @@ def xgemm_Sm80_mbarrier(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear,
                                                           A_rmem[k_seq,:,:],
                                                           B_rmem[k_seq,n_seq,:,:], K=MMA_K)
                         # Signal that it's safe to overwrite ring buffer entry
-                        ReverseArrive(cuda_in_order, ringbar, 1)
+                        Arrive(cuda_in_order, 1) >> -ringbar
                 # for-k1 (K tiles) loop ends
 
                 # Write out accumulator
@@ -250,7 +250,7 @@ def xgemm_Sm80_split(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B:
                         # Producer warpgroup
                         with CudaAsync(Sm80_cp_async):
                             # Wait for ring buffer to be consumed; don't wait for first RING-many iterations
-                            ReverseAwait(ringbar, Sm80_cp_async, ~RING)
+                            Await(-ringbar, Sm80_cp_async, ~RING)
 
                             # Load A tile
                             for m1 in seq(0, M1 / 32):
@@ -267,7 +267,7 @@ def xgemm_Sm80_split(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B:
                                         Sm80_cp_async_f32(B_smem[k1 % RING, k0_seq * 2 + k0_par, 4 * n0 : 4 * n0 + 4],
                                                           B[k1 * K0 + k0_seq * 2 + k0_par,
                                                           n2 * N1 + 4 * n0 : n2 * N1 + 4 * n0 + 4], size=4)
-                            Arrive(Sm80_cp_async, ringbar, 1)
+                            Arrive(Sm80_cp_async, 1) >> +ringbar
                         # end CudaAsync(Sm80_cp_async)
 
                     with CudaWarps(0, 8):
@@ -302,7 +302,7 @@ def xgemm_Sm80_split(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B:
                                                           A_rmem[k_seq,:,:],
                                                           B_rmem[k_seq,n_seq,:,:], K=MMA_K)
                         # Signal that it's safe to overwrite ring buffer entry
-                        ReverseArrive(cuda_in_order, ringbar, 1)
+                        Arrive(cuda_in_order, 1) >> -ringbar
                 # for-k1 (K tiles) loop ends
 
                 # Write out accumulator

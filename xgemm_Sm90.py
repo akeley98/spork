@@ -50,16 +50,16 @@ def make_Sm90_gemm(N):
                         with CudaWarps(name="producer"):
                             # TMA producer warp
                             with CudaAsync(tma_to_smem_async):
-                                ReverseAwait(ringbar, cuda_temporal, ~ring)
+                                Await(-ringbar, cuda_temporal, ~ring)
                                 Sm90_copy_tensor_to_smem_swizzled_2f32(
                                     A_smem[k_iter % ring,:,:,:],
                                     A_tensorMap[m_task * smem_m:(m_task+1)* smem_m, k_iter * smem_k:(k_iter+1) * smem_k],
-                                    box0=smem_m, box1=smem_k)
+                                    box0=smem_m, box1=smem_k) >> ringbar
                                 Sm90_copy_tensor_to_smem_swizzled_2f32(
                                     B_smem[k_iter % ring,:,:,:],
                                     B_tensorMap[n_task * smem_n:(n_task+1)* smem_n, k_iter * smem_k:(k_iter+1) * smem_k],
-                                    box0=smem_n, box1=smem_k)
-                                Arrive(tma_to_smem_async, ringbar, 1)
+                                    box0=smem_n, box1=smem_k) >> ringbar
+                                Arrive(tma_to_smem_async, 1) >> ringbar
 
                         with CudaWarps(name="consumer"):
                             with CudaWarps(1, 3, name="consumer"):
@@ -73,16 +73,16 @@ def make_Sm90_gemm(N):
                                         Sm90_mma_async_tf32(D_rmem[wg,:,:],
                                             A_smem[k_iter % ring,wg*16:wg*16+16,:,k_mma*8:k_mma*8+8],
                                             B_smem[k_iter % ring,:,:,k_mma*8:k_mma*8+8], M=wg_m, N=wg_n)
-                                    Arrive(wgmma_async, cg[wg], 1)
+                                    Arrive(wgmma_async, 1) >> cg[wg]
                                 if k_iter >= 1:
                                     Await(cg[wg], cuda_in_order, 1)
                             if k_iter >= 1:
-                                ReverseArrive(cuda_in_order, ringbar, 1)
+                                Arrive(cuda_in_order, 1) >> ringbar
 
                     with CudaWarps(name="consumer"):
                         for wg in cuda_threads(0, 2, unit=cuda_warpgroup):
                             Await(cg[wg], cuda_in_order, 0)
-                        ReverseArrive(cuda_in_order, ringbar, ~0)
+                        Arrive(cuda_in_order, ~0) >> -ringbar
 
                     with CudaWarps(name="consumer"):
                         for wg in cuda_threads(0, 2, unit=cuda_warpgroup):
