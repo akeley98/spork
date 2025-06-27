@@ -77,7 +77,7 @@ def make_Sm90_gemm(N):
                                 if k_iter >= 1:
                                     Await(cg[wg], cuda_in_order, 1)
                             if k_iter >= 1:
-                                Arrive(cuda_in_order, 1) >> ringbar
+                                Arrive(cuda_in_order, 1) >> -ringbar
 
                     with CudaWarps(name="consumer"):
                         for wg in cuda_threads(0, 2, unit=cuda_warpgroup):
