@@ -229,10 +229,10 @@ def gemm_tile_per_cta(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B
                 # Distribution deduced from later usage pattern
                 # TeX: color remark dmem[2:]
                 # ggggggggggggggggggg
-                # m1: 256->16 threads
+                # m1: $256\mapsto 16$ threads
                 # TeX: color remark dmem[3:]
-                # vvvvvvvvvvvvvvvv
-                # n1: 16->1 thread
+                # vvvvvvvvvvvvvvvvv
+                # n1: $16\mapsto 1$ thread
                 # TeX: color line dmem[2]
                #rrrrr      gg               rrrrrrrr
                 # TeX: color line dmem[3]
@@ -424,10 +424,10 @@ def gemm_ring(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B: f32[N,
                 # TeX: end ring[0]
                 # TeX: begin ring sync_copy
                 # TeX: color line *
-                #           r
+                #           v
                 A_smem: f32[4, 128, 32] @ CudaSmemLinear  # Added SMEM dimension:
                 # TeX: color line *
-                #           r                               rrrrrr
+                #           v                               vvvvvv
                 B_smem: f32[4, 256, 32] @ CudaSmemLinear  # 4-deep ring buffer of 2D tiles
                 accum: f32[16, 16, 8, 16] @ CudaRmem
                 # TeX: color line ring[:3]
@@ -453,13 +453,13 @@ def gemm_ring(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B: f32[N,
                 # TeX: end ring sync_copy
                 # TeX: begin ring[:2]
                         # TeX: color line *
-                        #                         r
-                        # Wait for ReverseArrive, 4 iteration delay
+                        #                              v
+                        # Wait for Arrive >> -ringbar, 4 iteration delay
                 # TeX: end ring[:2]
                 # TeX: begin ring
                         # TeX: color line ring[:3]
-                        #            vvvvvvv                 rr
-                        ReverseAwait(ringbar, cuda_temporal, ~4)
+                        #     rrrrrrrr                 vv
+                        Await(-ringbar, cuda_temporal, ~4)
                 # TeX: end ring
                 # TeX: begin ring[1]
                         for m1 in seq(0, 32):
@@ -475,7 +475,7 @@ def gemm_ring(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B: f32[N,
                                     # TeX: remark! sync_copy
                                     # Problem: this is not really hiding copy latency
                                     # TeX: color line *
-                                    #      rrrr
+                                    #      vvvv
                                     A_smem[k1%4, m1*4 + m0, k0] = A[m2*128 + m1*4 + m0, k1*32 + k0]
                                     # TeX: end ring[1]
                                     # TeX: color remark! sync_copy
@@ -496,13 +496,13 @@ def gemm_ring(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B: f32[N,
                             for n0 in cuda_threads(0, 4, unit=32*cuda_thread):
                                 for k0 in cuda_threads(0, 32):
                                     # TeX: color line *
-                                    #      rrrr
+                                    #      vvvv
                                     B_smem[k1%4, n1*4 + n0, k0] = B[n2*256 + n1*4 + n0, k1*32 + k0]
                 # TeX: end ring[1]
                         # TeX: begin ring
                         # TeX: color line ring[:3]
-                        #                     vvvvvvv
-                        Arrive(cuda_in_order, ringbar, 1)
+                        #                           bbbbbbbb
+                        Arrive(cuda_in_order, 1) >> +ringbar
                         # TeX: end ring
 
                     # TeX: begin ring sync_copy
@@ -512,8 +512,8 @@ def gemm_ring(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B: f32[N,
                     # TeX: end ring sync_copy
                     # TeX: begin ring[0] ring[2] ring[3]
                         # TeX: color line ring[:3]
-                        #     vvvvvvv
-                        Await(ringbar, cuda_in_order, ~0)  # Wait for Arrive, 0 iteration delay
+                        #     bbbbbbbb
+                        Await(+ringbar, cuda_in_order, ~0)  # Wait for Arrive >> +ringbar, 0 delay
                     # TeX: end ring[0] ring[3]
                         for m1 in cuda_threads(0, 16, unit=16 * cuda_thread):
                             for n1 in cuda_threads(0, 16, unit=cuda_thread):
@@ -523,15 +523,15 @@ def gemm_ring(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B: f32[N,
                                     for m0 in seq(0, 8):
                                         for n0 in seq(0, 16):
                                             # TeX: color line *
-                                            #                                rrrr
+                                            #                                vvvv
                                             accum[m1, n1, m0, n0] += (A_smem[k1%4, m1*8 + m0, k0]
                                             # TeX: color line *
-                                            #                                 rrrr
+                                            #                                 vvvv
                                                                      * B_smem[k1%4, n1*16 + n0, k0])
                         # TeX: begin ring[0] ring[3]
                         # TeX: color line ring[:3]
-                        #                            vvvvvvv
-                        ReverseArrive(cuda_in_order, ringbar, 1)
+                        #                           rrrrrrrr
+                        Arrive(cuda_in_order, 1) >> -ringbar
                         # TeX: end ring[0] ring[2] ring[3]
                 # TeX: begin ring sync_copy
                 # TeX: color line *
@@ -586,10 +586,10 @@ def gemm_tma(M: size, N: size, K: size,
 # TeX: end tma[2:]
                 # TeX: begin tma[:2] prep_tma wgmma
                 # TeX: color line *
-                #           r
+                #           v
                 A_smem: f32[4, 128, 32] @ CudaSmemLinear
                 # TeX: color line *
-                #           r                               rrrrrr
+                #           v                               vvvvvv
                 B_smem: f32[4, 256, 32] @ CudaSmemLinear  # 4-deep ring buffer of 2D tiles
                 accum: f32[16, 16, 8, 16] @ CudaRmem
                 ringbar: barrier @ CudaMbarrier
@@ -619,7 +619,7 @@ def gemm_tma(M: size, N: size, K: size,
                             # TeX: remark! prep_tma[3]
                             # Write-after-read (WAR) hazard: Producer will not issue instructions
                             # TeX: color remark! prep_tma[3]
-                            #                vvvvvvvvvvvv                    b bb
+                            #                vvvvvvvvvvvvv                   v bb
                             # until consumer cuda_in_order instructions from 4 k1 iterations ago finish.
                             # TeX: color remark prep_tma[3]
                             #  rrrrrrrrrrrrr
@@ -627,8 +627,8 @@ def gemm_tma(M: size, N: size, K: size,
                             # TeX: color line *
                             #                                    rr
                             # TeX: color line prep_tma[3]
-                            #                     rrrrrrrrrrrrr  bb
-                            ReverseAwait(ringbar, cuda_temporal, ~4)
+                            #     rrrrrrrr  rrrrrrrrrrrrr  vv
+                            Await(-ringbar, cuda_temporal, ~4)
                             # TeX: end tma prep_tma wgmma
                             # TeX: begin tma[0]
                             # TeX: summary!
@@ -640,13 +640,13 @@ def gemm_tma(M: size, N: size, K: size,
                             #     yyyyyyyyy                vvvvv
 # TMA instructions require opaque tensorMap blob to encode sizes, etc., of the copied tile
                             # TeX: color line *
-                            #                                           rrrr
+                            #                                           vvvv
                             Sm90_copy_tensor_to_smem_linear_2f32(A_smem[k1%4,:,:],
                             # TeX: color line tma[1:4]
             #       yyyyyyyyyyy
                     A_tensorMap[m2*128:(m2+1)*128, k1*32:(k1+1)*32], box0=128, box1=32)
                             # TeX: color line *
-                            #                                           rrrr
+                            #                                           vvvv
                             Sm90_copy_tensor_to_smem_linear_2f32(B_smem[k1%4,:,:],
                             # TeX: color line tma[1:4]
             #       yyyyyyyyyyy
@@ -656,8 +656,8 @@ def gemm_tma(M: size, N: size, K: size,
                             # TeX: remark! prep_tma[1]
                             # Change Arrive sync-tl
                             # TeX: color line prep_tma[1:4]
-                            #      yyyyyyyyyyyyyyyyy
-                            Arrive(tma_to_smem_async, ringbar, 1)
+                            #      yyyyyyyyyyyyyyyyy        bbbbbbbb
+                            Arrive(tma_to_smem_async, 1) >> +ringbar
                             # TeX: end tma prep_tma wgmma
 
                     # TeX: begin tma[:2] prep_tma wgmma
@@ -670,14 +670,14 @@ def gemm_tma(M: size, N: size, K: size,
                         #                            bbbb bb
                         # instructions issued in the same k1 iteration.
                         # TeX: color line prep_tma[2]
-                        #              vvvvvvvvvvvvv  bb
-                        Await(ringbar, cuda_in_order, ~0)
+                        #     bbbbbbbb  vvvvvvvvvvvvv  bb
+                        Await(+ringbar, cuda_in_order, ~0)
                     # TeX: end tma[:2] prep_tma
                         if False:  # Don't compile missing wgmma code
                          # TeX: begin wgmma
                          # TeX: color line wgmma
-                         #              ggggggggggg
-                         Await(ringbar, wgmma_async, ~0)
+                         #     bbbbbbbb  ggggggggggg
+                         Await(+ringbar, wgmma_async, ~0)
                          # TeX: color line wgmma
                          #              ggggggggggggggggg
                          with CudaAsync(wgmma_async_instr):
@@ -699,8 +699,8 @@ def gemm_tma(M: size, N: size, K: size,
                                 # TeX: end prep_tma[4]
                         # TeX: begin tma[:2] prep_tma wgmma
                         # TeX: color line prep_tma[3]
-                        #             vvvvvvvvvvvvv
-                        ReverseArrive(cuda_in_order, ringbar, 1)
+                        #      vvvvvvvvvvvvv        rrrrrrrr
+                        Arrive(cuda_in_order, 1) >> -ringbar
                 # TeX: color line *
                 #     bb
                 # End k1 loop

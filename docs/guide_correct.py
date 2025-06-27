@@ -442,8 +442,7 @@ xgemm_Sm80_fence = simplify(xgemm_Sm80_fence)
 RING = 3
 LAG = 1
 @proc
-def xgemm_Sm80_mbarrier(M: size, N: size, K: size,
-                        A: f32[M,K] @ CudaGmemLinear,
+def xgemm_Sm80_mbarrier(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear,
                         B: f32[K,N] @ CudaGmemLinear, C: f32[M,N] @ CudaGmemLinear):
     assert M % M1 == 0
     assert N % N1 == 0
@@ -454,7 +453,10 @@ def xgemm_Sm80_mbarrier(M: size, N: size, K: size,
                 # TeX: begin xgemm_Sm80_mbarrier[1]
                 # Per CTA code
                 # TeX: color line xgemm_Sm80_mbarrier
-              # bbbbbbb
+                #                                  bbbbbbbb             rrrrrrrr
+                # Defines two queue barrier arrays +ringbar [front] and -ringbar [back]
+                # TeX: remark xgemm_Sm80_mbarrier[1:]
+                # We will use the front to guard against RAW hazards, and back to guard against WAR hazards.
                 ringbar: barrier @ CudaMbarrier
                 # TeX: color line *
                 #            yyyy
@@ -483,8 +485,8 @@ def xgemm_Sm80_mbarrier(M: size, N: size, K: size,
                             # Wait for ring buffer to be consumed;
                             # don't wait for first RING-many iterations
                             # TeX: color line xgemm_Sm80_mbarrier
-                            #            bbbbbbb
-                            ReverseAwait(ringbar, Sm80_cp_async, ~RING)
+                            #     rrrrrrrr
+                            Await(-ringbar, Sm80_cp_async, ~RING)
                             # TeX: end xgemm_Sm80_mbarrier[0]
                             # TeX: summary
                             # Load A tile
@@ -512,16 +514,16 @@ def xgemm_Sm80_mbarrier(M: size, N: size, K: size,
                                             size=4)
                             # TeX: begin xgemm_Sm80_mbarrier[0]
                             # TeX: color line xgemm_Sm80_mbarrier
-                            #                     bbbbbbb
-                            Arrive(Sm80_cp_async, ringbar, 1)
+                            #                           bbbbbbbb
+                            Arrive(Sm80_cp_async, 1) >> +ringbar
                 # TeX: end xgemm_Sm80_mbarrier[1]
                 # TeX: begin xgemm_Sm80_mbarrier[2]
                 # for-k1 (K tiles) loop continues
                     if k1 >= LAG:
                         # Wait for ring buffer to be filled
                         # TeX: color line xgemm_Sm80_mbarrier
-                        #     bbbbbbb
-                        Await(ringbar, cuda_in_order, ~0)
+                        #     bbbbbbbb
+                        Await(+ringbar, cuda_in_order, ~0)
                         # TeX: end xgemm_Sm80_mbarrier[0]
 
                         for mw in cuda_threads(0, M1 / Mw, unit=(N1/Nw) * cuda_warp):
@@ -557,8 +559,8 @@ def xgemm_Sm80_mbarrier(M: size, N: size, K: size,
                         # TeX: begin xgemm_Sm80_mbarrier[0]
                         # Signal that it's safe to overwrite ring buffer entry
                         # TeX: color line xgemm_Sm80_mbarrier
-                        #                            bbbbbbb
-                        ReverseArrive(cuda_in_order, ringbar, 1)
+                        #                           rrrrrrrr
+                        Arrive(cuda_in_order, 1) >> -ringbar
                 # for-k1 (K tiles) loop ends
                 # TeX: end xgemm_Sm80_mbarrier[0]
 

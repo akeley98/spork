@@ -26,8 +26,8 @@
 \tikzstyle{producer} = [yellownode, text width=64mm, minimum width=64mm, minimum height=14mm]
 \tikzstyle{consumer} = [greennode, text width=20mm, minimum width=20mm, minimum height=14mm]
 \tikzstyle{smallproducer} = [yellownode, text width=20mm, minimum width=20mm, minimum height=14mm]
-\tikzstyle{copylatency} = [rednode, text width=84mm, minimum width=84mm, minimum height=8mm]
-\tikzstyle{ring} = [rednode, text width=16mm, minimum width=1mm, minimum height=14mm]
+\tikzstyle{copylatency} = [violetnode, text width=84mm, minimum width=84mm, minimum height=8mm]
+\tikzstyle{ring} = [violetnode, text width=16mm, minimum width=1mm, minimum height=14mm]
 \newcommand{\consumerBox}[1]{{\color{greenBoxFg}\colorbox{greenBoxBg}{#1}}}
 \newcommand{\producerBox}[1]{{\color{yellowBoxFg}\colorbox{yellowBoxBg}{#1}}}
 
@@ -462,14 +462,14 @@ Many copies are in flight simultaneously.
 \node (ring1) [ring, below=of ring0] {Buffer 1};
 \node (ring2) [ring, below=of ring1] {Buffer 2};
 \node (ring3) [ring, below=of ring2] {Buffer 3};
-\draw [arrow] (produce0) to[out=45, in=135] node [above] (forward) {\violetBox{Arrive/Await}} (consume0);
-\draw [arrow] (consume0) to[out=45, in=135] node [above] (forward) {\violetBox{ReverseArrive/ReverseAwait}} (produce4);
+\draw [arrow] (produce0) to[out=45, in=135] node [above, xshift=-2cm] (front) {\blueBox{\texttt{Arrive >> +ringbar; Await(+ringbar)}}} (consume0);
+\draw [arrow] (consume0) to[out=45, in=135] node [above, xshift=+2cm] (back) {\redBox{\texttt{Arrive >> -ringbar; Await(-ringbar)}}} (produce4);
 \end{tikzpicture}
 
-Forward synchronization: Consumer \consumerBox{\texttt{k1 = N}} waits for producer \producerBox{\texttt{k1 = N}}\\
+Data Dependency: Consumer \consumerBox{\texttt{k1 = N}} waits for producer \producerBox{\texttt{k1 = N}}; synchronized with \blueBox{\texttt{+ringbar}}\\
 (RAW hazard: we need to wait for the SMEM tiles to be filled)
 
-Reverse synchronization: Producer \producerBox{\texttt{k1 = N}} waits for consumer \consumerBox{\texttt{k1 = N - 4}}\\
+Anti-dependency: Producer \producerBox{\texttt{k1 = N}} waits for consumer \consumerBox{\texttt{k1 = N - 4}}; synchronized with \redBox{\texttt{-ringbar}}\\
 (WAR hazard: we need to not overwrite SMEM tiles before they're fully consumed)
 
 \newpage
@@ -636,12 +636,12 @@ Each instr-tl \texttt{\textit{foo}\_instr} corresponds to a sync-tl \texttt{\tex
 \input{gemms_tex/tma.3.tex}
 
 \newpage
-\myTitle{TMA: Forward Synchronization}
+\myTitle{TMA: Data Dependency (RAW) Synchronization}
 
 \input{gemms_tex/prep_tma.2.tex}
 
 \newpage
-\myTitle{TMA: Reverse Synchronization}
+\myTitle{TMA: Anti-Dependency (WAR) Synchronization}
 
 \input{gemms_tex/prep_tma.3.tex}
 

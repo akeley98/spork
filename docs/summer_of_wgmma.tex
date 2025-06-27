@@ -731,22 +731,27 @@ Remarks:
 
 It's time to define the correspondence between arrive and await statements.
 In Exo-GPU's synchronization checking model, each \myKeyA{queue barrier} $Q$ contains non-negative integers \myKeyA{arrive count} $Q^1$ and \myKeyA{await count} $Q^2$, both initially zero (this conceptual state is distinct from the physical state of the real CUDA barrier type, which is specified with a \lighttt{@memory} annotation).
-Although we currently have no explicit syntax for it, allocated barrier variables are arrays of independent queue barriers, which can be indexed in arrive/await statements.
-We analyze indexing with distributed memory deduction (see coll\_algebra.pdf).
+
+\filbreak
+Each \lighttt{barrier}-typed variable declares 1 or 2 (to be explained) sized arrays of \myKeyA{queue barriers}, which can be indexed in arrive/await statements. We analyze indexing with distributed memory deduction (see \lighttt{coll\_algebra.pdf}).
 
 \input{su_samples/mbarrier_var.1.tex}
 
 \filbreak
 Unlike non-barrier allocations, though, there is no native unit; we unconditionally interpret all dimensions as distributed (I might change this in the future), and thus, all indices must follow the distributed memory deduction requirements (e.g. they have to be \lighttt{cuda\_threads} loop iteration variables).
-In other words, each distributed shard of the barrier array is only one queue barrier.
+In other words, each distributed shard of a queue barrier array is only one queue barrier.
 
 \filbreak
-Furthermore, for mbarriers only, we support \lighttt{ReverseArrive} and \lighttt{ReverseAwait} statements, which behave and pair with each other just as \lighttt{Arrive} and \lighttt{Await} statements do, except that reversed statements use a hidden ``reverse barrier'' array parallel to the primary ``forward barrier'' array.
+All barrier variables \lighttt{varname: barrier[z1, ..., zN]} contain a ``front queue barrier array'' of size $z_1 \times ... \times z_N$.
+For mbarriers only, we support a separate ``back queue barrier array'' of the same size, referred to with \lighttt{-varname} (the front queue barrier array is \lighttt{+varname} or simply \lighttt{varname}).
 For a queue barrier $Q$ in either array, let $\widehat{Q}$ denote the queue barrier in the corresponding position of the other array.
 
 \filbreak
-We would get almost the same program by replacing each \lighttt{ReverseArrive} and \lighttt{ReverseAwait} on some barrier \lighttt{my\_bar} with \lighttt{Arrive} and \lighttt{Await} on a new barrier variable \lighttt{my\_var\_2}.
-However, there is some tight coupling between the ``forward'' and ``reverse'' barriers that justifies this design (more on this when we talk about the mbarrier pairing requirement).
+We would get almost the same program by replacing each usage of \lighttt{-my\_bar} with usage of a new barrier variable \lighttt{my\_var\_2}.
+However, there is some tight coupling between the front and back barriers that justifies this design (more on this when we talk about the mbarrier pairing requirement).
+
+\filbreak
+The back queue barrier array is optional; it doesn't exist if it's never referenced.
 
 \filbreak
 \mainSub{Valid Usage}
@@ -756,13 +761,14 @@ The requirements enforce that intended usage, to make lowering queue barriers to
 
 \filbreak
 \begin{itemize}
-  \item Each barrier variable must be used by at least one \lighttt{Arrive} and at least one \lighttt{Await} statement.
+  \item Each queue barrier array must be used by at least one \lighttt{Arrive} and at least one \lighttt{Await} statement.
   \filbreak
-  \item Only mbarriers may use \lighttt{ReverseArrive} and \lighttt{ReverseAwait}; both must be present or both not present.
+  \item For a given queue barrier array\footnote{\textit{Not} barrier variable, i.e., it's valid for \lighttt{Await(+bar,...)} and \lighttt{Await(-bar,...)} to use different synchronization timelines.}, each \lighttt{Arrive} statement must use equivalent sync timelines (sync-tl); similarly for all \lighttt{Await} statements.
   \filbreak
-  \item For a given barrier variable, each \lighttt{Arrive} statement must use equivalent sync timelines (sync-tl); similarly for all \lighttt{Await}, \lighttt{ReverseArrive}, and \lighttt{ReverseAwait} statements.
+  \item Each queue barrier $Q$ (distributed shard of a queue barrier array) must have one unique thread collective that executes \lighttt{Arrive} on $Q$; similarly for \lighttt{Await}.
+    We enforce this statically by inspecting the collective tiling for each usage.
   \filbreak
-  \item Each queue barrier $Q$ (distributed shard of the barrier variable) must have one unique thread collective that executes \lighttt{Arrive} on $Q$; similarly for \lighttt{Await}, \lighttt{ReverseArrive}, and \lighttt{ReverseAwait} (if present). We enforce this statically by inspecting the collective tiling for each usage.
+  \item If both a front and back queue barrier array are present for a given barrier variable, the distributed memory deductions for the two must be equivalent.
   \filbreak
   \item When a barrier variable is deallocated, each queue barrier must have $Q^1 = Q^2$.
   \filbreak
@@ -772,7 +778,7 @@ The requirements enforce that intended usage, to make lowering queue barriers to
 \filbreak
 \mainSub{Arrive Interpretation, N = 1}
 
-Assume for now that an arrive statement only takes one queue barrier as input (if not, multicasting is in effect, which is not yet described), with the syntax\\\lighttt{[Reverse]Arrive(L1: sync-tl, N: int) >> barrier\_name[idx...]}
+Assume for now that an arrive statement only takes one queue barrier as input (if not, multicasting is in effect, which is not yet described), with the syntax\\\lighttt{Arrive(L1: sync-tl, N: int) >> \{+|-|\}barrier\_name[idx...]}
 
 \filbreak
 Further assume $N = 1$.
@@ -786,7 +792,7 @@ When we interpret such an arrive statement on some queue barrier $Q$:
 \mainSub{Await Interpretation}
 
 Await statements always take only one queue barrier $Q$ as input, with syntax\\
-\lighttt{[Reverse]Await(barrier\_name[idx...], L2: sync-tl, N: int)}
+\lighttt{Await(\{+|-|\}barrier\_name[idx...], L2: sync-tl, N: int)}
 The interpretation depends on $N$.
 
 \filbreak
@@ -812,10 +818,10 @@ Essentially, the first \lighttt{lag}-many await statements are no-ops, and then 
 TODO: maybe we can avoid the need for this?
 
 This is a special case for satisfying the $Q^1 = Q^2$ requirement, only supported for mbarriers.
-When we interpret \lighttt{[Reverse]Arrive(L1, \textasciitilde 0) >> $Q$}, it's like running
-\lighttt{[Reverse]Arrive(L1, 1) >> $Q$} in a loop, with the iteration count being
+When we interpret \lighttt{Arrive(L1, \textasciitilde 0) >> $Q$}, it's like running
+\lighttt{Arrive(L1, 1) >> $Q$} in a loop, with the iteration count being
 \begin{itemize}
-  \item $Q^1 - Q^2$, if there is never any usage of \lighttt{ReverseArrive} or \lighttt{ReverseAwait} for the barrier variable that $Q$ is from.
+  \item $Q^1 - Q^2$, if there is no back queue barrier array for the barrier variable that $Q$ is from.
   \item $Q^1 - \widehat{Q}^2$ otherwise.
 \end{itemize}
 This has the effect of equalizing $Q^1$ and $Q^2$, or $Q^1$ and $\widehat{Q}^2$, in the two respective cases.
@@ -841,7 +847,7 @@ In the abstract machine, the meaning of this is instead of adding a single pendi
 We will give details on how the queue arrive count $Q^1$ behaves later.
 
 \filbreak
-If there's multiple \lighttt{Arrive} or \lighttt{ReverseArrive} statements for the same barrier variable, their multicasting must be the same (so the above example illustrating multiple possible patterns is not valid within a single Exo proc).
+If there's multiple \lighttt{Arrive} statements for the same queue barrier array, their multicasting must be the same (so the above example illustrating multiple possible patterns is not valid within a single Exo proc).
 
 Multicasting poses some challenges for our model:
 \begin{itemize}
@@ -853,11 +859,11 @@ Multicasting poses some challenges for our model:
 \filbreak
 \mainSub{Distributed Memory Deduction}
 
-Each \lighttt{>> barrier-name[idxs...]} is a \myKeyA{barrier expression}.
+Each \lighttt{>> \{+|-|\}barrier-name[idxs...]} is a \myKeyA{barrier expression}.
 Await statements may not take multiple barrier expressions.
 Arrive statements may take multiple barrier expressions, subject to the rules:
 \begin{itemize}
-  \item All barrier names, and length of the indices list, must be identical.
+  \item The same queue barrier array must be referenced in each expression.
   \filbreak
   \item Each index is either a \lighttt{cuda\_threads}-iterator, or \lighttt{:}.
   \filbreak
@@ -867,17 +873,17 @@ Arrive statements may take multiple barrier expressions, subject to the rules:
 \end{itemize}
 
 \filbreak
-We reduce the raw queue barrier expressions to a shared barrier variable name and \lighttt{cuda\_threads}-iterator list, and a per-barrier-expression ``multicast flags'' list (True means \lighttt{:}).
-For example, in the case \lighttt{>> ringbar[m\_cta, n\_cta] >> ringbar[:, n\_cta]}, the state would be
+We reduce the raw queue barrier expressions to a shared queue barrier array reference and \lighttt{cuda\_threads}-iterator list, and a per-barrier-expression ``multicast flags'' list (True means \lighttt{:}).
+For example, in the case \lighttt{>> +ringbar[m\_cta, n\_cta] >> +ringbar[:, n\_cta]}, the state would be
 \begin{itemize}
-  \item variable name: \lighttt{ringbar}
+  \item queue barrier array: \lighttt{+ringbar}
   \filbreak
   \item iterators: \lighttt{[m\_cta, n\_cta]}
   \filbreak
   \item per-expression multicast flags: \lighttt{[False, False]}, \lighttt{[True, False]}
 \end{itemize}
 
-The variable name and \lighttt{cuda\_threads} iterators get used for distributed memory deduction (which ignores multicasting).
+The queue barrier array and \lighttt{cuda\_threads}-iterators get used for distributed memory deduction (which ignores multicasting).
 We say that a barrier expression \textit{multicasts} the $n^{th}$ iterator if its $n^{th}$ multicast flag is true (e.g., in the previous example, \lighttt{ringbar[:, n\_cta]} multicasts \lighttt{\textit{m}\_cta}).
 
 \begin{figure*}[!b]
@@ -900,7 +906,7 @@ There must not be any statements along the path between this for statement and t
 \filbreak
 For $N=1$, the behavior of an arrive statement is:
 \begin{itemize}
-  \item Let $Q$ be the \myKeyA{home queue barrier}, i.e., the queue barrier named by the variable name and iterators deduced above (this is \lighttt{ringbar[m\_cta, n\_cta]} in all above examples).
+  \item Let $Q$ be the \myKeyA{home queue barrier}, i.e., the queue barrier given by the queue barrier array and iterators deduced above (this is \lighttt{+ringbar[m\_cta, n\_cta]} in all above examples).
     This corresponds to the mbarriers resident within the CTA that is executing the current arrive statement.
   \filbreak
   \item Let $Q^1$ be the queue arrive count for the home queue barrier.
@@ -924,7 +930,7 @@ TODO either extend this for \lighttt{N = \textasciitilde 0}, or kill off the \li
 Some of the background is more deeply explained in \myChapterLink{ch:mbarrier}{Exo mbarrier Pairing Requirement}.
 
 Let $C$ be the thread collective executing an arrive statement.
-Ignoring multicasting, the relevant hardware features, and their correspondence to the abstract machine state (queue barriers), are
+Ignoring multicasting, the relevant hardware features and their correspondence to the abstract machine state (queue barriers), are
 \begin{itemize}
   \item A ring buffer of mbarriers (resident within one CTA) comprise a queue barrier of \lighttt{CudaMbarrier} MemWin type.
   \filbreak
@@ -980,7 +986,7 @@ This may make more sense in the example of the next section.
 \filbreak
 \minorSub{Divergence Issues}
 
-We'll use this simplified 2-CTA example\footnote{This example doesn't exhibit the irregular synchronization pattern that demotivates the ``full cluster sync'' approach, but this is not relevant to the issue illustrated.} to illustrate why the convergence requirement is important:
+We'll use this simplified 2-CTA example\footnote{This example doesn't exhibit the irregular synchronization pattern that demotivates the ``full cluster sync'' approach, but this is not relevant to the issue illustrated.} to illustrate the convergence requirement's importance:
 
 \input{su_samples/multicast_2cta.0.tex}
 
@@ -1044,7 +1050,7 @@ is not directly implementable.
 \filbreak
 What I plan to do to support this is
 \begin{itemize}
-  \item Add support for a trailing barrier expression \lighttt{>> barrier\_variable[idxs...]} to instruction calls (only valid for TMA-to-SMEM instructions for now).
+  \item Add support for a trailing barrier expression \lighttt{>> \{+|-|\}barrier\_variable[idxs...]} to instruction calls (only valid for TMA-to-SMEM instructions for now).
   \filbreak
   \item Extend distributed memory deductions for instrs to handle this trailing barrier expression.
   \filbreak
@@ -1060,11 +1066,6 @@ The barrier expression may contain the \lighttt{:} index (multicasting), in whic
 
 \filbreak
 Mbarriers will not support \lighttt{tma\_to\_smem} instr-tl in any supported first sync timeline\footnote{Exo-GPU as of 2025-06-16 does allow \lighttt{tma\_to\_smem\_async} as the first actor kind of an mbarrier; this isn't supposed to exist once the instr barrier parameter gets implemented.}, so a TMA-to-SMEM instruction will never synchronize-with a future arrive statement.
-
-\filbreak
-There is currently no syntax for instrs to access the reverse barrier array (the queue barriers used by \lighttt{ReverseArrive} and \lighttt{ReverseAwait}).
-This may be an argument for considering the whole \lighttt{ReverseArrive} and \lighttt{ReverseAwait} thing to be a confusing design.
-However, I consider this concept (of tight coupling between the forward and reverse directions) to be essential, but maybe we could have better syntax for it, e.g. \lighttt{barrier\_name} and \lighttt{\textasciitilde barrier\_name}?
 
 \filbreak
 \mainSub{Distributed Memory Deduction}
@@ -1088,14 +1089,15 @@ Arrive-indexed queue barriers lower to commit groups trivially.
 The process for lowering await-indexed queue barriers to mbarriers is more involved, as the mbarrier does not hold any state corresponding to the queue arrive count $Q^1$.
 We will emulate this state using a ring buffer of mbarriers; informally, this means we have to limit the ``spread'' between the number of arrives and the number of awaits, so we don't overrun the ring buffer.
 
-For a \lighttt{@CudaMbarrier} queue barrier $Q$, if \lighttt{ReverseArrive} and \lighttt{ReverseAwait} are used, then the pairing requirement is
+For a \lighttt{@CudaMbarrier} barrier variable with a back queue barrier array, the pairing requirement for each queue barrier $Q$ is
 \begin{itemize}
-  \item The $n^{th}$ (forward) \lighttt{Arrive} on $Q$ cannot \textit{finish} until the $n^{th}$ \lighttt{ReverseAwait} on $\widehat{Q}$ finishes.
+  \item The $n^{th}$ \lighttt{Arrive} on $Q$ cannot \textit{finish} until the $n^{th}$ \lighttt{Await} on $\widehat{Q}$ finishes.
   \filbreak
-  \item The $n^{th}$ \lighttt{ReverseArrive} on $\widehat{Q}$ cannot \textit{finish} until the $n^{th}$ (forward) \lighttt{Await} on $Q$ finishes.
+  \item The $n^{th}$ \lighttt{Arrive} on $\widehat{Q}$ cannot \textit{finish} until the $n^{th}$ \lighttt{Await} on $Q$ finishes.
 \end{itemize}
+(these two statements are actually exactly the same).
 \filbreak
-Otherwise
+If there is no back queue barrier array, the pairing requirement for each queue barrier $Q$ is:
 \begin{itemize}
   \item The $n^{th}$ \lighttt{Arrive} on $Q$ cannot \textit{finish} until the $(n-1)^{th}$ \lighttt{Await} on $Q$ finishes.
 \end{itemize}
@@ -1107,13 +1109,11 @@ See ``mbarrier Ring Buffer'' for why this requirement is needed for the ring buf
 \filbreak
 To enforce this, we require that each thread using the mbarrier follows one of these expected usage patterns; in all cases, the await-type statements ``guard'' the arrive-type statements and prevent there from being too many finished arrives:
 \begin{itemize}
-  \item \lighttt{Await} on $Q$, followed by a (possibly conditional) \lighttt{ReverseArrive} on $\widehat{Q}$ [await-first usage]
+  \item \lighttt{Await} on $Q$, followed by a (possibly conditional) \lighttt{Arrive} on $\widehat{Q}$ [await-first usage]
   \filbreak
-  \item \lighttt{ReverseAwait} on $\widehat{Q}$, followed by a (possibly conditional) \lighttt{Arrive} on $Q$ [await-first usage]
+  \item If there is no back queue barrier array, then we support \lighttt{Await} on $Q$, followed by a (possibly conditional) \lighttt{Arrive} on $Q$ [await-first usage]
   \filbreak
-  \item If there is no \lighttt{ReverseAwait} or \lighttt{ReverseArrive}, then we support \lighttt{Await} on $Q$, followed by a (possibly conditional) \lighttt{Arrive} on $Q$ [await-first usage]
-  \filbreak
-  \item If there is no \lighttt{ReverseAwait} or \lighttt{ReverseArrive}, we also support \lighttt{Arrive} on $Q$ with $N=1$, followed by an unconditional \lighttt{Await} on $Q$ [arrive-first usage]
+  \item If there is no back queue barrier array, we also support \lighttt{Arrive} on $Q$ with $N=1$, followed by an unconditional \lighttt{Await} on $Q$ [arrive-first usage]
   \item (Note: in the current implementation, arrive-first and await-first patterns are not simultanously supported for a single barrier variable)
 \end{itemize}
 
@@ -1124,16 +1124,16 @@ In all these supported cases, we require no other usage of $Q$ or $\widehat{Q}$ 
 Unlike the other synchronization requirements, which are enforced by ``simulation'', this ``meta-synchronization'' requirement will be enforced by static analysis.
 These rules allow us to safely lower queue barriers to mbarrier ring buffers.
 
-\mainKey{Static Analysis:} for each \lighttt{[Reverse]Arrive} statement using $Q$, search forward/backwards \textit{syntactically} for the next/previous statement using $Q$ or $\widehat{Q}$ (forwards in the arrive-first case; backwards in the await-first case).
+\mainKey{Static Analysis:} for each \lighttt{Arrive} statement using $Q$, search forward/backwards \textit{syntactically} for the next/previous statement using $Q$ or $\widehat{Q}$ (forwards in the arrive-first case; backwards in the await-first case).
 \filbreak
 \begin{itemize}
-  \item If the sync statement is not the correct sort of \lighttt{[Reverse]Await} statement, the analysis fails.
+  \item If the sync statement is not the correct sort of \lighttt{Await} statement, the analysis fails.
   \filbreak
-  \item If the sync statement's \lighttt{CollTiling} is not equivalent to that of the \lighttt{[Reverse]Arrive}, the analysis fails (this is asserting the set of threads executing the two statements is the same).
+  \item If the sync statement's \lighttt{CollTiling} is not equivalent to that of the \lighttt{Arrive}, the analysis fails (this is asserting the set of threads executing the two statements is the same).
   \filbreak
-  \item If the \lighttt{[Reverse]Await} is guarded by an if statement that the \lighttt{[Reverse]Arrive} isn't, the analysis fails.
+  \item If the \lighttt{Await} is guarded by an if statement that the \lighttt{Arrive} isn't, the analysis fails.
   \filbreak
-  \item If either the \lighttt{[Reverse]Await} or \lighttt{[Reverse]Arrive} is in the body of a \textit{sequential} for loop that the other isn't, the analysis fails.
+  \item If either the \lighttt{Await} or \lighttt{Arrive} is in the body of a \textit{sequential} for loop that the other isn't, the analysis fails.
   \filbreak
   \item Note, \lighttt{with} statements and parallel-for loops are ignored, as these don't have effect on a single thread's execution (given the \lighttt{CollTiling} equality check passed)
 \end{itemize}
@@ -1156,13 +1156,13 @@ Alternatively, we could give up on static analysis and just add this to the abst
 \mainSub{Multicasting \& mbarrier Pairing}
 
 The \lighttt{Arrive} statement may multicast to multiple CTAs.
-However, if both \lighttt{Arrive} and \lighttt{ReverseArrive} are used for a given barrier variable, then the set of CTAs multicast to must be the same for both statements \textbf{(figure \ref{fig:multicast_pairing_fail})}.
+If a barrier variable contains a back queue barrier array, then the set of CTAs multicast to for \lighttt{Arrive} statements must be the same for both queue barrier arrays \textbf{(figure \ref{fig:multicast_pairing_fail})}.
 TODO unclear if this is actually needed.
 
 \filbreak
 \mainSub{TMA Instructions \& mbarrier Pairing}
 
-TMA-to-SMEM instructions, which are the only instructions taking an mbarrier parameter, must appear only between a mbarrier-paired \lighttt{ReverseAwait} and \lighttt{Arrive} statement.
+TMA-to-SMEM instructions, which are the only instructions taking an mbarrier parameter, must appear only between a mbarrier-paired \lighttt{Await} and \lighttt{Arrive} statement.
 Any control flow is permitted.
 The queue barriers used by the TMA instructions must be a subset of those used in the \lighttt{Arrive} statement \textbf{(figure \ref{fig:tma_pairing_multicast})}.
 
@@ -1221,7 +1221,7 @@ or the contrapositive
 where the $n^{th}$ operation being ``finished'' means all threads in $C^1$ or $C^2$ have passed the $n^{th}$ arrive or await operation, respectively.\footnote{I'm being really sloppy here, because the whole point of the Exo-GPU abstract machine is that threads barely exist at all. But the focus of this section is the limitations of lowering to CUDA code, so I'm giving it a free pass for now.}
 
 \filbreak
-\minorKey{Case 1: No Reverse Barrier Array:}
+\minorKey{Case 1: No Back Queue Barrier Array:}
 The mbarrier pairing requirement guarantees
 \begin{equation*}
   x^{th} \text{ arrive on $Q$ finished} \implies (x-1)^{th} \text{ await on $Q$ finished}
@@ -1240,8 +1240,9 @@ Substitute $x=n+r$ and $r=\lighttt{lag}+1$ (the needed ring buffer size) to get 
 \end{equation*}
 
 \filbreak
-\minorKey{Case 2: Reverse Barrier Array:}
-Let \lighttt{F\_lag} be the \lighttt{lag} value used for the forward \lighttt{Await} statements and \lighttt{R\_lag} be the \lighttt{lag} values used for \lighttt{ReverseAwait} statements ($N =$ \lighttt{\textasciitilde lag}).
+\minorKey{Case 2: Back Queue Barrier Array:}
+Let \lighttt{F\_lag} be the \lighttt{lag} value used for the front \lighttt{Await} statements and \lighttt{B\_lag} be the \lighttt{lag} values used for the back \lighttt{Await} statements ($N =$ \lighttt{\textasciitilde lag}).
+Assume here that $Q$ denotes a queue barrier from the front queue barrie r array.
 
 \filbreak
 The mbarrier pairing requirements guarantee that
@@ -1253,9 +1254,9 @@ The mbarrier pairing requirements guarantee that
 \filbreak
 which we rewrite using the definition of non-trivial await:
 \begin{enumerate}
-  \item $x^{th}$ arrive on $Q$ finished $\implies$ the $(x-\lighttt{R\_lag})^{th}$ non-trivial await on $\widehat{Q}$ finished
+  \item $x^{th}$ arrive on $Q$ finished $\implies$ the $(x-\lighttt{B\_lag})^{th}$ non-trivial await on $\widehat{Q}$ finished
   \filbreak
-  \item $(x-\lighttt{R\_lag})^{th}$ non-trivial await on $\widehat{Q}$ finished $\implies$ the $(x-\lighttt{R\_lag})^{th}$ arrive on $\widehat{Q}$ finished
+  \item $(x-\lighttt{B\_lag})^{th}$ non-trivial await on $\widehat{Q}$ finished $\implies$ the $(x-\lighttt{B\_lag})^{th}$ arrive on $\widehat{Q}$ finished
   \filbreak
   \item $y^{th}$ arrive on $\widehat{Q}$ finished $\implies$ the $(y-\lighttt{L\_lag})^{th}$ non-trivial await on $Q$ finished
   \filbreak
@@ -1264,11 +1265,11 @@ which we rewrite using the definition of non-trivial await:
 where (b) and (d) were newly inserted.
 
 \filbreak
-Let $r = \lighttt{F\_lag} + \lighttt{R\_lag}$ (the needed ring buffer size) and substitute $x = n + r$, $y = n + \lighttt{L\_lag}$ and chain (a), (b), and (c) together to conclude:
+Let $r = \lighttt{F\_lag} + \lighttt{B\_lag}$ (the needed ring buffer size) and substitute $x = n + r$, $y = n + \lighttt{L\_lag}$ and chain (a), (b), and (c) together to conclude:
 \begin{equation*}
   (n+r)^{th} \text{ arrive on $Q$ finished} \implies n^{th} \text{ non-trivial await on $Q$ finished}
 \end{equation*}
-Substitute $x = n + \lighttt{R\_lag}$, $y = n+r$, to get the same conclusion from (c), (d), and (a) for $\widehat{Q}$.
+Substitute $x = n + \lighttt{B\_lag}$, $y = n+r$, to get the same conclusion from (c), (d), and (a) for $\widehat{Q}$.
 
 \newpage
 \mySection{Abstract Machine Grammar}
@@ -1340,7 +1341,7 @@ The mode is \lighttt{ExemptArg()} for control variables and sync-exempt memory t
 TODO \lighttt{access\_by\_owner\_only}.
 
 \filbreak
-\mainKey{Synchronization:} Currently each Exo barrier variable corresponds to either one or two queue barrier arrays, depending on whether \lighttt{ReverseArrive} and \lighttt{ReverseAwait} are used.
+\mainKey{Synchronization:} Currently each Exo barrier variable corresponds to either one or two queue barrier arrays, depending on whether the back queue barrier array (\lighttt{-varname}) exists.
 TODO improve this.
 Replace each alloc/free of a barrier type variable with \lighttt{AllocBarrierArray} and \lighttt{FreeBarrierArray} issued for the queue barrier array(s) corresponding to the Exo barrier variable.
 

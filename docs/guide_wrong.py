@@ -157,17 +157,18 @@ def mbarrier_teams():
 # TeX: filbreak
 <fence-stmt> ::= Fence(<sync-tl>, <sync-tl>)  # (first timeline, second timeline)
 # TeX: filbreak
-<arrive-fname> ::= Arrive | ReverseArrive  # TODO consider changing this
-# TeX: filbreak
-<await-fname> ::= Await | ReverseAwait  # TODO consider changing this
-# TeX: filbreak
 # (first timeline, N)
-<arrive-stmt> ::= <arrive-fname>(<sync-tl>, <int>) <trailing-barrier-exprs>
+<arrive-stmt> ::= Arrive(<sync-tl>, <int>) <trailing-barrier-exprs>
 # TeX: filbreak
 # (barrier, second timeline, N)
-<await-stmt> ::= <await-fname>(<barrier-expr>, <sync-tl>, <int>)
+<await-stmt> ::= Await(<barrier-expr>, <sync-tl>, <int>)
 # TeX: filbreak
-<barrier-expr> ::= <name> | <name>[<barrier-idxs>]  # <name> : barrier
+# <name> must be from a previous <barrier-alloc> in scope.
+<queue-barrier-array> ::= +<name>  # Front queue barrier array
+                        | -<name>  # Back queue barrier array
+                        | <name>   # Front queue barrier array
+# TeX: filbreak
+<barrier-expr> ::= <queue-barrier-array> | <queue-barrier-array>[<barrier-idxs>]
 # TeX: filbreak
 <barrier-idx> ::= : | <name>  # where <name> identifies a cuda_threads-iterator
 # TeX: filbreak

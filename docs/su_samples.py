@@ -266,7 +266,7 @@ class tma_multicast_f32_2d_linear:
 # TeX: begin mbarrier_var
 cta_bars: barrier[8] @ CudaMbarrier
 # TeX: end mbarrier_var[0]
-warp_bars: barrier @ CudaMbarrier
+warp_bars: barrier[8, nW] @ CudaMbarrier
 for cta in cuda_threads(0, 8, unit=cuda_cta_in_cluster):
     # Each CTA owns one queue barrier in cta_bars
     # TeX: color line *
@@ -363,6 +363,7 @@ for m_cta in cuda_threads(0, 4, unit=2 * cuda_cta_in_cluster):
 # TeX: version multicast_2cta 3
 # TeX: begin multicast_2cta
 for cta in cuda_threads(0, 2, unit=cuda_cta_in_cluster):
+    barriers: barrier[2] @ CudaMbarrier
     do_something_to(foo[cta, :])
     # TeX: color line *
     #  rrrrrrrr
@@ -433,22 +434,22 @@ for m_cta in cuda_threads(0, 4, unit=2 * cuda_cta_in_cluster):
 with CudaWarps(name="producer"):
     for m_cta in cuda_threads(0, 4, unit=2 * cuda_cta_in_cluster):
         for n_cta in cuda_threads(0, 2, unit=cuda_cta_in_cluster):
-            ReverseAwait(ringbar[m_cta, n_cta], cuda_temporal, ~0)
+            Await(-ringbar[m_cta, n_cta], cuda_temporal, ~3)
             # ...
             # Will not arrive on ringbar[M, N] with M != m_cta and N != n_cta
             # TeX: color line *
-            #                                b             b
-            Arrive(..., 1) >> ringbar[m_cta, :] >> ringbar[:, n_cta]
+            #                                 b              b
+            Arrive(..., 1) >> +ringbar[m_cta, :] >> +ringbar[:, n_cta]
 with CudaWarps(name="consumer"):
     for m_cta in cuda_threads(0, 4, unit=2 * cuda_cta_in_cluster):
         for n_cta in cuda_threads(0, 2, unit=cuda_cta_in_cluster):
-            Await(ringbar[m_cta, n_cta], ..., ~0)
+            Await(+ringbar[m_cta, n_cta], ..., ~0)
             # ...
             # Error: mismatch with paired arrive:
             # Will match ringbar[M, N] with M != m_cta and N != n_cta
             # TeX: color line *
-            #                                                         rrrr
-            ReverseArrive(..., 1) >> ringbar[m_cta, n_cta] >> ringbar[:, :]
+            #                                                    rrrr
+            Arrive(..., 1) >> -ringbar[m_cta, n_cta] >> -ringbar[:, :]
 
 # TeX: end multicast_pairing_fail[0]
 
@@ -493,33 +494,37 @@ class tma_multicast_f32_2d_linear:
 with CudaAsync(name="producer"):
     for m_cta in cuda_threads(0, 4, unit=2 * cuda_cta_in_cluster):
         for n_cta in cuda_threads(0, 2, unit=cuda_cta_in_cluster):
-            ReverseAwait(ringbar[m_cta, n_cta], cuda_temporal, 1)
+            # TeX: color line *
+          # yyyyy
+            Await(-ringbar[m_cta, n_cta], cuda_temporal, 1)
     for m_cta in cuda_threads(0, 4, unit=2 * cuda_cta_in_cluster):
         # TeX: color line *
-        #                     ggggggggggggggggg
-        tma_foo_instr(...) >> ringbar[m_cta, :]
+        #                     gggggggggggggggggg
+        tma_foo_instr(...) >> +ringbar[m_cta, :]
     for n_cta in cuda_threads(0, 2,
             unit=CollUnit((2, blockDim), (1, blockDim), "every_other_cta", None)):
             # We need better syntax to express ``every other CTA''
         # TeX: color line *
-        #                     vvvvvvvvvvvvvvvvv
-        tma_bar_instr(...) >> ringbar[:, n_cta]
+        #                     vvvvvvvvvvvvvvvvvv
+        tma_bar_instr(...) >> +ringbar[:, n_cta]
     for m_cta in cuda_threads(0, 4, unit=2 * cuda_cta_in_cluster):
         for n_cta in cuda_threads(0, 2, unit=cuda_cta_in_cluster):
             # Both queue barrier expressions are needed, otherwise one of the previous
             # two TMA instructions' barriers won't be a subset of those named here.
             # TeX: color line *
-            #                           ggggggggggggggggg    vvvvvvvvvvvvvvvvv
-            Arrive(cuda_temporal, 1) >> ringbar[m_cta, :] >> ringbar[:, n_cta]
+            #                           gggggggggggggggggg    vvvvvvvvvvvvvvvvvv
+            Arrive(cuda_temporal, 1) >> +ringbar[m_cta, :] >> +ringbar[:, n_cta]
 with CudaWarps(name="consumer"):
     for m_cta in cuda_threads(0, 4, unit=2 * cuda_cta_in_cluster):
         for n_cta in cuda_threads(0, 2, unit=cuda_cta_in_cluster):
-            Await(ringbar[m_cta, n_cta], cuda_in_order, 1)
+            # TeX: color line *
+          # yyyyy
+            Await(+ringbar[m_cta, n_cta], cuda_in_order, 1)
             # ...
             # The barriers expressions here are needed to match the previous Arrive statement
             # TeX: color line *
-            #                                  ggggggggggggggggg    vvvvvvvvvvvvvvvvv
-            ReverseArrive(cuda_in_order, 1) >> ringbar[m_cta, :] >> ringbar[:, n_cta]
+            #                           gggggggggggggggggg    vvvvvvvvvvvvvvvvvv
+            Arrive(cuda_in_order, 1) >> -ringbar[m_cta, :] >> -ringbar[:, n_cta]
 # TeX: end tma_pairing_multicast[0]
 
 

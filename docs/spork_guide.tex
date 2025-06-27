@@ -394,17 +394,13 @@ after memory actions that
 \filbreak
 \mainKey{Split Barrier (Arrive, Await):}
 
-A combination of \lighttt{Arrive(first\_tl, barrier\_name[...], N)} (syntax to change\footnote{\lighttt{Arrive(first\_tl, N) >> barrier\_name[...]}}) and \lighttt{Await(barrier\_name[...], second\_tl, N)} statements express split barriers.
+A combination of \lighttt{Arrive(first\_tl, N) >> barrier\_name[...]} and \lighttt{Await(barrier\_name[...], second\_tl, N)} statements express split barriers.
 \lighttt{first\_tl} and \lighttt{second\_tl} are sync-tl values, as before; \lighttt{barrier\_name} is a \lighttt{barrier}-typed variable, and \lighttt{N} is an integer (to be explained in the ``Queue Barrier'' section).
 
 \filbreak
 Declare a barrier variable as \lighttt{<varname>: barrier @ <Memory>}, where \lighttt{<Memory>} is one of \lighttt{CudaCommitGroup}, \lighttt{CudaMbarrier}, or \lighttt{CudaEvent}.
 The memory type controls how the barrier is implemented in CUDA.
-
-\filbreak
-Indices may be supplied in the \lighttt{barrier\_name}; each separate position is a logically separate barrier.
-Currently the \lighttt{barrier} variable declaration doesn't express if it's an ``array'' or not ... maybe change this.
-Interpret all indices as distributed indices (unlike non-barrier allocations, there is no native unit that tells distributed memory deduction when to stop).
+There may be array sizes (e.g. \lighttt{[4,2]}) after the \lighttt{barrier} type name.
 
 \filbreak
 TODO: No one understands what I'm talking about.
@@ -428,18 +424,16 @@ after memory actions that
 \end{enumerate}
 
 \filbreak
-For \lighttt{CudaMbarrier} only, we support \lighttt{ReverseArrive} and \lighttt{ReverseAwait} statements, which behave and pair with each other just an \lighttt{Arrive} and \lighttt{Await} statements do, except that reversed statements use a hidden ``reverse barrier'' array parallel to the primary ``forward barrier'' array.
-TODO: this seems bizarre at first glance; explain why this exists.
-
-\filbreak
 See \lighttt{summer\_of\_wgmma.pdf}, ``Arrive/Await Pairing and Multicast'', for detailed usage requirements of barriers.
 
 \filbreak
-\mainKey{Queue Barrier:} In our abstraction, an arrive and await statement use the same \myKeyA{queue barrier} state iff they use the same barrier variable and index values (same for reverse arrive and reverse await statements, which use separate queue barriers from their non-reverse counterparts).
-We control pairing with the \lighttt{N} parameter.
+\mainKey{Queue Barrier:} In our abstraction, each barrier variable names a queue barrier array, with each indexed position holding a \myKeyA{queue barrier}.
+For mbarriers only, we further distinguish between the ``front queue barrier array'' (\lighttt{+ <name>}) and ``back queue barrier array'' (\lighttt{- <name>}); both associated with the same variable name.
+In a producer-consumer style kernel, generally one handles the producer-to-consumer dependency (read-after-write), and the other handles the consumer-to-producer anti-dependency (write-after-read).
+TODO: this seems bizarre at first glance; explain (it's related to the mbarrier pairing requirement in \lighttt{summer\_of\_wgmma.pdf}).
 
 \filbreak
-For simple usage, $N = 1$ for arrive statements.
+\lighttt{Arrive} and \lighttt{Await} statements that use the same queue barrier pair with each other, with delay controlled by the \lighttt{N} parameter. For simple usage, $N = 1$ for arrive statements.
 
 \filbreak
 For await statements with $N \ge 0$, the await pairs with the $N^{th}$ prior arrive statement using the same queue barrier
