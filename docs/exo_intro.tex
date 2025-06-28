@@ -7,8 +7,8 @@
 
 Exo is a Python-embedded metaprogramming language targetting Tensor-like algorithms that can accept a strict separation of ``data'' and ``control'' types, where
 \begin{itemize}
-  \item Data values are freely allocatable, readable, and writeable, but cannot be used to index into tensors.
-  \item Control values are only defined as immutable function (proc) parameters and as for loop iterators, but can be used to specify size and index values for tensors.
+  \item Data-type variables are freely allocatable, readable, and writeable, but cannot be used to specify sizes of or indices into tensors.
+  \item Control-type variables are only defined as immutable function (proc) parameters and as for loop iterators, but can be used to specify size and indices for tensors.
 \end{itemize}
 
 \filbreak
@@ -38,12 +38,12 @@ However, the intended use case for Exo is for the user to write relatively simpl
 \mainSub{Language Basics}
 
 \mainKey{Variable declarations:} \lighttt{variable-name: type}, plus an optional trailing \lighttt{@ memory-type}.
-    This may appear in the argument list of a proc, or, for data values, this may be declared anywhere in the proc body.
+    This may appear in the argument list of a proc, or, for variables of data type, this may be declared anywhere in the proc body.
 
 \filbreak
 \mainKey{Tensors:} Convey tensor types with syntax \lighttt{data-typename[idx0, idx1,...]}.
 Integer constants or \lighttt{size} variables may be used to size the tensor, e.g. {\lighttt{foo: f32[16, C]}} makes \lighttt{foo} a $16 \times C$ tile of float32.
-Index $N$-dimensional tensors with a comma-separated list of $N$ \textit{point} expressions \lighttt{x} or \textit{interval} expressions \lighttt{lo:hi}, where \lighttt{x}, \lighttt{lo}, and \lighttt{hi} are control values.
+Index $N$-dimensional tensors with a comma-separated list of $N$ \textit{point} expressions \lighttt{x} or \textit{interval} expressions \lighttt{lo:hi}, where \lighttt{x}, \lighttt{lo}, and \lighttt{hi} are control-type variables.
 If all indices are points, the result is a scalar; otherwise, the result is a window.
 
 \filbreak
