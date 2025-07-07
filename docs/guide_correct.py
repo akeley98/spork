@@ -118,6 +118,7 @@ def warp_config_example():
                 # TeX: end my_warp_config[0]
                 pass
 
+
 # TeX: version warpgroup_CudaWarps 1
 # TeX: begin warpgroup_CudaWarps[0]
 @proc
@@ -130,6 +131,7 @@ def warpgroup_CudaWarps():
                     # Collective unit here is 1 warp
                     # TeX: end warpgroup_CudaWarps[0]
                     pass
+
 
 @proc
 def simple_dist():
@@ -284,7 +286,7 @@ def xgemm_Sm80_fence(M: size, N: size, K: size,
                 #            rrrrrrrrrrrr  yyyyyyyyyyy  bbbbb
                 # TeX: color line xgemm_Sm80_fence[3]
                 #            rrrrrrrrrrrr
-                D_rmem : f32[M1/Mw, N1/Nw, Mw/16, Nw/8, 16, 8] @ Sm80_RmemMatrixD
+                D_rmem : f32[M1/Mw, N1/Nw, Mw/16, Nw/8, 16, 8] @ Sm80_RmemMatrixD(16, 8)
                 # TeX: end xgemm_Sm80_fence
                 # TeX: begin xgemm_Sm80_fence[0]
                 # TeX: begin xgemm_Sm80_fence[1]
@@ -361,7 +363,7 @@ def xgemm_Sm80_fence(M: size, N: size, K: size,
                                 # TeX: begin xgemm_Sm80_fence[3]
                                 # Load all B matrix tiles ahead of time
                                 # Note double buffer index 1 - k1 % 2 (opposite buffer as used by cp.async)
-                                B_rmem : f32[K0/MMA_K, Nw/8, MMA_K, 8] @ Sm80_RmemMatrixB
+                                B_rmem : f32[K0/MMA_K, Nw/8, MMA_K, 8] @ Sm80_RmemMatrixB(8, MMA_K)
                                 for n_seq in seq(0, Nw / 8, pragma_unroll=0):
                                     for k_seq in seq(0, K0 / MMA_K, pragma_unroll=0):
                                         # TeX: color line *
@@ -373,7 +375,7 @@ def xgemm_Sm80_fence(M: size, N: size, K: size,
                                 #                   ggggggg
                                 for m_seq in seq(0, Mw / 16, pragma_unroll=0):
                                     # Load A matrix tiles needed for m iteration
-                                    A_rmem : f32[K0/MMA_K, 16, MMA_K] @ Sm80_RmemMatrixA
+                                    A_rmem : f32[K0/MMA_K, 16, MMA_K] @ Sm80_RmemMatrixA(16, MMA_K)
                                     for k_seq in seq(0, K0 / MMA_K, pragma_unroll=0):
                                         # TeX: color line *
                                         #                                              yyyyyyyyyy
@@ -465,7 +467,7 @@ def xgemm_Sm80_mbarrier(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear,
                 #            yyyy
                 B_smem : f32[RING, K0, N1] @ CudaSmemLinear
                 # Accumulator tiles
-                D_rmem : f32[M1/Mw, N1/Nw, Mw/16, Nw/8, 16, 8] @ Sm80_RmemMatrixD
+                D_rmem : f32[M1/Mw, N1/Nw, Mw/16, Nw/8, 16, 8] @ Sm80_RmemMatrixD(16, 8)
                 # TeX: end xgemm_Sm80_mbarrier[0]
                 for mw in cuda_threads(0, M1/Mw, unit=(N1/Nw) * cuda_warp):
                     for nw in cuda_threads(0, N1/Nw, unit=cuda_warp):
@@ -529,7 +531,7 @@ def xgemm_Sm80_mbarrier(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear,
                         for mw in cuda_threads(0, M1 / Mw, unit=(N1/Nw) * cuda_warp):
                             for nw in cuda_threads(0, N1 / Nw, unit=cuda_warp):
                                 # Load all B matrix tiles ahead of time
-                                B_rmem : f32[K0/MMA_K, Nw/8, MMA_K, 8] @ Sm80_RmemMatrixB
+                                B_rmem : f32[K0/MMA_K, Nw/8, MMA_K, 8] @ Sm80_RmemMatrixB(8, MMA_K)
                                 for n_seq in seq(0, Nw / 8, pragma_unroll=0):
                                     for k_seq in seq(0, K0 / MMA_K, pragma_unroll=0):
                                         Sm80_mma_load_b_tf32(B_rmem[k_seq,n_seq,:,:],
@@ -541,7 +543,7 @@ def xgemm_Sm80_mbarrier(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear,
 
                                 for m_seq in seq(0, Mw / 16, pragma_unroll=0):
                                     # Load A matrix tiles needed for m iteration
-                                    A_rmem : f32[K0/MMA_K, 16, MMA_K] @ Sm80_RmemMatrixA
+                                    A_rmem : f32[K0/MMA_K, 16, MMA_K] @ Sm80_RmemMatrixA(16, MMA_K)
                                     for k_seq in seq(0, K0 / MMA_K, pragma_unroll=0):
                                         Sm80_mma_load_a_tf32(A_rmem[k_seq,:,:],
                                         # TeX: color line xgemm_Sm80_mbarrier[2]

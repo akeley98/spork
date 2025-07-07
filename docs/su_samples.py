@@ -6,7 +6,7 @@ class Sm80_mma_load_a_tf32:
     # PARSED as Exo code; specifies instr behavior for LoopIR_unification
     def behavior(
         K: size,
-        rmem: [f32][16, K] @ Sm80_RmemMatrixA,
+        rmem: [f32][16, K],
         smem: [f32][16, K] @ CudaSmemLinear,
     ):
         # Essentially, this is what would have gone into the function body of an old-style instr
@@ -22,6 +22,7 @@ class Sm80_mma_load_a_tf32:
         self.c_includes = # ...
         # ... but also a lot of new information
         self.coll_unit = cuda_warp
+        self.access_info["rmem"].mem = Sm80_RmemMatrixA(16, K)
         # ...
 # TeX: end instr_class[0]
 
@@ -33,7 +34,7 @@ concrete_instr = Sm80_mma_load_a_tf32(K=8)
 # Behavior: substitute K=8, delete K argument
 # TeX: color line *
 #                                  g
-def concrete_instr(rmem: [f32][16, 8] @ Sm80_RmemMatrixA,
+def concrete_instr(rmem: [f32][16, 8],
 # TeX: color line *
 #                                  g
                    smem: [f32][16, 8] @ CudaSmemLinear,
@@ -67,8 +68,8 @@ foo: f32[4, 6, 8] @ AVX2  # Expected vector size: 8
 # TeX: version warp_example 1
 # TeX: begin warp_example
 # TeX: color line *
-#        r  r  y  bb  b                                              bbbbbb
-foo: f32[2, 4, 6, 16, 8] @ Sm80_RmemMatrixD  # Expected matrix tile: 16 x 8
+#        r  r  y  bb  b                                                     bbbbbb
+foo: f32[2, 4, 6, 16, 8] @ Sm80_RmemMatrixD(16, 8)  # Expected matrix tile: 16 x 8
 for mw in cuda_threads(0, 2, unit=4 * cuda_warp):
     for nw in cuda_threads(0, 4, unit=cuda_warp):
         for array_idx in seq(0, 6):
