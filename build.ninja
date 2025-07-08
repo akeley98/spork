@@ -8,7 +8,7 @@ rule nvcc
   depfile = $out.d
 
 rule nvcc_80
-  command = $nvcc_bin --ptxas-options=-O3 -lineinfo $nvcc_args $archcode80 $in -o $out -MD -MF $out.d
+  command = $nvcc_bin --ptxas-options=-O3 -lineinfo $nvcc_args $archcode80 $in -o $out -MD -MF $out.d -keep
   depfile = $out.d
 
 rule nvcc_keep
