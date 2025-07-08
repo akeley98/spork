@@ -38,13 +38,13 @@ def make_Sm90_gemm(N):
                 for n_task in cuda_tasks(0, N / smem_n):
                     ringbar : barrier @ CudaMbarrier
                     cg : barrier[2] @ CudaCommitGroup
-                    D_rmem : f32[2, wg_m, wg_n] @ Sm90_RmemMatrixD
+                    D_rmem : f32[2, wg_m, wg_n] @ Sm90_RmemMatrixD(wg_m, wg_n)
                     A_smem : f32[ring, smem_m / 8, 8, smem_k] @ Sm90_SmemSwizzled(128)
                     B_smem : f32[ring, smem_n / 8, 8, smem_k] @ Sm90_SmemSwizzled(128)
 
                     with CudaWarps(name="consumer"):
                         for wg in cuda_threads(0, 2, unit=cuda_warpgroup):
-                            Sm90_zero_scale_d_f32(wg_m, wg_n, D_rmem[wg,:,:])
+                            Sm90_zero_scale_d_f32(D_rmem[wg,:,:], M=wg_m, N=wg_n)
 
                     for k_iter in seq(0, K/smem_k):  # This loop should be cut at 1
                         with CudaWarps(name="producer"):
