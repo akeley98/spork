@@ -54,12 +54,12 @@ def make_Sm90_gemm(N):
                                 Sm90_copy_tensor_to_smem_swizzled_2f32(
                                     A_smem[k_iter % ring,:,:,:],
                                     A_tensorMap[m_task * smem_m:(m_task+1)* smem_m, k_iter * smem_k:(k_iter+1) * smem_k],
-                                    box0=smem_m, box1=smem_k) >> ringbar
+                                    box0=smem_m, box1=smem_k) >> +ringbar
                                 Sm90_copy_tensor_to_smem_swizzled_2f32(
                                     B_smem[k_iter % ring,:,:,:],
                                     B_tensorMap[n_task * smem_n:(n_task+1)* smem_n, k_iter * smem_k:(k_iter+1) * smem_k],
-                                    box0=smem_n, box1=smem_k) >> ringbar
-                                Arrive(tma_to_smem_async, 1) >> ringbar
+                                    box0=smem_n, box1=smem_k) >> +ringbar
+                                Arrive(cuda_temporal, 1) >> +ringbar
 
                         with CudaWarps(name="consumer"):
                             with CudaWarps(1, 3, name="consumer"):
