@@ -11,7 +11,7 @@
 #include "gemm_sm80.h"
 #include "gemm_sm90.h"
 #include "../xgemm_Sm80/xgemm_Sm80.h"
-#include "../xgemm_Sm90_n96/xgemm_Sm90_n96.h"
+#include "../xgemm_Sm90_n256/xgemm_Sm90_n256.h"
 #include "../xgemm_Sm90_n128/xgemm_Sm90_n128.h"
 #include "../edited_xgemm_Sm90/edited.h"
 
@@ -304,9 +304,9 @@ void gemm_test(TestParams params, cudaStream_t stream)
                 xgemm_Sm80_mbarrier(nullptr, int(params.M), int(params.N), int(params.K), d_a, d_b, d_c_tested);
                 // xgemm_Sm80_split(nullptr, int(params.M), int(params.N), int(params.K), d_a, d_b, d_c_tested);
             }
-            else if (algo == AlgorithmCode::exo_sm_90_n96) {
+            else if (algo == AlgorithmCode::exo_sm_90_n256) {
                 assert(stream == 0);
-                xgemm_Sm90_wgmma_n96(nullptr, int(params.N), int(params.M), int(params.K), d_bCol, d_a, d_c_tested);
+                xgemm_Sm90_wgmma_n256(nullptr, int(params.N), int(params.M), int(params.K), d_bCol, d_a, d_c_tested);
             }
             else if (algo == AlgorithmCode::exo_sm_90_n128) {
                 assert(stream == 0);
@@ -377,7 +377,7 @@ void gemm_test(TestParams params, cudaStream_t stream)
                 break;
               case AlgorithmCode::exo_sm_80_fence:
               case AlgorithmCode::exo_sm_80_mbarrier:
-              case AlgorithmCode::exo_sm_90_n96:
+              case AlgorithmCode::exo_sm_90_n256:
               case AlgorithmCode::exo_sm_90_n128:
                 color_code = 36;
                 break;
