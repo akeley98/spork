@@ -47,7 +47,6 @@ int main()
             if (is_h100) {
                 params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::exo_sm_90_n256);
                 params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::exo_sm_90_n128);
-                params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::edited_exo_sm_90);
             }
         }
 

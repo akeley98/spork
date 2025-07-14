@@ -48,9 +48,7 @@ build bin/xgemm_Sm90_n256/xgemm_Sm90_n256.c.o : nvcc xgemm_Sm90_n256/xgemm_Sm90_
 build bin/xgemm_Sm90_n256/xgemm_Sm90_n256.cu.o : nvcc_keep xgemm_Sm90_n256/xgemm_Sm90_n256.cu
 build bin/xgemm_Sm90_n128/xgemm_Sm90_n128.c.o : nvcc xgemm_Sm90_n128/xgemm_Sm90_n128.c
 build bin/xgemm_Sm90_n128/xgemm_Sm90_n128.cu.o : nvcc_keep xgemm_Sm90_n128/xgemm_Sm90_n128.cu
-build bin/edited_xgemm_Sm90/edited.c.o : nvcc edited_xgemm_Sm90/edited.c
-build bin/edited_xgemm_Sm90/edited.cu.o : nvcc_keep edited_xgemm_Sm90/edited.cu
 build bin/gemm/gemm_test.o : nvcc_80 gemm/gemm_test.cu | xgemm_Sm80/xgemm_Sm80.h xgemm_Sm90_n256/xgemm_Sm90_n256.h xgemm_Sm90_n128/xgemm_Sm90_n128.h
 build bin/gemm/gemm_main.o : nvcc_80 gemm/gemm_main.cpp
 
-build gemm/gemm: link bin/gemm/cutlass_gemm.o bin/gemm/gemm_sm90.o bin/gemm/gemm_sm80.o bin/gemm/gemm_baseline.o bin/xgemm_Sm80/xgemm_Sm80.c.o bin/xgemm_Sm80/xgemm_Sm80.cu.o bin/xgemm_Sm90_n256/xgemm_Sm90_n256.c.o bin/xgemm_Sm90_n256/xgemm_Sm90_n256.cu.o bin/xgemm_Sm90_n128/xgemm_Sm90_n128.c.o bin/xgemm_Sm90_n128/xgemm_Sm90_n128.cu.o bin/edited_xgemm_Sm90/edited.c.o bin/edited_xgemm_Sm90/edited.cu.o bin/gemm/gemm_test.o bin/gemm/gemm_main.o
+build gemm/gemm: link bin/gemm/cutlass_gemm.o bin/gemm/gemm_sm90.o bin/gemm/gemm_sm80.o bin/gemm/gemm_baseline.o bin/xgemm_Sm80/xgemm_Sm80.c.o bin/xgemm_Sm80/xgemm_Sm80.cu.o bin/xgemm_Sm90_n256/xgemm_Sm90_n256.c.o bin/xgemm_Sm90_n256/xgemm_Sm90_n256.cu.o bin/xgemm_Sm90_n128/xgemm_Sm90_n128.c.o bin/xgemm_Sm90_n128/xgemm_Sm90_n128.cu.o bin/gemm/gemm_test.o bin/gemm/gemm_main.o
