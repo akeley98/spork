@@ -44,6 +44,8 @@ int main()
         if (M % 768 == 0 && N % 768 == 0 && K % 32 == 0) {
             params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::exo_sm_80_fence);
             params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::exo_sm_80_mbarrier);
+        }
+        if (M % 256 == 0 && N % 256 == 0 && K % 32 == 0) {
             if (is_h100) {
                 params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::exo_sm_90_n256);
                 params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::exo_sm_90_n128);
