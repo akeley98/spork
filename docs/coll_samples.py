@@ -256,8 +256,8 @@ def warp_example():
     with CudaDeviceFunction(blockDim=256):
         for task in cuda_tasks(0, xyzzy):
             # TeX: color line *
-            #      rrrr                                  rrrrrrrrrrrrrrrrrrrrrrr
-            D: f32[2, 4, 6, 16, 8] @ Sm80_RmemMatrixD  # $t_a = 256$, $t_n = 32$
+            #      rrrr                                         rrrrrrrrrrrrrrrrrrrrrrr
+            D: f32[2, 4, 6, 16, 8] @ Sm80_RmemMatrixD(16, 8)  # $t_a = 256$, $t_n = 32$
             # TeX: color line *
             #            rrrrrrrrrrrrrrrrr  rrrrrrrrrrrrrrrrrrrrrrrr
             # Deduction: threadIdx.x / 128, threadIdx.x % 128 / 32
