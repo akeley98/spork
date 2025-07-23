@@ -68,8 +68,7 @@ def make_Sm90_gemm(N, M_CTA, N_CTA):
                                         B_tensorMap[(N_CTA*n_task+n_cta) * smem_n:(N_CTA*n_task+n_cta+1) * smem_n, k_iter * smem_k:(k_iter+1) * smem_k],
                                         n_cta=M_CTA, cta_stride=N_CTA, size0=smem_n, size1=smem_k
                                     ) >> +ringbar[:,n_cta]
-                                for m_cta in cuda_threads(0, M_CTA, unit=N_CTA * cuda_cta_in_cluster):
-                                    for n_cta in cuda_threads(0, N_CTA, unit=cuda_cta_in_cluster):
+                                    for m_cta in cuda_threads(0, M_CTA, unit=cuda_cta_in_cluster):
                                         Arrive(cuda_temporal, 1) >> +ringbar[m_cta,:] >> +ringbar[:,n_cta]
 
                         with CudaWarps(name="consumer"):
@@ -97,9 +96,6 @@ def make_Sm90_gemm(N, M_CTA, N_CTA):
                             with CudaWarps(name="consumer"):
                                 for wg in cuda_threads(0, 2, unit=cuda_warpgroup):
                                     Await(cg[m_cta,n_cta,wg], cuda_in_order, 0)
-
-                            with CudaWarps(name="consumer"):
-                                for wg in cuda_threads(0, 2, unit=cuda_warpgroup):
                                     Sm90_mma_write_d_col_major_tf32(
                                         C [(N_CTA*n_task + n_cta) * smem_n
                                         : ((N_CTA*n_task + n_cta)+1) * smem_n,

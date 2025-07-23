@@ -91,12 +91,6 @@ def xgemm_Sm80_fence(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B:
 
                     # Sm80_generic sync-tl = (cuda_in_order | Sm80_cp_async)
                     Fence(Sm80_generic, Sm80_generic)
-                    # for w in cuda_threads(0, 8, unit=cuda_warp):
-                    #     cg : barrier @ CudaCommitGroup
-                    #     for tid in cuda_threads(0, 32):
-                    #         Arrive(Sm80_cp_async, 1) >> cg[tid]
-                    #         Await(+cg[tid], cuda_in_order, 0)
-                    # Fence(cuda_in_order, Sm80_generic)
 
                 # for-k1 (K tiles) loop ends
 
