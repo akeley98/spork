@@ -13,6 +13,7 @@
 #include "../xgemm_Sm80/xgemm_Sm80.h"
 #include "../xgemm_Sm90_n256/xgemm_Sm90_n256.h"
 #include "../xgemm_Sm90_n128/xgemm_Sm90_n128.h"
+#include "../xgemm_Sm90_n64/xgemm_Sm90_n64.h"
 
 #ifndef CUBLAS_TEST_ENABLED
 #define CUBLAS_TEST_ENABLED 1
@@ -311,6 +312,10 @@ void gemm_test(TestParams params, cudaStream_t stream)
                 assert(stream == 0);
                 xgemm_Sm90_wgmma_n128(nullptr, int(params.N), int(params.M), int(params.K), d_bCol, d_a, d_c_tested);
             }
+            else if (algo == AlgorithmCode::exo_sm_90_n64) {
+                assert(stream == 0);
+                xgemm_Sm90_wgmma_n64(nullptr, int(params.N), int(params.M), int(params.K), d_bCol, d_a, d_c_tested);
+            }
             else {
                 GPU_Tensors t{params.M, params.N, params.K, d_a, d_bCol, d_c_tested, 0, 1, 0};
                 if (algo == AlgorithmCode::mine_output_stationary) {
@@ -373,6 +378,7 @@ void gemm_test(TestParams params, cudaStream_t stream)
               case AlgorithmCode::exo_sm_80_mbarrier:
               case AlgorithmCode::exo_sm_90_n256:
               case AlgorithmCode::exo_sm_90_n128:
+              case AlgorithmCode::exo_sm_90_n64:
                 color_code = 36;
                 break;
               case AlgorithmCode::mine_split_k_inner: case AlgorithmCode::mine_split_k_outer:

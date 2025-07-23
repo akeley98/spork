@@ -18,6 +18,7 @@ enum class AlgorithmCode
     exo_sm_80_mbarrier,
     exo_sm_90_n256,
     exo_sm_90_n128,
+    exo_sm_90_n64,
     mine_sm_80,
     mine_output_stationary,
     mine_split_k_inner,
@@ -60,6 +61,8 @@ inline const char* algorithm_name(AlgorithmCode code)
         return "exo_sm_90_n256";
       case AlgorithmCode::exo_sm_90_n128:
         return "exo_sm_90_n128";
+      case AlgorithmCode::exo_sm_90_n64:
+        return "exo_sm_90_n64";
     }
     return "unknown";
 }
