@@ -164,7 +164,7 @@ def xgemm_Sm80_mbarrier(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear,
                 # for-k1 (K tiles) loop continues
                     if k1 >= LAG:
                         # Wait for ring buffer to be filled
-                        Await(ringbar, cuda_in_order, ~0)
+                        Await(+ringbar, cuda_in_order, ~0)
 
                         for mw in cuda_threads(0, M1 / Mw, unit=(N1/Nw) * cuda_warp):
                             for nw in cuda_threads(0, N1 / Nw, unit=cuda_warp):
@@ -204,6 +204,7 @@ def xgemm_Sm80_mbarrier(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear,
                                     C[m2 * M1 + mw * Mw + m_seq * 16 : m2 * M1 + mw * Mw + (m_seq+1) * 16,
                                     n2 * N1 + nw * Nw + n_seq * 8 : n2 * N1 + nw * Nw + (n_seq+1) * 8],
                                     D_rmem[mw,nw,m_seq,n_seq,:,:])
+                Fence(cuda_in_order, cuda_in_order)
 
 xgemm_Sm80_mbarrier = simplify(xgemm_Sm80_mbarrier)
 
