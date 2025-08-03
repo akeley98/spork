@@ -10,6 +10,7 @@ compile_commands.json
 *.log
 *.out
 *.aux
+docs/spork_nyc25.pdf
 docs/spork_2024.pdf
 docs/spork_dev.pdf
 docs/spork_gemm.pdf
@@ -38,6 +39,7 @@ ninja
 /cutlass_gemm.*
 xgemm_Sm80/*
 xgemm_Sm90*/*
+nyc25/*
 *.d
 *.i
 *.ii

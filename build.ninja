@@ -22,6 +22,10 @@ rule nvcc_keep_G
 rule link
   command = nvcc -ccbin g++-12 $archcode80 $in -o $out -lcuda -lcublas
 
+rule exocc_nyc25
+  command = exocc $in
+  depfile = nyc25/nyc25.d
+
 rule exocc_xgemm_Sm80
   command = exocc $in
   depfile = xgemm_Sm80/xgemm_Sm80.d
@@ -43,11 +47,14 @@ build xgemm_Sm80/xgemm_Sm80.c xgemm_Sm80/xgemm_Sm80.cu xgemm_Sm80/xgemm_Sm80.cuh
 build xgemm_Sm90_n256/xgemm_Sm90_n256.c xgemm_Sm90_n256/xgemm_Sm90_n256.cu xgemm_Sm90_n256/xgemm_Sm90_n256.cuh xgemm_Sm90_n256/xgemm_Sm90_n256.h: exocc_xgemm_Sm90_n256 xgemm_Sm90_n256.py
 build xgemm_Sm90_n128/xgemm_Sm90_n128.c xgemm_Sm90_n128/xgemm_Sm90_n128.cu xgemm_Sm90_n128/xgemm_Sm90_n128.cuh xgemm_Sm90_n128/xgemm_Sm90_n128.h: exocc_xgemm_Sm90_n128 xgemm_Sm90_n128.py
 build xgemm_Sm90_n64/xgemm_Sm90_n64.c xgemm_Sm90_n64/xgemm_Sm90_n64.cu xgemm_Sm90_n64/xgemm_Sm90_n64.cuh xgemm_Sm90_n64/xgemm_Sm90_n64.h: exocc_xgemm_Sm90_n64 xgemm_Sm90_n64.py
+build nyc25/nyc25.c nyc25/nyc25.cu nyc25/nyc25.cuh nyc25/nyc25.h: exocc_nyc25 docs/nyc25.py
 
 build bin/gemm/cutlass_gemm.o : nvcc_keep gemm/cutlass_gemm.cu
 build bin/gemm/gemm_sm90.o : nvcc_keep gemm/gemm_sm90.cu
 build bin/gemm/gemm_sm80.o : nvcc_80 gemm/gemm_sm80.cu
 build bin/gemm/gemm_baseline.o : nvcc_80 gemm/gemm_baseline.cu
+build bin/nyc25/nyc25.c.o : nvcc_80 nyc25/nyc25.c
+build bin/nyc25/nyc25.cu.o : nvcc_80 nyc25/nyc25.cu
 build bin/xgemm_Sm80/xgemm_Sm80.c.o : nvcc_80 xgemm_Sm80/xgemm_Sm80.c
 build bin/xgemm_Sm80/xgemm_Sm80.cu.o : nvcc_80 xgemm_Sm80/xgemm_Sm80.cu
 build bin/xgemm_Sm90_n256/xgemm_Sm90_n256.c.o : nvcc xgemm_Sm90_n256/xgemm_Sm90_n256.c
@@ -56,11 +63,12 @@ build bin/xgemm_Sm90_n128/xgemm_Sm90_n128.c.o : nvcc xgemm_Sm90_n128/xgemm_Sm90_
 build bin/xgemm_Sm90_n128/xgemm_Sm90_n128.cu.o : nvcc_keep xgemm_Sm90_n128/xgemm_Sm90_n128.cu
 build bin/xgemm_Sm90_n64/xgemm_Sm90_n64.c.o : nvcc xgemm_Sm90_n64/xgemm_Sm90_n64.c
 build bin/xgemm_Sm90_n64/xgemm_Sm90_n64.cu.o : nvcc_keep xgemm_Sm90_n64/xgemm_Sm90_n64.cu
-build bin/gemm/gemm_test.o : nvcc_80 gemm/gemm_test.cu | xgemm_Sm80/xgemm_Sm80.h xgemm_Sm90_n256/xgemm_Sm90_n256.h xgemm_Sm90_n128/xgemm_Sm90_n128.h xgemm_Sm90_n64/xgemm_Sm90_n64.h
+build bin/gemm/gemm_test.o : nvcc_80 gemm/gemm_test.cu | xgemm_Sm80/xgemm_Sm80.h xgemm_Sm90_n256/xgemm_Sm90_n256.h xgemm_Sm90_n128/xgemm_Sm90_n128.h xgemm_Sm90_n64/xgemm_Sm90_n64.h nyc25/nyc25.h
 build bin/gemm/gemm_main.o : nvcc_80 gemm/gemm_main.cpp
 
 build gemm/gemm: link bin/gemm/gemm_test.o bin/gemm/gemm_main.o $
     bin/gemm/cutlass_gemm.o bin/gemm/gemm_sm90.o bin/gemm/gemm_sm80.o bin/gemm/gemm_baseline.o $
+    bin/nyc25/nyc25.c.o bin/nyc25/nyc25.cu.o $
     bin/xgemm_Sm90_n256/xgemm_Sm90_n256.c.o bin/xgemm_Sm90_n256/xgemm_Sm90_n256.cu.o $
     bin/xgemm_Sm90_n128/xgemm_Sm90_n128.c.o bin/xgemm_Sm90_n128/xgemm_Sm90_n128.cu.o $
     bin/xgemm_Sm90_n64/xgemm_Sm90_n64.c.o bin/xgemm_Sm90_n64/xgemm_Sm90_n64.cu.o $

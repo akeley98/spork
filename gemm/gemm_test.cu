@@ -14,6 +14,8 @@
 #include "../xgemm_Sm90_n256/xgemm_Sm90_n256.h"
 #include "../xgemm_Sm90_n128/xgemm_Sm90_n128.h"
 #include "../xgemm_Sm90_n64/xgemm_Sm90_n64.h"
+#include "../nyc25/nyc25.h"
+
 
 #ifndef CUBLAS_TEST_ENABLED
 #define CUBLAS_TEST_ENABLED 1
@@ -295,6 +297,22 @@ void gemm_test(TestParams params, cudaStream_t stream)
                 GPU_Tensors t{params.M, params.N, params.K, d_a, d_bCol, d_c_tested, 0, 1, 0};
                 matmul_sm80(t, stream);
             }
+            else if (algo == AlgorithmCode::nyc25_simple) {
+                assert(stream == 0);
+                nyc25_gemm_simple_gpu(nullptr, int(params.M), int(params.N), int(params.K), d_a, d_b, d_c_tested);
+            }
+            else if (algo == AlgorithmCode::nyc25_in_order) {
+                assert(stream == 0);
+                nyc25_gemm_smem_in_order(nullptr, int(params.M), int(params.N), int(params.K), d_a, d_b, d_c_tested);
+            }
+            else if (algo == AlgorithmCode::nyc25_cp_async) {
+                assert(stream == 0);
+                nyc25_gemm_smem_cp_async(nullptr, int(params.M), int(params.N), int(params.K), d_a, d_b, d_c_tested);
+            }
+            else if (algo == AlgorithmCode::nyc25_ring) {
+                assert(stream == 0);
+                nyc25_gemm_ring(nullptr, int(params.M), int(params.N), int(params.K), d_a, d_b, d_c_tested);
+            }
             else if (algo == AlgorithmCode::exo_sm_80_fence) {
                 assert(stream == 0);
                 xgemm_Sm80_fence(nullptr, int(params.M), int(params.N), int(params.K), d_a, d_b, d_c_tested);
@@ -372,6 +390,10 @@ void gemm_test(TestParams params, cudaStream_t stream)
                 color_code = 32;
                 break;
               case AlgorithmCode::mine_sm_80:
+              case AlgorithmCode::nyc25_simple:
+              case AlgorithmCode::nyc25_in_order:
+              case AlgorithmCode::nyc25_cp_async:
+              case AlgorithmCode::nyc25_ring:
                 color_code = 33;
                 break;
               case AlgorithmCode::exo_sm_80_fence:

@@ -14,6 +14,10 @@ enum class AlgorithmCode
 {
     cublas,
     cutlass,
+    nyc25_simple,
+    nyc25_in_order,
+    nyc25_cp_async,
+    nyc25_ring,
     exo_sm_80_fence,
     exo_sm_80_mbarrier,
     exo_sm_90_n256,
@@ -43,6 +47,14 @@ inline const char* algorithm_name(AlgorithmCode code)
         return "cublas";
       case AlgorithmCode::cutlass:
         return "cutlass";
+      case AlgorithmCode::nyc25_simple:
+        return "nyc25_simple";
+      case AlgorithmCode::nyc25_in_order:
+        return "nyc25_in_order";
+      case AlgorithmCode::nyc25_cp_async:
+        return "nyc25_cp_async";
+      case AlgorithmCode::nyc25_ring:
+        return "nyc25_ring";
       case AlgorithmCode::mine_sm_80:
         return "mine_sm_80";
       case AlgorithmCode::mine_split_k_inner:
