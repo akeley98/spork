@@ -152,19 +152,19 @@ def nyc25_gemm_reorder_loop(M: size, N: size, K: size, A: f32[M, K] @ DRAM, B: f
   for m2 in seq(0, M / M1):
     # TeX: color line *
     #   vv
-    for n2 in seq(0, N / N1):
+    for n2 in seq(0, N / N1): # Outer loops over ``large'' M1 $\times$ N1 tiles of $C$
       # TeX: color line *
       #   gg
       for m1 in seq(0, M1 / M0):
         # TeX: color line *
         #   vv
-        for n1 in seq(0, N1 / N0):
+        for n1 in seq(0, N1 / N0): # Middle loops over ``small'' M0 $\times$ N0 tiles of $C$
           # TeX: color line *
           #   gg
           for m0 in seq(0, M0):
             # TeX: color line *
             #   vv
-            for n0 in seq(0, N0):
+            for n0 in seq(0, N0): # Inner loops over $C$ elements to fill one-by-one
               accum: f32 @ DRAM
               accum = 0
               for k in seq(0, K):
@@ -182,14 +182,15 @@ def nyc25_gemm_reorder_loop(M: size, N: size, K: size, A: f32[M, K] @ DRAM, B: f
 def nyc25_gemm_simple_gpu(M: size, N: size, K: size,
 # TeX: color line *
 #                                      bbbbbbbbbbbbbbbb
-                          A: f32[M, K] @ CudaGmemLinear,
+                          A: f32[M, K] @ CudaGmemLinear,  # ... B, C
+# TeX: end simple_gpu[0]
 # TeX: color line *
 #                                      bbbbbbbbbbbbbbbb
                           B: f32[K, N] @ CudaGmemLinear,
 # TeX: color line *
 #                                      bbbbbbbbbbbbbbbb
                           C: f32[M, N] @ CudaGmemLinear):
-
+# TeX: begin simple_gpu[0]
   assert M % M1 == 0
   assert N % N1 == 0
   # TeX: begin simple_gpu[1:]
@@ -197,16 +198,13 @@ def nyc25_gemm_simple_gpu(M: size, N: size, K: size,
   #    bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
   # TeX: color line simple_gpu[1]
   #                       bbbbbbbbbbbb
-  with CudaDeviceFunction(blockDim=256):
+  with CudaDeviceFunction(blockDim=256):  # User chose 256 threads per block
     # TeX: color line simple_gpu[1]
     #   gg    gggggggggg
     for m2 in cuda_tasks(0, M / M1):
       # TeX: color line simple_gpu[1]
       #   vv    vvvvvvvvvv
       for n2 in cuda_tasks(0, N / N1):
-        # TeX: remark simple_gpu[0]
-        # ...
-        # TeX: end simple_gpu[0]
         # TeX: color line simple_gpu[2]
         #   gg    gggggggggggg
         # TeX: color line simple_gpu[3]
@@ -223,7 +221,7 @@ def nyc25_gemm_simple_gpu(M: size, N: size, K: size,
               # TeX: color line simple_gpu[4]
               #   vv    vvv
               for n0 in seq(0, N0):
-                # TeX: color line simple_gpu[4]
+                # TeX: color line simple_gpu[0] simple_gpu[4]
                 #          bbbbbbbbbb
                 accum: f32 @ CudaRmem  # CUDA per-thread register
                 accum = 0
@@ -234,6 +232,7 @@ def nyc25_gemm_simple_gpu(M: size, N: size, K: size,
                   )
                 C[m2 * M1 + m1 * M0 + m0, n2 * N1 + n1 * N0 + n0] = accum
 # TeX: end simple_gpu[1:]
+# TeX: end simple_gpu[0]
 
 nyc25_gemm_simple_gpu = simplify(nyc25_gemm_simple_gpu)
 

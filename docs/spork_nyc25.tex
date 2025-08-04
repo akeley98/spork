@@ -124,7 +124,8 @@ Rewrite rules: Python functions transform procedures
 
 Instruction substitution: replace code blocks with instructions of equivalent functionality.
 
-CPU supported today; working on CUDA GPU support.
+Exo exists today; extending it to model GPUs in a disciplined way.
+
 }
 
 \newpage
@@ -134,11 +135,22 @@ CPU supported today; working on CUDA GPU support.
 \input{nyc25_tex/cpu.0.tex}
 }
 
+{\LARGE
+\texttt{@proc} (procedure) decorator captures Python AST\\transpiled to C or CUDA C++.
+
+}
+
 \newpage
 \myBiggerTitle{GEMM: Starting Code}
 
 {\large
 \input{nyc25_tex/cpu.1.tex}
+}
+
+{\LARGE
+Static typing:\\
+annotate proc parameters, allocated variables.
+
 }
 
 \newpage
@@ -148,11 +160,25 @@ CPU supported today; working on CUDA GPU support.
 \input{nyc25_tex/cpu.2.tex}
 }
 
+{\LARGE
+Memory annotation:\\
+\texttt{@}-sign associates memory type for parameters \& declarations
+}
+
 \newpage
 \myBiggerTitle{GEMM: Starting Code}
 
 {\large
 \input{nyc25_tex/cpu.3.tex}
+}
+
+{\LARGE
+Most constructs map 1:1 to C.
+
+\texttt{seq}-loop $\mapsto$ \texttt{for (int \textit{var} = lo; \textit{var} < hi; ++\textit{var})}
+
+``sequential'' loop here; contrast to par loops later.
+
 }
 
 \newpage
@@ -162,11 +188,23 @@ CPU supported today; working on CUDA GPU support.
 \input{nyc25_tex/m_divide_loop.0.tex}
 }
 
+{\LARGE
+Apply \texttt{divide\_loop} twice to tile the \greenBox{m} loop by 3.
+
+}
+
 \newpage
 \myBiggerTitle{GEMM: Divide Loop (M)}
 
 {\large
 \input{nyc25_tex/m_divide_loop.1.tex}
+}
+
+{\LARGE
+Exo rewrites all uses of \greenBox{\texttt{m}} in the loop body.
+
+\texttt{m} $\mapsto$ \texttt{m2 * M1 + m1 * M0 + m0}
+
 }
 
 \newpage
@@ -176,6 +214,11 @@ CPU supported today; working on CUDA GPU support.
 \input{nyc25_tex/m_divide_loop.2.tex}
 }
 
+{\LARGE
+Assume perfect tiling to simplify this talk (no tail case)
+
+}
+
 \newpage
 \myBiggerTitle{GEMM: Divide Loop (N)}
 
@@ -183,18 +226,71 @@ CPU supported today; working on CUDA GPU support.
 \input{nyc25_tex/n_divide_loop.0.tex}
 }
 
+{\LARGE
+Apply the same 3-level tiling to the \violetBox{n} loop.
+
+}
+
 \newpage
-\myBiggerTitle{GEMM: Reorder Loops}
+\myBiggerTitle{GEMM: Reorder Loops \yellowBox{\small SO read off how the code works now ``so we loop over''}}
 
 {\large
 \input{nyc25_tex/reorder_loops.0.tex}
 }
 
 \newpage
-\myBiggerTitle{GEMM: Move to GPU}
+\myBiggerTitle{GPU: Blocks \& Threads}
+
+{\LARGE
+
+Goal: Map tiles to different levels of the GPU hierarchy
+
+\begin{itemize}
+\item Demarcate CPU / CUDA code division
+\item Change sequential loops to parallel
+\item Use GPU memory
+\end{itemize}
+
+}
+
+\begin{tikzpicture}[node distance=2mm]
+
+\node (grid) [greennode, text width=6cm, minimum width=6cm] {grid};
+\node (cpu) [left=of grid, xshift=-2cm] {\textbf{CPU}};
+\draw [arrow] (cpu) -- node[above] {\textbf{launch}} (grid);
+\node (cuda) [above=of grid, yshift=+4mm] {\textbf{CUDA Constructs}};
+\node (exo) [right=of cuda, xshift=25mm] {\textbf{Exo-GPU Constructs}};
+
+\node (cta0) [greennode, text width=20mm, minimum width=20mm, below=of grid, xshift=-2cm, yshift=-1cm] {block};
+\node (cta1) [greennode, text width=20mm, minimum width=20mm, below=of grid, xshift=+2cm, yshift=-1cm] {block};
+
+\node (thread0) [greennode, text width=16mm, minimum width=16mm, below=of cta0, yshift=-1cm, xshift=-32mm] {thread};
+\node (thread1) [greennode, text width=16mm, minimum width=16mm, right=of thread0] {thread};
+\node (thread2) [greennode, text width=16mm, minimum width=16mm, right=of thread1, xshift=32mm] {thread};
+
+\draw [arrow] (grid.south) to[out=270, in=90] (cta0.north);
+\draw [arrow] (grid.south) to[out=270, in=90] (cta1.north);
+
+\draw [arrow] (cta0.south) to[out=270, in=90] (thread0.north);
+\draw [arrow] (cta0.south) to[out=270, in=90] (thread1.north);
+\draw [arrow] (cta0.south) to[out=270, in=90] (thread2.north);
+\draw [dotted] (thread1.east) -- node[above] {\blueBox{blockDim}} (thread2.west);
+
+\node (CudaDeviceFunction) [right=of grid, text width=90mm] {\texttt{\codecomment{\# CPU launches grid}\\with CudaDeviceFunction(\blueBox{blockDim=\textit{arg}}):\\~~\codecomment{\# Body lowered to CUDA C++}}};
+\node (cudaTasks) [right=of cta1, text width=90mm] {\texttt{~~\codecomment{\# Parallel-for loop}\\~~\codecomment{\# generates per-block tasks}\\~~for \textit{iter} in cuda\_tasks(\textit{lo}, \textit{hi}):}};
+\node (cudaThreads) [right=of thread2, text width=90mm] {\texttt{~~~~\codecomment{\# Somewhat more complicated}\\~~~~\codecomment{\# Assigns threads to iterations}\\~~~~for \textit{iter} in cuda\_threads(\textit{lo}, \textit{hi}, unit=\textit{u}):}};
+\end{tikzpicture}
+
+\newpage
+\myBiggerTitle{GEMM: GPU and Memory \yellowBox{\small emph GPU/CPU code division, memory, remove GPU features here}}
 
 {\large
 \input{nyc25_tex/simple_gpu.0.tex}
+}
+
+{\LARGE
+Move loops to CUDA device; switch to CUDA memory types
+
 }
 
 \newpage
@@ -204,11 +300,29 @@ CPU supported today; working on CUDA GPU support.
 \input{nyc25_tex/simple_gpu.1.tex}
 }
 
+{\LARGE
+Assign large \texttt{M1} $\times$ \texttt{N1} tiles to CUDA blocks.
+
+}
+
+% \yellowBox{1 or 2 details one at a time, we need to frame mapping levels to loops...}
+
+% \redBox{Add zoom-in code, no changes}
+
 \newpage
 \myBiggerTitle{GEMM: GPU thread loops}
 
 {\large
 \input{nyc25_tex/simple_gpu.2.tex}
+}
+
+{\LARGE
+Assign small \texttt{M0} $\times$ \texttt{N0} tiles to CUDA threads.
+
+\textit{NOTE: parallelism is not checked yet.}
+
+\textit{Rewrites treat parallel loops as sequential (for now).}
+
 }
 
 \newpage
@@ -218,6 +332,11 @@ CPU supported today; working on CUDA GPU support.
 \input{nyc25_tex/simple_gpu.3.tex}
 }
 
+{\LARGE
+``unit'' to be explained shortly.
+
+}
+
 \newpage
 \myBiggerTitle{GEMM: GPU per-thread work}
 
@@ -225,14 +344,39 @@ CPU supported today; working on CUDA GPU support.
 \input{nyc25_tex/simple_gpu.4.tex}
 }
 
-\yellowBox{Emphasize here the parallelism is \textit{not} checked during rewrites}
+{\LARGE
+Inner most loops stay as sequential.
+
+Each thread loops over \texttt{M0} $\times$ \texttt{N0} iteration space.
+
+}
 
 \newpage
-
 \myBiggerTitle{GPU thread loops}
 
 {\large
 \input{nyc25_tex/cuda_threads.0.tex}
+}
+
+{\LARGE
+\texttt{unit} argument: \myKeyA{collective unit}.
+
+Describes ``shape'' of grouping of threads (\myKeyA{thread collective}) assigned to execute each iteration of the loop.
+
+Static property of each scope in Exo-GPU.
+
+}
+
+\newpage
+\myBiggerTitle{GPU thread loops}
+
+{\large
+\input{nyc25_tex/cuda_threads.0.tex}
+}
+
+{\LARGE
+Unlike other parallel loops, \texttt{cuda\_threads} cannot spawn more threads.
+It just subdivides existing thread collectives.
 }
 
 \begin{tikzpicture}[node distance=2mm]
@@ -277,6 +421,8 @@ CPU supported today; working on CUDA GPU support.
 
 \newpage
 \myBiggerTitle{GEMM: Lift Alloc \& Expand Dim}
+
+\yellowBox{Diagram of what we want to do}
 
 {\large
 \input{nyc25_tex/expand_dim.0.tex}
