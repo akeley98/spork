@@ -50,43 +50,528 @@ Jonathan Ragan-Kelley
 %\includegraphics[width=\linewidth]{usda_spork.jpg}
 
 \newpage
-\myBiggerTitle{GPU Programming Challenges}
+\myBiggerTitle{Challenge: SIMT Parallelism}
 
 {\LARGE
 
-\begin{itemize}
-  \item SIMT-style parallelism: assign \myKeyA{similar work} to \myKeyA{different threads}
-  \begin{itemize}
-    \item e.g. parallel vector add: \texttt{y[threadIdx.x] += x[threadIdx.x]}
-  \end{itemize}
-  \item Specialization: assign \myKeyA{different work} to \myKeyA{different threads}
-  \begin{itemize}
-    \item e.g. overlap data movement work and compute work
-  \end{itemize}
-  \item Synchronization between threads
-  \begin{itemize}
-    \item Avoid unexpected long stalls
-    \item ...don't make a mistake
-  \end{itemize}
-\end{itemize}
+Talk about launching blocks of threads
 
-\myKeyA{Overall theme:} overlap work predictably (without introducing subtle bugs)
+Talk about mapping work to threads
+
+Diagram: vector add eye candy? y[threadIdx] += x[threadIdx]
+
 }
 
 \newpage
+\myBiggerTitle{Challenge: Memory / Compute Overlap}
+
 {\LARGE
+
+Talk about overlapping memory and compute workloads
+
+Contrast with SIMT
 \begin{itemize}
-\item A1
-\item A2
-\item A3
-\item A4
-\item A5
-\item A6
-\item A7
-\item A8
-\item A9
-\item A10
+  \item SIMT = threads doing the same thing
+  \item Now, threads are doing something different
 \end{itemize}
+
+Diagram:
+\begin{itemize}
+  \item BAD: chain of memory and compute tasks
+  \item GOOD: scary looking DAG of memory/compute tasks
+\end{itemize}
+
+Non-trivial dependency graph
+
+}
+
+\newpage
+\myBiggerTitle{Challenge: Efficient Synchronization}
+
+{\LARGE
+
+Try not to stall threads
+
+Don't screw up
+
+Nondeterministic \& subtle bugs possible
+
+}
+
+
+\newpage
+\myBiggerTitle{Goals}
+
+{\LARGE
+
+Insert some quality BS here
+
+% Imperative programming: for performance engineering, what-you-see-is-what-you-get.
+
+}
+
+
+\newpage
+\myBiggerTitle{Exo: User-schedulable Language}
+
+{\LARGE
+Python-embedded imperative language
+
+Rewrite rules: Python functions transform procedures
+\begin{itemize}
+  \item checked for functional equivalence
+\end{itemize}
+
+Instruction substitution: replace code blocks with instructions of equivalent functionality.
+
+CPU supported today; working on CUDA GPU support.
+}
+
+\newpage
+\myBiggerTitle{GEMM: Starting Code}
+
+{\large
+\input{nyc25_tex/cpu.0.tex}
+}
+
+\newpage
+\myBiggerTitle{GEMM: Starting Code}
+
+{\large
+\input{nyc25_tex/cpu.1.tex}
+}
+
+\newpage
+\myBiggerTitle{GEMM: Starting Code}
+
+{\large
+\input{nyc25_tex/cpu.2.tex}
+}
+
+\newpage
+\myBiggerTitle{GEMM: Starting Code}
+
+{\large
+\input{nyc25_tex/cpu.3.tex}
+}
+
+\newpage
+\myBiggerTitle{GEMM: Divide Loop (M)}
+
+{\large
+\input{nyc25_tex/m_divide_loop.0.tex}
+}
+
+\newpage
+\myBiggerTitle{GEMM: Divide Loop (M)}
+
+{\large
+\input{nyc25_tex/m_divide_loop.1.tex}
+}
+
+\newpage
+\myBiggerTitle{GEMM: Divide Loop (M)}
+
+{\large
+\input{nyc25_tex/m_divide_loop.2.tex}
+}
+
+\newpage
+\myBiggerTitle{GEMM: Divide Loop (N)}
+
+{\large
+\input{nyc25_tex/n_divide_loop.0.tex}
+}
+
+\newpage
+\myBiggerTitle{GEMM: Reorder Loops}
+
+{\large
+\input{nyc25_tex/reorder_loops.0.tex}
+}
+
+\newpage
+\myBiggerTitle{GEMM: Move to GPU}
+
+{\large
+\input{nyc25_tex/simple_gpu.0.tex}
+}
+
+\newpage
+\myBiggerTitle{GEMM: GPU task (block) loops}
+
+{\large
+\input{nyc25_tex/simple_gpu.1.tex}
+}
+
+\newpage
+\myBiggerTitle{GEMM: GPU thread loops}
+
+{\large
+\input{nyc25_tex/simple_gpu.2.tex}
+}
+
+\newpage
+\myBiggerTitle{GEMM: GPU thread loops}
+
+{\large
+\input{nyc25_tex/simple_gpu.3.tex}
+}
+
+\newpage
+\myBiggerTitle{GEMM: GPU per-thread work}
+
+{\large
+\input{nyc25_tex/simple_gpu.4.tex}
+}
+
+\yellowBox{Emphasize here the parallelism is \textit{not} checked during rewrites}
+
+\newpage
+
+\myBiggerTitle{GPU thread loops}
+
+{\large
+\input{nyc25_tex/cuda_threads.0.tex}
+}
+
+\begin{tikzpicture}[node distance=2mm]
+\node (cta) [bluenode, minimum width=30mm, minimum height=40mm] {block: 256 threads};
+
+\node (m2) [Mnode, right=of cta, xshift=16mm] {\texttt{m1 = 2}; threads [32, 47]};
+\node (m1) [Mnode, above=of m2] {\texttt{m1 = 1}; threads [16, 31]};
+\node (m0) [Mnode, above=of m1] {\texttt{m1 = 0}; threads [0, 15]};
+\node (m15) [Mnode, below=of m2, yshift=-9mm] {\texttt{m1 = 15}; threads [240, 255]};
+\draw [arrow] (cta) -- node[above] {\texttt{for \yellowBox{m1}}} (m2);
+\draw [dotted] (m2) -- (m15);
+\node (m0n0) [Nnode, right=of m0, xshift=16mm] {0};
+\node (m0n1) [Nnode, right=of m0n0] {1};
+\node (m0n2) [Nnode, right=of m0n1] {2};
+\node (m0n15) [Nnode, right=of m0n2, xshift=8mm] {15};
+\node (m1n0) [Nnode, below=of m0n0] {16};
+\node (m1n1) [Nnode, below=of m0n1] {17};
+\node (m1n2) [Nnode, below=of m0n2] {18};
+\node (m1n15) [Nnode, below=of m0n15] {31};
+\node (m2n0) [Nnode, below=of m1n0] {32};
+\node (m2n1) [Nnode, below=of m1n1] {33};
+\node (m2n2) [Nnode, below=of m1n2] {34};
+\node (m2n15) [Nnode, below=of m1n15] {47};
+\node (m15n0) [Nnode, right=of m15, xshift=16mm] {240};
+\node (m15n1) [Nnode, right=of m15n0] {241};
+\node (m15n2) [Nnode, right=of m15n1] {242};
+\node (m15n15) [Nnode, right=of m15n2, xshift=8mm] {255};
+\draw [arrow] (m0) -- node[above] {\texttt{for \redBox{n1}}} (m0n0);
+\draw [arrow] (m1) -- node[above] {\texttt{for \redBox{n1}}} (m1n0);
+\draw [arrow] (m2) -- node[above] {\texttt{for \redBox{n1}}} (m2n0);
+\draw [arrow] (m15) -- node[below] {\texttt{for \redBox{n1}}} (m15n0);
+\draw [dotted] (m2n0) -- node[] {\texttt{n1=0}} (m15n0);
+\draw [dotted] (m2n1) -- node[] {\texttt{n1=1}} (m15n1);
+\draw [dotted] (m2n2) -- node[] {\texttt{n1=2}} (m15n2);
+\draw [dotted] (m2n15) --node[] {\texttt{n1=15}} (m15n15);
+\draw [dotted] (m0n2) -- (m0n15);
+\draw [dotted] (m1n2) -- (m1n15);
+\draw [dotted] (m2n2) -- (m2n15);
+\draw [dotted] (m15n2) -- (m15n15);
+
+\end{tikzpicture}
+
+\newpage
+\myBiggerTitle{GEMM: Lift Alloc \& Expand Dim}
+
+{\large
+\input{nyc25_tex/expand_dim.0.tex}
+}
+
+{\LARGE
+Lift the allocation of \blueBox{\texttt{accum}} into block-scope\\
+(just below \violetBox{\texttt{cuda\_tasks}} loops)
+}
+
+\newpage
+\myBiggerTitle{GEMM: Lift Alloc \& Expand Dim}
+
+{\large
+\input{nyc25_tex/expand_dim.1.tex}
+}
+
+{\LARGE
+Expand dim: each iteration uses its own index of \texttt{accum}
+}
+
+\newpage
+\myBiggerTitle{GEMM: Loop Fission}
+
+{\large
+\input{nyc25_tex/expand_dim.2.tex}
+}
+
+{\LARGE
+We will split the loop at the indicated locations, retaining the loop structure
+}
+
+\newpage
+
+{\large
+\input{nyc25_tex/fission.0.tex}
+}
+\newpage
+\myBiggerTitle{Tile Re-Use}
+
+TODO: there's no words on it!
+
+\begin{tikzpicture}[node distance=0mm]
+\node (cL) [normalnode, minimum width=50mm, minimum height=50mm] {};
+\node (aL) [smallnode, minimum width=20mm, minimum height=50mm, left=of cL, xshift=-2mm] {$A$};
+\node (aRow) [greennode, minimum width=18mm, minimum height=6mm, above=of aL, yshift=-18mm, text width=0mm] {};
+\node (bL) [smallnode, minimum width=50mm, minimum height=20mm, above=of cL, yshift=2mm] {$B$};
+\draw (aRow.east) to[out=0, in=270] ($(bL.south) - (2.0, 0)$);
+\draw (aRow.east) to[out=0, in=270] ($(bL.south) - (1.2, 0)$);
+\draw (aRow.east) to[out=0, in=270] ($(bL.south) - (0.4, 0)$);
+\draw (aRow.east) to[out=0, in=270] ($(bL.south) + (0.4, 0)$);
+\draw (aRow.east) to[out=0, in=270] ($(bL.south) + (1.2, 0)$);
+\draw (aRow.east) to[out=0, in=270] ($(bL.south) + (2.0, 0)$);
+\node (ML) [right=of aL, xshift=2mm] {\greenBox{\texttt{M1}}};
+\node (NL) [below=of bL, yshift=-2mm] {\violetBox{\texttt{N1}}};
+\node (aKL) [above=of aL] {\blueBox{\texttt{K0}}};
+\node (bKL) [left=of bL] {\blueBox{\texttt{K0}}};
+\node (Lcaption) [below=of cL, xshift=-11mm] {Each row of the $A$ tile is used \violetBox{\texttt{N1}} times.};
+
+\node (cR) [normalnode, minimum width=50mm, minimum height=50mm, right=of cL, xshift=42mm] {};
+\node (aR) [smallnode, minimum width=20mm, minimum height=50mm, left=of cR, xshift=-2mm] {$A$};
+\node (bR) [smallnode, minimum width=50mm, minimum height=20mm, above=of cR, yshift=2mm] {$B$};
+\node (bCol) [violetnode, minimum width=6mm, minimum height=18mm, left=of bR, xshift=18mm, text width=0mm] {};
+\draw (bCol.south) to[out=270, in=0] ($(aR.east) - (0, 2.0)$);
+\draw (bCol.south) to[out=270, in=0] ($(aR.east) - (0, 1.2)$);
+\draw (bCol.south) to[out=270, in=0] ($(aR.east) - (0, 0.4)$);
+\draw (bCol.south) to[out=270, in=0] ($(aR.east) + (0, 0.4)$);
+\draw (bCol.south) to[out=270, in=0] ($(aR.east) + (0, 1.2)$);
+\draw (bCol.south) to[out=270, in=0] ($(aR.east) + (0, 2.0)$);
+\node (MR) [right=of aR, xshift=2mm] {\greenBox{\texttt{M1}}};
+\node (NR) [below=of bR, yshift=-2mm] {\violetBox{\texttt{N1}}};
+\node (aKR) [above=of aR] {\blueBox{\texttt{K0}}};
+\node (bKR) [left=of bR] {\blueBox{\texttt{K0}}};
+\node (Rcaption) [below=of cR, xshift=-11mm] {Each column of the $B$ tile is used \greenBox{\texttt{M1}} times.};
+\end{tikzpicture}
+
+\newpage
+\myBiggerTitle{GEMM: Stage in SMEM}
+
+{\large
+\input{nyc25_tex/smem_broken.0.tex}
+}
+
+{\LARGE
+Split k loop, and reorder sequential \blueBox{k1} loop outwards
+}
+
+\newpage
+\myBiggerTitle{GEMM: Stage in SMEM}
+
+{\large
+\input{nyc25_tex/smem_broken.1.tex}
+}
+
+{\LARGE
+Stage $\texttt{M1} \times \texttt{K0}$ tile of \greenBox{\texttt{A}}, $\texttt{K0} \times \texttt{N1}$ tile of \violetBox{\texttt{B}} in shared memory.
+
+\texttt{A\_smem}, \texttt{B\_smem} replace \texttt{A} and \texttt{B} in the loop body.
+}
+
+\newpage
+\myBiggerTitle{GEMM: Stage in SMEM}
+
+{\large
+\input{nyc25_tex/smem_broken.2.tex}
+}
+
+{\LARGE
+The compiler generates loops to load the shared memory tile
+}
+
+\newpage
+\myBiggerTitle{GEMM: Stage in SMEM}
+
+{\large
+\input{nyc25_tex/smem_in_order.0.tex}
+}
+
+{\LARGE
+Divide \& Parallelize the load-shared-memory loops
+}
+
+\newpage
+\myBiggerTitle{GEMM: Stage in SMEM}
+
+{\large
+\input{nyc25_tex/smem_in_order.1.tex}
+}
+
+{\LARGE
+Add synchronization (\yellowBox{\texttt{cuda\_in\_order}} to be explained)
+}
+
+\newpage
+\myBiggerTitle{TODO}
+
+{\LARGE
+Summarize the previous code again
+
+Talk about strict separation of memory \& compute work
+
+Talk about async instr weirdness
+
+Talk about timelines
+
+Talk about cp.async 16 bytes
+
+}
+
+
+\newpage
+\myBiggerTitle{Semi-Declarative Synchronization}
+
+{\LARGE
+
+Still executed inline with other imperative code
+\begin{itemize}
+  \item not a task graph representation, etc.
+\end{itemize}
+
+}
+
+
+\newpage
+\myBiggerTitle{GEMM: cp.async}
+
+{\large
+\input{nyc25_tex/cp_async_no_instr.0.tex}
+}
+
+{\LARGE
+
+Modify the load-shared-memory loop nest
+
+(add an extra level with 4 iterations)
+
+}
+
+\newpage
+\myBiggerTitle{GEMM: cp.async (Substitute Instruction)}
+
+{\large
+\input{nyc25_tex/cp_async.0.tex}
+}
+
+{\LARGE
+
+Replace the \texttt{kTmp}, \texttt{nTmp} loops with cp.async instructions.
+
+Exo knows the instr loads 4 contiguous f32 values.
+
+}
+
+\newpage
+\myBiggerTitle{GEMM: cp.async (CudaAsync block)}
+
+{\large
+\input{nyc25_tex/cp_async.1.tex}
+}
+
+{\LARGE
+
+Such instructions must appear in a CudaAsync block.
+
+}
+
+\newpage
+\myBiggerTitle{GEMM: cp.async (Synchronization)}
+
+{\large
+\input{nyc25_tex/cp_async.2.tex}
+}
+
+{\LARGE
+
+Change the timeline parameters in the synchronization statements
+
+}
+
+\newpage
+\myBiggerTitle{GEMM: Ring Buffer}
+
+{\large
+\input{nyc25_tex/ring.0.tex}
+}
+
+{\LARGE
+
+Lift \texttt{A\_smem}, \texttt{B\_smem} out of the \texttt{k1} loop and ring buffer by 3.
+
+}
+
+\newpage
+\myBiggerTitle{GEMM: Loop Skew}
+
+{\large
+\input{nyc25_tex/ring.1.tex}
+}
+
+{\LARGE
+
+Add an extra \blueBox{\texttt{k1}} iteration; delay the accum code by 1 iteration relative to the cp.async code.
+
+}
+
+\newpage
+\myBiggerTitle{GEMM: Split Barriers}
+
+{\large
+\input{nyc25_tex/split.0.tex}
+}
+
+\newpage
+\myBiggerTitle{GEMM: Split Barriers}
+
+{\large
+\input{nyc25_tex/split.1.tex}
+}
+
+\newpage
+\myBiggerTitle{GEMM: Split Barriers}
+
+{\large
+\input{nyc25_tex/split.2.tex}
+}
+
+\newpage
+\myBiggerTitle{Tensor Cores}
+
+{\LARGE
+
+Tensor Cores = More timelines + more complicated instruction substitution
+
+}
+
+\newpage
+\myBiggerTitle{Abstract Machine}
+
+{\LARGE
+
+Talk about visibility sets
+\begin{itemize}
+  \item ``qualitative'' timeline + ``quantitative'' thread ID
+  \item grows with synchronization
+\end{itemize}
+
+Talk about two-stage correctness
+\begin{itemize}
+  \item Stage 1: rewrite operations
+  \item Stage 2: parallelism
+\end{itemize}
+
+Talk about abstract machine as tool for checking correctness
+
+Talk about abstract machine constraining the compiler's outputted CUDA
 
 }
 
