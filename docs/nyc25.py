@@ -576,73 +576,6 @@ def nyc25_gemm_smem_in_order(M: size, N: size, K: size, A: f32[M, K] @ CudaGmemL
 nyc25_gemm_smem_in_order = simplify(nyc25_gemm_smem_in_order)
 
 
-# TeX: version cp_async_no_instr 1
-
-
-@proc
-def nyc25_gemm_smem_cp_async_no_instr(M: size, N: size, K: size, A: f32[M, K] @ CudaGmemLinear, B: f32[K, N] @ CudaGmemLinear, C: f32[M, N] @ CudaGmemLinear):
-  assert M % M1 == 0
-  assert N % N1 == 0
-  assert K % K0 == 0
-  with CudaDeviceFunction(blockDim=256):
-    for m2 in cuda_tasks(0, M / M1):
-      for n2 in cuda_tasks(0, N / N1):
-        accum: f32[M1/M0, N1/N0, M0, N0] @ CudaRmem
-        for m1 in cuda_threads(0, M1 / M0, unit=(N1 / N0) * cuda_thread):
-          for n1 in cuda_threads(0, N1 / N0, unit=cuda_thread):
-            for m0 in seq(0, M0):
-              for n0 in seq(0, N0):
-                accum[m1, n1, m0, n0] = 0
-        for k1 in seq(0, K / K0):
-          A_smem: f32[M1, K0] @ CudaSmemLinear  # CUDA shared memory
-          B_smem: f32[K0, N1] @ CudaSmemLinear  # CUDA shared memory
-          with CudaAsync(Sm80_cp_async):
-            # TeX: begin cp_async_no_instr
-            # TeX: color line *
-            #   gg
-            for mS in seq(0, M1 / 64):
-              # TeX: color line *
-              #   gg
-              for mT in cuda_threads(0, 64, unit=4 * cuda_thread):
-                # TeX: color line *
-                #   gg
-                for kT in cuda_threads(0, K0 / 4, unit=cuda_thread):
-                  # TeX: color line *
-                  #   rrrr    rrrrrrrrr
-                  for kTmp in seq(0, 4):
-                    A_smem[mS * 64 + mT, kT * 4 + kTmp] = (
-                      A[m2 * M1 + mS * 64 + mT, k1 * K0 + kT * 4 + kTmp])
-            # TeX: color line *
-            #   vv
-            for kT in cuda_threads(0, 16, unit=16 * cuda_thread):
-              # TeX: color line *
-              #   vv
-              for nS in seq(0, N1 / 64):
-                # TeX: color line *
-                #   vv
-                for nT in cuda_threads(0, 16, unit=cuda_thread):
-                  # TeX: color line *
-                  #   rrrr    rrrrrrrrr
-                  for nTmp in seq(0, 4):
-                    B_smem[kT, nS * 64 + nT * 4 + nTmp] = (
-                      B[k1 * K0 + kT, n2 * N1 + nS * 64 + nT * 4 + nTmp])
-            # TeX: end cp_async_no_instr
-          for m1 in cuda_threads(0, M1 / M0, unit=(N1 / N0) * cuda_thread):
-            for n1 in cuda_threads(0, N1 / N0, unit=cuda_thread):
-              for m0 in seq(0, M0):
-                for n0 in seq(0, N0):
-                  for k0 in seq(0, K0):
-                    accum[m1, n1, m0, n0] += A_smem[m1 * M0 + m0, k0] * B_smem[k0, n1 * N0 + n0]
-        for m1 in cuda_threads(0, M1 / M0, unit=(N1 / N0) * cuda_thread):
-          for n1 in cuda_threads(0, N1 / N0, unit=cuda_thread):
-            for m0 in seq(0, M0):
-              for n0 in seq(0, N0):
-                C[m2 * M1 + m1 * M0 + m0, n2 * N1 + n1 * N0 + n0] = accum[m1, n1, m0, n0]
-
-
-del nyc25_gemm_smem_cp_async_no_instr
-
-
 # TeX: version cp_async 3
 
 
@@ -678,40 +611,28 @@ def nyc25_gemm_smem_cp_async(M: size, N: size, K: size, A: f32[M, K] @ CudaGmemL
             # TeX: begin cp_async[0]
             # TeX: color line *
             #   gg
-            for mS in seq(0, M1 / 64):
+            for m1 in cuda_threads(0, M1 / M0, unit=16 * cuda_thread):
               # TeX: color line *
               #   gg
-              for mT in cuda_threads(0, 64, unit=4 * cuda_thread):
+              for m0 in seq(0, M0):
                 # TeX: color line *
                 #   gg
-                for kT in cuda_threads(0, K0 / 4, unit=cuda_thread):
-                # TeX: color line cp_async[0]
-                # rrrrrrrrrrrrrrrrr
-                  Sm80_cp_async_f32(
-                    A_smem[mS * 64 + mT, kT * 4: kT * 4 + 4],
-                    A[m2 * M1 + mS * 64 + mT,
-                      k1 * K0 + kT * 4: k1 * K0 + kT * 4 + 4],
-                # TeX: color line cp_async[0]
-                #   rrrrrr
-                    size=4)
+                for i1 in cuda_threads(0, K0, unit=cuda_thread):
+                # TeX: color line *
+                # rrrrrrrrrrrrrrrrr        .........................     .......................................................  .......
+                  Sm80_cp_async_f32(A_smem[m1 * M0 + m0, i1 : i1 + 1], A[m2 * M1 + m1 * M0 + m0, k1 * K0 + i1 : k1 * K0 + i1 + 1], size=1)  # Exo's name for cp.async
             # TeX: color line *
             #   vv
-            for kT in cuda_threads(0, 16, unit=16 * cuda_thread):
+            for i0 in cuda_threads(0, K0, unit=16 * cuda_thread):
               # TeX: color line *
               #   vv
-              for nS in seq(0, N1 / 64):
+              for n1 in cuda_threads(0, N1 / N0, unit=cuda_thread):
                 # TeX: color line *
                 #   vv
-                for nT in cuda_threads(0, 16, unit=cuda_thread):
-                # TeX: color line cp_async[0]
-                # rrrrrrrrrrrrrrrrr
-                  Sm80_cp_async_f32(
-                    B_smem[kT, nS * 64 + nT * 4 : nS * 64 + nT * 4 + 4],
-                    B[k1 * K0 + kT,
-                      n2 * N1 + nS * 64 + nT * 4 : n2 * N1 + nS * 64 + nT * 4 + 4],
-                # TeX: color line cp_async[0]
-                #   rrrrrr
-                    size=4)
+                for n0 in seq(0, N0):
+                # TeX: color line *
+                # rrrrrrrrrrrrrrrrr        ...................................     .................................................................  .......
+                  Sm80_cp_async_f32(B_smem[i0, n1 * N0 + n0 : n1 * N0 + n0 + 1], B[k1 * K0 + i0, n2 * N1 + n1 * N0 + n0 : n2 * N1 + n1 * N0 + n0 + 1], size=1)  # Exo's name for cp.async
             # TeX: end cp_async[0]
             # TeX: end cp_async[1]
             # TeX: begin cp_async[2]
@@ -727,7 +648,8 @@ def nyc25_gemm_smem_cp_async(M: size, N: size, K: size, A: f32[M, K] @ CudaGmemL
                   # TeX: color line cp_async[2]
                   #   bb
                   for k0 in seq(0, K0):
-                    accum[m1, n1, m0, n0] += A_smem[m1 * M0 + m0, k0] * B_smem[k0, n1 * N0 + n0]
+                    accum[m1, n1, m0, n0] += (A_smem[m1 * M0 + m0, k0]
+                                              * B_smem[k0, n1 * N0 + n0])
           # TeX: color line cp_async[2]
         # yyyyy                rrrrrrrrrrrrr
           Fence(cuda_in_order, Sm80_cp_async)
@@ -792,39 +714,29 @@ def nyc25_gemm_ring(M: size, N: size, K: size, A: f32[M, K] @ CudaGmemLinear, B:
               # TeX: begin ring[0]
               # TeX: color line *
               #   gg
-              for mS in seq(0, M1 / 64):
+              for m1 in cuda_threads(0, M1 / M0, unit=16 * cuda_thread):
                 # TeX: color line *
                 #   gg
-                for mT in cuda_threads(0, 64, unit=4 * cuda_thread):
+                for m0 in seq(0, M0):
                   # TeX: color line *
                   #   gg
-                  for kT in cuda_threads(0, K0 / 4, unit=cuda_thread):
-                    Sm80_cp_async_f32(
-                      # TeX: color line *
-                      #      bbbbbb
-                      A_smem[k1 % 3, mS * 64 + mT, kT * 4: kT * 4 + 4], 
-                      # omitted A/size args ...
-                      # TeX: end ring[0]
-                      A[m2 * M1 + mS * 64 + mT, k1 * K0 + kT * 4: k1 * K0 + kT * 4 + 4],
-                      size=4)
-                      # TeX: begin ring[0]
+                  for i1 in cuda_threads(0, K0, unit=cuda_thread):
+                  # TeX: color line *
+                  # rrrrrrrrrrrrrrrrr        bbbbbb  .........................     .......................................................  .......
+                    Sm80_cp_async_f32(A_smem[k1 % 3, m1 * M0 + m0, i1 : i1 + 1], A[m2 * M1 + m1 * M0 + m0, k1 * K0 + i1 : k1 * K0 + i1 + 1], size=1)
               # TeX: color line *
               #   vv
-              for kT in cuda_threads(0, 16, unit=16 * cuda_thread):
+              for i0 in cuda_threads(0, K0, unit=16 * cuda_thread):
                 # TeX: color line *
                 #   vv
-                for nS in seq(0, N1 / 64):
+                for n1 in cuda_threads(0, N1 / N0, unit=cuda_thread):
                   # TeX: color line *
                   #   vv
-                  for nT in cuda_threads(0, 16, unit=cuda_thread):
-                    Sm80_cp_async_f32(
-                      # TeX: color line *
-                      #      bbbbbb
-                      B_smem[k1 % 3, kT, nS * 64 + nT * 4 : nS * 64 + nT * 4 + 4],
-                      # omitted B/size args ...
-                      # TeX: end ring[0]
-                      B[k1 * K0 + kT, n2 * N1 + nS * 64 + nT * 4 : n2 * N1 + nS * 64 + nT * 4 + 4],
-                      size=4)
+                  for n0 in seq(0, N0):
+                  # TeX: color line *
+                  # rrrrrrrrrrrrrrrrr        bbbbbb  ...................................     .................................................................  .......
+                    Sm80_cp_async_f32(B_smem[k1 % 3, i0, n1 * N0 + n0 : n1 * N0 + n0 + 1], B[k1 * K0 + i0, n2 * N1 + n1 * N0 + n0 : n2 * N1 + n1 * N0 + n0 + 1], size=1)
+              # TeX: end ring[0]
               # TeX: begin split
               # TeX: color line split[1]
             # yyyyyy rrrrrrrrrrrrr        yyyyyyyyyyy

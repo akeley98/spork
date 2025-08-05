@@ -751,21 +751,6 @@ Still executed inline with other imperative code
 
 
 \newpage
-\myBiggerTitle{GEMM: cp.async}
-
-{\large
-\input{nyc25_tex/cp_async_no_instr.0.tex}
-}
-
-{\LARGE
-
-Modify the load-shared-memory loop nest
-
-(add an extra level with 4 iterations)
-
-}
-
-\newpage
 \myBiggerTitle{GEMM: cp.async (Substitute Instruction)}
 
 {\large
@@ -774,9 +759,9 @@ Modify the load-shared-memory loop nest
 
 {\LARGE
 
-Replace the \texttt{kTmp}, \texttt{nTmp} loops with cp.async instructions.
+Replace \texttt{A\_smem[\codecomment{...}] = A[\codecomment{...}]} and \texttt{B\_smem[\codecomment{...}] = B[\codecomment{...}]}\\with cp.async instructions.
 
-Exo knows the instr loads 4 contiguous f32 values.
+Exo allows the rewrite, because the substituted functionality, \textit{ignoring concurrency}, is equivalent.
 
 }
 
