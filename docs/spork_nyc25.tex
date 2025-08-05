@@ -20,6 +20,12 @@
 \tikzstyle{bluenode} = [normalnode, draw=blueBoxFg, fill=blueBoxBg, text=blueBoxFg]
 \tikzstyle{violetnode} = [normalnode, draw=violetBoxFg, fill=violetBoxBg, text=violetBoxFg]
 
+\tikzstyle{redstyle} = [draw=redBoxFg, fill=redBoxBg, text=redBoxFg]
+\tikzstyle{yellowstyle} = [draw=yellowBoxFg, fill=yellowBoxBg, text=yellowBoxFg]
+\tikzstyle{greenstyle} = [draw=greenBoxFg, fill=greenBoxBg, text=greenBoxFg]
+\tikzstyle{bluestyle} = [draw=blueBoxFg, fill=blueBoxBg, text=blueBoxFg]
+\tikzstyle{violetstyle} = [draw=violetBoxFg, fill=violetBoxBg, text=violetBoxFg]
+
 \tikzstyle{Mnode} = [greennode, text width=55mm, minimum width=55mm, minimum height=7mm]
 \tikzstyle{Nnode} = [violetnode, text width=7mm, minimum width=7mm, minimum height=7mm]
 
@@ -255,18 +261,18 @@ Goal: Map tiles to different levels of the GPU hierarchy
 
 \begin{tikzpicture}[node distance=2mm]
 
-\node (grid) [greennode, text width=6cm, minimum width=6cm] {grid};
+\node (grid) [greennode, text width=5cm, minimum width=5cm] {grid};
 \node (cpu) [left=of grid, xshift=-2cm] {\textbf{CPU}};
 \draw [arrow] (cpu) -- node[above] {\textbf{launch}} (grid);
 \node (cuda) [above=of grid, yshift=+4mm] {\textbf{CUDA Constructs}};
 \node (exo) [right=of cuda, xshift=25mm] {\textbf{Exo-GPU Constructs}};
 
-\node (cta0) [greennode, text width=20mm, minimum width=20mm, below=of grid, xshift=-2cm, yshift=-1cm] {block};
-\node (cta1) [greennode, text width=20mm, minimum width=20mm, below=of grid, xshift=+2cm, yshift=-1cm] {block};
+\node (cta0) [greennode, text width=20mm, minimum width=20mm, below=of grid, xshift=-15mm, yshift=-1cm] {block};
+\node (cta1) [greennode, text width=20mm, minimum width=20mm, below=of grid, xshift=+15mm, yshift=-1cm] {block};
 
 \node (thread0) [greennode, text width=16mm, minimum width=16mm, below=of cta0, yshift=-1cm, xshift=-32mm] {thread};
 \node (thread1) [greennode, text width=16mm, minimum width=16mm, right=of thread0] {thread};
-\node (thread2) [greennode, text width=16mm, minimum width=16mm, right=of thread1, xshift=32mm] {thread};
+\node (thread2) [greennode, text width=16mm, minimum width=16mm, right=of thread1, xshift=22mm] {thread};
 
 \draw [arrow] (grid.south) to[out=270, in=90] (cta0.north);
 \draw [arrow] (grid.south) to[out=270, in=90] (cta1.north);
@@ -276,9 +282,9 @@ Goal: Map tiles to different levels of the GPU hierarchy
 \draw [arrow] (cta0.south) to[out=270, in=90] (thread2.north);
 \draw [dotted] (thread1.east) -- node[above] {\blueBox{blockDim}} (thread2.west);
 
-\node (CudaDeviceFunction) [right=of grid, text width=90mm] {\texttt{\codecomment{\# CPU launches grid}\\with CudaDeviceFunction(\blueBox{blockDim=\textit{arg}}):\\~~\codecomment{\# Body lowered to CUDA C++}}};
-\node (cudaTasks) [right=of cta1, text width=90mm] {\texttt{~~\codecomment{\# Parallel-for loop}\\~~\codecomment{\# generates per-block tasks}\\~~for \textit{iter} in cuda\_tasks(\textit{lo}, \textit{hi}):}};
-\node (cudaThreads) [right=of thread2, text width=90mm] {\texttt{~~~~\codecomment{\# Somewhat more complicated}\\~~~~\codecomment{\# Assigns threads to iterations}\\~~~~for \textit{iter} in cuda\_threads(\textit{lo}, \textit{hi}, unit=\textit{u}):}};
+\node (CudaDeviceFunction) [align=left, right=of grid, text width=100mm] {\large\texttt{\codecomment{\# CPU launches grid}\\with CudaDeviceFunction(\blueBox{blockDim=\textit{arg}}):\\~~\codecomment{\# Body lowered to CUDA C++}}\\};
+\node (cudaTasks) [align=left, right=of cta1, text width=100mm] {\large\texttt{~~\codecomment{\# Parallel-for loop}\\~~\codecomment{\# generates per-block tasks}\\~~for \textit{iter} in cuda\_tasks(\textit{lo}, \textit{hi}):}\\};
+\node (cudaThreads) [align=left, right=of thread2, text width=110mm] {\large\texttt{~~~~\codecomment{\# Somewhat more complicated}\\~~~~\codecomment{\# Assigns threads to iterations}\\~~~~for \textit{iter} in cuda\_threads(\textit{lo}, \textit{hi}, unit=\textit{u}):}\\};
 \end{tikzpicture}
 
 \newpage
@@ -319,9 +325,9 @@ Assign large \texttt{M1} $\times$ \texttt{N1} tiles to CUDA blocks.
 {\LARGE
 Assign small \texttt{M0} $\times$ \texttt{N0} tiles to CUDA threads.
 
-\textit{NOTE: parallelism is not checked yet.}
+\textit{NOTE: parallelism is not checked at this step;}
 
-\textit{Rewrites treat parallel loops as sequential (for now).}
+\textit{rewrites treat parallel loops as sequential.}
 
 }
 
@@ -352,7 +358,7 @@ Each thread loops over \texttt{M0} $\times$ \texttt{N0} iteration space.
 }
 
 \newpage
-\myBiggerTitle{GPU thread loops}
+\myBiggerTitle{GPU Thread Loops}
 
 {\large
 \input{nyc25_tex/cuda_threads.0.tex}
@@ -368,7 +374,7 @@ Static property of each scope in Exo-GPU.
 }
 
 \newpage
-\myBiggerTitle{GPU thread loops}
+\myBiggerTitle{GPU Thread Loops}
 
 {\large
 \input{nyc25_tex/cuda_threads.0.tex}
@@ -420,16 +426,133 @@ It just subdivides existing thread collectives.
 \end{tikzpicture}
 
 \newpage
+\myBiggerTitle{Summary: Thread Block Tiling}
+
+\begin{tikzpicture}[node distance=0mm]
+\input{nyc25_grid_tile.tex}
+\node (code) [text width=90mm, left=of C, align=left] {\large \input{nyc25_tex/loops.0.tex}\\};
+\end{tikzpicture}
+
+%\newline
+
+\begin{center}
+\begin{tikzpicture}[node distance=0mm]
+\input{nyc25_grid_tile.tex}
+\node (A0) [greenstyle, left=of cta0, minimum width=60mm, minimum height=20mm, xshift=-6mm] {\Huge A[...]};
+\node (A1) [greenstyle, left=of cta4, minimum width=60mm, minimum height=20mm, xshift=-6mm] {\Huge A[...]};
+\node (A2) [greenstyle, left=of cta8, minimum width=60mm, minimum height=20mm, xshift=-6mm] {\Huge A[...]};
+\node (A3) [greenstyle, left=of cta12, minimum width=60mm, minimum height=20mm, xshift=-6mm] {\Huge A[...]};
+\node (B0) [violetstyle, above=of cta0, minimum width=20mm, minimum height=24mm, yshift=6mm] {\Huge B[...]};
+\node (B1) [violetstyle, above=of cta1, minimum width=20mm, minimum height=24mm, yshift=6mm] {\Huge B[...]};
+\node (B2) [violetstyle, above=of cta2, minimum width=20mm, minimum height=24mm, yshift=6mm] {\Huge B[...]};
+\node (B3) [violetstyle, above=of cta3, minimum width=20mm, minimum height=24mm, yshift=6mm] {\Huge B[...]};
+\node (text) [left=of B0] {\myBiggerTitle{Block Matrix Product~~}};
+\end{tikzpicture}
+\end{center}
+
+\newpage
+\myBiggerTitle{Summary: Thread Tiling Within Block}
+
+\begin{tikzpicture}[node distance=0mm]
+\input{nyc25_block_tile.tex}
+\node (code) [text width=90mm, left=of C, align=left] {\large \input{nyc25_tex/loops.1.tex}\\};
+\end{tikzpicture}
+
+{\LARGE (Pedagogical: not the most efficient pattern)}
+
+% \newpage
+\begin{tikzpicture}[node distance=0mm]
+\input{nyc25_block_tile.tex}
+\node (A) [greenstyle, left=of t240, minimum width=60mm, minimum height=20mm, xshift=-6mm] {\Huge A[...]};
+\node (B) [violetstyle, above=of t15, minimum width=20mm, minimum height=24mm, yshift=6mm] {\Huge B[...]};
+\draw [arrow] (A) to[in=90, out=90] (t240);
+\draw [arrow] (A) to[in=90, out=90] (t241);
+\draw [arrow] (A) to[in=90, out=90] (t242);
+\draw [arrow] (A) to[in=90, out=90] (t255);
+\draw [arrow] (B) to[in=180, out=180] (t15);
+\draw [arrow] (B) to[in=180, out=180] (t31);
+\draw [arrow] (B) to[in=180, out=180] (t63);
+\draw [arrow] (B) to[in=180, out=180] (t255);
+\node (text) [left=of B, text width=150mm, align=left] {\myBiggerTitle{Waste: Duplicate Reads in Block}};
+\end{tikzpicture}
+
+\newpage
+\myBiggerTitle{Shared Memory: SMEM}
+
+{\LARGE
+
+SMEM: Per-thread-block scratchpad
+
+Tile \blueBox{\texttt{k}} loop by \blueBox{\texttt{K0}} (\texttt{k $\mapsto$ k1 * K0 + k0})
+
+Thread block cooperates to store A, B tiles in SMEM.
+
+}
+
+\vfill
+
+\begin{center}
+\begin{tikzpicture}[node distance=2mm]
+\input{nyc25_k0_tile.tex}
+\end{tikzpicture}
+\end{center}
+
+\newpage
+\begin{center}
+\Large
+\begin{tikzpicture}[node distance=0mm]
+\input{nyc25_no_sync_flow.tex}
+\node (text) [below=of B] {\textbf{All steps are thread-block-cooperative.}};
+\end{tikzpicture}
+\end{center}
+
+\vfill
+\hrule
+\vfill
+
+\begin{center}
+\begin{tikzpicture}[node distance=2mm]
+\input{nyc25_k0_tile.tex}
+\end{tikzpicture}
+\end{center}
+
+\newpage
+\myBiggerTitle{GEMM: Restructuring}
+
+{\large
+\input{nyc25_tex/simple_gpu.5.tex}
+}
+
+{\LARGE
+TODO: divide \texttt{k} loop \& reorder
+
+TODO: factor out of \blueBox{\texttt{k1}} loop: \texttt{accum = 0}, write to \texttt{C}
+
+}
+
+\newpage
 \myBiggerTitle{GEMM: Lift Alloc \& Expand Dim}
 
-\yellowBox{Diagram of what we want to do}
+{\large
+\input{nyc25_tex/simple_gpu.6.tex}
+}
+
+{\LARGE
+Scope of \texttt{accum} variable is too small.
+
+Need to lift it out to thread-block scope.
+
+}
+
+\newpage
+\myBiggerTitle{GEMM: Lift Alloc \& Expand Dim}
 
 {\large
 \input{nyc25_tex/expand_dim.0.tex}
 }
 
 {\LARGE
-Lift the allocation of \blueBox{\texttt{accum}} into block-scope\\
+Lift the allocation of \redBox{\texttt{accum}} into thread-block-scope\\
 (just below \violetBox{\texttt{cuda\_tasks}} loops)
 }
 
@@ -452,7 +575,7 @@ Expand dim: each iteration uses its own index of \texttt{accum}
 }
 
 {\LARGE
-We will split the loop at the indicated locations, retaining the loop structure
+We will split the loop at the indicated locations, retaining the loop structure.
 }
 
 \newpage
@@ -460,55 +583,31 @@ We will split the loop at the indicated locations, retaining the loop structure
 {\large
 \input{nyc25_tex/fission.0.tex}
 }
-\newpage
-\myBiggerTitle{Tile Re-Use}
-
-TODO: there's no words on it!
-
-\begin{tikzpicture}[node distance=0mm]
-\node (cL) [normalnode, minimum width=50mm, minimum height=50mm] {};
-\node (aL) [smallnode, minimum width=20mm, minimum height=50mm, left=of cL, xshift=-2mm] {$A$};
-\node (aRow) [greennode, minimum width=18mm, minimum height=6mm, above=of aL, yshift=-18mm, text width=0mm] {};
-\node (bL) [smallnode, minimum width=50mm, minimum height=20mm, above=of cL, yshift=2mm] {$B$};
-\draw (aRow.east) to[out=0, in=270] ($(bL.south) - (2.0, 0)$);
-\draw (aRow.east) to[out=0, in=270] ($(bL.south) - (1.2, 0)$);
-\draw (aRow.east) to[out=0, in=270] ($(bL.south) - (0.4, 0)$);
-\draw (aRow.east) to[out=0, in=270] ($(bL.south) + (0.4, 0)$);
-\draw (aRow.east) to[out=0, in=270] ($(bL.south) + (1.2, 0)$);
-\draw (aRow.east) to[out=0, in=270] ($(bL.south) + (2.0, 0)$);
-\node (ML) [right=of aL, xshift=2mm] {\greenBox{\texttt{M1}}};
-\node (NL) [below=of bL, yshift=-2mm] {\violetBox{\texttt{N1}}};
-\node (aKL) [above=of aL] {\blueBox{\texttt{K0}}};
-\node (bKL) [left=of bL] {\blueBox{\texttt{K0}}};
-\node (Lcaption) [below=of cL, xshift=-11mm] {Each row of the $A$ tile is used \violetBox{\texttt{N1}} times.};
-
-\node (cR) [normalnode, minimum width=50mm, minimum height=50mm, right=of cL, xshift=42mm] {};
-\node (aR) [smallnode, minimum width=20mm, minimum height=50mm, left=of cR, xshift=-2mm] {$A$};
-\node (bR) [smallnode, minimum width=50mm, minimum height=20mm, above=of cR, yshift=2mm] {$B$};
-\node (bCol) [violetnode, minimum width=6mm, minimum height=18mm, left=of bR, xshift=18mm, text width=0mm] {};
-\draw (bCol.south) to[out=270, in=0] ($(aR.east) - (0, 2.0)$);
-\draw (bCol.south) to[out=270, in=0] ($(aR.east) - (0, 1.2)$);
-\draw (bCol.south) to[out=270, in=0] ($(aR.east) - (0, 0.4)$);
-\draw (bCol.south) to[out=270, in=0] ($(aR.east) + (0, 0.4)$);
-\draw (bCol.south) to[out=270, in=0] ($(aR.east) + (0, 1.2)$);
-\draw (bCol.south) to[out=270, in=0] ($(aR.east) + (0, 2.0)$);
-\node (MR) [right=of aR, xshift=2mm] {\greenBox{\texttt{M1}}};
-\node (NR) [below=of bR, yshift=-2mm] {\violetBox{\texttt{N1}}};
-\node (aKR) [above=of aR] {\blueBox{\texttt{K0}}};
-\node (bKR) [left=of bR] {\blueBox{\texttt{K0}}};
-\node (Rcaption) [below=of cR, xshift=-11mm] {Each column of the $B$ tile is used \greenBox{\texttt{M1}} times.};
-\end{tikzpicture}
 
 \newpage
-\myBiggerTitle{GEMM: Stage in SMEM}
+\myBiggerTitle{GEMM: K Loop Tiling}
+
+{\large
+\input{nyc25_tex/fission.1.tex}
+}
+
+\newpage
+\myBiggerTitle{GEMM: K Loop Tiling}
 
 {\large
 \input{nyc25_tex/smem_broken.0.tex}
 }
 
-{\LARGE
-Split k loop, and reorder sequential \blueBox{k1} loop outwards
-}
+%% {\LARGE
+%% Split k loop, and reorder sequential \blueBox{k1} loop outwards
+%% }
+
+\begin{center}
+\Large
+\begin{tikzpicture}[node distance=0mm]
+\input{nyc25_no_sync_flow.tex}
+\end{tikzpicture}
+\end{center}
 
 \newpage
 \myBiggerTitle{GEMM: Stage in SMEM}
@@ -521,6 +620,7 @@ Split k loop, and reorder sequential \blueBox{k1} loop outwards
 Stage $\texttt{M1} \times \texttt{K0}$ tile of \greenBox{\texttt{A}}, $\texttt{K0} \times \texttt{N1}$ tile of \violetBox{\texttt{B}} in shared memory.
 
 \texttt{A\_smem}, \texttt{B\_smem} replace \texttt{A} and \texttt{B} in the loop body.
+
 }
 
 \newpage
@@ -531,7 +631,10 @@ Stage $\texttt{M1} \times \texttt{K0}$ tile of \greenBox{\texttt{A}}, $\texttt{K
 }
 
 {\LARGE
-The compiler generates loops to load the shared memory tile
+The compiler generates loops to load the shared memory tile.
+
+\texttt{seq} loops by default -- we will fix this!
+
 }
 
 \newpage
@@ -542,7 +645,7 @@ The compiler generates loops to load the shared memory tile
 }
 
 {\LARGE
-Divide \& Parallelize the load-shared-memory loops
+Divide \& Parallelize the load-shared-memory loops.
 }
 
 \newpage
@@ -553,17 +656,78 @@ Divide \& Parallelize the load-shared-memory loops
 }
 
 {\LARGE
-Add synchronization (\yellowBox{\texttt{cuda\_in\_order}} to be explained)
+Add synchronization:\\
+All threads in the thread block wait for each other.
 }
+
+\newpage
+\myBiggerTitle{``Classic'' GPU GEMM Summary}
+
+{\LARGE
+Synchronization required:\\
+Thread that loaded a value to SMEM isn't the same as the one that uses it.
+
+}
+
+\vfill
+\hrule
+\vfill
+
+\begin{center}
+\Large
+\begin{tikzpicture}[node distance=0mm]
+\input{nyc25_sync_flow.tex}
+\end{tikzpicture}
+\end{center}
+
+\newpage
+\myBiggerTitle{``Classic'' GPU GEMM Summary}
+
+{\LARGE
+First sync: wait for SMEM tile to fill\\(RAW: read-after-write)
+
+Second sync: don't overwrite until all SMEM reads are done\\(WAR: write-after-read)
+
+}
+
+\vfill
+\hrule
+\vfill
+
+\begin{center}
+\Large
+\begin{tikzpicture}[node distance=0mm]
+\input{nyc25_sync_flow.tex}
+\end{tikzpicture}
+\end{center}
+
+\newpage
+\myBiggerTitle{``Classic'' GPU GEMM Summary}
+
+{\LARGE
+Syncs strictly separate data movement workloads\\and compute workloads.
+
+Not optimal.
+
+}
+
+\vfill
+\hrule
+\vfill
+
+\begin{center}
+\Large
+\begin{tikzpicture}[node distance=0mm]
+\input{nyc25_sync_flow.tex}
+% \node (text) [below=of B] {All steps are thread-block-cooperative.};
+\end{tikzpicture}
+\end{center}
+
 
 \newpage
 \myBiggerTitle{TODO}
 
 {\LARGE
-Summarize the previous code again
-
-Talk about strict separation of memory \& compute work
-
 Talk about async instr weirdness
 
 Talk about timelines

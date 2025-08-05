@@ -53,24 +53,23 @@ if True:
 
 # TeX: version reorder_loops 1
 # TeX: version m_divide_loop 3
+# TeX: version fission 2
 # TeX: begin m_divide_loop reorder_loops
 M1 = 192
 M0 = 12
 # TeX: end m_divide_loop
-
 # TeX: version n_divide_loop 1
 # TeX: begin n_divide_loop
 N1 = 256
 N0 = 16
 # TeX: end n_divide_loop reorder_loops
-
 # TeX: version smem_broken 3
 # TeX: begin smem_broken[0]
+# TeX: begin fission[1]
 K0 = 16
+# TeX: end fission[1]
 # TeX: end smem_broken[0]
 
-# TeX: summary
-#
 # TeX: summary
 # @proc body excerpt below
 
@@ -176,7 +175,7 @@ def nyc25_gemm_reorder_loop(M: size, N: size, K: size, A: f32[M, K] @ DRAM, B: f
   # TeX: end reorder_loops
 
 
-# TeX: version simple_gpu 5
+# TeX: version simple_gpu 7
 # TeX: begin simple_gpu[0]
 @proc
 def nyc25_gemm_simple_gpu(M: size, N: size, K: size,
@@ -199,12 +198,15 @@ def nyc25_gemm_simple_gpu(M: size, N: size, K: size,
   # TeX: color line simple_gpu[1]
   #                       bbbbbbbbbbbb
   with CudaDeviceFunction(blockDim=256):  # User chose 256 threads per block
-    # TeX: color line simple_gpu[1]
+    # TeX: color line simple_gpu[1] simple_gpu[5:]
     #   gg    gggggggggg
     for m2 in cuda_tasks(0, M / M1):
-      # TeX: color line simple_gpu[1]
+      # TeX: color line simple_gpu[1] simple_gpu[5:]
       #   vv    vvvvvvvvvv
       for n2 in cuda_tasks(0, N / N1):
+        # TeX: color remark! simple_gpu[5:]
+        #         bb
+        # Reorder k1 loop to out here (thread-block cooperative)
         # TeX: color line simple_gpu[2]
         #   gg    gggggggggggg
         # TeX: color line simple_gpu[3]
@@ -223,19 +225,57 @@ def nyc25_gemm_simple_gpu(M: size, N: size, K: size,
               for n0 in seq(0, N0):
                 # TeX: color line simple_gpu[0] simple_gpu[4]
                 #          bbbbbbbbbb
+                # TeX: color line simple_gpu[6]
+              # rrrrrr     rrrrrrrrrr
                 accum: f32 @ CudaRmem  # CUDA per-thread register
+                # TeX: color line simple_gpu[5]
+              # rrrrrrrrr
                 accum = 0
+                # TeX: remark! simple_gpu[5:]
+                # Divide loop: $\texttt{k} \mapsto \texttt{k1 * K0 + k0}$
+                # TeX: color line simple_gpu[5]
+                #   b    bbbbbbbbb
                 for k in seq(0, K):
                   accum += (
                       A[m2 * M1 + m1 * M0 + m0, k]
                     * B[k, n2 * N1 + n1 * N0 + n0]
                   )
+                # TeX: color line simple_gpu[5]
+              # rr                                              rrrrrrrrr
                 C[m2 * M1 + m1 * M0 + m0, n2 * N1 + n1 * N0 + n0] = accum
 # TeX: end simple_gpu[1:]
 # TeX: end simple_gpu[0]
 
 nyc25_gemm_simple_gpu = simplify(nyc25_gemm_simple_gpu)
 
+
+# TeX: version loops 2
+
+if False:
+  # TeX: begin loops
+  # TeX: color line loops[0]
+  #         gggggggggg    gggggg
+  for m2 in cuda_tasks(0, M / M1):
+    # TeX: color line loops[0]
+    #         vvvvvvvvvv    vvvvvv
+    for n2 in cuda_tasks(0, N / N1):
+      # TeX: color line loops[1]
+      #         gggggggggggg    ggggg
+      for m1 in cuda_threads(0, M1/M0,
+          unit=(N1 / N0) * cuda_thread):
+        # TeX: color line loops[1]
+        #         vvvvvvvvvvvv    vvvvv
+        for n1 in cuda_threads(0, N1/N0,
+              unit=cuda_thread):
+          # TeX: color line loops[1]
+          #                gg
+          for m0 in seq(0, M0):
+            # TeX: color line loops[1]
+            #                vv
+            for n0 in seq(0, N0):
+              # Compute dot products
+              # TeX: end loops
+              pass
 
 
 # TeX: version expand_dim 3
@@ -260,11 +300,11 @@ def nyc25_gemm_expand_dim(M: size, N: size, K: size,
       #   vv    vvvvvvvvvv
       for n2 in cuda_tasks(0, N / N1):
         # TeX: remark cuda_threads
-        # Collective unit: Thread block (CTA)
+        # Collective unit: thread block (CTA)
         # TeX: end cuda_threads[0]
         # Distributed into registers of threads within the block
       # TeX: color line expand_dim[0]
-      # bbbbb                            bbbbbbbbbb
+      # rrrrrr                           rrrrrrrrrr
         accum: f32[M1/M0, N1/N0, M0, N0] @ CudaRmem
         # TeX: begin cuda_threads[0]
         # TeX: color line expand_dim[1:]
@@ -289,7 +329,7 @@ def nyc25_gemm_expand_dim(M: size, N: size, K: size,
               #   vv
               for n0 in seq(0, N0):
                 # TeX: color line expand_dim[0]
-              # bbbbb
+              # rrrrrr              r
                 # TeX: color line expand_dim[1:]
                 #     yy  rr  gg  vv
                 accum[m1, n1, m0, n0] = 0
@@ -297,7 +337,7 @@ def nyc25_gemm_expand_dim(M: size, N: size, K: size,
         # FISSION HERE
                 for k in seq(0, K):
                   # TeX: color line expand_dim[0]
-                # bbbbb
+                # rrrrrr              r
                   # TeX: color line expand_dim[1:]
                   #     yy  rr  gg  vv
                   accum[m1, n1, m0, n0] += (
@@ -308,7 +348,7 @@ def nyc25_gemm_expand_dim(M: size, N: size, K: size,
         # FISSION HERE
                 C[m2 * M1 + m1 * M0 + m0, n2 * N1 + n1 * N0 + n0] = (
                 # TeX: color line expand_dim[0]
-                  # bbbbb
+                  # rrrrrr              r
                   # TeX: color line expand_dim[1:]
                     #     yy  rr  gg  vv
                     accum[m1, n1, m0, n0]
@@ -318,7 +358,6 @@ def nyc25_gemm_expand_dim(M: size, N: size, K: size,
 nyc25_gemm_expand_dim = simplify(nyc25_gemm_expand_dim)
 
 
-# TeX: version fission 1
 @proc
 def nyc25_gemm_fission(M: size, N: size, K: size,
                        A: f32[M, K] @ CudaGmemLinear,
@@ -328,9 +367,9 @@ def nyc25_gemm_fission(M: size, N: size, K: size,
   assert M % M1 == 0
   assert N % N1 == 0
   with CudaDeviceFunction(blockDim=256):
+    # TeX: begin fission[0]
     for m2 in cuda_tasks(0, M / M1):
       for n2 in cuda_tasks(0, N / N1):
-        # TeX: begin fission[0]
         accum: f32[M1/M0, N1/N0, M0, N0] @ CudaRmem
         # TeX: remark *
         # Zero-initialize accumulators
@@ -347,6 +386,7 @@ def nyc25_gemm_fission(M: size, N: size, K: size,
               #   vv
               for n0 in seq(0, N0):
                 accum[m1, n1, m0, n0] = 0
+        # TeX: begin fission[1]
         # TeX: remark! *
         # Main loop: computes dot products (focus of the talk)
         # TeX: color line *
@@ -364,6 +404,7 @@ def nyc25_gemm_fission(M: size, N: size, K: size,
                 for k in seq(0, K):
                   accum[m1, n1, m0, n0] += (A[m2 * M1 + m1 * M0 + m0, k]
                                           * B[k, n2 * N1 + n1 * N0 + n0])
+        # TeX: end fission[1]
         # TeX: remark *
         # Epilogue: write to global memory
         # TeX: color line *
@@ -402,8 +443,10 @@ def nyc25_gemm_smem_broken(M: size, N: size, K: size, A: f32[M, K] @ CudaGmemLin
               for n0 in seq(0, N0):
                 accum[m1, n1, m0, n0] = 0
         # TeX: begin smem_broken
-        # TeX: color line smem_broken[0]
-        #   bb
+        # TeX: remark! smem_broken[0]
+        # k1 loop must be outside the cuda_threads loop for co-op!
+        # TeX: color line smem_broken
+        #   bb    bbbbbbbbbbbbbb
         for k1 in seq(0, K / K0):
           # TeX: end smem_broken[0]
           # TeX: color line smem_broken[1]
@@ -423,12 +466,20 @@ def nyc25_gemm_smem_broken(M: size, N: size, K: size, A: f32[M, K] @ CudaGmemLin
             # vvvvvv           v
               B_smem[i0, i1] = B[k1 * K0 + i0, n2 * N1 + i1]
           # TeX: begin smem_broken[0]
+          # TeX: color line smem_broken[0]
+          #   yy
           for m1 in cuda_threads(0, M1 / M0, unit=(N1 / N0) * cuda_thread):
+            # TeX: color line smem_broken[0]
+            #   rr
             for n1 in cuda_threads(0, N1 / N0, unit=cuda_thread):
+              # TeX: color line smem_broken[0]
+              #   gg
               for m0 in seq(0, M0):
+                # TeX: color line smem_broken[0]
+                #   vv
                 for n0 in seq(0, N0):
-                  # TeX: color line smem_broken[0]
-                  #   bb
+                  # TeX: color line smem_broken
+                  #   bb    bbbbbbbbbb
                   for k0 in seq(0, K0):
                   # TeX: color line smem_broken[1]
                   #                           gggggg
@@ -494,8 +545,8 @@ def nyc25_gemm_smem_in_order(M: size, N: size, K: size, A: f32[M, K] @ CudaGmemL
                 B_smem[i0, n1 * N0 + n0] = B[k1 * K0 + i0, n2 * N1 + n1 * N0 + n0]
           # TeX: end smem_in_order[0]
           # TeX: color line smem_in_order[1]
-        # yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
-          Fence(cuda_in_order, cuda_in_order)
+        # yyyyy ............................
+          Fence(cuda_in_order, cuda_in_order)  # __syncthreads()
           # TeX: begin smem_in_order[0]
           for m1 in cuda_threads(0, M1 / M0, unit=(N1 / N0) * cuda_thread):
             for n1 in cuda_threads(0, N1 / N0, unit=cuda_thread):
@@ -511,8 +562,8 @@ def nyc25_gemm_smem_in_order(M: size, N: size, K: size, A: f32[M, K] @ CudaGmemL
 
           # TeX: end smem_in_order[0]
           # TeX: color line smem_in_order[1]
-        # yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
-          Fence(cuda_in_order, cuda_in_order)
+        # yyyyy ............................
+          Fence(cuda_in_order, cuda_in_order)  # __syncthreads()
           # TeX: begin smem_in_order[0]
         # TeX: end smem_in_order
         for m1 in cuda_threads(0, M1 / M0, unit=(N1 / N0) * cuda_thread):
@@ -731,7 +782,7 @@ def nyc25_gemm_ring(M: size, N: size, K: size, A: f32[M, K] @ CudaGmemLinear, B:
             with CudaAsync(Sm80_cp_async):
               # TeX: end ring[1]
               # TeX: color line split[2]
-            # yyyyy yyyyyyyy                 bb
+            # yyyyy yyyyyyyy  rrrrrrrrrrrrr  bb
               Await(-ringbar, Sm80_cp_async, ~3)
               # TeX: end split
               # TeX: summary
@@ -776,7 +827,7 @@ def nyc25_gemm_ring(M: size, N: size, K: size, A: f32[M, K] @ CudaGmemLinear, B:
                       size=4)
               # TeX: begin split
               # TeX: color line split[1]
-            # yyyyyy                   yyyyyyyyyyy
+            # yyyyyy rrrrrrrrrrrrr        yyyyyyyyyyy
               Arrive(Sm80_cp_async, 1) >> +ringbar
           # TeX: begin ring[1]
           # TeX: color line ring[1]
@@ -816,7 +867,7 @@ def nyc25_gemm_ring(M: size, N: size, K: size, A: f32[M, K] @ CudaGmemLinear, B:
             for m0 in seq(0, M0):
               for n0 in seq(0, N0):
                 C[m2 * M1 + m1 * M0 + m0, n2 * N1 + n1 * N0 + n0] = accum[m1, n1, m0, n0]
-        Fence(cuda_in_order, cuda_in_order)
+        Fence(cuda_in_order, cuda_in_order)  # __syncthreads()
 
 
 nyc25_gemm_ring = simplify(nyc25_gemm_ring)

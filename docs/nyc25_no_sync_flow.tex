@@ -1,0 +1,12 @@
+\node (A) [draw=black, minimum width=40mm, minimum height=30mm, align=center] {Load A tile\\to SMEM\\(\texttt{\greenBox{M1} $\times$ \blueBox{K0}})};
+\node (B) [draw=black, minimum width=40mm, minimum height=30mm, align=center, right=of A, xshift=20mm] {Load B tile\\to SMEM\\(\texttt{\blueBox{K0} $\times$ \violetBox{N1}})};
+\node (accum) [draw=black, minimum width=40mm, minimum height=30mm, align=center, right=of B, xshift=20mm] {Accumulate\\Tile\\(\texttt{\blueBox{k0}} loop)};
+
+\node (zero) [above=of A, yshift=8mm] {Zero accumulators};
+\node (C) [above=of accum, yshift=8mm] {Write out C};
+
+\draw [arrow] (zero) -- (A);
+\draw [arrow] (accum) -- (C);
+\draw [arrow] (A) -- (B);
+\draw [arrow] (B) -- (accum);
+\draw [arrow] (accum) to[in=40, out=140] node[below]{\blueBox{\texttt{k1}} loop} (A);

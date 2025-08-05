@@ -1,0 +1,18 @@
+\node (C) [draw=black, minimum width=90mm, minimum height=90mm] {\LARGE C (block tile)};
+
+\node (t0) [minimum width=20mm, minimum height=20mm, above=of C, xshift=-33mm, yshift=-22mm, draw=black, align=center] {thread\\0};
+\node (t1) [minimum width=20mm, minimum height=20mm, above=of C, xshift=-11mm, yshift=-22mm, draw=black, align=center] {thread\\1};
+\node (t2) [minimum width=20mm, minimum height=20mm, above=of C, xshift=+11mm, yshift=-22mm] {...};
+\node (t15) [minimum width=20mm, minimum height=20mm, above=of C, xshift=+33mm, yshift=-22mm, draw=black, align=center] {thread\\15};
+\node (t16) [minimum width=20mm, minimum height=20mm, above=of C, xshift=-33mm, yshift=-44mm, draw=black, align=center] {thread\\16};
+\node (t31) [minimum width=20mm, minimum height=20mm, above=of C, xshift=+33mm, yshift=-44mm, draw=black, align=center] {thread\\31};
+\node (t32) [minimum width=20mm, minimum height=20mm, above=of C, xshift=-33mm, yshift=-66mm] {...};
+\node (t240) [minimum width=20mm, minimum height=20mm, above=of C, xshift=-33mm, yshift=-88mm, draw=black, align=center] {thread\\240};
+\node (t241) [minimum width=20mm, minimum height=20mm, above=of C, xshift=-11mm, yshift=-88mm, draw=black, align=center] {thread\\241};
+\node (t242) [minimum width=20mm, minimum height=20mm, above=of C, xshift=+11mm, yshift=-88mm] {...};
+\node (t255) [minimum width=20mm, minimum height=20mm, above=of C, xshift=+33mm, yshift=-88mm, draw=black, align=center] {thread\\255};
+\node (t63) [minimum width=20mm, minimum height=20mm, above=of C, xshift=+33mm, yshift=-66mm] {...};
+\node (M1) [right=of C] {\LARGE\greenBox{\texttt{M1}}};
+\node (N1) [below=of C] {\LARGE\violetBox{\texttt{N1}}};
+\node (M1) [right=of t16] {\LARGE\greenBox{\texttt{M0}}};
+\node (N1) [below=of t16] {\LARGE\violetBox{\texttt{N0}}};

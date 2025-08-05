@@ -11,6 +11,7 @@ color_dict = {
     "y": "yellowBox",
     "v": "violetBox",
     "#": "codecomment",  # Internal use
+    ".": "codecomment",  # Special meaning, delete chars
 }
 
 char_dict = {
@@ -83,16 +84,22 @@ class TexLine:
                 if colorBox is None:
                     raise ValueError(f"Line {self.lineno}: unknown color character {color_char!r} in {colors!r}")
                 snippets.append(fr"\{colorBox}{{")
+                if color_char == ".":
+                    snippets.append("...")
 
             # Sanitize characters, except for stuff surrounded by $ in comments.
-            if in_comment:
+            # Remove characters to be replaced with ...
+            if color_char == ".":
+                pass
+            elif in_comment:
                 if c == "$":
                     in_math = not in_math
                 elif not in_math:
                     c = char_dict.get(c, c)
+                snippets.append(c)
             else:
                 c = char_dict.get(c, c)
-            snippets.append(c)
+                snippets.append(c)
 
             prev_color_char = color_char
 
