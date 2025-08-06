@@ -1,4 +1,5 @@
 \node (C) [normalnode, minimum width=90mm, minimum height=90mm] {\Huge C};
+% above=of is hacky, would be nice to have anchor=center and at(C) so yshift isn't weird.
 \node (cta0) [draw=black, minimum width=20mm, minimum height=20mm, above=of C, xshift=-33mm, yshift=-22mm] {block 0};
 \node (cta1) [draw=black, minimum width=20mm, minimum height=20mm, above=of C, xshift=-11mm, yshift=-22mm] {block 1};
 \node (cta2) [draw=black, minimum width=20mm, minimum height=20mm, above=of C, xshift=+11mm, yshift=-22mm] {block 2};

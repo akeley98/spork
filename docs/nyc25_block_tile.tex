@@ -1,5 +1,6 @@
 \node (C) [draw=black, minimum width=90mm, minimum height=90mm] {\LARGE C (block tile)};
 
+% above=of is hacky, would be nice to have anchor=center and at(C) so yshift isn't weird.
 \node (t0) [minimum width=20mm, minimum height=20mm, above=of C, xshift=-33mm, yshift=-22mm, draw=black, align=center] {thread\\0};
 \node (t1) [minimum width=20mm, minimum height=20mm, above=of C, xshift=-11mm, yshift=-22mm, draw=black, align=center] {thread\\1};
 \node (t2) [minimum width=20mm, minimum height=20mm, above=of C, xshift=+11mm, yshift=-22mm] {...};

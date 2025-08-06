@@ -72,23 +72,46 @@ Diagram: vector add eye candy? y[threadIdx] += x[threadIdx]
 \myBiggerTitle{Challenge: Memory / Compute Overlap}
 
 {\LARGE
+SIMT = overlapping identical workloads.\\
+We should also overlap heterogenous work: data \& compute.
 
-Talk about overlapping memory and compute workloads
+}
+\hrule
+{
+\Large
+\begin{tikzpicture}[node distance=0mm]
 
-Contrast with SIMT
-\begin{itemize}
-  \item SIMT = threads doing the same thing
-  \item Now, threads are doing something different
-\end{itemize}
+\node (C0) [draw=black, minimum width=28mm, minimum height=24mm] {compute};
+\node (C1) [draw=black, minimum width=28mm, minimum height=24mm, anchor=center, xshift=72mm] at(C0) {compute};
+\node (C2) [draw=black, minimum width=28mm, minimum height=24mm, anchor=center, xshift=72mm] at(C1) {compute};
+\node(bad) [left=of C0, xshift=-40mm] {\textbf{BAD}};
 
-Diagram:
-\begin{itemize}
-  \item BAD: chain of memory and compute tasks
-  \item GOOD: scary looking DAG of memory/compute tasks
-\end{itemize}
+\node (A0) [greenstyle, minimum width=28mm, minimum height=12mm, anchor=center, xshift=-36mm, yshift=6mm] at(C0) {Load A};
+\node (B0) [violetstyle, minimum width=28mm, minimum height=12mm, anchor=center, xshift=-36mm, yshift=-6mm] at(C0) {Load B};
 
-Non-trivial dependency graph
+\node (A1) [greenstyle, minimum width=28mm, minimum height=12mm, anchor=center, xshift=-36mm, yshift=6mm] at(C1) {Load A};
+\node (B1) [violetstyle, minimum width=28mm, minimum height=12mm, anchor=center, xshift=-36mm, yshift=-6mm] at(C1) {Load B};
 
+\node (A2) [greenstyle, minimum width=28mm, minimum height=12mm, anchor=center, xshift=-36mm, yshift=6mm] at(C2) {Load A};
+\node (B2) [violetstyle, minimum width=28mm, minimum height=12mm, anchor=center, xshift=-36mm, yshift=-6mm] at(C2) {Load B};
+
+\draw [arrow] (A0.south east) -- (C0.west);
+\draw [arrow] (C0.east) -- (A1.south west);
+\draw [arrow] (A1.south east) -- (C1.west);
+\draw [arrow] (C1.east) -- (A2.south west);
+\draw [arrow] (A2.south east) -- (C2.west);
+
+\end{tikzpicture}
+}
+\vspace{-1mm}
+\hrule
+{
+\Large
+\begin{tikzpicture}[node distance=0mm]
+\input{nyc25_dag.tex}
+\input{nyc25_dag_war.tex}
+\node(good) [anchor=center] at(C0) {\textbf{GOOD}};
+\end{tikzpicture}
 }
 
 \newpage
@@ -103,7 +126,6 @@ Don't screw up
 Nondeterministic \& subtle bugs possible
 
 }
-
 
 \newpage
 \myBiggerTitle{Goals}
@@ -901,6 +923,7 @@ We need to \myKeyA{delay} the accumulate step to a future iteration to make room
 \Large
 \begin{tikzpicture}[node distance=0mm]
 \input{nyc25_dag.tex}
+\input{nyc25_dag_k.tex}
 
 \end{tikzpicture}
 }
@@ -919,6 +942,7 @@ Loop skew: delay \myKeyA{consumption} (compute) of SMEM data by one \blueBox{\te
 \Large
 \begin{tikzpicture}[node distance=0mm]
 \input{nyc25_dag.tex}
+\input{nyc25_dag_k.tex}
 \input{nyc25_dag_ring.tex}
 
 \end{tikzpicture}
@@ -940,6 +964,7 @@ One slot may be being filled while another is consumed.
 \Large
 \begin{tikzpicture}[node distance=0mm]
 \input{nyc25_dag.tex}
+\input{nyc25_dag_k.tex}
 \input{nyc25_dag_ring.tex}
 \input{nyc25_dag_war.tex}
 
@@ -961,6 +986,7 @@ WAR hazard: require syncs before re-using ring buffer slots.
 \Large
 \begin{tikzpicture}[node distance=0mm]
 \input{nyc25_dag.tex}
+\input{nyc25_dag_k.tex}
 \input{nyc25_dag_ring.tex}
 \input{nyc25_dag_war.tex}
 
