@@ -110,9 +110,7 @@ Nondeterministic \& subtle bugs possible
 
 {\LARGE
 
-Insert some quality BS here
-
-% Imperative programming: for performance engineering, what-you-see-is-what-you-get.
+Imperative programming: for performance engineering, what-you-see-is-what-you-get.
 
 }
 
@@ -244,6 +242,11 @@ Apply the same 3-level tiling to the \violetBox{n} loop.
 \input{nyc25_tex/reorder_loops.0.tex}
 }
 
+{\LARGE
+Exo checked all rewrites for correctness.
+
+}
+
 \newpage
 \myBiggerTitle{GPU: Blocks \& Threads}
 
@@ -295,7 +298,7 @@ Goal: Map tiles to different levels of the GPU hierarchy
 }
 
 {\LARGE
-Move loops to CUDA device; switch to CUDA memory types
+Move loops to CUDA device; switch to CUDA memory types.
 
 }
 
@@ -308,6 +311,10 @@ Move loops to CUDA device; switch to CUDA memory types
 
 {\LARGE
 Assign large \texttt{M1} $\times$ \texttt{N1} tiles to CUDA blocks.
+
+\textit{NOTE: parallelism is not checked at this step;}
+
+\textit{rewrites treat parallel loops as sequential.}
 
 }
 
@@ -458,7 +465,7 @@ It just subdivides existing thread collectives.
 \node (code) [text width=90mm, left=of C, align=left] {\large \input{nyc25_tex/loops.1.tex}\\};
 \end{tikzpicture}
 
-{\LARGE (Pedagogical: not the most efficient pattern)}
+{\LARGE \textit{Pedagogical: not the most efficient pattern.}}
 
 % \newpage
 \begin{tikzpicture}[node distance=0mm]
@@ -481,7 +488,7 @@ It just subdivides existing thread collectives.
 
 {\LARGE
 
-SMEM: Per-thread-block scratchpad
+SMEM: Per-thread-block \myKeyA{scratchpad}
 
 Tile \blueBox{\texttt{k}} loop by \blueBox{\texttt{K0}} (\texttt{k $\mapsto$ k1 * K0 + k0})
 
@@ -589,6 +596,11 @@ We will split the loop at the indicated locations, retaining the loop structure.
 
 {\large
 \input{nyc25_tex/fission.1.tex}
+}
+
+{\LARGE
+We'll focus on the accumulate loops for the rest of the talk.
+
 }
 
 \newpage
@@ -725,30 +737,96 @@ Not optimal.
 
 
 \newpage
-\myBiggerTitle{TODO}
+\myBiggerTitle{Async Copies}
 
 {\LARGE
-Talk about async instr weirdness
+Ampere (sm\_80) introduced async copy instructions\\
+(GMEM $\to$ SMEM)
 
-Talk about timelines
-
-Talk about cp.async 16 bytes
+Execution continues on without waiting for the copy to finish.
 
 }
 
-
-\newpage
-\myBiggerTitle{Semi-Declarative Synchronization}
+{\Large
+\input{nyc25_tex/cp_async_pseudocode.0.tex}
+}
 
 {\LARGE
+\myKeyA{Overlapping:} issue non-dependent \myKeyA{compute} work while copies are in-flight.
+}
 
-Still executed inline with other imperative code
+\newpage
+\myBiggerTitle{Timelines}
+
+{\LARGE
+Most synchronization instructions \myKeyA{don't wait} for cp.async.
+
+\myKeyA{Timelines:} categorize instrs by \myKeyA{synchronization needed}.
+
 \begin{itemize}
-  \item not a task graph representation, etc.
+  \item \textbf{\texttt{cuda\_in\_order}}: most CUDA instructions
+  \item \textbf{\texttt{Sm80\_cp\_async}}: \texttt{cp.async} (special syncs needed)
+  \item Others for H100 (not in this talk)
 \end{itemize}
 
 }
 
+\newpage
+\myBiggerTitle{Exo-GPU Synchronization}
+
+{\LARGE
+Parameterize Exo-GPU synchronization with timelines:
+
+\begin{center}
+  \texttt{Fence(\myKeyA{L1}, \myKeyB{L2})}
+\end{center}
+
+\textbf{Semi-declarative}; user specifies intended effect:
+
+\begin{center}
+prior \myKeyA{L1}-timeline instrs $\xrightarrow{\textbf{SYNC}}$ future \myKeyB{L2}-timeline instrs
+\end{center}
+
+Compiler chooses exact instructions.
+
+Otherwise imperative\\(executes in program order with surrounding instructions)
+
+}
+
+\newpage
+\myBiggerTitle{GEMM: Prepare for cp.async}
+
+{\large
+\input{nyc25_tex/smem_in_order.2.tex}
+}
+
+{\LARGE
+Current main loop:
+only \textbf{\texttt{cuda\_in\_order}} instructions used,
+so \textbf{\texttt{Fence}} is parameterized with \texttt{cuda\_in\_order}.
+}
+
+\newpage
+\myBiggerTitle{GEMM: Prepare for cp.async}
+
+{\large
+\input{nyc25_tex/smem_in_order.3.tex}
+}
+
+{\LARGE
+TODO: replace these GMEM$\to$SMEM copies with cp.async.
+}
+
+\newpage
+\myBiggerTitle{GEMM: Prepare for cp.async}
+
+{\large
+\input{nyc25_tex/smem_in_order.4.tex}
+}
+
+{\LARGE
+TODO: update timeline parameters for synchronization.
+}
 
 \newpage
 \myBiggerTitle{GEMM: cp.async (Substitute Instruction)}
@@ -774,7 +852,7 @@ Exo allows the rewrite, because the substituted functionality, \textit{ignoring 
 
 {\LARGE
 
-Such instructions must appear in a CudaAsync block.
+Such instructions must be wrapped in a CudaAsync block.
 
 }
 
@@ -787,8 +865,177 @@ Such instructions must appear in a CudaAsync block.
 
 {\LARGE
 
-Change the timeline parameters in the synchronization statements
+Update the timeline parameters for synchronization.
 
+}
+
+\newpage
+\myBiggerTitle{More to do: Overlap Compute/Memory}
+\begin{center}
+\Large
+\begin{tikzpicture}[node distance=0mm]
+\input{nyc25_sync_flow.tex}
+\end{tikzpicture}
+\end{center}
+
+
+\newpage
+\myBiggerTitle{More to do: Overlap Compute/Memory}
+\begin{center}
+\Large
+\begin{tikzpicture}[node distance=0mm]
+\input{nyc25_sync_flow.tex}
+\node (async) [redstyle, right=of A, xshift=-20mm, yshift=-12mm, align=center, text width=40mm, minimum height=25mm] {\textbf{NOW WITH cp.async!}};
+\end{tikzpicture}
+\end{center}
+\hrule
+{\LARGE
+We need to \myKeyA{delay} the accumulate step to a future iteration to make room for overlapping work!
+
+}
+
+\newpage
+\myBiggerTitle{Producer/Consumer Dependencies}
+
+{
+\Large
+\begin{tikzpicture}[node distance=0mm]
+\input{nyc25_dag.tex}
+
+\end{tikzpicture}
+}
+
+\hrule
+
+{\LARGE
+Loop skew: delay \myKeyA{consumption} (compute) of SMEM data by one \blueBox{\texttt{k1}} iteration from SMEM load.
+
+}
+
+\newpage
+\myBiggerTitle{Producer/Consumer Dependencies}
+
+{
+\Large
+\begin{tikzpicture}[node distance=0mm]
+\input{nyc25_dag.tex}
+\input{nyc25_dag_ring.tex}
+
+\end{tikzpicture}
+}
+
+\hrule
+
+{\LARGE
+Need to transform SMEM into a \myKeyA{ring buffer}.
+
+One slot may be being filled while another is consumed.
+
+}
+
+\newpage
+\myBiggerTitle{Producer/Consumer Dependencies}
+
+{
+\Large
+\begin{tikzpicture}[node distance=0mm]
+\input{nyc25_dag.tex}
+\input{nyc25_dag_ring.tex}
+\input{nyc25_dag_war.tex}
+
+\end{tikzpicture}
+}
+
+\hrule
+
+{\LARGE
+WAR hazard: require syncs before re-using ring buffer slots.
+
+}
+
+
+\newpage
+\myBiggerTitle{Producer/Consumer Dependencies}
+
+{
+\Large
+\begin{tikzpicture}[node distance=0mm]
+\input{nyc25_dag.tex}
+\input{nyc25_dag_ring.tex}
+\input{nyc25_dag_war.tex}
+
+\end{tikzpicture}
+}
+
+\hrule
+
+{\LARGE
+Implement dependency graph edges with \myKeyA{split barriers}:\\Arrive/Await.
+}
+
+\newpage
+\myBiggerTitle{Exo-GPU: Arrive/Await}
+
+{\LARGE
+Special variable type: \texttt{\textit{var}: \textbf{barrier}}.
+
+Usage: \texttt{Arrive(\myKeyA{L1}, 1) >> \textit{var}} \hfill \texttt{Await(\textit{var}, \myKeyB{L2}, \blueBox{\textsf{delay}})}
+
+where \texttt{\myKeyA{L1}, \myKeyB{L2}} are timelines as in \texttt{Fence}.
+
+\hspace{5mm}
+
+Threads can't pass the \texttt{Await} until all threads have passed the matched \texttt{Arrive} (matching controled by \blueBox{delay}).
+
+\hspace{5mm}
+
+Put non-dependent work between the Arrive and Await!
+
+}
+
+\newpage
+\myBiggerTitle{GEMM: Todo}
+
+{\large
+\input{nyc25_tex/ring_todo.0.tex}
+}
+
+{\LARGE
+Currently: data movement at the top, compute at the bottom.
+}
+
+\newpage
+\myBiggerTitle{GEMM: Todo, Ring Buffer}
+
+{\large
+\input{nyc25_tex/ring_todo.1.tex}
+}
+
+{\LARGE
+Move the \redBox{\texttt{smem}} declarations out of the \blueBox{\texttt{k1}} loop.\\
+Add ring buffer dimension.
+}
+
+\newpage
+\myBiggerTitle{GEMM: Todo, Loop Skew}
+
+{\large
+\input{nyc25_tex/ring_todo.2.tex}
+}
+
+{\LARGE
+Delay compute (bottom) relative to data movement (top).
+}
+
+\newpage
+\myBiggerTitle{GEMM: Todo, Arrive/Await}
+
+{\large
+\input{nyc25_tex/ring_todo.3.tex}
+}
+
+{\LARGE
+Replace with \textbf{\texttt{Arrive}}, \textbf{\texttt{Await}}.
 }
 
 \newpage
@@ -824,6 +1071,11 @@ Add an extra \blueBox{\texttt{k1}} iteration; delay the accum code by 1 iteratio
 \input{nyc25_tex/split.0.tex}
 }
 
+{\LARGE
+Declare \textbf{\texttt{barrier}}-typed variable.
+
+}
+
 \newpage
 \myBiggerTitle{GEMM: Split Barriers}
 
@@ -831,11 +1083,23 @@ Add an extra \blueBox{\texttt{k1}} iteration; delay the accum code by 1 iteratio
 \input{nyc25_tex/split.1.tex}
 }
 
+{\LARGE
+Resolve RAW Hazard (\textbf{\texttt{Sm80\_cp\_async $\to$ cuda\_in\_order}}).
+
+}
+
 \newpage
 \myBiggerTitle{GEMM: Split Barriers}
 
 {\large
 \input{nyc25_tex/split.2.tex}
+}
+
+{\LARGE
+Resolve WAR Hazard (\textbf{\texttt{cuda\_in\_order $\to$ Sm80\_cp\_async}}).
+
+Required to re-use ring buffer slot.
+
 }
 
 \newpage

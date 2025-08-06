@@ -1,0 +1,40 @@
+\node (A0) [greenstyle, minimum width=28mm, minimum height=12mm, xshift=11mm] {Load A};
+\node (B0) [violetstyle, minimum width=28mm, minimum height=12mm, below=of A0] {Load B};
+
+\node (A1) [greenstyle, minimum width=28mm, minimum height=12mm, xshift=11mm, right=of A0] {Load A};
+\node (B1) [violetstyle, minimum width=28mm, minimum height=12mm, below=of A1] {Load B};
+
+\node (A2) [greenstyle, minimum width=28mm, minimum height=12mm, xshift=11mm, right=of A1] {Load A};
+\node (B2) [violetstyle, minimum width=28mm, minimum height=12mm, below=of A2] {Load B};
+
+\node (A3) [greenstyle, minimum width=28mm, minimum height=12mm, xshift=11mm, right=of A2] {Load A};
+\node (B3) [violetstyle, minimum width=28mm, minimum height=12mm, below=of A3] {Load B};
+
+\node (A4) [greenstyle, minimum width=28mm, minimum height=12mm, xshift=11mm, right=of A3] {Load A};
+\node (B4) [violetstyle, minimum width=28mm, minimum height=12mm, below=of A4] {Load B};
+
+\node (A5) [greenstyle, minimum width=28mm, minimum height=12mm, xshift=11mm, right=of A4] {Load A};
+\node (B5) [violetstyle, minimum width=28mm, minimum height=12mm, below=of A5] {Load B};
+
+\node (A6) [greenstyle, minimum width=28mm, minimum height=12mm, xshift=11mm, right=of A5] {Load A};
+\node (B6) [violetstyle, minimum width=28mm, minimum height=12mm, below=of A6] {Load B};
+
+\node (C0) [minimum width=28mm, minimum height=21mm, below=of B0, yshift=-11mm] {};
+\node (C1) [draw=black, minimum width=28mm, minimum height=21mm, below=of B1, yshift=-11mm] {compute};
+\node (C2) [draw=black, minimum width=28mm, minimum height=21mm, below=of B2, yshift=-11mm] {compute};
+\node (C3) [draw=black, minimum width=28mm, minimum height=21mm, below=of B3, yshift=-11mm] {compute};
+\node (C4) [draw=black, minimum width=28mm, minimum height=21mm, below=of B4, yshift=-11mm] {compute};
+\node (C5) [draw=black, minimum width=28mm, minimum height=21mm, below=of B5, yshift=-11mm] {compute};
+
+\node (k0) [below=of C0] {\blueBox{\texttt{k1 = 0}}};
+\node (k1) [below=of C1] {\blueBox{\texttt{k1 = 1}}};
+\node (k2) [below=of C2] {\blueBox{\texttt{k1 = 2}}};
+\node (k3) [below=of C3] {\blueBox{\texttt{k1 = 3}}};
+\node (k4) [below=of C4] {\blueBox{\texttt{k1 = 4}}};
+\node (k5) [below=of C5] {\blueBox{\texttt{k1 = 5}}};
+
+\draw [arrow] ($(A0.south east)$) to[out=0, in=180] (C1);
+\draw [arrow] ($(A1.south east)$) to[out=0, in=180] (C2);
+\draw [arrow] ($(A2.south east)$) to[out=0, in=180] (C3);
+\draw [arrow] ($(A3.south east)$) to[out=0, in=180] (C4);
+\draw [arrow] ($(A4.south east)$) to[out=0, in=180] (C5);
