@@ -598,7 +598,7 @@ Lift the allocation of \redBox{\texttt{accum}} into thread-block-scope\\
 }
 
 {\LARGE
-Expand dim: each iteration uses its own index of \texttt{accum}.
+Expand dim: each M/N iteration uses its own index of \texttt{accum}.
 }
 
 \newpage
@@ -613,7 +613,6 @@ We will split the loop at the indicated locations, retaining the loop structure.
 }
 
 \newpage
-
 {\large
 \input{nyc25_tex/fission.0.tex}
 }
@@ -631,7 +630,7 @@ We'll focus on the accumulate loops for the rest of the talk.
 }
 
 \newpage
-\myBiggerTitle{GEMM: K Loop Tiling}
+\myBiggerTitle{GEMM: Stage in SMEM}
 
 {\large
 \input{nyc25_tex/smem_broken.0.tex}
@@ -716,7 +715,7 @@ All threads in the thread block wait for each other.
 
 {\LARGE
 Synchronization required:\\
-Thread that loaded a value to SMEM isn't the same as the one that uses it.
+Thread that loads a value to SMEM isn't the same as the one that uses it.
 
 }
 
@@ -768,8 +767,8 @@ Next step: use accelerator instructions\\for the \myKeyA{GMEM}$\to$\myKeyB{SMEM}
 \Large
 \begin{tikzpicture}[node distance=0mm]
 \input{nyc25_sync_flow.tex}
-\node (A_caption) [redstyle, above=of A, yshift=8mm, xshift=6mm] {Accelerate me!};
-\node (B_caption) [redstyle, above=of B, yshift=8mm, xshift=6mm] {Accelerate me!};
+\node (A_caption) [redstyle, above=of A, yshift=11mm, xshift=6mm] {Accelerate me!};
+\node (B_caption) [redstyle, above=of B, yshift=11mm, xshift=6mm] {Accelerate me!};
 \draw [redstyle, arrow, fill=none] (A) -- (A_caption);
 \draw [redstyle, arrow, fill=none] (B) -- (B_caption);
 \end{tikzpicture}

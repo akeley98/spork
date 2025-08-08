@@ -259,7 +259,7 @@ def nyc25_gemm_simple_gpu(M: size, N: size, K: size,
                     * B[k, n2 * N1 + n1 * N0 + n0]
                   )
                 # TeX: color line simple_gpu[6]
-              # rr                                              rrrrrrrrr
+              # rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
                 C[m2 * M1 + m1 * M0 + m0, n2 * N1 + n1 * N0 + n0] = accum
 # TeX: end simple_gpu[1:7]
 # TeX: end simple_gpu[7]
@@ -353,6 +353,8 @@ def nyc25_gemm_expand_dim(M: size, N: size, K: size,
                 accum[m1, n1, m0, n0] = 0
                 # TeX: remark! expand_dim[2]
         # FISSION HERE
+                # TeX: color line *
+                #   b    bbbbbbbbb
                 for k in seq(0, K):
                   # TeX: color line expand_dim[1:]
                   #     yy  rr  gg  vv
@@ -415,6 +417,8 @@ def nyc25_gemm_fission(M: size, N: size, K: size,
               # TeX: color line *
               #   vv
               for n0 in seq(0, N0):
+                # TeX: color line *
+                #   b    bbbbbbbbb
                 for k in seq(0, K):
                   accum[m1, n1, m0, n0] += (A[m2 * M1 + m1 * M0 + m0, k]
                                           * B[k, n2 * N1 + n1 * N0 + n0])
@@ -433,23 +437,15 @@ def nyc25_gemm_fission(M: size, N: size, K: size,
               # TeX: color line *
               #   vv
               for n0 in seq(0, N0):
-                C[m2 * M1 + m1 * M0 + m0, n2 * N1 + n1 * N0 + n0] = (
-                    accum[m1, n1, m0, n0])
+                # TeX: color line *
+                #                                                         ..............
+                C[m2 * M1 + m1 * M0 + m0, n2 * N1 + n1 * N0 + n0] = accum[m1, n1, m0, n0]
 # TeX: end fission[0]
 
 nyc25_gemm_fission = simplify(nyc25_gemm_fission)
 
 
-@proc
-def gpu_gemm(M: size, N: size, K: size,
-             # TeX: color line *
-             #            gggggggggggggggg
-             A: f32[M, K] @ CudaGmemLinear,
-             # TeX: color line *
-             #            vvvvvvvvvvvvvvvv
-             B: f32[K, N] @ CudaGmemLinear,
-             C: f32[M, N] @ CudaGmemLinear):
-    # ...
+if False:
     # TeX: version k1_before_smem 1
     # TeX: begin k1_before_smem
     # TeX: color line *
@@ -866,6 +862,7 @@ def nyc25_gemm_ring(M: size, N: size, K: size, A: f32[M, K] @ CudaGmemLinear, B:
 nyc25_gemm_ring = simplify(nyc25_gemm_ring)
 
 
+"""
 # TeX: version cp_async_pseudocode 1
 # TeX: begin cp_async_pseudocode[0]
 def cp_async_pseudocode():
@@ -879,6 +876,7 @@ def cp_async_pseudocode():
     #       rrrrrrrr
     consume(smem_dst)
     # TeX: end cp_async_pseudocode[0]
+"""
 
 
 def tensor_core():
