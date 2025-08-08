@@ -1,0 +1,367 @@
+\newpage
+\begin{center}
+\Large
+\begin{tikzpicture}[node distance=0mm]
+\input{nyc25_no_sync_flow.tex}
+\node (text) [below=of B] {\textbf{All steps are thread-block-cooperative.}};
+\end{tikzpicture}
+\end{center}
+
+\vfill
+\hrule
+\vfill
+
+\begin{center}
+\begin{tikzpicture}[node distance=2mm]
+\input{nyc25_k0_tile.tex}
+\end{tikzpicture}
+\end{center}
+
+\newpage
+\begin{center}
+\Large
+\begin{tikzpicture}[node distance=0mm]
+\input{nyc25_no_sync_flow.tex}
+\node (text) [below=of B] {\textbf{All steps are thread-block-cooperative.}};
+\end{tikzpicture}
+\end{center}
+
+\vfill
+\hrule
+\vfill
+
+\begin{center}
+\begin{tikzpicture}[node distance=2mm]
+\input{nyc25_k0_tile.tex}
+\node (k1) [above=of c0] {\huge \blueBox{\texttt{k1=0}}};
+\node (smemA) [below=of a0, fill=white, yshift=-5mm] {\myKeyA{SMEM}};
+\node (smemB) [right=of b0, fill=white, xshift=5mm] {\myKeyA{SMEM}};
+\draw [arrow] (a0) -- (smemA);
+\draw [arrow] (b0) -- (smemB);
+\end{tikzpicture}
+\end{center}
+
+
+\newpage
+\begin{center}
+\Large
+\begin{tikzpicture}[node distance=0mm]
+\input{nyc25_no_sync_flow.tex}
+\node (text) [below=of B] {\textbf{All steps are thread-block-cooperative.}};
+\end{tikzpicture}
+\end{center}
+
+\vfill
+\hrule
+\vfill
+
+\begin{center}
+\begin{tikzpicture}[node distance=2mm]
+\input{nyc25_k0_tile.tex}
+\node (k1) [above=of c0] {\huge \blueBox{\texttt{k1=0}}};
+\node (smemA) [below=of a0, fill=white, yshift=-5mm] {\myKeyA{SMEM}};
+\node (smemB) [right=of b0, fill=white, xshift=5mm] {\myKeyA{SMEM}};
+\draw [arrow] (smemA) -- (c0);
+\draw [arrow] (smemB) -- (c0);
+\end{tikzpicture}
+\end{center}
+
+
+\newpage
+\begin{center}
+\Large
+\begin{tikzpicture}[node distance=0mm]
+\input{nyc25_no_sync_flow.tex}
+\node (text) [below=of B] {\textbf{All steps are thread-block-cooperative.}};
+\end{tikzpicture}
+\end{center}
+
+\vfill
+\hrule
+\vfill
+
+\begin{center}
+\begin{tikzpicture}[node distance=2mm]
+\input{nyc25_k0_tile.tex}
+\node (k1) [above=of c0] {\huge \blueBox{\texttt{k1=1}}};
+\node (smemA) [below=of a1, fill=white, yshift=-5mm] {\myKeyA{SMEM}};
+\node (smemB) [right=of b1, fill=white, xshift=5mm] {\myKeyA{SMEM}};
+\draw [arrow] (a1) -- (smemA);
+\draw [arrow] (b1) -- (smemB);
+\end{tikzpicture}
+\end{center}
+
+
+\newpage
+\begin{center}
+\Large
+\begin{tikzpicture}[node distance=0mm]
+\input{nyc25_no_sync_flow.tex}
+\node (text) [below=of B] {\textbf{All steps are thread-block-cooperative.}};
+\end{tikzpicture}
+\end{center}
+
+\vfill
+\hrule
+\vfill
+
+\begin{center}
+\begin{tikzpicture}[node distance=2mm]
+\input{nyc25_k0_tile.tex}
+\node (k1) [above=of c0] {\huge \blueBox{\texttt{k1=1}}};
+\node (smemA) [below=of a1, fill=white, yshift=-5mm] {\myKeyA{SMEM}};
+\node (smemB) [right=of b1, fill=white, xshift=5mm] {\myKeyA{SMEM}};
+\draw [arrow] (smemA) -- (c0);
+\draw [arrow] (smemB) -- (c0);
+\end{tikzpicture}
+\end{center}
+
+
+\newpage
+\begin{center}
+\Large
+\begin{tikzpicture}[node distance=0mm]
+\input{nyc25_no_sync_flow.tex}
+\node (text) [below=of B] {\textbf{All steps are thread-block-cooperative.}};
+\end{tikzpicture}
+\end{center}
+
+\vfill
+\hrule
+\vfill
+
+\begin{center}
+\begin{tikzpicture}[node distance=2mm]
+\input{nyc25_k0_tile.tex}
+\node (k1) [above=of c0] {\huge \blueBox{\texttt{k1=2}}};
+\node (smemA) [below=of a2, fill=white, yshift=-5mm] {\myKeyA{SMEM}};
+\node (smemB) [right=of b2, fill=white, xshift=5mm] {\myKeyA{SMEM}};
+\draw [arrow] (a2) -- (smemA);
+\draw [arrow] (b2) -- (smemB);
+\end{tikzpicture}
+\end{center}
+
+
+\newpage
+\begin{center}
+\Large
+\begin{tikzpicture}[node distance=0mm]
+\input{nyc25_no_sync_flow.tex}
+\node (text) [below=of B] {\textbf{All steps are thread-block-cooperative.}};
+\end{tikzpicture}
+\end{center}
+
+\vfill
+\hrule
+\vfill
+
+\begin{center}
+\begin{tikzpicture}[node distance=2mm]
+\input{nyc25_k0_tile.tex}
+\node (k1) [above=of c0] {\huge \blueBox{\texttt{k1=2}}};
+\node (smemA) [below=of a2, fill=white, yshift=-5mm] {\myKeyA{SMEM}};
+\node (smemB) [right=of b2, fill=white, xshift=5mm] {\myKeyA{SMEM}};
+\draw [arrow] (smemA) -- (c0);
+\draw [arrow] (smemB) -- (c0);
+\end{tikzpicture}
+\end{center}
+
+
+\newpage
+\begin{center}
+\Large
+\begin{tikzpicture}[node distance=0mm]
+\input{nyc25_no_sync_flow.tex}
+\node (text) [below=of B] {\textbf{All steps are thread-block-cooperative.}};
+\end{tikzpicture}
+\end{center}
+
+\vfill
+\hrule
+\vfill
+
+\begin{center}
+\begin{tikzpicture}[node distance=2mm]
+\input{nyc25_k0_tile.tex}
+\node (k1) [above=of c0] {\huge \blueBox{\texttt{k1=3}}};
+\node (smemA) [below=of a3, fill=white, yshift=-5mm] {\myKeyA{SMEM}};
+\node (smemB) [right=of b3, fill=white, xshift=5mm] {\myKeyA{SMEM}};
+\draw [arrow] (a3) -- (smemA);
+\draw [arrow] (b3) -- (smemB);
+\end{tikzpicture}
+\end{center}
+
+
+\newpage
+\begin{center}
+\Large
+\begin{tikzpicture}[node distance=0mm]
+\input{nyc25_no_sync_flow.tex}
+\node (text) [below=of B] {\textbf{All steps are thread-block-cooperative.}};
+\end{tikzpicture}
+\end{center}
+
+\vfill
+\hrule
+\vfill
+
+\begin{center}
+\begin{tikzpicture}[node distance=2mm]
+\input{nyc25_k0_tile.tex}
+\node (k1) [above=of c0] {\huge \blueBox{\texttt{k1=3}}};
+\node (smemA) [below=of a3, fill=white, yshift=-5mm] {\myKeyA{SMEM}};
+\node (smemB) [right=of b3, fill=white, xshift=5mm] {\myKeyA{SMEM}};
+\draw [arrow] (smemA) -- (c0);
+\draw [arrow] (smemB) -- (c0);
+\end{tikzpicture}
+\end{center}
+
+
+\newpage
+\begin{center}
+\Large
+\begin{tikzpicture}[node distance=0mm]
+\input{nyc25_no_sync_flow.tex}
+\node (text) [below=of B] {\textbf{All steps are thread-block-cooperative.}};
+\end{tikzpicture}
+\end{center}
+
+\vfill
+\hrule
+\vfill
+
+\begin{center}
+\begin{tikzpicture}[node distance=2mm]
+\input{nyc25_k0_tile.tex}
+\node (k1) [above=of c0] {\huge \blueBox{\texttt{k1=4}}};
+\node (smemA) [below=of a4, fill=white, yshift=-5mm] {\myKeyA{SMEM}};
+\node (smemB) [right=of b4, fill=white, xshift=5mm] {\myKeyA{SMEM}};
+\draw [arrow] (a4) -- (smemA);
+\draw [arrow] (b4) -- (smemB);
+\end{tikzpicture}
+\end{center}
+
+
+\newpage
+\begin{center}
+\Large
+\begin{tikzpicture}[node distance=0mm]
+\input{nyc25_no_sync_flow.tex}
+\node (text) [below=of B] {\textbf{All steps are thread-block-cooperative.}};
+\end{tikzpicture}
+\end{center}
+
+\vfill
+\hrule
+\vfill
+
+\begin{center}
+\begin{tikzpicture}[node distance=2mm]
+\input{nyc25_k0_tile.tex}
+\node (k1) [above=of c0] {\huge \blueBox{\texttt{k1=4}}};
+\node (smemA) [below=of a4, fill=white, yshift=-5mm] {\myKeyA{SMEM}};
+\node (smemB) [right=of b4, fill=white, xshift=5mm] {\myKeyA{SMEM}};
+\draw [arrow] (smemA) -- (c0);
+\draw [arrow] (smemB) -- (c0);
+\end{tikzpicture}
+\end{center}
+
+
+\newpage
+\begin{center}
+\Large
+\begin{tikzpicture}[node distance=0mm]
+\input{nyc25_no_sync_flow.tex}
+\node (text) [below=of B] {\textbf{All steps are thread-block-cooperative.}};
+\end{tikzpicture}
+\end{center}
+
+\vfill
+\hrule
+\vfill
+
+\begin{center}
+\begin{tikzpicture}[node distance=2mm]
+\input{nyc25_k0_tile.tex}
+\node (k1) [above=of c0] {\huge \blueBox{\texttt{k1=5}}};
+\node (smemA) [below=of a5, fill=white, yshift=-5mm] {\myKeyA{SMEM}};
+\node (smemB) [right=of b5, fill=white, xshift=5mm] {\myKeyA{SMEM}};
+\draw [arrow] (a5) -- (smemA);
+\draw [arrow] (b5) -- (smemB);
+\end{tikzpicture}
+\end{center}
+
+
+\newpage
+\begin{center}
+\Large
+\begin{tikzpicture}[node distance=0mm]
+\input{nyc25_no_sync_flow.tex}
+\node (text) [below=of B] {\textbf{All steps are thread-block-cooperative.}};
+\end{tikzpicture}
+\end{center}
+
+\vfill
+\hrule
+\vfill
+
+\begin{center}
+\begin{tikzpicture}[node distance=2mm]
+\input{nyc25_k0_tile.tex}
+\node (k1) [above=of c0] {\huge \blueBox{\texttt{k1=5}}};
+\node (smemA) [below=of a5, fill=white, yshift=-5mm] {\myKeyA{SMEM}};
+\node (smemB) [right=of b5, fill=white, xshift=5mm] {\myKeyA{SMEM}};
+\draw [arrow] (smemA) -- (c0);
+\draw [arrow] (smemB) -- (c0);
+\end{tikzpicture}
+\end{center}
+
+
+\newpage
+\begin{center}
+\Large
+\begin{tikzpicture}[node distance=0mm]
+\input{nyc25_no_sync_flow.tex}
+\node (text) [below=of B] {\textbf{All steps are thread-block-cooperative.}};
+\end{tikzpicture}
+\end{center}
+
+\vfill
+\hrule
+\vfill
+
+\begin{center}
+\begin{tikzpicture}[node distance=2mm]
+\input{nyc25_k0_tile.tex}
+\node (k1) [above=of c0] {\huge \blueBox{\texttt{k1=6}}};
+\node (smemA) [below=of a6, fill=white, yshift=-5mm] {\myKeyA{SMEM}};
+\node (smemB) [right=of b6, fill=white, xshift=5mm] {\myKeyA{SMEM}};
+\draw [arrow] (a6) -- (smemA);
+\draw [arrow] (b6) -- (smemB);
+\end{tikzpicture}
+\end{center}
+
+
+\newpage
+\begin{center}
+\Large
+\begin{tikzpicture}[node distance=0mm]
+\input{nyc25_no_sync_flow.tex}
+\node (text) [below=of B] {\textbf{All steps are thread-block-cooperative.}};
+\end{tikzpicture}
+\end{center}
+
+\vfill
+\hrule
+\vfill
+
+\begin{center}
+\begin{tikzpicture}[node distance=2mm]
+\input{nyc25_k0_tile.tex}
+\node (k1) [above=of c0] {\huge \blueBox{\texttt{k1=6}}};
+\node (smemA) [below=of a6, fill=white, yshift=-5mm] {\myKeyA{SMEM}};
+\node (smemB) [right=of b6, fill=white, xshift=5mm] {\myKeyA{SMEM}};
+\draw [arrow] (smemA) -- (c0);
+\draw [arrow] (smemB) -- (c0);
+\end{tikzpicture}
+\end{center}

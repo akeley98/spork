@@ -56,106 +56,7 @@ Jonathan Ragan-Kelley
 %\includegraphics[width=\linewidth]{usda_spork.jpg}
 
 \newpage
-\myBiggerTitle{Challenge: SIMT Parallelism}
-
-{\LARGE
-
-Talk about launching blocks of threads
-
-Talk about mapping work to threads
-
-Diagram: vector add eye candy? y[threadIdx] += x[threadIdx]
-
-}
-
-\newpage
-\myBiggerTitle{Challenge: Memory / Compute Overlap}
-
-{\LARGE
-SIMT = overlapping identical workloads.\\
-We should also overlap heterogenous work: data \& compute.
-
-}
-\hrule
-{
-\Large
-\begin{tikzpicture}[node distance=0mm]
-
-\node (C0) [draw=black, minimum width=28mm, minimum height=24mm] {compute};
-\node (C1) [draw=black, minimum width=28mm, minimum height=24mm, anchor=center, xshift=72mm] at(C0) {compute};
-\node (C2) [draw=black, minimum width=28mm, minimum height=24mm, anchor=center, xshift=72mm] at(C1) {compute};
-\node(bad) [left=of C0, xshift=-40mm] {\textbf{BAD}};
-
-\node (A0) [greenstyle, minimum width=28mm, minimum height=12mm, anchor=center, xshift=-36mm, yshift=6mm] at(C0) {Load A};
-\node (B0) [violetstyle, minimum width=28mm, minimum height=12mm, anchor=center, xshift=-36mm, yshift=-6mm] at(C0) {Load B};
-
-\node (A1) [greenstyle, minimum width=28mm, minimum height=12mm, anchor=center, xshift=-36mm, yshift=6mm] at(C1) {Load A};
-\node (B1) [violetstyle, minimum width=28mm, minimum height=12mm, anchor=center, xshift=-36mm, yshift=-6mm] at(C1) {Load B};
-
-\node (A2) [greenstyle, minimum width=28mm, minimum height=12mm, anchor=center, xshift=-36mm, yshift=6mm] at(C2) {Load A};
-\node (B2) [violetstyle, minimum width=28mm, minimum height=12mm, anchor=center, xshift=-36mm, yshift=-6mm] at(C2) {Load B};
-
-\draw [arrow] (A0.south east) -- (C0.west);
-\draw [arrow] (C0.east) -- (A1.south west);
-\draw [arrow] (A1.south east) -- (C1.west);
-\draw [arrow] (C1.east) -- (A2.south west);
-\draw [arrow] (A2.south east) -- (C2.west);
-
-\end{tikzpicture}
-}
-\vspace{-1mm}
-\hrule
-{
-\Large
-\begin{tikzpicture}[node distance=0mm]
-\input{nyc25_dag.tex}
-\input{nyc25_dag_war.tex}
-\node(good) [anchor=center] at(C0) {\textbf{GOOD}};
-\end{tikzpicture}
-}
-
-\newpage
-\myBiggerTitle{Challenge: Efficient Synchronization}
-
-{\LARGE
-
-Try not to stall threads
-
-Don't screw up
-
-Nondeterministic \& subtle bugs possible
-
-}
-
-\newpage
-\myBiggerTitle{Goals}
-
-{\LARGE
-
-Imperative programming: for performance engineering, what-you-see-is-what-you-get.
-
-}
-
-
-\newpage
-\myBiggerTitle{Exo: User-schedulable Language}
-
-{\LARGE
-Python-embedded imperative language
-
-Rewrite rules: Python functions transform procedures
-\begin{itemize}
-  \item checked for functional equivalence
-\end{itemize}
-
-Instruction substitution: replace code blocks with instructions of equivalent functionality.
-
-Exo exists today; extending it to model GPUs in a disciplined way. \yellowBox{CPU-based accelerators}
-
-}
-
-\newpage
-\myBiggerTitle{GEMM: Starting Code}
+\myBiggerTitle{GEMM: Starting out with Exo}
 
 {\large
 \input{nyc25_tex/cpu.0.tex}
@@ -164,48 +65,78 @@ Exo exists today; extending it to model GPUs in a disciplined way. \yellowBox{CP
 {\LARGE
 \texttt{@proc} (procedure) decorator captures Python AST\\transpiled to C or CUDA C++.
 
-}
-
-\newpage
-\myBiggerTitle{GEMM: Starting Code}
-
-{\large
-\input{nyc25_tex/cpu.1.tex}
-}
-
-{\LARGE
-Static typing:\\
-annotate proc parameters, allocated variables.
+\myKeyA{Imperative control flow:} most constructs map 1:1 to C.
 
 }
 
 \newpage
-\myBiggerTitle{GEMM: Starting Code}
-
-{\large
-\input{nyc25_tex/cpu.2.tex}
-}
-
-{\LARGE
-Memory annotation:\\
-\texttt{@}-sign associates memory type for parameters \& declarations
-}
-
-\newpage
-\myBiggerTitle{GEMM: Starting Code}
+\myBiggerTitle{GEMM: Starting out with Exo}
 
 {\large
 \input{nyc25_tex/cpu.3.tex}
 }
 
 {\LARGE
-Most constructs map 1:1 to C.
+\texttt{seq}-loop $\mapsto$ \texttt{for (\textit{int var} = lo; \textit{var} < hi; ++\textit{var})}
 
-\texttt{seq}-loop $\mapsto$ \texttt{for (int \textit{var} = lo; \textit{var} < hi; ++\textit{var})}
-
-``sequential'' loop here; contrast to par loops later.
+\myKeyA{Sequential} loops here; contrast to \myKeyB{parallel} loops later.
 
 }
+
+\newpage
+\myBiggerTitle{GEMM: Starting out with Exo}
+
+{\large
+\input{nyc25_tex/cpu.1.tex}
+}
+
+{\LARGE
+\myKeyA{Static typing:}\\
+annotate proc parameters, allocated variables.
+
+}
+
+\newpage
+\myBiggerTitle{GEMM: Starting out with Exo}
+
+{\large
+\input{nyc25_tex/cpu.2.tex}
+}
+
+{\LARGE
+\myKeyA{Memory annotation:} \texttt{@}-sign associates memory type\\
+for parameters \& declarations.
+}
+
+\newpage
+\myBiggerTitle{Exo Rewrites}
+
+{\LARGE
+\myKeyA{User scheduling:} Python-embedded \texttt{proc} objects can be metaprogrammed using \myKeyA{behavior-preserving} rewrites.
+
+Start with simple \texttt{proc}; rewrite into optimized \texttt{proc}.
+\begin{itemize}
+  \item e.g. optimize memory access patterns.
+  \item target \myKeyA{CPU-based} accelerators supported by Exo today (e.g. Intel AMX)
+\end{itemize}
+
+
+Goal: extend rewrite model \& underlying semantics to model \myKeyB{imperative GPU programming} in a disciplined way.
+
+}
+
+\newpage
+\myBiggerTitle{GEMM: M/N Tiling}
+
+{\large
+\input{nyc25_tex/cpu.3.tex}
+}
+
+{\LARGE
+We want to \myKeyA{tile} the \greenBox{m}/\violetBox{n} loop nest.
+
+}
+
 
 \newpage
 \myBiggerTitle{GEMM: Divide Loop (M)}
@@ -241,7 +172,7 @@ Exo rewrites all uses of \greenBox{\texttt{m}} in the loop body.
 }
 
 {\LARGE
-Assume perfect tiling to simplify this talk (no tail case)
+Assume perfect tiling to simplify this talk (no tail case).
 
 }
 
@@ -258,46 +189,55 @@ Apply the same 3-level tiling to the \violetBox{n} loop.
 }
 
 \newpage
-\myBiggerTitle{GEMM: Reorder Loops \yellowBox{\small SO read off how the code works now ``so we loop over''}}
+\myBiggerTitle{GEMM: Reorder Loops}
 
 {\large
 \input{nyc25_tex/reorder_loops.0.tex}
 }
 
 {\LARGE
-Exo checked all rewrites for correctness.
-
-\yellowBox{Transition; future parallel rewrites not checked here.}
-
-\yellowBox{Before and after for tiling}
+Reorder loops; Exo checked all rewrites for correctness.
 
 }
 
 \newpage
-\myBiggerTitle{GPU: Blocks \& Threads \yellowBox{colors, remove code comments}}
+\myBiggerTitle{GEMM: Loop Nest Before \& After}
+
+{\large
+\input{nyc25_tex/cpu.4.tex}
+}
+
+\vspace{1mm}
+\hrule
+
+{\large
+\input{nyc25_tex/reorder_loops.1.tex}
+}
+
+\newpage
+\myBiggerTitle{GPU: Blocks \& Threads}
 
 {\LARGE
 
 Goal: Map tiles to different levels of the GPU hierarchy
 
 \begin{itemize}
-\item Demarcate CPU / CUDA code division
-\item Change sequential loops to parallel
-\item Use GPU memory
+\item Launch \myKeyA{grid} of CUDA threads from \myKeyA{CPU}.
+\item Map work to CUDA threads with \myKeyB{parallel for} loops.
 \end{itemize}
 
 }
-
+\vfill
 \begin{tikzpicture}[node distance=2mm]
 
-\node (grid) [greennode, text width=5cm, minimum width=5cm] {grid};
+\node (grid) [bluenode, text width=5cm, minimum width=5cm] {grid};
 \node (cpu) [left=of grid, xshift=-2cm] {\textbf{CPU}};
 \draw [arrow] (cpu) -- node[above] {\textbf{launch}} (grid);
 \node (cuda) [above=of grid, yshift=+4mm] {\textbf{CUDA Constructs}};
 \node (exo) [right=of cuda, xshift=25mm] {\textbf{Exo-GPU Constructs}};
 
-\node (cta0) [greennode, text width=20mm, minimum width=20mm, below=of grid, xshift=-15mm, yshift=-1cm] {block};
-\node (cta1) [greennode, text width=20mm, minimum width=20mm, below=of grid, xshift=+15mm, yshift=-1cm] {block};
+\node (cta0) [rednode, text width=20mm, minimum width=20mm, below=of grid, xshift=-15mm, yshift=-1cm] {block};
+\node (cta1) [rednode, text width=20mm, minimum width=20mm, below=of grid, xshift=+15mm, yshift=-1cm] {block};
 
 \node (thread0) [greennode, text width=16mm, minimum width=16mm, below=of cta0, yshift=-1cm, xshift=-32mm] {thread};
 \node (thread1) [greennode, text width=16mm, minimum width=16mm, right=of thread0] {thread};
@@ -306,15 +246,42 @@ Goal: Map tiles to different levels of the GPU hierarchy
 \draw [arrow] (grid.south) to[out=270, in=90] (cta0.north);
 \draw [arrow] (grid.south) to[out=270, in=90] (cta1.north);
 
-\draw [arrow] (cta0.south) to[out=270, in=90] (thread0.north);
+\draw [arrow] (cta0.south) to[out=250, in=90] (thread0.north);
 \draw [arrow] (cta0.south) to[out=270, in=90] (thread1.north);
 \draw [arrow] (cta0.south) to[out=270, in=90] (thread2.north);
-\draw [dotted] (thread1.east) -- node[above] {\blueBox{blockDim}} (thread2.west);
+\draw [dotted] (thread1.east) -- (thread2.west);
+
+\node (blockDim) [yshift=-1cm] at ($(thread0.south)!0.5!(thread2.south)$) {\blueBox{blockDim}};
+\draw [thick, bluestyle, fill=none] (thread0.south) to[out=270, in=90] (blockDim.north);
+\draw [thick, bluestyle, fill=none] (thread2.south) to[out=270, in=90] (blockDim.north);
 
 \node (CudaDeviceFunction) [align=left, right=of grid, text width=100mm] {\large\texttt{\codecomment{\# CPU launches grid}\\with CudaDeviceFunction(\blueBox{blockDim=\textit{arg}}):\\~~\codecomment{\# Body lowered to CUDA C++}}\\};
-\node (cudaTasks) [align=left, right=of cta1, text width=100mm] {\large\texttt{~~\codecomment{\# Parallel-for loop}\\~~\codecomment{\# generates per-block tasks}\\~~for \textit{iter} in cuda\_tasks(\textit{lo}, \textit{hi}):}\\};
-\node (cudaThreads) [align=left, right=of thread2, text width=110mm] {\large\texttt{~~~~\codecomment{\# Somewhat more complicated}\\~~~~\codecomment{\# Assigns threads to iterations}\\~~~~for \textit{iter} in cuda\_threads(\textit{lo}, \textit{hi}, unit=\textit{u}):}\\};
+\node (cudaTasks) [align=left, right=of cta1, text width=100mm] {\large\texttt{~~for \textit{\redBox{iter}} in cuda\_tasks(\textit{lo}, \textit{hi}):}\\};
+\node (cudaThreads) [align=left, right=of thread2, text width=110mm] {\large\texttt{~~~~for \textit{\greenBox{iter}} in cuda\_threads(\textit{lo}, \textit{hi}, unit=\textit{u}):}\\};
 \end{tikzpicture}
+
+\newpage
+\myBiggerTitle{Sequential-first Model}
+
+{\LARGE
+Thus far, % you have been adrift in the sheltered harbour of my patience
+all rewrites were \myKeyA{checked for correctness}.
+\begin{itemize}
+  \item transitivity: all correct $\implies$ original/final \texttt{proc} equivalent.
+\end{itemize}
+
+Exo-GPU adds ``parallelize'' rewrites:
+\begin{itemize}
+  \item \myKeyA{Assumed correct} during scheduling.
+  \item Only check the final \texttt{proc} for correct synchronization.
+\end{itemize}
+
+Rewrites treat \myKeyB{parallel for} loops as if they were \myKeyA{sequential}.
+\begin{itemize}
+  \item Corpus of Exo rewrites kept as-is for Exo-GPU.
+  \item Only worry about parallelism at the end.
+\end{itemize}
+}
 
 \newpage
 \myBiggerTitle{GEMM: GPU and Memory \yellowBox{\small Remove GPU loops here}}
@@ -324,7 +291,9 @@ Goal: Map tiles to different levels of the GPU hierarchy
 }
 
 {\LARGE
-Move loops to CUDA device; switch to CUDA memory types.
+Move loop nest to CUDA device.
+
+Switch to CUDA memory types.
 
 }
 
@@ -337,10 +306,6 @@ Move loops to CUDA device; switch to CUDA memory types.
 
 {\LARGE
 Assign large \texttt{M1} $\times$ \texttt{N1} tiles to CUDA blocks.
-
-\textit{NOTE: parallelism is not checked at this step;}
-
-\textit{rewrites treat parallel loops as sequential.}
 
 }
 
@@ -357,10 +322,6 @@ Assign large \texttt{M1} $\times$ \texttt{N1} tiles to CUDA blocks.
 
 {\LARGE
 Assign small \texttt{M0} $\times$ \texttt{N0} tiles to CUDA threads.
-
-\textit{NOTE: parallelism is not checked at this step;}
-
-\textit{rewrites treat parallel loops as sequential.}
 
 }
 
@@ -398,11 +359,10 @@ Each thread loops over \texttt{M0} $\times$ \texttt{N0} iteration space.
 }
 
 {\LARGE
-\texttt{unit} argument: \myKeyA{collective unit}.
-
-Describes ``shape'' of grouping of threads (\myKeyA{thread collective}) assigned to execute each iteration of the loop.
-
-Static property of each scope in Exo-GPU.
+\texttt{\textbf{cuda\_threads}} support non-1:1 threads/iterations mapping.
+\begin{itemize}
+  \item Assign multiple threads per parallel for loop ``iteration''.
+\end{itemize}
 
 }
 
@@ -414,8 +374,29 @@ Static property of each scope in Exo-GPU.
 }
 
 {\LARGE
-Unlike other parallel loops, \texttt{cuda\_threads} cannot spawn more threads.
-It just subdivides existing thread collectives.
+
+Configure with the \myKeyA{collective unit} (\texttt{unit} argument).
+\begin{itemize}
+  \item Static property of each scope in Exo-GPU.
+\end{itemize}
+
+One \myKeyA{thread collective} executes each iteration of the loop.
+\begin{itemize}
+  \item shape defined by \myKeyA{collective unit}.
+\end{itemize}
+
+}
+
+\newpage
+\myBiggerTitle{GPU Thread Loops}
+
+{\large
+\input{nyc25_tex/cuda_threads.0.tex}
+}
+
+{\LARGE
+Unlike other parallel loops, \texttt{\textbf{cuda\_threads}} cannot spawn more threads.
+It just \myKeyA{subdivides} existing thread collectives.
 }
 
 \begin{tikzpicture}[node distance=2mm]
@@ -514,11 +495,14 @@ It just subdivides existing thread collectives.
 
 {\LARGE
 
-SMEM: Per-thread-block \myKeyA{scratchpad}
+\myKeyA{SMEM:} Per-thread-block ``scratchpad''
 
-Tile \blueBox{\texttt{k}} loop by \blueBox{\texttt{K0}} (\texttt{k $\mapsto$ k1 * K0 + k0})
+Save needed block of \greenBox{A}, \violetBox{B} in SMEM.
+\begin{itemize}
+  \item Break blocks into tiles to fit within SMEM.
+\end{itemize}
 
-Thread block cooperates to store A, B tiles in SMEM.
+Tile \blueBox{\texttt{k}} loop by \blueBox{\texttt{K0}} (\texttt{k $\mapsto$ k1 * K0 + k0}).
 
 }
 
@@ -530,24 +514,9 @@ Thread block cooperates to store A, B tiles in SMEM.
 \end{tikzpicture}
 \end{center}
 
-\newpage
-\begin{center}
-\Large
-\begin{tikzpicture}[node distance=0mm]
-\input{nyc25_no_sync_flow.tex}
-\node (text) [below=of B] {\textbf{All steps are thread-block-cooperative.}};
-\end{tikzpicture}
-\end{center}
 
-\vfill
-\hrule
-\vfill
+\input{nyc25_k_tile_slides.tex}
 
-\begin{center}
-\begin{tikzpicture}[node distance=2mm]
-\input{nyc25_k0_tile.tex}
-\end{tikzpicture}
-\end{center}
 
 \newpage
 \myBiggerTitle{GEMM: Restructuring}
@@ -557,17 +526,45 @@ Thread block cooperates to store A, B tiles in SMEM.
 }
 
 {\LARGE
-TODO: divide \texttt{k} loop \& reorder
-
-TODO: factor out of \blueBox{\texttt{k1}} loop: \texttt{accum = 0}, write to \texttt{C}
+TODO: divide \texttt{k} loop \& reorder outside \texttt{\textbf{cuda\_threads}} loops.
 
 }
+
+
+\newpage
+\myBiggerTitle{GEMM: Restructuring}
+
+{\large
+\input{nyc25_tex/simple_gpu.6.tex}
+}
+
+{\LARGE
+TODO: factor out of \blueBox{\texttt{k1}} loop: \texttt{accum = 0}, write to \texttt{C}.
+
+}
+
+
+\newpage
+\myBiggerTitle{GEMM: Restructuring}
+\begin{center}
+\Large
+\begin{tikzpicture}[node distance=0mm]
+\input{nyc25_no_sync_flow.tex}
+\node (text) [below=of B] {\textbf{All steps are thread-block-cooperative.}};
+\node (move_zero) [yellownode, above=of zero, yshift=+5mm] {Factor out of loop};
+\node (move_C) [yellownode, above=of C, yshift=+5mm] {Factor out of loop};
+\node (k1_info) [yellownode, above=of k1, yshift=+2mm] {Main loop};
+\draw [arrow] (move_C) to[out=300, in=60] (C);
+\draw [arrow] (move_zero) to[out=300, in=60] (zero);
+\end{tikzpicture}
+\end{center}
+
 
 \newpage
 \myBiggerTitle{GEMM: Lift Alloc \& Expand Dim}
 
 {\large
-\input{nyc25_tex/simple_gpu.6.tex}
+\input{nyc25_tex/simple_gpu.7.tex}
 }
 
 {\LARGE
@@ -597,7 +594,7 @@ Lift the allocation of \redBox{\texttt{accum}} into thread-block-scope\\
 }
 
 {\LARGE
-Expand dim: each iteration uses its own index of \texttt{accum}
+Expand dim: each iteration uses its own index of \texttt{accum}.
 }
 
 \newpage
@@ -646,6 +643,18 @@ We'll focus on the accumulate loops for the rest of the talk.
 \input{nyc25_no_sync_flow.tex}
 \end{tikzpicture}
 \end{center}
+
+\newpage
+\myBiggerTitle{GEMM: Stage in SMEM}
+
+{\large
+\input{nyc25_tex/k1_before_smem.0.tex}
+}
+
+{\LARGE
+Replace direct reads from \greenBox{A}, \violetBox{B} (in GMEM) with SMEM.
+
+}
 
 \newpage
 \myBiggerTitle{GEMM: Stage in SMEM}
@@ -743,9 +752,7 @@ Second sync: don't overwrite until all SMEM reads are done\\(WAR: write-after-re
 \myBiggerTitle{``Classic'' GPU GEMM Summary}
 
 {\LARGE
-Syncs strictly separate data movement workloads\\and compute workloads.
-
-Not optimal.
+Use accelerator instructions for the \textbf{GMEM}$\to$\textbf{SMEM} copies.
 
 }
 
@@ -757,7 +764,10 @@ Not optimal.
 \Large
 \begin{tikzpicture}[node distance=0mm]
 \input{nyc25_sync_flow.tex}
-% \node (text) [below=of B] {All steps are thread-block-cooperative.};
+\node (A_caption) [redstyle, above=of A, yshift=8mm, xshift=6mm] {Accelerate me!};
+\node (B_caption) [redstyle, above=of B, yshift=8mm, xshift=6mm] {Accelerate me!};
+\draw [redstyle, arrow, fill=none] (A) -- (A_caption);
+\draw [redstyle, arrow, fill=none] (B) -- (B_caption);
 \end{tikzpicture}
 \end{center}
 
@@ -1167,3 +1177,77 @@ Talk about abstract machine constraining the compiler's outputted CUDA
 }
 
 \end{document}
+
+
+
+%% \newpage
+%% \myBiggerTitle{Challenge: SIMT Parallelism}
+
+%% {\LARGE
+
+%% Talk about launching blocks of threads
+
+%% Talk about mapping work to threads
+
+%% Diagram: vector add eye candy? y[threadIdx] += x[threadIdx]
+
+%% }
+
+%% \newpage
+%% \myBiggerTitle{Challenge: Memory / Compute Overlap}
+
+%% {\LARGE
+%% SIMT = overlapping identical workloads.\\
+%% We should also overlap heterogenous work: data \& compute.
+
+%% }
+%% \hrule
+%% {
+%% \Large
+%% \begin{tikzpicture}[node distance=0mm]
+
+%% \node (C0) [draw=black, minimum width=28mm, minimum height=24mm] {compute};
+%% \node (C1) [draw=black, minimum width=28mm, minimum height=24mm, anchor=center, xshift=72mm] at(C0) {compute};
+%% \node (C2) [draw=black, minimum width=28mm, minimum height=24mm, anchor=center, xshift=72mm] at(C1) {compute};
+%% \node(bad) [left=of C0, xshift=-40mm] {\textbf{BAD}};
+
+%% \node (A0) [greenstyle, minimum width=28mm, minimum height=12mm, anchor=center, xshift=-36mm, yshift=6mm] at(C0) {Load A};
+%% \node (B0) [violetstyle, minimum width=28mm, minimum height=12mm, anchor=center, xshift=-36mm, yshift=-6mm] at(C0) {Load B};
+
+%% \node (A1) [greenstyle, minimum width=28mm, minimum height=12mm, anchor=center, xshift=-36mm, yshift=6mm] at(C1) {Load A};
+%% \node (B1) [violetstyle, minimum width=28mm, minimum height=12mm, anchor=center, xshift=-36mm, yshift=-6mm] at(C1) {Load B};
+
+%% \node (A2) [greenstyle, minimum width=28mm, minimum height=12mm, anchor=center, xshift=-36mm, yshift=6mm] at(C2) {Load A};
+%% \node (B2) [violetstyle, minimum width=28mm, minimum height=12mm, anchor=center, xshift=-36mm, yshift=-6mm] at(C2) {Load B};
+
+%% \draw [arrow] (A0.south east) -- (C0.west);
+%% \draw [arrow] (C0.east) -- (A1.south west);
+%% \draw [arrow] (A1.south east) -- (C1.west);
+%% \draw [arrow] (C1.east) -- (A2.south west);
+%% \draw [arrow] (A2.south east) -- (C2.west);
+
+%% \end{tikzpicture}
+%% }
+%% \vspace{-1mm}
+%% \hrule
+%% {
+%% \Large
+%% \begin{tikzpicture}[node distance=0mm]
+%% \input{nyc25_dag.tex}
+%% \input{nyc25_dag_war.tex}
+%% \node(good) [anchor=center] at(C0) {\textbf{GOOD}};
+%% \end{tikzpicture}
+%% }
+
+%% \newpage
+%% \myBiggerTitle{Challenge: Efficient Synchronization}
+
+%% {\LARGE
+
+%% Try not to stall threads
+
+%% Don't screw up
+
+%% Nondeterministic \& subtle bugs possible
+
+%% }
