@@ -1,0 +1,10 @@
+\node(gmem0) [normalnode, minimum height=20mm] {\myKeyA{GMEM}};
+\node(gmem1) [normalnode, minimum height=20mm, below=of gmem0, yshift=-14mm] {\myKeyA{GMEM}};
+\node(rmem0) [rednode, minimum height=20mm, right=of gmem0, xshift=8mm] {Registers};
+\node(smem0) [normalnode, minimum height=20mm, right=of rmem0, xshift=8mm] {\myKeyB{SMEM}};
+\node(smem1) [normalnode, minimum height=20mm, below=of smem0, yshift=-14mm] {\myKeyB{SMEM}};
+\node [left=of gmem0, align=right] {\textbf{Before:}};
+\node [left=of gmem1, align=right] {\textbf{Async Copies:}};
+\draw [arrow] (gmem0) -- (rmem0);
+\draw [arrow] (rmem0) -- (smem0);
+\draw [arrow] (gmem1) -- (smem1);

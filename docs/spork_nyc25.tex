@@ -252,8 +252,9 @@ Goal: Map tiles to different levels of the GPU hierarchy
 \draw [dotted] (thread1.east) -- (thread2.west);
 
 \node (blockDim) [yshift=-1cm] at ($(thread0.south)!0.5!(thread2.south)$) {\blueBox{blockDim}};
-\draw [thick, bluestyle, fill=none] (thread0.south) to[out=270, in=90] (blockDim.north);
-\draw [thick, bluestyle, fill=none] (thread2.south) to[out=270, in=90] (blockDim.north);
+\draw [thick, bluestyle, fill=none] ($(thread0.south west) + (0.01, 0)$) to[out=270, in=90] (blockDim.north);
+\draw [thick, bluestyle, fill=none] ($(thread2.south east) - (0.01, 0)$) to[out=270, in=90] (blockDim.north);
+% Slight offset by 0.01 needed otherwise there is a mystery page break
 
 \node (CudaDeviceFunction) [align=left, right=of grid, text width=100mm] {\large\texttt{\codecomment{\# CPU launches grid}\\with CudaDeviceFunction(\blueBox{blockDim=\textit{arg}}):\\~~\codecomment{\# Body lowered to CUDA C++}}\\};
 \node (cudaTasks) [align=left, right=of cta1, text width=100mm] {\large\texttt{~~for \textit{\redBox{iter}} in cuda\_tasks(\textit{lo}, \textit{hi}):}\\};
@@ -495,7 +496,7 @@ It just \myKeyA{subdivides} existing thread collectives.
 
 {\LARGE
 
-\myKeyA{SMEM:} Per-thread-block ``scratchpad''
+\myKeyB{SMEM:} Per-thread-block ``scratchpad''
 
 Save needed block of \greenBox{A}, \violetBox{B} in SMEM.
 \begin{itemize}
@@ -526,20 +527,10 @@ Tile \blueBox{\texttt{k}} loop by \blueBox{\texttt{K0}} (\texttt{k $\mapsto$ k1 
 }
 
 {\LARGE
-TODO: divide \texttt{k} loop \& reorder outside \texttt{\textbf{cuda\_threads}} loops.
-
-}
-
-
-\newpage
-\myBiggerTitle{GEMM: Restructuring}
-
-{\large
-\input{nyc25_tex/simple_gpu.6.tex}
-}
-
-{\LARGE
-TODO: factor out of \blueBox{\texttt{k1}} loop: \texttt{accum = 0}, write to \texttt{C}.
+TODO: divide \blueBox{\texttt{k}} loop \& reorder outside \texttt{\textbf{cuda\_threads}} loops.
+\begin{itemize}
+  \item Enables thread cooperation inside \blueBox{\texttt{k1}} loop.
+\end{itemize}
 
 }
 
@@ -558,6 +549,19 @@ TODO: factor out of \blueBox{\texttt{k1}} loop: \texttt{accum = 0}, write to \te
 \draw [arrow] (move_zero) to[out=300, in=60] (zero);
 \end{tikzpicture}
 \end{center}
+
+
+\newpage
+\myBiggerTitle{GEMM: Restructuring}
+
+{\large
+\input{nyc25_tex/simple_gpu.6.tex}
+}
+
+{\LARGE
+TODO: factor out of \blueBox{\texttt{k1}} loop: \texttt{accum = 0}, write to \texttt{C}.
+
+}
 
 
 \newpage
@@ -652,7 +656,7 @@ We'll focus on the accumulate loops for the rest of the talk.
 }
 
 {\LARGE
-Replace direct reads from \greenBox{A}, \violetBox{B} (in GMEM) with SMEM.
+Replace direct reads from \greenBox{A}, \violetBox{B} (in \myKeyA{GMEM}) with \myKeyB{SMEM}.
 
 }
 
@@ -692,7 +696,7 @@ The compiler generates loops to load the shared memory tile.
 }
 
 {\LARGE
-Divide \& Parallelize the load-shared-memory loops.
+Divide \& parallelize the load-shared-memory loops.
 }
 
 \newpage
@@ -749,10 +753,10 @@ Second sync: don't overwrite until all SMEM reads are done\\(WAR: write-after-re
 \end{center}
 
 \newpage
-\myBiggerTitle{``Classic'' GPU GEMM Summary}
+\myBiggerTitle{Modernize GPU GEMM}
 
 {\LARGE
-Use accelerator instructions for the \textbf{GMEM}$\to$\textbf{SMEM} copies.
+Next step: use accelerator instructions\\for the \myKeyA{GMEM}$\to$\myKeyB{SMEM} copies.
 
 }
 
@@ -776,32 +780,48 @@ Use accelerator instructions for the \textbf{GMEM}$\to$\textbf{SMEM} copies.
 \myBiggerTitle{Async Copies}
 
 {\LARGE
-Ampere (sm\_80) introduced async copy instructions\\
-(GMEM $\to$ SMEM)
+Ampere (sm\_80) introduced \texttt{cp.async} instructions.
 
-Execution continues on without waiting for the copy to finish.
-
-\yellowBox{Less background here}
+Copies directly from \myKeyA{GMEM} to \myKeyB{SMEM}, bypassing registers.
 
 }
+\vfill
 
-{\Large
-\input{nyc25_tex/cp_async_pseudocode.0.tex}
-}
+\begin{center}
+\Large
+\begin{tikzpicture}[node distance=0mm]
+\input{nyc25_cp_async.tex}
+\end{tikzpicture}
+\end{center}
+
+
+\newpage
+\myBiggerTitle{The Catch}
 
 {\LARGE
-\myKeyA{Overlapping:} issue non-dependent \myKeyA{compute} work while copies are in-flight.
+\texttt{cp.async} doesn't synchronize like most instructions.
+
+e.g. \texttt{\_\_syncthread();} (cross-thread-block sync) doesn't wait for \texttt{cp.async} to finish.
+
 }
+\vfill
+
+\begin{center}
+\Large
+\begin{tikzpicture}[node distance=0mm]
+\input{nyc25_cp_async.tex}
+\end{tikzpicture}
+\end{center}
 
 \newpage
 \myBiggerTitle{Timelines}
 
 {\LARGE
-Most synchronization instructions \myKeyA{don't wait} for cp.async.
+Categorize instrs by \myKeyA{interactions with synchronization}.
 
-\myKeyA{Timelines:} categorize instrs by \myKeyA{synchronization needed}.
-
+Exo-GPU \myKeyA{timelines}:
 \begin{itemize}
+  \item \textbf{\texttt{cpu\_in\_order}}: CPU instructions
   \item \textbf{\texttt{cuda\_in\_order}}: most CUDA instructions
   \item \textbf{\texttt{Sm80\_cp\_async}}: \texttt{cp.async} (special syncs needed)
   \item Others for H100 (not in this talk)
@@ -827,7 +847,7 @@ prior \myKeyA{L1}-timeline instrs $\xrightarrow{\textbf{SYNC}}$ future \myKeyB{L
 
 Compiler chooses exact instructions.
 
-Otherwise imperative\\(executes in program order with surrounding instructions)
+Otherwise imperative\\(executes in program order with surrounding instructions).
 
 }
 
@@ -913,8 +933,38 @@ Update the timeline parameters for synchronization.
 \Large
 \begin{tikzpicture}[node distance=0mm]
 \input{nyc25_sync_flow.tex}
+
+\node (cpAsync) [redstyle, yshift=-8mm] at ($(A)!0.5!(B)$) {\textbf{Now with \texttt{cp.async}!}};
+\node (memory) [redstyle, yshift=-25mm] at ($(A.south west)!0.5!(B.south east)$) {Memory-heavy};
+\node (compute) [redstyle, yshift=-25mm] at ($(accum.south)$) {Compute-heavy};
+\draw [draw=redBoxFg, thick] (memory.north) to[out=90, in=270] (A.south west);
+\draw [draw=redBoxFg, thick] (memory.north) to[out=90, in=270] (B.south east);
+\draw [draw=redBoxFg, thick] (compute.north) to[out=90, in=270] (accum.south west);
+\draw [draw=redBoxFg, thick] (compute.north) to[out=90, in=270] (accum.south east);
+
 \end{tikzpicture}
 \end{center}
+
+{\LARGE
+Syncs strictly separate memory-heavy and compute-heavy code portions.
+
+}
+
+
+\newpage
+\myBiggerTitle{More to do: Overlap Compute/Memory}
+
+{\LARGE
+Each thread continues on after executing \texttt{cp.async} without waiting for the copy to \myKeyB{SMEM} to finish.
+
+We can put other work (compute) between issuing and waiting for the \texttt{cp.async} instruction.
+
+}
+
+{
+\large
+\input{nyc25_tex/cp_async_pseudocode.0.tex}
+}
 
 
 \newpage
@@ -923,13 +973,50 @@ Update the timeline parameters for synchronization.
 \Large
 \begin{tikzpicture}[node distance=0mm]
 \input{nyc25_sync_flow.tex}
-\node (async) [redstyle, right=of A, xshift=-20mm, yshift=-12mm, align=center, text width=40mm, minimum height=25mm] {\textbf{NOW WITH cp.async!}};
+\node (cpAsync) [redstyle, yshift=-8mm] at ($(A)!0.5!(B)$) {\textbf{Now with \texttt{cp.async}!}};
 \end{tikzpicture}
 \end{center}
 \hrule
 {\LARGE
-We need to \myKeyA{delay} the accumulate step to a future iteration to make room for overlapping work!
+We need to \myKeyA{delay} the accumulate step to a future \blueBox{\texttt{k1}} iteration to make room for overlapping work!
 
+}
+
+
+\newpage
+\myBiggerTitle{Producer/Consumer Dependencies}
+
+{
+\Large
+\begin{tikzpicture}[node distance=0mm]
+
+\node (C0) [draw=black, minimum width=28mm, minimum height=24mm] {compute};
+\node (C1) [draw=black, minimum width=28mm, minimum height=24mm, anchor=center, xshift=72mm] at(C0) {compute};
+\node (C2) [draw=black, minimum width=28mm, minimum height=24mm, anchor=center, xshift=72mm] at(C1) {compute};
+%\node(bad) [left=of C0, xshift=-40mm] {\textbf{BAD}};
+
+\node (A0) [greenstyle, minimum width=28mm, minimum height=12mm, anchor=center, xshift=-36mm, yshift=6mm] at(C0) {Load A};
+\node (B0) [violetstyle, minimum width=28mm, minimum height=12mm, anchor=center, xshift=-36mm, yshift=-6mm] at(C0) {Load B};
+
+\node (A1) [greenstyle, minimum width=28mm, minimum height=12mm, anchor=center, xshift=-36mm, yshift=6mm] at(C1) {Load A};
+\node (B1) [violetstyle, minimum width=28mm, minimum height=12mm, anchor=center, xshift=-36mm, yshift=-6mm] at(C1) {Load B};
+
+\node (A2) [greenstyle, minimum width=28mm, minimum height=12mm, anchor=center, xshift=-36mm, yshift=6mm] at(C2) {Load A};
+\node (B2) [violetstyle, minimum width=28mm, minimum height=12mm, anchor=center, xshift=-36mm, yshift=-6mm] at(C2) {Load B};
+
+\draw [arrow] (A0.south east) -- (C0.west);
+\draw [arrow] (C0.east) -- (A1.south west);
+\draw [arrow] (A1.south east) -- (C1.west);
+\draw [arrow] (C1.east) -- (A2.south west);
+\draw [arrow] (A2.south east) -- (C2.west);
+
+\end{tikzpicture}
+}
+
+\hrule
+
+{\LARGE
+Current state: load into SMEM and consume (compute) the same tile in one \blueBox{\texttt{k1}} iteration.
 }
 
 \newpage
@@ -947,7 +1034,7 @@ We need to \myKeyA{delay} the accumulate step to a future iteration to make room
 \hrule
 
 {\LARGE
-Loop skew: delay \myKeyA{consumption} (compute) of SMEM data by one \blueBox{\texttt{k1}} iteration from SMEM load.
+Loop skew: delay \myKeyA{consumption} (compute) of SMEM tile by one \blueBox{\texttt{k1}} iteration from SMEM load.
 
 }
 
@@ -1019,24 +1106,167 @@ Implement dependency graph edges with \myKeyA{split barriers}:\\Arrive/Await.
 \myBiggerTitle{Exo-GPU: Arrive/Await}
 
 {\LARGE
-Special variable type: \texttt{\textit{var}: \textbf{barrier}}.
+Special variable type: \texttt{\textit{var}: \textbf{barrier}}. Usage:
 
-Usage: \texttt{Arrive(\myKeyA{L1}, 1) >> \textit{var}} \hfill \texttt{Await(\textit{var}, \myKeyB{L2}, \blueBox{\textsf{delay}})}
+\hfill \texttt{Arrive(\myKeyA{L1}, 1) >> \textit{var}} \hfill \texttt{Await(\textit{var}, \myKeyB{L2}, \blueBox{\textsf{delay}})} \hfill
 
 where \texttt{\myKeyA{L1}, \myKeyB{L2}} are timelines as in \texttt{Fence}.
 
-\hspace{5mm}
+\vspace{5mm}
 
-Threads can't pass the \texttt{Await} until all threads have passed the matched \texttt{Arrive} (matching controled by \blueBox{delay}).
+All threads reach an \texttt{Arrive}\\
+$\implies$ threads may pass the \textit{matched} \texttt{Await}.
 
-\hspace{5mm}
+\vspace{5mm}
 
-Put non-dependent work between the Arrive and Await!
+Match pairs of executed Arrives \& Awaits with the same barrier variable, adjusted by \blueBox{delay}.
+%% Arrive/Await matching:
+%% \begin{itemize}
+%%   \item Match pairs of executed \texttt{Arrive}/\texttt{Await} with the same \texttt{barrier} variable.
+%%   \item Adjust matching based on \blueBox{delay} value.
+%% \end{itemize}
+
+\vfill
+
+\hfill Example code in extra slides.
 
 }
 
+
 \newpage
-\myBiggerTitle{GEMM: Todo}
+\myBiggerTitle{Tensor Cores}
+
+{\LARGE
+Tensor core instructions = multiply-accumulate matrix tile.
+
+Substitute portions of code that look like
+
+}
+
+{\large
+\input{nyc25_tex/tensor_core_instr.0.tex}
+}
+
+{\LARGE
+Async on Hopper (sm\_90a) \& later, so on a different \myKeyA{timeline}.
+\begin{itemize}
+  \item Still \texttt{cuda\_in\_order} for $\le$ sm\_80.
+\end{itemize}
+}
+
+\newpage
+\myBiggerTitle{Abstract Machine: Visibility Sets}
+
+{\LARGE
+Starting point for tackling synchronization checking.
+
+\vspace{5mm}
+
+\myKeyA{Visibility Set}: set of \myKeyA{Timeline Signatures}; pair of
+\begin{itemize}
+  \item ``Qualitative'' timeline
+  \item ``Quantitative'' thread ID (unique in system)
+\end{itemize}
+
+\vspace{5mm}
+
+These are associated for each memory read/mutate operation ever performed.
+
+}
+
+
+\newpage
+\myBiggerTitle{Abstract Machine: Environment}
+
+{\LARGE
+
+Augment sequential semantics with a \myKeyA{synchronization environment}, parallel to the value environment.
+\begin{itemize}
+  \item History of reads/mutates done to each variable.
+  \item Stores \myKeyA{visibility sets}.
+\end{itemize}
+
+\vspace{5mm}
+
+Abstract machine is \myKeyA{fundamentally sequential}, but,
+\begin{itemize}
+  \item Tracks visibility of prior reads and mutates\\(``simulating'' parallel machine behavior).
+  \item Visibility sets may grow with synchronization.
+\end{itemize}
+
+}
+
+
+\newpage
+\myBiggerTitle{Abstract Machine: Usage}
+
+{\LARGE
+Exo-GPU programs target this abstract machine.
+
+\textbf{Correctness View:} check predicates on visibility sets.
+\begin{itemize}
+  \item Check each read is \myKeyA{guaranteed} to get the value given by the immediately-prior write in sequential order.
+  \item Sequential-parallel equivalence.
+\end{itemize}
+
+\textbf{Optimization View:} the abstract machine trace \myKeyA{dictates} what instructions \& what threads are used for each operation.
+\begin{itemize}
+  \item Constrains the compiler.
+  \item Generated CUDA internals aren't implementation details.
+\end{itemize}
+
+}
+
+
+\newpage
+\myBiggerTitle{Conclusion: Scheduling Chain of Equivalence}
+
+{\LARGE
+Step 1: apply scheduling operators
+\begin{itemize}
+  \item Analyzes \myKeyB{parallel} loops as if they were \myKeyA{sequential}.
+\end{itemize}
+
+Step 2: sync check final \texttt{proc}
+\begin{itemize}
+  \item Parallelization doesn't change the generated output relative to sequential version.
+\end{itemize}
+}
+
+\begin{center}
+{\large
+\begin{tikzpicture}[node distance=8mm]
+\sffamily
+\node(proc0) [normalnode, text width=2cm, minimum width=2cm] {Original proc};
+\node(procNS) [normalnode, right=of proc0, text width=4cm, minimum width=4cm] {Scheduled proc,\\interpreted\\\myKeyA{sequentially}};
+\node(procNM) [normalnode, right=of procNS, text width=4cm, minimum width=4cm] {Scheduled proc,\\\myKeyB{parallel}\\interpretation};
+\node(cuda) [normalnode, right=of procNM] {CUDA C++ header};
+
+\draw [arrow] (proc0) to node(exo)[]{} (procNS);
+\draw [arrow] (procNS) to node(SM)[]{} (procNM);
+\draw [arrow] (procNM) to node(toCuda)[]{} (cuda);
+
+\node(exo) [normalnode, yshift=-8mm, text width=4cm, minimum width=4cm, below=of exo, draw=blueBoxFg, fill=blueBoxBg, text=blueBoxFg] {Exo Rewrites};
+\node(sync) [normalnode, yshift=-8mm, text width=5cm, below=of SM, draw=blueBoxFg, fill=blueBoxBg, text=blueBoxFg] {Sync Checking};
+\node(spork) [normalnode, yshift=-8mm, text width=6cm, xshift=1cm, below=of toCuda, draw=blueBoxFg, fill=blueBoxBg, text=blueBoxFg] {Code Generator};
+\node(note) [above=of SM, redstyle, yshift=8mm, align=center] {Same proc, \textbf{different}\\\textbf{interpretation}};
+\node(c) [smallnode, above=of cuda, xshift=-6mm] {C code};
+
+\draw [line, draw=blueBoxFg] (exo) -- (proc0);
+\draw [line, draw=blueBoxFg] (exo) -- (procNS);
+\draw [line, draw=blueBoxFg] (sync) -- (procNS);
+\draw [line, draw=blueBoxFg] (sync) -- (procNM);
+\draw [line, draw=redBoxFg] (note) -- (procNS);
+\draw [line, draw=redBoxFg] (note) -- (procNM);
+\draw [line, draw=blueBoxFg] (spork) -- (procNM);
+\draw [line, draw=blueBoxFg] (spork) -- (cuda);
+\draw [arrow] (procNM.east) to (c.west);
+\end{tikzpicture}
+}
+\end{center}
+
+\newpage
+\myBiggerTitleExtra{Extra Slides: Todo, Memory/Compute Overlap}
 
 {\large
 \input{nyc25_tex/ring_todo.0.tex}
@@ -1047,7 +1277,7 @@ Currently: data movement at the top, compute at the bottom.
 }
 
 \newpage
-\myBiggerTitle{GEMM: Todo, Ring Buffer}
+\myBiggerTitleExtra{Extra Slides: Todo, Ring Buffer}
 
 {\large
 \input{nyc25_tex/ring_todo.1.tex}
@@ -1059,7 +1289,7 @@ Add ring buffer dimension.
 }
 
 \newpage
-\myBiggerTitle{GEMM: Todo, Loop Skew}
+\myBiggerTitleExtra{Extra Slides: Todo, Loop Skew}
 
 {\large
 \input{nyc25_tex/ring_todo.2.tex}
@@ -1070,7 +1300,7 @@ Delay compute (bottom) relative to data movement (top).
 }
 
 \newpage
-\myBiggerTitle{GEMM: Todo, Arrive/Await}
+\myBiggerTitleExtra{Extra Slides: Todo, Arrive/Await}
 
 {\large
 \input{nyc25_tex/ring_todo.3.tex}
@@ -1081,7 +1311,7 @@ Replace with \textbf{\texttt{Arrive}}, \textbf{\texttt{Await}}.
 }
 
 \newpage
-\myBiggerTitle{GEMM: Ring Buffer}
+\myBiggerTitleExtra{Extra Slides: Ring Buffer}
 
 {\large
 \input{nyc25_tex/ring.0.tex}
@@ -1094,7 +1324,7 @@ Lift \texttt{A\_smem}, \texttt{B\_smem} out of the \texttt{k1} loop and ring buf
 }
 
 \newpage
-\myBiggerTitle{GEMM: Loop Skew}
+\myBiggerTitleExtra{Extra Slides: Loop Skew}
 
 {\large
 \input{nyc25_tex/ring.1.tex}
@@ -1107,7 +1337,7 @@ Add an extra \blueBox{\texttt{k1}} iteration; delay the accum code by 1 iteratio
 }
 
 \newpage
-\myBiggerTitle{GEMM: Split Barriers}
+\myBiggerTitleExtra{Extra Slides: Split Barriers}
 
 {\large
 \input{nyc25_tex/split.0.tex}
@@ -1119,7 +1349,7 @@ Declare \textbf{\texttt{barrier}}-typed variable.
 }
 
 \newpage
-\myBiggerTitle{GEMM: Split Barriers}
+\myBiggerTitleExtra{Extra Slides: Split Barriers}
 
 {\large
 \input{nyc25_tex/split.1.tex}
@@ -1131,7 +1361,7 @@ Resolve RAW Hazard (\textbf{\texttt{Sm80\_cp\_async $\to$ cuda\_in\_order}}).
 }
 
 \newpage
-\myBiggerTitle{GEMM: Split Barriers}
+\myBiggerTitleExtra{Extra Slides: Split Barriers}
 
 {\large
 \input{nyc25_tex/split.2.tex}
@@ -1144,44 +1374,12 @@ Required to re-use ring buffer slot.
 
 }
 
-\newpage
-\myBiggerTitle{Tensor Cores}
-
-{\LARGE
-
-Tensor Cores = More timelines + more complicated instruction substitution
-
-}
-
-\newpage
-\myBiggerTitle{Abstract Machine}
-
-{\LARGE
-
-Talk about visibility sets
-\begin{itemize}
-  \item ``qualitative'' timeline + ``quantitative'' thread ID
-  \item grows with synchronization
-\end{itemize}
-
-Talk about two-stage correctness
-\begin{itemize}
-  \item Stage 1: rewrite operations
-  \item Stage 2: parallelism
-\end{itemize}
-
-Talk about abstract machine as tool for checking correctness
-
-Talk about abstract machine constraining the compiler's outputted CUDA
-
-}
-
 \end{document}
 
 
 
 %% \newpage
-%% \myBiggerTitle{Challenge: SIMT Parallelism}
+%% \myBiggerTitleExtra{Challenge: SIMT Parallelism}
 
 %% {\LARGE
 
@@ -1194,7 +1392,7 @@ Talk about abstract machine constraining the compiler's outputted CUDA
 %% }
 
 %% \newpage
-%% \myBiggerTitle{Challenge: Memory / Compute Overlap}
+%% \myBiggerTitleExtra{Challenge: Memory / Compute Overlap}
 
 %% {\LARGE
 %% SIMT = overlapping identical workloads.\\
@@ -1240,7 +1438,7 @@ Talk about abstract machine constraining the compiler's outputted CUDA
 %% }
 
 %% \newpage
-%% \myBiggerTitle{Challenge: Efficient Synchronization}
+%% \myBiggerTitleExtra{Challenge: Efficient Synchronization}
 
 %% {\LARGE
 

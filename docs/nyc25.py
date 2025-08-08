@@ -206,12 +206,13 @@ def nyc25_gemm_simple_gpu(M: size, N: size, K: size,
 # TeX: begin simple_gpu[0]
   assert M % M1 == 0  # GMEM = global (device-wide) memory
   assert N % N1 == 0
-  # TeX: begin simple_gpu[1:]
+  # TeX: begin simple_gpu[1:7]
   # TeX: color line simple_gpu[0]
   #    bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
   # TeX: color line simple_gpu[1]
   #                       bbbbbbbbbbbb
   with CudaDeviceFunction(blockDim=256):  # User chose 256 threads per block
+    # TeX: begin simple_gpu[7]
     # TeX: color line simple_gpu[1]
     #   gg    gggggggggg
     for m2 in cuda_tasks(0, M / M1):
@@ -260,7 +261,8 @@ def nyc25_gemm_simple_gpu(M: size, N: size, K: size,
                 # TeX: color line simple_gpu[6]
               # rr                                              rrrrrrrrr
                 C[m2 * M1 + m1 * M0 + m0, n2 * N1 + n1 * N0 + n0] = accum
-# TeX: end simple_gpu[1:]
+# TeX: end simple_gpu[1:7]
+# TeX: end simple_gpu[7]
 
 nyc25_gemm_simple_gpu = simplify(nyc25_gemm_simple_gpu)
 
@@ -437,7 +439,17 @@ def nyc25_gemm_fission(M: size, N: size, K: size,
 
 nyc25_gemm_fission = simplify(nyc25_gemm_fission)
 
-if False:
+
+@proc
+def gpu_gemm(M: size, N: size, K: size,
+             # TeX: color line *
+             #            gggggggggggggggg
+             A: f32[M, K] @ CudaGmemLinear,
+             # TeX: color line *
+             #            vvvvvvvvvvvvvvvv
+             B: f32[K, N] @ CudaGmemLinear,
+             C: f32[M, N] @ CudaGmemLinear):
+    # ...
     # TeX: version k1_before_smem 1
     # TeX: begin k1_before_smem
     # TeX: color line *
@@ -586,6 +598,8 @@ def nyc25_gemm_smem_in_order(M: size, N: size, K: size, A: f32[M, K] @ CudaGmemL
           # TeX: end smem_in_order[0]
           # TeX: color line smem_in_order[1]
         # yyyyy ............................
+          # TeX: color line smem_in_order[2]
+        # yyyyy
           # TeX: color line smem_in_order[4]
           #     rrrrrrrrrrrrr
           Fence(cuda_in_order, cuda_in_order)  # __syncthreads()
@@ -602,10 +616,12 @@ def nyc25_gemm_smem_in_order(M: size, N: size, K: size, A: f32[M, K] @ CudaGmemL
                                               * B_smem[k0, n1 * N0 + n0])
               # TeX: begin smem_in_order
           # TeX: end smem_in_order[0]
-          # TeX: color line smem_in_order[4]
-          #                    rrrrrrrrrrrrr
           # TeX: color line smem_in_order[1]
         # yyyyy ............................
+          # TeX: color line smem_in_order[2]
+        # yyyyy
+          # TeX: color line smem_in_order[4]
+          #                    rrrrrrrrrrrrr
           Fence(cuda_in_order, cuda_in_order)  # __syncthreads()
           # TeX: begin smem_in_order[0]
         # TeX: end smem_in_order
@@ -863,3 +879,21 @@ def cp_async_pseudocode():
     #       rrrrrrrr
     consume(smem_dst)
     # TeX: end cp_async_pseudocode[0]
+
+
+def tensor_core():
+  # TeX: version tensor_core_instr 1
+  # TeX: begin tensor_core_instr[0]
+  # TeX: color line *
+  #   g
+  for m in seq(0, M_MMA):
+    # TeX: color line *
+    #   v
+    for n in seq(0, N_MMA):
+      # TeX: color line *
+      #   b
+      for k in seq(0, K_MMA):
+        # TeX: color line *
+        # g v       g b      b v
+        C[m,n] += A[m,k] * B[k,n]
+        # TeX: end tensor_core_instr[0]
