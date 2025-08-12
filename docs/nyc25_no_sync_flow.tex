@@ -7,6 +7,6 @@
 
 \draw [arrow] (zero) -- (A);
 \draw [arrow] (accum) -- (C);
-\draw [arrow] (A) -- (B);
+\draw [arrow] (A) to node(ab)[]{} (B);
 \draw [arrow] (B) -- (accum);
 \draw [arrow] (accum) to[in=40, out=140] node[below] (k1) {\blueBox{\texttt{k1}} loop} (A);

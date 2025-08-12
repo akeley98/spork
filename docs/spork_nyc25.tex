@@ -56,7 +56,7 @@ Jonathan Ragan-Kelley
 %\includegraphics[width=\linewidth]{usda_spork.jpg}
 
 \newpage
-\myBiggerTitle{GEMM: Starting out with Exo}
+\myBiggerTitle{GEMM: Starting out with Exo \yellowBox{I am working on a new DSL}}
 
 {\large
 \input{nyc25_tex/cpu.0.tex}
@@ -117,7 +117,7 @@ for parameters \& declarations.
 Start with simple \texttt{proc}; rewrite into optimized \texttt{proc}.
 \begin{itemize}
   \item e.g. optimize memory access patterns.
-  \item target \myKeyA{CPU-based} accelerators supported by Exo today (e.g. Intel AMX)
+  \item target \myKeyA{CPU-based} accelerators supported by Exo today (e.g. GEMMINI, Intel AMX, ARM SME)
 \end{itemize}
 
 
@@ -201,9 +201,8 @@ Reorder loops; Exo checked all rewrites for correctness.
 }
 
 \newpage
-\myBiggerTitle{GEMM: Loop Nest Before \& After}
-
 {\large
+\textbf{\LARGE BEFORE}\\
 \input{nyc25_tex/cpu.4.tex}
 }
 
@@ -211,6 +210,7 @@ Reorder loops; Exo checked all rewrites for correctness.
 \hrule
 
 {\large
+\textbf{\LARGE AFTER}\\
 \input{nyc25_tex/reorder_loops.1.tex}
 }
 
@@ -262,7 +262,7 @@ Goal: Map tiles to different levels of the GPU hierarchy
 \end{tikzpicture}
 
 \newpage
-\myBiggerTitle{Sequential-first Model}
+\myBiggerTitle{Sequential-first Model \yellowBox{emphasize key} \redBox{DENSE}}
 
 {\LARGE
 Thus far, % you have been adrift in the sheltered harbour of my patience
@@ -627,6 +627,8 @@ We will split the loop at the indicated locations, retaining the loop structure.
 {\LARGE
 We'll focus on the accumulate loops for the rest of the talk.
 
+\yellowBox{Skip scheduling to here, boxed main loop before and k1 here too and also A[...,k]*B[k,...]}
+
 }
 
 \newpage
@@ -800,7 +802,7 @@ Copies directly from \myKeyA{GMEM} to \myKeyB{SMEM}, bypassing registers.
 {\LARGE
 \texttt{cp.async} doesn't synchronize like most instructions.
 
-e.g. \texttt{\_\_syncthread();} (cross-thread-block sync) doesn't wait for \texttt{cp.async} to finish.
+e.g. \texttt{\_\_syncthreads();} (cross-thread-block sync) doesn't wait for \texttt{cp.async} to finish.
 
 }
 \vfill
@@ -838,15 +840,19 @@ Parameterize Exo-GPU synchronization with timelines:
   \texttt{Fence(\myKeyA{L1}, \myKeyB{L2})}
 \end{center}
 
-\textbf{Semi-declarative}; user specifies intended effect:
+User specifies intended effect:
 
 \begin{center}
-prior \myKeyA{L1}-timeline instrs $\xrightarrow{\textbf{SYNC}}$ future \myKeyB{L2}-timeline instrs
+\begin{tikzpicture}[node distance=0mm]
+\node (L1) [draw=black, align=center] {prior \myKeyA{L1}-timeline\\memory accesses};
+\node (L2) [draw=black, align=center, right=of L1, xshift=24mm] {future \myKeyB{L2}-timeline\\memory accesses};
+\draw [arrow] (L1) -- node[above] {\large \textbf{SYNC}} (L2);
+\end{tikzpicture}
 \end{center}
 
-Compiler chooses exact instructions.
+%% Compiler chooses exact instructions.
 
-Otherwise imperative\\(executes in program order with surrounding instructions).
+%% Otherwise imperative\\(executes in program order with surrounding instructions).
 
 }
 
@@ -897,6 +903,8 @@ TODO: update timeline parameters for synchronization.
 Replace \texttt{A\_smem[\codecomment{...}] = A[\codecomment{...}]} and \texttt{B\_smem[\codecomment{...}] = B[\codecomment{...}]}\\with cp.async instructions.
 
 Exo allows the rewrite, because the substituted functionality, \textit{ignoring concurrency}, is equivalent.
+
+Replace a block of code with a \myKeyA{semantically-equivalent sub-procedure} (blah blah ignore parallelism)
 
 }
 

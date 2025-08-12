@@ -225,8 +225,8 @@ def nyc25_gemm_simple_gpu(M: size, N: size, K: size,
         # TeX: color line simple_gpu[2] simple_gpu[5]
         #   gg    gggggggggggg
         # TeX: color line simple_gpu[3]
-        #                                  gggggggggggggggggggggggggggg
-        for m1 in cuda_threads(0, M1 / M0, unit=(N1 / N0) * cuda_thread):
+        #                                  ggggggggggggggggggggg
+        for m1 in cuda_threads(0, M1 / M0, unit=16 * cuda_thread):
           # TeX: color line simple_gpu[2] simple_gpu[5]
           #   vv    vvvvvvvvvvvv
           # TeX: color line simple_gpu[3]
@@ -280,7 +280,7 @@ if False:
       # TeX: color line loops[1]
       #         gggggggggggg    ggggg
       for m1 in cuda_threads(0, M1/M0,
-          unit=(N1 / N0) * cuda_thread):
+          unit=16 * cuda_thread):
         # TeX: color line loops[1]
         #         vvvvvvvvvvvv    vvvvv
         for n1 in cuda_threads(0, N1/N0,
@@ -292,6 +292,7 @@ if False:
             #                vv
             for n0 in seq(0, N0):
               # Compute dot products
+    # Note: N1/N0 = 16
               # TeX: end loops
               pass
 
@@ -330,8 +331,8 @@ def nyc25_gemm_expand_dim(M: size, N: size, K: size,
         # TeX: color line expand_dim[1:]
         #   yy
         # TeX: color line cuda_threads[0]
-        #   yy                             gggggggggggggggggggggggggggg
-        for m1 in cuda_threads(0, M1 / M0, unit=(N1 / N0) * cuda_thread):
+        #   yy                             ggggggggggggggggggggg
+        for m1 in cuda_threads(0, M1 / M0, unit=16 * cuda_thread):
           # TeX: remark cuda_threads
           # Collective unit: 16 threads (N1/N0 = 16)
           # TeX: color line expand_dim[1:]
