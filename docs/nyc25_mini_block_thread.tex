@@ -1,0 +1,8 @@
+\node (cta0) [normalnode, nGoldstyle, text width=20mm, minimum width=20mm] {\textbf{block}};
+\node (thread0) [normalnode, nGreenstyle, text width=16mm, minimum width=16mm, below=of cta0, yshift=-4mm, xshift=-32mm] {\textbf{thread}};
+\node (thread1) [normalnode, nGreenstyle, text width=16mm, minimum width=16mm, right=of thread0] {\textbf{thread}};
+\node (thread2) [normalnode, nGreenstyle, text width=16mm, minimum width=16mm, right=of thread1, xshift=22mm] {\textbf{thread}};
+\draw [arrow] (cta0.south) to[out=220, in=90] (thread0.north);
+\draw [arrow] (cta0.south) to[out=270, in=90] (thread1.north);
+\draw [arrow] (cta0.south) to[out=270, in=90] (thread2.north);
+\draw [dotted] (thread1.east) -- (thread2.west);
