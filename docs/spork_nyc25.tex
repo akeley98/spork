@@ -25,6 +25,11 @@
 \tikzstyle{greenstyle} = [draw=greenBoxFg, fill=greenBoxBg, text=greenBoxFg]
 \tikzstyle{bluestyle} = [draw=blueBoxFg, fill=blueBoxBg, text=blueBoxFg]
 \tikzstyle{violetstyle} = [draw=violetBoxFg, fill=violetBoxBg, text=violetBoxFg]
+\tikzstyle{nRedstyle} = [draw=nRedBoxFg, fill=nRedBoxBg, text=nRedBoxFg]
+\tikzstyle{nGoldstyle} = [draw=nGoldBoxFg, fill=nGoldBoxBg, text=nGoldBoxFg]
+\tikzstyle{nGreenstyle} = [draw=nGreenBoxFg, fill=nGreenBoxBg, text=nGreenBoxFg]
+\tikzstyle{nBluestyle} = [draw=nBlueBoxFg, fill=nBlueBoxBg, text=nBlueBoxFg]
+\tikzstyle{nPurplestyle} = [draw=nPurpleBoxFg, fill=nPurpleBoxBg, text=nPurpleBoxFg]
 
 \tikzstyle{Mnode} = [greennode, text width=55mm, minimum width=55mm, minimum height=7mm]
 \tikzstyle{Nnode} = [violetnode, text width=7mm, minimum width=7mm, minimum height=7mm]
@@ -62,6 +67,9 @@ Jonathan Ragan-Kelley
 \input{nyc25_tex/cpu.0.tex}
 }
 
+\vspace{3mm}
+\hrule
+
 {\LARGE
 \texttt{@proc} (procedure) decorator captures Python AST\\transpiled to C or CUDA C++.
 
@@ -75,6 +83,9 @@ Jonathan Ragan-Kelley
 {\large
 \input{nyc25_tex/cpu.3.tex}
 }
+
+\vspace{3mm}
+\hrule
 
 {\LARGE
 \texttt{seq}-loop $\mapsto$ \texttt{for (\textit{int var} = lo; \textit{var} < hi; ++\textit{var})}
@@ -90,6 +101,9 @@ Jonathan Ragan-Kelley
 \input{nyc25_tex/cpu.1.tex}
 }
 
+\vspace{3mm}
+\hrule
+
 {\LARGE
 \myKeyA{Static typing:}\\
 annotate proc parameters, allocated variables.
@@ -102,6 +116,9 @@ annotate proc parameters, allocated variables.
 {\large
 \input{nyc25_tex/cpu.2.tex}
 }
+
+\vspace{3mm}
+\hrule
 
 {\LARGE
 \myKeyA{Memory annotation:} \texttt{@}-sign associates memory type\\
@@ -120,7 +137,6 @@ Start with simple \texttt{proc}; rewrite into optimized \texttt{proc}.
   \item target \myKeyA{CPU-based} accelerators supported by Exo today (e.g. GEMMINI, Intel AMX, ARM SME)
 \end{itemize}
 
-
 Goal: extend rewrite model \& underlying semantics to model \myKeyB{imperative GPU programming} in a disciplined way.
 
 }
@@ -131,6 +147,9 @@ Goal: extend rewrite model \& underlying semantics to model \myKeyB{imperative G
 {\large
 \input{nyc25_tex/cpu.3.tex}
 }
+
+\vspace{3mm}
+\hrule
 
 {\LARGE
 We want to \myKeyA{tile} the \greenBox{m}/\violetBox{n} loop nest.
@@ -145,6 +164,9 @@ We want to \myKeyA{tile} the \greenBox{m}/\violetBox{n} loop nest.
 \input{nyc25_tex/m_divide_loop.0.tex}
 }
 
+\vspace{3mm}
+\hrule
+
 {\LARGE
 Apply \texttt{divide\_loop} twice to tile the \greenBox{m} loop by 3.
 
@@ -156,6 +178,9 @@ Apply \texttt{divide\_loop} twice to tile the \greenBox{m} loop by 3.
 {\large
 \input{nyc25_tex/m_divide_loop.1.tex}
 }
+
+\vspace{3mm}
+\hrule
 
 {\LARGE
 Exo rewrites all uses of \greenBox{\texttt{m}} in the loop body.
@@ -171,6 +196,9 @@ Exo rewrites all uses of \greenBox{\texttt{m}} in the loop body.
 \input{nyc25_tex/m_divide_loop.2.tex}
 }
 
+\vspace{3mm}
+\hrule
+
 {\LARGE
 Assume perfect tiling to simplify this talk (no tail case).
 
@@ -183,6 +211,9 @@ Assume perfect tiling to simplify this talk (no tail case).
 \input{nyc25_tex/n_divide_loop.0.tex}
 }
 
+\vspace{3mm}
+\hrule
+
 {\LARGE
 Apply the same 3-level tiling to the \violetBox{n} loop.
 
@@ -194,6 +225,9 @@ Apply the same 3-level tiling to the \violetBox{n} loop.
 {\large
 \input{nyc25_tex/reorder_loops.0.tex}
 }
+
+\vspace{3mm}
+\hrule
 
 {\LARGE
 Reorder loops; Exo checked all rewrites for correctness.
@@ -230,18 +264,18 @@ Goal: Map tiles to different levels of the GPU hierarchy
 \vfill
 \begin{tikzpicture}[node distance=2mm]
 
-\node (grid) [bluenode, text width=5cm, minimum width=5cm] {grid};
+\node (grid) [normalnode, nGreenstyle, text width=5cm, minimum width=5cm] {\textbf{grid}};
 \node (cpu) [left=of grid, xshift=-2cm] {\textbf{CPU}};
 \draw [arrow] (cpu) -- node[above] {\textbf{launch}} (grid);
 \node (cuda) [above=of grid, yshift=+4mm] {\textbf{CUDA Constructs}};
 \node (exo) [right=of cuda, xshift=25mm] {\textbf{Exo-GPU Constructs}};
 
-\node (cta0) [rednode, text width=20mm, minimum width=20mm, below=of grid, xshift=-15mm, yshift=-1cm] {block};
-\node (cta1) [rednode, text width=20mm, minimum width=20mm, below=of grid, xshift=+15mm, yshift=-1cm] {block};
+\node (cta0) [normalnode, nGoldstyle, text width=20mm, minimum width=20mm, below=of grid, xshift=-15mm, yshift=-1cm] {\textbf{block}};
+\node (cta1) [normalnode, nGoldstyle, text width=20mm, minimum width=20mm, below=of grid, xshift=+15mm, yshift=-1cm] {\textbf{block}};
 
-\node (thread0) [greennode, text width=16mm, minimum width=16mm, below=of cta0, yshift=-1cm, xshift=-32mm] {thread};
-\node (thread1) [greennode, text width=16mm, minimum width=16mm, right=of thread0] {thread};
-\node (thread2) [greennode, text width=16mm, minimum width=16mm, right=of thread1, xshift=22mm] {thread};
+\node (thread0) [normalnode, nRedstyle, text width=16mm, minimum width=16mm, below=of cta0, yshift=-1cm, xshift=-32mm] {\textbf{thread}};
+\node (thread1) [normalnode, nRedstyle, text width=16mm, minimum width=16mm, right=of thread0] {\textbf{thread}};
+\node (thread2) [normalnode, nRedstyle, text width=16mm, minimum width=16mm, right=of thread1, xshift=22mm] {\textbf{thread}};
 
 \draw [arrow] (grid.south) to[out=270, in=90] (cta0.north);
 \draw [arrow] (grid.south) to[out=270, in=90] (cta1.north);
@@ -256,9 +290,9 @@ Goal: Map tiles to different levels of the GPU hierarchy
 \draw [thick, bluestyle, fill=none] ($(thread2.south east) - (0.01, 0)$) to[out=270, in=90] (blockDim.north);
 % Slight offset by 0.01 needed otherwise there is a mystery page break
 
-\node (CudaDeviceFunction) [align=left, right=of grid, text width=100mm] {\large\texttt{\codecomment{\# CPU launches grid}\\with CudaDeviceFunction(\blueBox{blockDim=\textit{arg}}):\\~~\codecomment{\# Body lowered to CUDA C++}}\\};
-\node (cudaTasks) [align=left, right=of cta1, text width=100mm] {\large\texttt{~~for \textit{\redBox{iter}} in cuda\_tasks(\textit{lo}, \textit{hi}):}\\};
-\node (cudaThreads) [align=left, right=of thread2, text width=110mm] {\large\texttt{~~~~for \textit{\greenBox{iter}} in cuda\_threads(\textit{lo}, \textit{hi}, unit=\textit{u}):}\\};
+\node (CudaDeviceFunction) [align=left, right=of grid, text width=100mm] {\large\texttt{\codecomment{\# CPU launches grid}\\with \nGreenBox{\textbf{CudaDeviceFunction}}(\blueBox{blockDim=\textit{arg}}):\\~~\codecomment{\# Body lowered to CUDA C++}}\\};
+\node (cudaTasks) [align=left, right=of cta1, text width=100mm] {\large\texttt{~~for \textit{iter} in \nGoldBox{\textbf{cuda\_tasks}}(\textit{lo}, \textit{hi}):}\\};
+\node (cudaThreads) [align=left, right=of thread2, text width=110mm] {\large\texttt{~~~~for \textit{iter} in \nRedBox{\textbf{cuda\_threads}}(\textit{lo}, \textit{hi}, unit=\textit{u}):}\\};
 \end{tikzpicture}
 
 \newpage
@@ -291,6 +325,9 @@ Rewrites treat \myKeyB{parallel for} loops as if they were \myKeyA{sequential}.
 \input{nyc25_tex/simple_gpu.0.tex}
 }
 
+\vspace{3mm}
+\hrule
+
 {\LARGE
 Move loop nest to CUDA device.
 
@@ -304,6 +341,9 @@ Switch to CUDA memory types.
 {\large
 \input{nyc25_tex/simple_gpu.1.tex}
 }
+
+\vspace{3mm}
+\hrule
 
 {\LARGE
 Assign large \texttt{M1} $\times$ \texttt{N1} tiles to CUDA blocks.
@@ -321,6 +361,9 @@ Assign large \texttt{M1} $\times$ \texttt{N1} tiles to CUDA blocks.
 \input{nyc25_tex/simple_gpu.2.tex}
 }
 
+\vspace{3mm}
+\hrule
+
 {\LARGE
 Assign small \texttt{M0} $\times$ \texttt{N0} tiles to CUDA threads.
 
@@ -333,6 +376,9 @@ Assign small \texttt{M0} $\times$ \texttt{N0} tiles to CUDA threads.
 \input{nyc25_tex/simple_gpu.3.tex}
 }
 
+\vspace{3mm}
+\hrule
+
 {\LARGE
 ``unit'' to be explained shortly.
 
@@ -344,6 +390,9 @@ Assign small \texttt{M0} $\times$ \texttt{N0} tiles to CUDA threads.
 {\large
 \input{nyc25_tex/simple_gpu.4.tex}
 }
+
+\vspace{3mm}
+\hrule
 
 {\LARGE
 Inner most loops stay as sequential.
@@ -359,6 +408,9 @@ Each thread loops over \texttt{M0} $\times$ \texttt{N0} iteration space.
 \input{nyc25_tex/cuda_threads.0.tex}
 }
 
+\vspace{3mm}
+\hrule
+
 {\LARGE
 \texttt{\textbf{cuda\_threads}} support non-1:1 threads/iterations mapping.
 \begin{itemize}
@@ -373,6 +425,9 @@ Each thread loops over \texttt{M0} $\times$ \texttt{N0} iteration space.
 {\large
 \input{nyc25_tex/cuda_threads.0.tex}
 }
+
+\vspace{3mm}
+\hrule
 
 {\LARGE
 
@@ -393,11 +448,6 @@ One \myKeyA{thread collective} executes each iteration of the loop.
 
 {\large
 \input{nyc25_tex/cuda_threads.0.tex}
-}
-
-{\LARGE
-Unlike other parallel loops, \texttt{\textbf{cuda\_threads}} cannot spawn more threads.
-It just \myKeyA{subdivides} existing thread collectives.
 }
 
 \begin{tikzpicture}[node distance=2mm]
@@ -439,6 +489,13 @@ It just \myKeyA{subdivides} existing thread collectives.
 \draw [dotted] (m15n2) -- (m15n15);
 
 \end{tikzpicture}
+
+\hrule
+
+{\LARGE
+Unlike other parallel loops, \texttt{\textbf{cuda\_threads}} cannot spawn more threads.
+It just \myKeyA{subdivides} existing thread collectives.
+}
 
 \newpage
 \myBiggerTitle{Summary: Thread Block Tiling}
@@ -656,8 +713,11 @@ We'll focus on the accumulate loops for the rest of the talk.
 \input{nyc25_tex/k1_before_smem.0.tex}
 }
 
+\vspace{3mm}
+\hrule
+
 {\LARGE
-Replace direct reads from \greenBox{A}, \violetBox{B} (in \myKeyA{GMEM}) with \myKeyB{SMEM}.
+We will replace reads from \greenBox{A}, \violetBox{B} (in \myKeyA{GMEM}) with \myKeyB{SMEM}.
 
 }
 
@@ -667,6 +727,9 @@ Replace direct reads from \greenBox{A}, \violetBox{B} (in \myKeyA{GMEM}) with \m
 {\large
 \input{nyc25_tex/smem_broken.1.tex}
 }
+
+\vspace{3mm}
+\hrule
 
 {\LARGE
 Stage $\texttt{M1} \times \texttt{K0}$ tile of \greenBox{\texttt{A}}, $\texttt{K0} \times \texttt{N1}$ tile of \violetBox{\texttt{B}} in shared memory.
@@ -682,6 +745,9 @@ Stage $\texttt{M1} \times \texttt{K0}$ tile of \greenBox{\texttt{A}}, $\texttt{K
 \input{nyc25_tex/smem_broken.2.tex}
 }
 
+\vspace{3mm}
+\hrule
+
 {\LARGE
 The compiler generates loops to load the shared memory tile.
 
@@ -696,6 +762,9 @@ The compiler generates loops to load the shared memory tile.
 \input{nyc25_tex/smem_in_order.0.tex}
 }
 
+\vspace{3mm}
+\hrule
+
 {\LARGE
 Divide \& parallelize the load-shared-memory loops.
 }
@@ -706,6 +775,9 @@ Divide \& parallelize the load-shared-memory loops.
 {\large
 \input{nyc25_tex/smem_in_order.1.tex}
 }
+
+\vspace{3mm}
+\hrule
 
 {\LARGE
 Add synchronization:\\
@@ -863,6 +935,9 @@ User specifies intended effect:
 \input{nyc25_tex/smem_in_order.2.tex}
 }
 
+\vspace{3mm}
+\hrule
+
 {\LARGE
 Current main loop:
 only \textbf{\texttt{cuda\_in\_order}} instructions used,
@@ -876,6 +951,9 @@ so \textbf{\texttt{Fence}} is parameterized with \texttt{cuda\_in\_order}.
 \input{nyc25_tex/smem_in_order.3.tex}
 }
 
+\vspace{3mm}
+\hrule
+
 {\LARGE
 TODO: replace these GMEM$\to$SMEM copies with cp.async.
 }
@@ -887,6 +965,9 @@ TODO: replace these GMEM$\to$SMEM copies with cp.async.
 \input{nyc25_tex/smem_in_order.4.tex}
 }
 
+\vspace{3mm}
+\hrule
+
 {\LARGE
 TODO: update timeline parameters for synchronization.
 }
@@ -897,6 +978,9 @@ TODO: update timeline parameters for synchronization.
 {\large
 \input{nyc25_tex/cp_async.0.tex}
 }
+
+\vspace{3mm}
+\hrule
 
 {\LARGE
 
@@ -915,6 +999,9 @@ Replace a block of code with a \myKeyA{semantically-equivalent sub-procedure} (b
 \input{nyc25_tex/cp_async.1.tex}
 }
 
+\vspace{3mm}
+\hrule
+
 {\LARGE
 
 Such instructions must be wrapped in a CudaAsync block.
@@ -927,6 +1014,9 @@ Such instructions must be wrapped in a CudaAsync block.
 {\large
 \input{nyc25_tex/cp_async.2.tex}
 }
+
+\vspace{3mm}
+\hrule
 
 {\LARGE
 
@@ -1279,6 +1369,9 @@ Step 2: sync check final \texttt{proc}
 \input{nyc25_tex/ring_todo.0.tex}
 }
 
+\vspace{3mm}
+\hrule
+
 {\LARGE
 Currently: data movement at the top, compute at the bottom.
 }
@@ -1289,6 +1382,10 @@ Currently: data movement at the top, compute at the bottom.
 {\large
 \input{nyc25_tex/ring_todo.1.tex}
 }
+
+\vspace{3mm}
+\hrule
+\vspace{-2mm}
 
 {\LARGE
 Move the \redBox{\texttt{smem}} declarations out of the \blueBox{\texttt{k1}} loop.\\
@@ -1302,6 +1399,9 @@ Add ring buffer dimension.
 \input{nyc25_tex/ring_todo.2.tex}
 }
 
+\vspace{3mm}
+\hrule
+
 {\LARGE
 Delay compute (bottom) relative to data movement (top).
 }
@@ -1313,6 +1413,9 @@ Delay compute (bottom) relative to data movement (top).
 \input{nyc25_tex/ring_todo.3.tex}
 }
 
+\vspace{3mm}
+\hrule
+
 {\LARGE
 Replace with \textbf{\texttt{Arrive}}, \textbf{\texttt{Await}}.
 }
@@ -1323,6 +1426,9 @@ Replace with \textbf{\texttt{Arrive}}, \textbf{\texttt{Await}}.
 {\large
 \input{nyc25_tex/ring.0.tex}
 }
+
+\vspace{3mm}
+\hrule
 
 {\LARGE
 
@@ -1337,6 +1443,9 @@ Lift \texttt{A\_smem}, \texttt{B\_smem} out of the \texttt{k1} loop and ring buf
 \input{nyc25_tex/ring.1.tex}
 }
 
+\vspace{3mm}
+\hrule
+
 {\LARGE
 
 Add an extra \blueBox{\texttt{k1}} iteration; delay the accum code by 1 iteration relative to the cp.async code.
@@ -1350,6 +1459,9 @@ Add an extra \blueBox{\texttt{k1}} iteration; delay the accum code by 1 iteratio
 \input{nyc25_tex/split.0.tex}
 }
 
+\vspace{3mm}
+\hrule
+
 {\LARGE
 Declare \textbf{\texttt{barrier}}-typed variable.
 
@@ -1362,6 +1474,9 @@ Declare \textbf{\texttt{barrier}}-typed variable.
 \input{nyc25_tex/split.1.tex}
 }
 
+\vspace{3mm}
+\hrule
+
 {\LARGE
 Resolve RAW Hazard (\textbf{\texttt{Sm80\_cp\_async $\to$ cuda\_in\_order}}).
 
@@ -1373,6 +1488,9 @@ Resolve RAW Hazard (\textbf{\texttt{Sm80\_cp\_async $\to$ cuda\_in\_order}}).
 {\large
 \input{nyc25_tex/split.2.tex}
 }
+
+\vspace{3mm}
+\hrule
 
 {\LARGE
 Resolve WAR Hazard (\textbf{\texttt{cuda\_in\_order $\to$ Sm80\_cp\_async}}).
