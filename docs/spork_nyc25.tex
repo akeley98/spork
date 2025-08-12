@@ -264,7 +264,7 @@ Goal: Map tiles to different levels of the GPU hierarchy
 \vfill
 \begin{tikzpicture}[node distance=2mm]
 
-\node (grid) [normalnode, nGreenstyle, text width=5cm, minimum width=5cm] {\textbf{grid}};
+\node (grid) [normalnode, nRedstyle, text width=5cm, minimum width=5cm] {\textbf{grid}};
 \node (cpu) [left=of grid, xshift=-2cm] {\textbf{CPU}};
 \draw [arrow] (cpu) -- node[above] {\textbf{launch}} (grid);
 \node (cuda) [above=of grid, yshift=+4mm] {\textbf{CUDA Constructs}};
@@ -273,9 +273,9 @@ Goal: Map tiles to different levels of the GPU hierarchy
 \node (cta0) [normalnode, nGoldstyle, text width=20mm, minimum width=20mm, below=of grid, xshift=-15mm, yshift=-1cm] {\textbf{block}};
 \node (cta1) [normalnode, nGoldstyle, text width=20mm, minimum width=20mm, below=of grid, xshift=+15mm, yshift=-1cm] {\textbf{block}};
 
-\node (thread0) [normalnode, nRedstyle, text width=16mm, minimum width=16mm, below=of cta0, yshift=-1cm, xshift=-32mm] {\textbf{thread}};
-\node (thread1) [normalnode, nRedstyle, text width=16mm, minimum width=16mm, right=of thread0] {\textbf{thread}};
-\node (thread2) [normalnode, nRedstyle, text width=16mm, minimum width=16mm, right=of thread1, xshift=22mm] {\textbf{thread}};
+\node (thread0) [normalnode, nGreenstyle, text width=16mm, minimum width=16mm, below=of cta0, yshift=-1cm, xshift=-32mm] {\textbf{thread}};
+\node (thread1) [normalnode, nGreenstyle, text width=16mm, minimum width=16mm, right=of thread0] {\textbf{thread}};
+\node (thread2) [normalnode, nGreenstyle, text width=16mm, minimum width=16mm, right=of thread1, xshift=22mm] {\textbf{thread}};
 
 \draw [arrow] (grid.south) to[out=270, in=90] (cta0.north);
 \draw [arrow] (grid.south) to[out=270, in=90] (cta1.north);
@@ -290,9 +290,9 @@ Goal: Map tiles to different levels of the GPU hierarchy
 \draw [thick, bluestyle, fill=none] ($(thread2.south east) - (0.01, 0)$) to[out=270, in=90] (blockDim.north);
 % Slight offset by 0.01 needed otherwise there is a mystery page break
 
-\node (CudaDeviceFunction) [align=left, right=of grid, text width=100mm] {\large\texttt{\codecomment{\# CPU launches grid}\\with \nGreenBox{\textbf{CudaDeviceFunction}}(\blueBox{blockDim=\textit{arg}}):\\~~\codecomment{\# Body lowered to CUDA C++}}\\};
+\node (CudaDeviceFunction) [align=left, right=of grid, text width=100mm] {\large\texttt{\codecomment{\# CPU launches grid}\\with \nRedBox{\textbf{CudaDeviceFunction}}(\blueBox{blockDim=\textit{arg}}):\\~~\codecomment{\# Body lowered to CUDA C++}}\\};
 \node (cudaTasks) [align=left, right=of cta1, text width=100mm] {\large\texttt{~~for \textit{iter} in \nGoldBox{\textbf{cuda\_tasks}}(\textit{lo}, \textit{hi}):}\\};
-\node (cudaThreads) [align=left, right=of thread2, text width=110mm] {\large\texttt{~~~~for \textit{iter} in \nRedBox{\textbf{cuda\_threads}}(\textit{lo}, \textit{hi}, unit=\textit{u}):}\\};
+\node (cudaThreads) [align=left, right=of thread2, text width=110mm] {\large\texttt{~~~~for \textit{iter} in \nGreenBox{\textbf{cuda\_threads}}(\textit{lo}, \textit{hi}, unit=\textit{u}):}\\};
 \end{tikzpicture}
 
 \newpage
@@ -578,96 +578,71 @@ Tile \blueBox{\texttt{k}} loop by \blueBox{\texttt{K0}} (\texttt{k $\mapsto$ k1 
 
 \newpage
 \myBiggerTitle{GEMM: Restructuring}
-
-{\large
-\input{nyc25_tex/simple_gpu.5.tex}
-}
-
-{\LARGE
-TODO: divide \blueBox{\texttt{k}} loop \& reorder outside \texttt{\textbf{cuda\_threads}} loops.
-\begin{itemize}
-  \item Enables thread cooperation inside \blueBox{\texttt{k1}} loop.
-\end{itemize}
-
-}
-
-
-\newpage
-\myBiggerTitle{GEMM: Restructuring}
 \begin{center}
 \Large
 \begin{tikzpicture}[node distance=0mm]
 \input{nyc25_no_sync_flow.tex}
 \node (text) [below=of B] {\textbf{All steps are thread-block-cooperative.}};
-\node (move_zero) [yellownode, above=of zero, yshift=+5mm] {Factor out of loop};
-\node (move_C) [yellownode, above=of C, yshift=+5mm] {Factor out of loop};
+\node (move_zero) [rednode, above=of zero, yshift=+5mm] {Factor out of loop};
+\node (move_C) [rednode, above=of C, yshift=+5mm] {Factor out of loop};
 \node (k1_info) [yellownode, above=of k1, yshift=+2mm] {Main loop};
 \draw [arrow] (move_C) to[out=300, in=60] (C);
 \draw [arrow] (move_zero) to[out=300, in=60] (zero);
 \end{tikzpicture}
 \end{center}
 
+\vfill
+\hrule
+\vfill
+
+{\LARGE
+We need to move the ``zero accumulators'' and ``write out C'' steps out of the main loop nest.
+
+}
+
 
 \newpage
 \myBiggerTitle{GEMM: Restructuring}
 
 {\large
-\input{nyc25_tex/simple_gpu.6.tex}
+\input{nyc25_tex/simple_gpu.5.tex}
 }
 
+\vfill
+\hrule
+\vfill
+
 {\LARGE
-TODO: factor out of \blueBox{\texttt{k1}} loop: \texttt{accum = 0}, write to \texttt{C}.
+We need to move the ``zero accumulators'' and ``write out C'' steps out of the main loop nest.
 
 }
 
 
 \newpage
-\myBiggerTitle{GEMM: Lift Alloc \& Expand Dim}
+\myBiggerTitle{Loop Fission}
+
+\begin{minipage}[t]{0.48\textwidth}\fixminipage
+{\LARGE
+\textbf{BEFORE}
+}
 
 {\large
-\input{nyc25_tex/simple_gpu.7.tex}
+\input{nyc25_tex/fission_def.0.tex}
 }
-
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.48\textwidth}\fixminipage
 {\LARGE
-Scope of \texttt{accum} variable is too small.
-
-Need to lift it out to thread-block scope.
-
+\textbf{AFTER}
 }
-
-\newpage
-\myBiggerTitle{GEMM: Lift Alloc \& Expand Dim}
 
 {\large
-\input{nyc25_tex/expand_dim.0.tex}
+\input{nyc25_tex/fission_def.1.tex}
 }
+\end{minipage}
 
-{\LARGE
-Lift the allocation of \redBox{\texttt{accum}} into thread-block-scope\\
-(just below \violetBox{\texttt{cuda\_tasks}} loops)
-}
 
-\newpage
-\myBiggerTitle{GEMM: Lift Alloc \& Expand Dim}
-
-{\large
-\input{nyc25_tex/expand_dim.1.tex}
-}
-
-{\LARGE
-Expand dim: each M/N iteration uses its own index of \texttt{accum}.
-}
-
-\newpage
-\myBiggerTitle{GEMM: Loop Fission}
-
-{\large
-\input{nyc25_tex/expand_dim.2.tex}
-}
-
-{\LARGE
-We will split the loop at the indicated locations, retaining the loop structure.
-}
+% We have no room for captions so I just have to remember what to say here!
 
 \newpage
 {\large
@@ -675,36 +650,19 @@ We will split the loop at the indicated locations, retaining the loop structure.
 }
 
 \newpage
-\myBiggerTitle{GEMM: K Loop Tiling}
-
 {\large
 \input{nyc25_tex/fission.1.tex}
 }
 
-{\LARGE
-We'll focus on the accumulate loops for the rest of the talk.
-
-\yellowBox{Skip scheduling to here, boxed main loop before and k1 here too and also A[...,k]*B[k,...]}
-
+\newpage
+{\large
+\input{nyc25_tex/fission.2.tex}
 }
 
 \newpage
-\myBiggerTitle{GEMM: Stage in SMEM}
-
 {\large
-\input{nyc25_tex/smem_broken.0.tex}
+\input{nyc25_tex/fission.3.tex}
 }
-
-%% {\LARGE
-%% Split k loop, and reorder sequential \blueBox{k1} loop outwards
-%% }
-
-\begin{center}
-\Large
-\begin{tikzpicture}[node distance=0mm]
-\input{nyc25_no_sync_flow.tex}
-\end{tikzpicture}
-\end{center}
 
 \newpage
 \myBiggerTitle{GEMM: Stage in SMEM}
@@ -720,6 +678,15 @@ We'll focus on the accumulate loops for the rest of the talk.
 We will replace reads from \greenBox{A}, \violetBox{B} (in \myKeyA{GMEM}) with \myKeyB{SMEM}.
 
 }
+\vspace{-4mm}
+
+\begin{center}
+\Large
+\begin{tikzpicture}[node distance=0mm]
+\input{nyc25_no_sync_flow.tex}
+\end{tikzpicture}
+\end{center}
+
 
 \newpage
 \myBiggerTitle{GEMM: Stage in SMEM}
@@ -749,9 +716,8 @@ Stage $\texttt{M1} \times \texttt{K0}$ tile of \greenBox{\texttt{A}}, $\texttt{K
 \hrule
 
 {\LARGE
-The compiler generates loops to load the shared memory tile.
-
-\texttt{seq} loops by default -- we will fix this!
+The Exo rewrite generates loops to load the shared memory tile;
+\myKeyA{sequential loops} by default -- we will fix this!
 
 }
 
@@ -922,7 +888,7 @@ User specifies intended effect:
 \end{tikzpicture}
 \end{center}
 
-%% Compiler chooses exact instructions.
+Compiler chooses exact instructions.
 
 %% Otherwise imperative\\(executes in program order with surrounding instructions).
 

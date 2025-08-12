@@ -61,7 +61,6 @@ if True:
 
 # TeX: version reorder_loops 2
 # TeX: version m_divide_loop 3
-# TeX: version fission 2
 # TeX: begin m_divide_loop reorder_loops[0]
 M1 = 192
 M0 = 12
@@ -73,9 +72,7 @@ N0 = 16
 # TeX: end n_divide_loop reorder_loops[0]
 # TeX: version smem_broken 3
 # TeX: begin smem_broken[0]
-# TeX: begin fission[1]
 K0 = 16
-# TeX: end fission[1]
 # TeX: end smem_broken[0]
 
 # TeX: summary
@@ -189,7 +186,7 @@ def nyc25_gemm_reorder_loop(M: size, N: size, K: size, A: f32[M, K] @ DRAM, B: f
   # TeX: end reorder_loops
 
 
-# TeX: version simple_gpu 8
+# TeX: version simple_gpu 6
 # TeX: begin simple_gpu[0]
 @proc
 def nyc25_gemm_simple_gpu(M: size, N: size, K: size,
@@ -212,7 +209,6 @@ def nyc25_gemm_simple_gpu(M: size, N: size, K: size,
   # TeX: color line simple_gpu[1]
   #                       bbbbbbbbbbbb
   with CudaDeviceFunction(blockDim=256):  # User chose 256 threads per block
-    # TeX: begin simple_gpu[7]
     # TeX: color line simple_gpu[1]
     #   gg    gggggggggg
     for m2 in cuda_tasks(0, M / M1):
@@ -222,12 +218,12 @@ def nyc25_gemm_simple_gpu(M: size, N: size, K: size,
         # TeX: color remark! simple_gpu[5:]
         #         bb
         # Reorder k1 loop to out here (thread-block cooperative)
-        # TeX: color line simple_gpu[2] simple_gpu[5]
+        # TeX: color line simple_gpu[2]
         #   gg    gggggggggggg
         # TeX: color line simple_gpu[3]
         #                                  ggggggggggggggggggggg
         for m1 in cuda_threads(0, M1 / M0, unit=16 * cuda_thread):
-          # TeX: color line simple_gpu[2] simple_gpu[5]
+          # TeX: color line simple_gpu[2]
           #   vv    vvvvvvvvvvvv
           # TeX: color line simple_gpu[3]
           #                                  vvvvvvvvvvvvvvvv
@@ -240,10 +236,8 @@ def nyc25_gemm_simple_gpu(M: size, N: size, K: size,
               for n0 in seq(0, N0):
                 # TeX: color line simple_gpu[0] simple_gpu[4]
                 #          bbbbbbbbbb
-                # TeX: color line simple_gpu[7]
-              # rrrrrr     rrrrrrrrrr
                 accum: f32 @ CudaRmem  # CUDA per-thread register
-                # TeX: color line simple_gpu[6]
+                # TeX: color line simple_gpu[5]
               # rrrrrrrrr
                 accum = 0
                 # TeX: remark! simple_gpu[5:]
@@ -258,11 +252,10 @@ def nyc25_gemm_simple_gpu(M: size, N: size, K: size,
                       A[m2 * M1 + m1 * M0 + m0, k]
                     * B[k, n2 * N1 + n1 * N0 + n0]
                   )
-                # TeX: color line simple_gpu[6]
+                # TeX: color line simple_gpu[5]
               # rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
                 C[m2 * M1 + m1 * M0 + m0, n2 * N1 + n1 * N0 + n0] = accum
 # TeX: end simple_gpu[1:7]
-# TeX: end simple_gpu[7]
 
 nyc25_gemm_simple_gpu = simplify(nyc25_gemm_simple_gpu)
 
@@ -297,82 +290,64 @@ if False:
               pass
 
 
-# TeX: version expand_dim 3
-@proc
-def nyc25_gemm_expand_dim(M: size, N: size, K: size,
-                          A: f32[M, K] @ CudaGmemLinear,
-                          B: f32[K, N] @ CudaGmemLinear,
-                          C: f32[M, N] @ CudaGmemLinear):
+# TeX: version cuda_threads 1
 
-  assert M % M1 == 0
-  assert N % N1 == 0
-  # TeX: version cuda_threads 1
+if False:
   # TeX: begin cuda_threads[0]
-  # TeX: color line cuda_threads[0]
-  #                       bbbbbbbbbbbb
-  with CudaDeviceFunction(blockDim=256):
-    # TeX: begin expand_dim
-    # TeX: color line expand_dim[0]
-    #   gg    gggggggggg
-    for m2 in cuda_tasks(0, M / M1):
-      # TeX: color line expand_dim[0]
-      #   vv    vvvvvvvvvv
-      for n2 in cuda_tasks(0, N / N1):
+  # TeX: color line loops[0]
+  #         gggggggggg    gggggg
+  for m2 in cuda_tasks(0, M / M1):
+    # TeX: color line loops[0]
+    #         vvvvvvvvvv    vvvvvv
+    for n2 in cuda_tasks(0, N / N1):
+      # Collective unit: thread block (CTA)
+      # TeX: color line cuda_threads[0]
+      #   yy                             ggggggggggggggggggggg
+      for m1 in cuda_threads(0, M1 / M0, unit=16 * cuda_thread):
         # TeX: remark cuda_threads
-        # Collective unit: thread block (CTA)
-        # TeX: end cuda_threads[0]
-        # Distributed into registers of threads within the block
-      # TeX: color line expand_dim[0]
-      # rrrrrr                           rrrrrrrrrr
-      # TeX: color line expand_dim[1]
-        #          yyyyy  rrrrr  gg  vv
-        accum: f32[M1/M0, N1/N0, M0, N0] @ CudaRmem
-        # TeX: begin cuda_threads[0]
-        # TeX: color line expand_dim[1:]
-        #   yy
+        # Collective unit: 16 threads (N1/N0 = 16)
         # TeX: color line cuda_threads[0]
-        #   yy                             ggggggggggggggggggggg
-        for m1 in cuda_threads(0, M1 / M0, unit=16 * cuda_thread):
+        #   rr                             vvvvvvvvvvvvvvvv
+        for n1 in cuda_threads(0, N1 / N0, unit=cuda_thread):
           # TeX: remark cuda_threads
-          # Collective unit: 16 threads (N1/N0 = 16)
-          # TeX: color line expand_dim[1:]
-          #   rr
-          # TeX: color line cuda_threads[0]
-          #   rr                             vvvvvvvvvvvvvvvv
-          for n1 in cuda_threads(0, N1 / N0, unit=cuda_thread):
-            # TeX: remark cuda_threads
-            # Collective unit: 1 thread
-            # TeX: end cuda_threads[0]
-            # TeX: color line expand_dim[1:]
-            #   gg
-            for m0 in seq(0, M0):
-              # TeX: color line expand_dim[1:]
-              #   vv
-              for n0 in seq(0, N0):
-                # TeX: color line expand_dim[1:]
-                #     yy  rr  gg  vv
-                accum[m1, n1, m0, n0] = 0
-                # TeX: remark! expand_dim[2]
-        # FISSION HERE
-                # TeX: color line *
-                #   b    bbbbbbbbb
-                for k in seq(0, K):
-                  # TeX: color line expand_dim[1:]
-                  #     yy  rr  gg  vv
-                  accum[m1, n1, m0, n0] += (
-                      A[m2 * M1 + m1 * M0 + m0, k]
-                    * B[k, n2 * N1 + n1 * N0 + n0]
-                  )
-                # TeX: remark! expand_dim[2]
-        # FISSION HERE
-                C[m2 * M1 + m1 * M0 + m0, n2 * N1 + n1 * N0 + n0] = (
-                  # TeX: color line expand_dim[1:]
-                    #     yy  rr  gg  vv
-                    accum[m1, n1, m0, n0]
-                )
-# TeX: end expand_dim
+          # Collective unit: 1 thread
+          # TeX: end cuda_threads[0]
+          pass
 
-nyc25_gemm_expand_dim = simplify(nyc25_gemm_expand_dim)
+
+# TeX: version fission_def 2
+
+if False:
+  # TeX: begin fission_def[0]
+  for i1 in loop_mode_1(lo1, hi1):
+    # ...
+    for iN in loop_mode_N(loN, hiN):
+    # TeX: color line *
+    # rr
+      s1
+      # FISSION HERE
+    # TeX: color line *
+    # bb
+      s2
+  # TeX: end fission_def[0]
+
+  # TeX: begin fission_def[1]
+  for i1 in loop_mode_1(lo1, hi1):
+    # ...
+    for iN in loop_mode_N(loN, hiN):
+    # TeX: color line *
+    # rr
+      s1
+  for i1 in loop_mode_1(lo1, hi1):
+    # ...
+    for iN in loop_mode_N(loN, hiN):
+    # TeX: color line *
+    # bb
+      s2
+  # TeX: end fission_def[1]
+
+
+# TeX: version fission 4
 
 
 @proc
@@ -384,64 +359,81 @@ def nyc25_gemm_fission(M: size, N: size, K: size,
   assert M % M1 == 0
   assert N % N1 == 0
   with CudaDeviceFunction(blockDim=256):
-    # TeX: begin fission[0]
+    # TeX: begin fission
+    # TeX: color line fission[2]
+    #   gg    ggggggggggggggggggggg
     for m2 in cuda_tasks(0, M / M1):
-      for n2 in cuda_tasks(0, N / N1):
+      # TeX: color line fission[2]
+      #   vv    vvvvvvvvvvvvvvvvvvvvv
+      for n2 in cuda_tasks(0, N / N1):  # Did not fission cuda_tasks
         accum: f32[M1/M0, N1/N0, M0, N0] @ CudaRmem
         # TeX: remark *
         # Zero-initialize accumulators
-        # TeX: color line *
-        #   yy
+        # TeX: color line fission[1]
+        #   gg
         for m1 in cuda_threads(0, M1 / M0, unit=(N1 / N0) * cuda_thread):
-          # TeX: color line *
-          #   rr
+          # TeX: color line fission[1]
+          #   vv
           for n1 in cuda_threads(0, N1 / N0, unit=cuda_thread):
-            # TeX: color line *
+            # TeX: color line fission[1]
             #   gg
             for m0 in seq(0, M0):
-              # TeX: color line *
+              # TeX: color line fission[1]
               #   vv
               for n0 in seq(0, N0):
+                # TeX: color line fission[0]
+              # rrrrrrrrrrrrrrrrrrrrrrrrr
                 accum[m1, n1, m0, n0] = 0
-        # TeX: begin fission[1]
-        # TeX: remark! *
+        # TeX: remark fission[:3]
+        # Main loop: computes dot products
+        # TeX: remark! fission[3]
         # Main loop: computes dot products (focus of the talk)
-        # TeX: color line *
-        #   yy
-        for m1 in cuda_threads(0, M1 / M0, unit=(N1 / N0) * cuda_thread):
-          # TeX: color line *
-          #   rr
-          for n1 in cuda_threads(0, N1 / N0, unit=cuda_thread):
-            # TeX: color line *
-            #   gg
-            for m0 in seq(0, M0):
-              # TeX: color line *
-              #   vv
-              for n0 in seq(0, N0):
-                # TeX: color line *
-                #   b    bbbbbbbbb
-                for k in seq(0, K):
-                  accum[m1, n1, m0, n0] += (A[m2 * M1 + m1 * M0 + m0, k]
-                                          * B[k, n2 * N1 + n1 * N0 + n0])
-        # TeX: end fission[1]
+        # TeX: color line fission[3]
+        #   bb    bbbbbbbbbbbbbb
+        for k1 in seq(0, K / K0):  # $\texttt{k} \mapsto \texttt{k1 * K0 + k0}$, reordered k1 loop
+          # TeX: color line fission[1]
+          #   gg
+          for m1 in cuda_threads(0, M1 / M0, unit=(N1 / N0) * cuda_thread):
+            # TeX: color line fission[1]
+            #   vv
+            for n1 in cuda_threads(0, N1 / N0, unit=cuda_thread):
+              # TeX: color line fission[1]
+              #   gg
+              for m0 in seq(0, M0):
+                # TeX: color line fission[1]
+                #   vv
+                for n0 in seq(0, N0):
+                  # TeX: color line fission[3]
+                  #   bb    bbbbbbbbbb
+                  for k0 in seq(0, K0):
+                    # TeX: color line fission[0]
+                   #rrrrrrrrrrrrrrrrrrrrrrrrr  ......................                    ............  ......................
+                    # TeX: color line fission[1:3]
+                    #                          ......................                    ............  ......................
+                    # TeX: color line fission[3]
+                    #                        gg......................  bbbbbbbbbbbbg   vv............  ......................v
+                    accum[m1, n1, m0, n0] += A[m2 * M1 + m1 * M0 + m0, k1 * K0 + k0] * B[k1 * K0 + k0, n2 * N1 + n1 * N0 + n0]
         # TeX: remark *
         # Epilogue: write to global memory
-        # TeX: color line *
-        #   yy
+        # TeX: color line fission[1]
+        #   gg
         for m1 in cuda_threads(0, M1 / M0, unit=(N1 / N0) * cuda_thread):
-          # TeX: color line *
-          #   rr
+          # TeX: color line fission[1]
+          #   vv
           for n1 in cuda_threads(0, N1 / N0, unit=cuda_thread):
-            # TeX: color line *
+            # TeX: color line fission[1]
             #   gg
             for m0 in seq(0, M0):
-              # TeX: color line *
+              # TeX: color line fission[1]
               #   vv
               for n0 in seq(0, N0):
-                # TeX: color line *
+                # TeX: color line fission[0]
+              # rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr      ..............
+                # TeX: color line fission[1:]
                 #                                                         ..............
                 C[m2 * M1 + m1 * M0 + m0, n2 * N1 + n1 * N0 + n0] = accum[m1, n1, m0, n0]
-# TeX: end fission[0]
+# TeX: end fission
+
 
 nyc25_gemm_fission = simplify(nyc25_gemm_fission)
 
@@ -465,8 +457,7 @@ if False:
                     A[m2 * M1 + m1 * M0 + m0, k1 * K0 + k0]
                 # TeX: color line *
                 #   vv                                    v
-                  * B[k1 * K0 + k0, n2 * N1 + n1 * N0 + n0]
-                )
+                  * B[k1 * K0 + k0, n2 * N1 + n1 * N0 + n0])
 # TeX: end k1_before_smem
 
 
@@ -502,7 +493,7 @@ def nyc25_gemm_smem_broken(M: size, N: size, K: size, A: f32[M, K] @ CudaGmemLin
           for i0 in seq(0, M1):
             for i1 in seq(0, K0):
               # TeX: color line smem_broken[2]
-            # gggggg       g   gg                          g
+            # ggggggg      g   gg                          g
               A_smem[i0, i1] = A[m2 * M1 + i0, k1 * K0 + i1]
           for i0 in seq(0, K0):
             for i1 in seq(0, N1):
