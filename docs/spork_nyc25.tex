@@ -328,12 +328,14 @@ Rewrites treat \myKeyB{parallel for} loops as if they were \myKeyA{sequential}.
 \vspace{3mm}
 \hrule
 
-{\LARGE
-Move loop nest to CUDA device.
-
-Switch to CUDA memory types.
-
-}
+\begin{center}
+\begin{tikzpicture}[node distance=2mm]
+\node (grid) [normalnode, nRedstyle, text width=5cm, minimum width=5cm] {\textbf{grid}};
+\node (cpu) [left=of grid, xshift=-2cm] {\textbf{CPU}};
+\draw [arrow] (cpu) -- node[above] {\textbf{launch}} (grid);
+\node (text) [text width=9.5cm, align=left, anchor=east] at($(cpu.west)$) {\LARGE Move loop nest to CUDA \mbox{device}; use CUDA memory.};
+\end{tikzpicture}
+\end{center}
 
 \newpage
 \myBiggerTitle{GEMM: GPU task (block) loops}
@@ -345,14 +347,18 @@ Switch to CUDA memory types.
 \vspace{3mm}
 \hrule
 
-{\LARGE
-Assign large \texttt{M1} $\times$ \texttt{N1} tiles to CUDA blocks.
+\begin{center}
+\begin{tikzpicture}[node distance=2mm]
+\node (grid) [normalnode, nRedstyle, text width=5cm, minimum width=5cm] {\textbf{grid}};
+\node (cta0) [normalnode, nGoldstyle, text width=20mm, minimum width=20mm, below=of grid, xshift=-15mm, yshift=-4mm] {\textbf{block}};
+\node (cta1) [normalnode, nGoldstyle, text width=20mm, minimum width=20mm, below=of grid, xshift=+15mm, yshift=-4mm] {\textbf{block}};
+\draw [arrow] (grid.south) to[out=270, in=90] (cta0.north);
+\draw [arrow] (grid.south) to[out=270, in=90] (cta1.north);
 
-}
+\node (text) [text width=9.5cm, align=left, anchor=east] at($(grid.west)!0.5!(cta0.west)$) {\LARGE Assign large \texttt{M1} $\times$ \texttt{N1} tiles to CUDA blocks.};
+\end{tikzpicture}
+\end{center}
 
-% \yellowBox{1 or 2 details one at a time, we need to frame mapping levels to loops...}
-
-% \redBox{Add zoom-in code, no changes}
 
 \newpage
 \myBiggerTitle{GEMM: GPU thread loops}
@@ -364,10 +370,12 @@ Assign large \texttt{M1} $\times$ \texttt{N1} tiles to CUDA blocks.
 \vspace{3mm}
 \hrule
 
-{\LARGE
-Assign small \texttt{M0} $\times$ \texttt{N0} tiles to CUDA threads.
-
-}
+\begin{center}
+\begin{tikzpicture}[node distance=2mm]
+\input{nyc25_mini_block_thread.tex}
+\node (text) [text width=9.5cm, align=left, anchor=east, yshift=10mm] at($(thread0.west)$) {\LARGE Assign small \texttt{M0} $\times$ \texttt{N0} tiles to CUDA threads.};
+\end{tikzpicture}
+\end{center}
 
 \newpage
 \myBiggerTitle{GEMM: GPU thread loops}
@@ -379,10 +387,12 @@ Assign small \texttt{M0} $\times$ \texttt{N0} tiles to CUDA threads.
 \vspace{3mm}
 \hrule
 
-{\LARGE
-``unit'' to be explained shortly.
-
-}
+\begin{center}
+\begin{tikzpicture}[node distance=2mm]
+\input{nyc25_mini_block_thread.tex}
+\node (text) [text width=9.5cm, align=left, anchor=east, yshift=10mm] at($(thread0.west)$) {\LARGE ``unit'' to be explained shortly.};
+\end{tikzpicture}
+\end{center}
 
 \newpage
 \myBiggerTitle{GEMM: GPU per-thread work}
@@ -397,7 +407,7 @@ Assign small \texttt{M0} $\times$ \texttt{N0} tiles to CUDA threads.
 {\LARGE
 Inner most loops stay as sequential.
 
-Each thread loops over \texttt{M0} $\times$ \texttt{N0} iteration space.
+Each thread loops over its own \texttt{M0} $\times$ \texttt{N0} iteration space.
 
 }
 
@@ -640,6 +650,14 @@ We need to move the ``zero accumulators'' and ``write out C'' steps out of the m
 \input{nyc25_tex/fission_def.1.tex}
 }
 \end{minipage}
+
+\vspace{3mm}
+\hrule
+
+{\LARGE
+Rewritten code follows.
+
+}
 
 
 % We have no room for captions so I just have to remember what to say here!
