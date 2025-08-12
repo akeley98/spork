@@ -950,11 +950,12 @@ TODO: update timeline parameters for synchronization.
 
 {\LARGE
 
-Replace \texttt{A\_smem[\codecomment{...}] = A[\codecomment{...}]} and \texttt{B\_smem[\codecomment{...}] = B[\codecomment{...}]}\\with cp.async instructions.
+Exo allows rewriting a block of code into a call to a \myKeyA{semantically-equivalent sub-procedure}.
+\begin{itemize}
+  \item Semantics \myKeyB{ignore concurrency}.
+\end{itemize}
 
-Exo allows the rewrite, because the substituted functionality, \textit{ignoring concurrency}, is equivalent.
-
-Replace a block of code with a \myKeyA{semantically-equivalent sub-procedure} (blah blah ignore parallelism)
+Replaced: \texttt{A\_smem[\codecomment{...}] = A[\codecomment{...}]} and \texttt{B\_smem[\codecomment{...}] = B[\codecomment{...}]}
 
 }
 
@@ -1202,8 +1203,6 @@ Match pairs of executed Arrives \& Awaits with the same barrier variable, adjust
 {\LARGE
 Tensor core instructions = multiply-accumulate matrix tile.
 
-Substitute portions of code that look like
-
 }
 
 {\large
@@ -1211,6 +1210,8 @@ Substitute portions of code that look like
 }
 
 {\LARGE
+Exo can replace such blocks with calls to \myKeyA{semantically equivalent} tensor core instructions.
+
 Async on Hopper (sm\_90a) \& later, so on a different \myKeyA{timeline}.
 \begin{itemize}
   \item Still \texttt{cuda\_in\_order} for $\le$ sm\_80.
