@@ -61,7 +61,7 @@ Jonathan Ragan-Kelley
 %\includegraphics[width=\linewidth]{usda_spork.jpg}
 
 \newpage
-\myBiggerTitle{GEMM: Starting out with Exo \yellowBox{I am working on a new DSL}}
+\myBiggerTitle{GEMM: Starting out with Exo}
 
 {\large
 \input{nyc25_tex/cpu.0.tex}
@@ -138,6 +138,8 @@ Start with simple \texttt{proc}; rewrite into optimized \texttt{proc}.
 \end{itemize}
 
 Goal: extend rewrite model \& underlying semantics to model \myKeyB{imperative GPU programming} in a disciplined way.
+
+\yellowBox{CITE}
 
 }
 
@@ -395,7 +397,7 @@ Rewrites treat \myKeyB{parallel for} loops as if they were \myKeyA{sequential}.
 \end{center}
 
 \newpage
-\myBiggerTitle{GEMM: GPU per-thread work}
+\myBiggerTitle{GEMM: GPU per-thread work \hfill \nBlueBox{GEMM v2}}
 
 {\large
 \input{nyc25_tex/simple_gpu.4.tex}
@@ -508,7 +510,7 @@ It just \myKeyA{subdivides} existing thread collectives.
 }
 
 \newpage
-\myBiggerTitle{Summary: Thread Block Tiling}
+\myBiggerTitle{Summary: Thread Block Tiling \hfill \nBlueBox{GEMM v2}}
 
 \begin{tikzpicture}[node distance=0mm]
 \input{nyc25_grid_tile.tex}
@@ -533,7 +535,7 @@ It just \myKeyA{subdivides} existing thread collectives.
 \end{center}
 
 \newpage
-\myBiggerTitle{Summary: Thread Tiling Within Block}
+\myBiggerTitle{Summary: Thread Tiling in Block \hfill \nBlueBox{GEMM v2}}
 
 \begin{tikzpicture}[node distance=0mm]
 \input{nyc25_block_tile.tex}
@@ -754,7 +756,7 @@ Divide \& parallelize the load-shared-memory loops.
 }
 
 \newpage
-\myBiggerTitle{GEMM: Stage in SMEM}
+\myBiggerTitle{``Classic'' GPU GEMM Summary \hfill \nBlueBox{GEMM v3}}
 
 {\large
 \input{nyc25_tex/smem_in_order.1.tex}
@@ -772,8 +774,7 @@ All threads in the thread block wait for each other.
 \myBiggerTitle{``Classic'' GPU GEMM Summary}
 
 {\LARGE
-Synchronization required:\\
-Thread that loads a value to SMEM isn't the same as the one that uses it.
+Synchronization required: thread that loads a value to SMEM isn't the same as the one that uses it.
 
 }
 
@@ -994,7 +995,7 @@ Such instructions must be wrapped in a CudaAsync block.
 }
 
 \newpage
-\myBiggerTitle{GEMM: cp.async (Synchronization)}
+\myBiggerTitle{GEMM: cp.async (Synchronization) \hfill \nBlueBox{GEMM v4}}
 
 {\large
 \input{nyc25_tex/cp_async.2.tex}
@@ -1185,30 +1186,85 @@ Implement dependency graph edges with \myKeyA{split barriers}:\\Arrive/Await.
 }
 
 \newpage
-\myBiggerTitle{Exo-GPU: Arrive/Await}
+\myBiggerTitle{Exo-GPU: Fence vs Arrive/Await}
 
 {\LARGE
-Special variable type: \texttt{\textit{var}: \textbf{barrier}}. Usage:
+The \texttt{Fence} statement combines two concepts together:
 
-\hfill \texttt{Arrive(\myKeyA{L1}, 1) >> \textit{var}} \hfill \texttt{Await(\textit{var}, \myKeyB{L2}, \blueBox{\textsf{delay}})} \hfill
+\vspace{3mm}
+\hrule
 
-where \texttt{\myKeyA{L1}, \myKeyB{L2}} are timelines as in \texttt{Fence}.
+\begin{center}
+\begin{tikzpicture}[node distance=0mm]
+\node (L1) [draw=black, text width=40mm, minimum height=40mm, align=center] {\myKeyA{L1}-timeline memory access};
+\node (fence) [yellowstyle, text width=10mm, minimum height=40mm, align=center, right=of L1, xshift=40mm] {};
+\node (fence_caption) [below=of fence] {\textbf{Fence}};
+\node (L2) [draw=black, text width=40mm, minimum height=40mm, align=center, right=of fence, xshift=40mm] {\myKeyB{L2}-timeline memory access};
+\node (pre) [text width=80mm, align=left, anchor=south west] at($(L1.north west)$) {\textbf{Pre-fence condition:} All threads' \myKeyA{L1}-timeline memory accesses have finished.};
+\node (post) [text width=80mm, align=left, anchor=south east] at($(L2.north east)$) {\textbf{Post-fence effect:} All threads' \myKeyB{L2}-timeline memory accesses may proceed.};
+\draw [arrow] (L1) -- (fence);
+\draw [arrow] (fence) -- (L2);
+\end{tikzpicture}
+\end{center}
 
-\vspace{5mm}
+}
 
-All threads reach an \texttt{Arrive}\\
-$\implies$ threads may pass the \textit{matched} \texttt{Await}.
 
-\vspace{5mm}
+\newpage
+\myBiggerTitle{Exo-GPU: Fence vs Arrive/Await}
 
-Match pairs of executed Arrives \& Awaits with the same barrier variable, adjusted by \blueBox{delay}.
-%% Arrive/Await matching:
-%% \begin{itemize}
-%%   \item Match pairs of executed \texttt{Arrive}/\texttt{Await} with the same \texttt{barrier} variable.
-%%   \item Adjust matching based on \blueBox{delay} value.
-%% \end{itemize}
+{\LARGE
+Separate out the two with \texttt{Arrive} and \texttt{Await} statements.
 
-\vfill
+\vspace{3mm}
+\hrule
+
+\begin{center}
+\begin{tikzpicture}[node distance=0mm]
+\node (L1) [draw=black, text width=40mm, minimum height=40mm, align=center] {\myKeyA{L1}-timeline memory access};
+\node (arrive) [yellowstyle, text width=10mm, minimum height=40mm, align=center, right=of L1, xshift=9mm] {};
+\node (arrive_caption) [below=of arrive] {\textbf{Arrive}};
+\node (unrelated) [bluestyle, align=center, right=of arrive, xshift=2mm, yshift=-9mm] { (unrelated\\work) };
+\node (await) [yellowstyle, text width=10mm, minimum height=40mm, align=center, right=of unrelated, xshift=2mm, yshift=+9mm] {};
+\node (await_caption) [below=of await] {\textbf{Await}};
+\node (L2) [draw=black, text width=40mm, minimum height=40mm, align=center, right=of await, xshift=9mm] {\myKeyB{L2}-timeline memory access};
+\node (pre) [text width=80mm, align=left, anchor=south west] at($(L1.north west)$) {\textbf{Pre-Arrive condition:} All threads' \myKeyA{L1}-timeline memory accesses have finished.};
+\node (post) [text width=80mm, align=left, anchor=south east] at($(L2.north east)$) {\textbf{Post-Await effect:} All threads' \myKeyB{L2}-timeline memory accesses may proceed.};
+\draw [arrow] (L1) -- (arrive);
+\draw [arrow] (await) -- (L2);
+\draw [arrow] (arrive) to[out=45, in=135] (await);
+\end{tikzpicture}
+\end{center}
+
+}
+
+
+\newpage
+\myBiggerTitle{Exo-GPU: Fence vs Arrive/Await}
+
+{\LARGE
+\texttt{Arrive}/\texttt{Await} require a common \textbf{\texttt{barrier}}-typed variable.
+
+\vspace{3mm}
+\hrule
+
+\begin{center}
+\begin{tikzpicture}[node distance=0mm]
+\node (L1) [draw=black, text width=40mm, minimum height=40mm, align=center] {\myKeyA{L1}-timeline memory access};
+\node (arrive) [yellowstyle, text width=10mm, minimum height=40mm, align=center, right=of L1, xshift=9mm] {};
+\node (arrive_caption) [below=of arrive] {\textbf{Arrive}};
+\node (unrelated) [bluestyle, align=center, right=of arrive, xshift=2mm, yshift=-9mm] { (unrelated\\work) };
+\node (await) [yellowstyle, text width=10mm, minimum height=40mm, align=center, right=of unrelated, xshift=2mm, yshift=+9mm] {};
+\node (await_caption) [below=of await] {\textbf{Await}};
+\node (L2) [draw=black, text width=40mm, minimum height=40mm, align=center, right=of await, xshift=9mm] {\myKeyB{L2}-timeline memory access};
+\node (pre) [align=left, anchor=south west, yshift=12mm] at($(L1.north west)$) {\texttt{Arrive(\myKeyA{L1}) >> \textit{barrier}}};
+\node (post) [align=left, anchor=south east, yshift=12mm] at($(L2.north east)$) {\texttt{Await(\textit{barrier}, \myKeyB{L2})}};
+\draw [arrow] (L1) -- (arrive);
+\draw [arrow] (await) -- (L2);
+\draw [arrow] (arrive) to[out=45, in=135] (await);
+\draw [arrow] (pre) -- (post);
+\end{tikzpicture}
+\end{center}
 
 \hfill Example code in extra slides.
 
