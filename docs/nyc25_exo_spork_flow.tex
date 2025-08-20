@@ -1,0 +1,28 @@
+\node(proc0) [normalnode, text width=2cm, minimum width=2cm] {Original proc $p_0$};
+\node(proc1) [normalnode, text width=2cm, minimum width=2cm, right=of proc0] {$p_1, p_2,...$};
+\node(procNS) [normalnode, right=of proc1, text width=4cm, minimum width=4cm] {Final proc $p_n$,\\interpreted\\\myKeyA{sequentially}};
+\node(procNM) [greennode, right=of procNS, text width=4cm, minimum width=4cm] {Final proc $p_n$,\\\textbf{parallel}\\interpretation};
+\node(cuda) [greennode, right=of procNM] {CUDA C++ header};
+
+\draw [arrow] (proc0) -- (proc1);
+\draw [arrow] (proc1.north east) to[out=45, in=90] (proc1.north);
+\draw [arrow] (proc1) to node(p1arrow)[]{} (procNS);
+\draw [arrow] (procNS) to node(SM)[]{} (procNM);
+\draw [arrow] (procNM) to node(toCuda)[]{} (cuda);
+
+\node(exo) [normalnode, yshift=-8mm, text width=4cm, minimum width=4cm, below=of p1arrow, draw=blueBoxFg, fill=blueBoxBg, text=blueBoxFg] {Exo Rewrites};
+\node(sync) [greennode, yshift=-8mm, text width=5cm, below=of SM] {Sync Checking};
+\node(codegen) [normalnode, yshift=-8mm, text width=6cm, xshift=1cm, below=of toCuda, draw=blueBoxFg, fill=blueBoxBg, text=blueBoxFg] {Code Generator};
+\node(note) [above=of SM, redstyle, yshift=8mm, align=center] {Same proc, \textbf{different}\\\textbf{interpretation}};
+\node(c) [draw=black, above=of cuda] {C code};
+\node(equiv) [left=of exo, text=blueBoxFg, xshift=9mm] {\textbf{Equivalence due to:}};
+
+\draw [line, draw=blueBoxFg] (exo.north) to[out=135, in=270] (proc0.south west);
+\draw [line, draw=blueBoxFg] (exo.north) to[out=45, in=270] (procNS.south);
+\draw [line, draw=greenBoxFg] (sync.north) to[out=135, in=270] (procNS.south);
+\draw [line, draw=greenBoxFg] (sync.north) to[out=45, in=270] (procNM.south);
+\draw [line, draw=redBoxFg] (note) -- (procNS);
+\draw [line, draw=redBoxFg] (note) -- (procNM);
+\draw [line, draw=blueBoxFg] (codegen.north) to[out=135, in=270] (procNM.south);
+\draw [line, draw=blueBoxFg] (codegen.north) to[out=45, in=270] (cuda.south east);
+\draw [arrow] (procNM.east) to (c.west);

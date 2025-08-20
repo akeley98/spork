@@ -830,6 +830,69 @@ Second sync: don't overwrite until all SMEM reads are done\\(WAR: write-after-re
 \end{center}
 
 \newpage
+\myBiggerTitle{User Perspective: Synchronization Checking}
+
+{\LARGE
+We issued \myKeyA{unchecked} rewrites to \myKeyB{parallelize} and \myKeyB{synchronize}.
+
+Extend the Exo rewrite model to add a separate ``sync check'' step.
+
+}
+
+\begin{center}
+{\large
+\begin{tikzpicture}[node distance=8mm]
+\input{nyc25_exo_cpu_flow.tex}
+\node (caption) [greenstyle, align=center, anchor=south, yshift=2mm] at(toC) {CHECK\\HERE};
+\end{tikzpicture}
+}
+\end{center}
+
+\newpage
+\myBiggerTitle{User Perspective: Synchronization Checking}
+
+{\LARGE
+Phase 1, \textbf{Rewrites}:
+$p_0 \equiv p_1 \equiv ... \equiv p_n$
+\begin{itemize}
+  \item Checked for all rewrites using \myKeyA{sequential semantics}.
+  \item Analyzes \myKeyB{parallel} loops as if they were \myKeyA{sequential}.
+\end{itemize}
+
+}
+
+\begin{center}
+{\large
+\begin{tikzpicture}[node distance=8mm]
+\input{nyc25_exo_spork_flow.tex}
+\node(step1) [nPurplestyle, anchor=north west, minimum width=12mm, minimum height=12mm, xshift=-2mm, yshift=3mm] at(exo.south west) {\Huge $\star$ 1};
+\end{tikzpicture}
+}
+\end{center}
+
+\newpage
+\myBiggerTitle{User Perspective: Synchronization Checking}
+
+{\LARGE
+Phase 2, \textbf{Self-equivalence}:
+\myKeyA{sequential} $p_n$ $\equiv$ \myKeyB{parallel} $p_n$.
+\begin{itemize}
+  \item Functional equivalence checked between two semantics.
+  \item Checked only for final proc, lowered to CUDA.
+\end{itemize}
+
+}
+
+\begin{center}
+{\large
+\begin{tikzpicture}[node distance=8mm]
+\input{nyc25_exo_spork_flow.tex}
+\node(step2) [nPurplestyle, anchor=north west, minimum width=12mm, minimum height=12mm, xshift=-2mm, yshift=3mm] at(sync.south west) {\Huge $\star$ 2};
+\end{tikzpicture}
+}
+\end{center}
+
+\newpage
 \myBiggerTitle{Modernize GPU GEMM}
 
 {\LARGE
@@ -1332,49 +1395,24 @@ More \myKeyA{timelines} defined for H100 async tensor cores.
 \myBiggerTitle{Scheduling Chain of Equivalence}
 
 {\LARGE
-Step 1: apply scheduling operators
+Phase 1: apply scheduling operators
 \begin{itemize}
   \item Analyzes \myKeyB{parallel} loops as if they were \myKeyA{sequential}.
 \end{itemize}
 
-Step 2: sync check final \texttt{proc}
+Phase 2: sync check final \texttt{proc}
 \begin{itemize}
-  \item Parallelized $p_n$ functionally equivalent to sequential $p_n$.
+  \item \myKeyB{parallelized} $p_n$ functionally equivalent to \myKeyA{sequential} $p_n$.
 \end{itemize}
 }
 
 \begin{center}
 {\large
 \begin{tikzpicture}[node distance=8mm]
-\sffamily
-\node(proc0) [normalnode, text width=2cm, minimum width=2cm] {Original proc $p_0$};
-\node(proc1) [normalnode, text width=2cm, minimum width=2cm, right=of proc0] {$p_1, p_2,...$};
-\node(procNS) [normalnode, right=of proc1, text width=4cm, minimum width=4cm] {Final proc $p_n$,\\interpreted\\\myKeyA{sequentially}};
-\node(procNM) [normalnode, right=of procNS, text width=4cm, minimum width=4cm] {Final proc $p_n$,\\\myKeyB{parallel}\\interpretation};
-\node(cuda) [normalnode, right=of procNM] {CUDA C++ header};
-
-\draw [arrow] (proc0) -- (proc1);
-\draw [arrow] (proc1.north east) to[out=45, in=90] (proc1.north);
-\draw [arrow] (proc1) to node(p1arrow)[]{} (procNS);
-\draw [arrow] (procNS) to node(SM)[]{} (procNM);
-\draw [arrow] (procNM) to node(toCuda)[]{} (cuda);
-
-\node(exo) [normalnode, yshift=-8mm, text width=4cm, minimum width=4cm, below=of p1arrow, draw=blueBoxFg, fill=blueBoxBg, text=blueBoxFg] {Exo Rewrites};
-\node(sync) [normalnode, yshift=-8mm, text width=5cm, below=of SM, draw=blueBoxFg, fill=blueBoxBg, text=blueBoxFg] {Sync Checking};
-\node(spork) [normalnode, yshift=-8mm, text width=6cm, xshift=1cm, below=of toCuda, draw=blueBoxFg, fill=blueBoxBg, text=blueBoxFg] {Code Generator};
-\node(note) [above=of SM, redstyle, yshift=8mm, align=center] {Same proc, \textbf{different}\\\textbf{interpretation}};
-\node(c) [smallnode, above=of cuda, xshift=-6mm] {C code};
-\node(equiv) [left=of exo, text=blueBoxFg, xshift=9mm] {\textbf{Equivalence due to:}};
-
-\draw [line, draw=blueBoxFg] (exo.north) to[out=135, in=270] (proc0.south west);
-\draw [line, draw=blueBoxFg] (exo.north) to[out=45, in=270] (procNS.south);
-\draw [line, draw=blueBoxFg] (sync.north) to[out=135, in=270] (procNS.south);
-\draw [line, draw=blueBoxFg] (sync.north) to[out=45, in=270] (procNM.south);
-\draw [line, draw=redBoxFg] (note) -- (procNS);
-\draw [line, draw=redBoxFg] (note) -- (procNM);
-\draw [line, draw=blueBoxFg] (spork.north) to[out=135, in=270] (procNM.south);
-\draw [line, draw=blueBoxFg] (spork.north) to[out=45, in=270] (cuda.south east);
-\draw [arrow] (procNM.east) to (c.west);
+\input{nyc25_exo_spork_flow.tex}
+\node (sequential) [below=of exo, yshift=6mm, align=center] {\textbf{Sequential}};
+\node (am) [below=of sync, yshift=6mm, align=center] {\textbf{Abstract Machine}};
+\node (semantics) [left=of sequential] {Semantics used:};
 \end{tikzpicture}
 }
 \end{center}
