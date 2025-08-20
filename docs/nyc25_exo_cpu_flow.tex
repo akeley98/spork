@@ -1,0 +1,19 @@
+\node(proc0) [normalnode, text width=2cm, minimum width=2cm] {Original proc $p_0$};
+\node(proc1) [normalnode, text width=2cm, minimum width=2cm, right=of proc0] {$p_1, p_2,...$};
+\node(procNS) [normalnode, right=of proc1, text width=4cm, minimum width=4cm] {Final proc $p_n$};
+\node(c) [normalnode, right=of procNS] {C code};
+
+\draw [arrow] (proc0) -- (proc1);
+\draw [arrow] (proc1.north east) to[out=45, in=90] (proc1.north);
+\draw [arrow] (proc1) to node(p1arrow)[]{} (procNS);
+\draw [arrow] (procNS) to node(toC)[]{} (c);
+
+\node(exo) [normalnode, yshift=-4mm, text width=4cm, minimum width=4cm, below=of p1arrow, draw=blueBoxFg, fill=blueBoxBg, text=blueBoxFg] {Exo Rewrites};
+\node(codegen) [normalnode, yshift=-4mm, text width=6cm, xshift=1cm, below=of toC, draw=blueBoxFg, fill=blueBoxBg, text=blueBoxFg] {Code Generator};
+\node(equiv) [left=of exo, text=blueBoxFg, xshift=9mm] {\textbf{Equivalence due to:}};
+
+\draw [line, draw=blueBoxFg] (exo.north) to[out=135, in=270] (proc0.south west);
+\draw [line, draw=blueBoxFg] (exo.north) to[out=45, in=270] (procNS.south);
+\draw [line, draw=blueBoxFg] (codegen.north) to[out=135, in=270] (procNS.south);
+\draw [line, draw=blueBoxFg] (codegen.north) to[out=45, in=270] (c.south east);
+\draw [arrow] (procNS.east) to (c.west);

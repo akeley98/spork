@@ -14,6 +14,10 @@ color_dict = {
     ".": "codecomment",  # Special meaning, delete chars
 }
 
+requires_smash = {
+    "r", "g", "b", "y", "v"
+}
+
 char_dict = {
     " ": r"~",
     "#": "\\#",
@@ -62,6 +66,11 @@ class TexLine:
         in_comment = False
         in_math = False
 
+        def end_color(c):
+            snippets.append("}")
+            if c in requires_smash:
+                snippets.append(r"}\hspace{-1.5pt}")
+
         for i, c in enumerate(py_text):
             # Comment detection (not very smart e.g. fooled by strings)
             if c == "#":
@@ -76,13 +85,15 @@ class TexLine:
 
             # End colorBox if needed.
             if color_char != prev_color_char and prev_color_char is not None:
-                snippets.append("}")
+                end_color(prev_color_char)
 
             # Begin colorBox if needed.
             if color_char is not None and color_char != prev_color_char:
                 colorBox = color_dict.get(color_char)
                 if colorBox is None:
                     raise ValueError(f"Line {self.lineno}: unknown color character {color_char!r} in {colors!r}")
+                if color_char in requires_smash:
+                    snippets.append(r"\hspace{-1.5pt}\smash{")
                 snippets.append(fr"\{colorBox}{{")
                 if color_char == ".":
                     snippets.append("...")
@@ -104,7 +115,7 @@ class TexLine:
             prev_color_char = color_char
 
         if prev_color_char:
-            snippets.append("}")
+            end_color(prev_color_char)
         snippets.append(r"}")
 
         if self.is_summary:

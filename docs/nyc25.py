@@ -364,10 +364,10 @@ def nyc25_gemm_fission(M: size, N: size, K: size,
         # TeX: remark *
         # Zero-initialize accumulators
         # TeX: color line fission[1]
-        #   gg
+        #   gg    gggggggggggg
         for m1 in cuda_threads(0, M1 / M0, unit=(N1 / N0) * cuda_thread):
           # TeX: color line fission[1]
-          #   vv
+          #   vv    vvvvvvvvvvvv
           for n1 in cuda_threads(0, N1 / N0, unit=cuda_thread):
             # TeX: color line fission[1]
             #   gg
@@ -386,10 +386,10 @@ def nyc25_gemm_fission(M: size, N: size, K: size,
         #   bb    bbbbbbbbbbbbbb
         for k1 in seq(0, K / K0):  # $\texttt{k} \mapsto \texttt{k1 * K0 + k0}$, reordered k1 loop
           # TeX: color line fission[1]
-          #   gg
+          #   gg    gggggggggggg
           for m1 in cuda_threads(0, M1 / M0, unit=(N1 / N0) * cuda_thread):
             # TeX: color line fission[1]
-            #   vv
+            #   vv    vvvvvvvvvvvv
             for n1 in cuda_threads(0, N1 / N0, unit=cuda_thread):
               # TeX: color line fission[1]
               #   gg
@@ -410,10 +410,10 @@ def nyc25_gemm_fission(M: size, N: size, K: size,
         # TeX: remark *
         # Epilogue: write to global memory
         # TeX: color line fission[1]
-        #   gg
+        #   gg    gggggggggggg
         for m1 in cuda_threads(0, M1 / M0, unit=(N1 / N0) * cuda_thread):
           # TeX: color line fission[1]
-          #   vv
+          #   vv    vvvvvvvvvvvv
           for n1 in cuda_threads(0, N1 / N0, unit=cuda_thread):
             # TeX: color line fission[1]
             #   gg

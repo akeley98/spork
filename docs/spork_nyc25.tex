@@ -61,7 +61,7 @@ Jonathan Ragan-Kelley
 %\includegraphics[width=\linewidth]{usda_spork.jpg}
 
 \newpage
-\myBiggerTitle{GEMM: Starting out with Exo}
+\myBiggerTitle{GEMM: Starting out with Exo \hfill \nBlueBox{GEMM v1}}
 
 {\large
 \input{nyc25_tex/cpu.0.tex}
@@ -78,7 +78,7 @@ Jonathan Ragan-Kelley
 }
 
 \newpage
-\myBiggerTitle{GEMM: Starting out with Exo}
+\myBiggerTitle{GEMM: Starting out with Exo \hfill \nBlueBox{GEMM v1}}
 
 {\large
 \input{nyc25_tex/cpu.3.tex}
@@ -95,14 +95,14 @@ Jonathan Ragan-Kelley
 }
 
 \newpage
-\myBiggerTitle{GEMM: Type Annotations}
+\myBiggerTitle{GEMM: Type Annotations \hfill \nBlueBox{GEMM v1}}
 
 {\large
 \input{nyc25_tex/cpu.1.tex}
 }
 
 \newpage
-\myBiggerTitle{GEMM: Memory Type Annotations}
+\myBiggerTitle{GEMM: Memory Type Annotations \hfill \nBlueBox{GEMM v1}}
 
 {\large
 \input{nyc25_tex/cpu.2.tex}
@@ -111,29 +111,84 @@ Jonathan Ragan-Kelley
 \newpage
 \myBiggerTitle{Exo Rewrites}
 
-{\LARGE
-\myKeyA{User scheduling:} Python-embedded \texttt{proc} objects can be\\ metaprogrammed using \myKeyA{behavior-preserving} rewrites.
+\begin{center}
+{\large
+\begin{tikzpicture}[node distance=8mm]
+\input{nyc25_exo_cpu_flow.tex}
+\end{tikzpicture}
+}
+\end{center}
 
-Start with simple \texttt{proc}; rewrite into optimized \texttt{proc}.
+{\LARGE
+Process of optimization:
 \begin{itemize}
-  \item e.g. optimize memory access patterns.
-  \item target \myKeyA{CPU-based} accelerators supported by Exo today (e.g. GEMMINI, Intel AMX, ARM SME)
+  \item \texttt{proc} internals change.
+  \item \myKeyA{Functional equivalence} preserved:\\ Same outputs for same inputs (``same behavior'').
 \end{itemize}
 
-Goal: extend rewrite model \& underlying semantics to model\\\myKeyB{imperative GPU programming} in a disciplined way.
-
 }
-\vspace{3mm}
+\vfill
 \hrule
-{\Large
-\textit{Exocompilation for Productive Programming of Hardware Accelerators}\\
-Y. Ikarashi, G. Bernstein, A. Reinking, H. Genc, J. Ragan-Kelley\\
-PLDI 2022
+{\large
+\input{nyc25_exo_cites.tex}
 }
 
 
 \newpage
-\myBiggerTitle{GEMM: M/N Tiling}
+\myBiggerTitle{Exo Rewrites}
+
+\begin{center}
+{\large
+\begin{tikzpicture}[node distance=8mm]
+\input{nyc25_exo_cpu_flow.tex}
+\end{tikzpicture}
+}
+\end{center}
+
+{\LARGE
+\myKeyA{User-schedulable} paradigm:
+\begin{itemize}
+  \item Start with a simple \texttt{proc}.
+  \item Issue a series of \myKeyA{behavior-preserving rewrite rules}.
+  \item $p_n$ proven functionally equivalent to $p_0$; may be faster.
+\end{itemize}
+
+}
+\vfill
+\hrule
+{\large
+\input{nyc25_exo_cites.tex}
+}
+
+
+\newpage
+\myBiggerTitle{Exo Rewrites}
+
+\begin{center}
+{\large
+\begin{tikzpicture}[node distance=8mm]
+\input{nyc25_exo_cpu_flow.tex}
+\end{tikzpicture}
+}
+\end{center}
+
+{\LARGE
+\begin{itemize}
+  \item Can optimize for \myKeyA{efficient memory access}.
+  \item Can target specialized CPU instructions today:\\e.g. GEMMINI, Intel AMX, ARM SME
+\end{itemize}
+Goal: extend rewrite model \& underlying semantics to model\\\myKeyB{imperative GPU programming} in a disciplined way.
+
+}
+\vfill
+\hrule
+{\large
+\input{nyc25_exo_cites.tex}
+}
+
+
+\newpage
+\myBiggerTitle{GEMM: M/N Tiling \hfill \nBlueBox{GEMM v1}}
 
 {\large
 \input{nyc25_tex/cpu.3.tex}
@@ -252,10 +307,18 @@ Thus far, % you have been adrift in the sheltered harbour of my patience
 all rewrites were \myKeyA{checked for correctness}.
 \begin{itemize}
   \item Transitivity: all correct $\implies$ original/final \texttt{proc} equivalent.
-  \item Parallelism requires a different model.
+  \item Parallelism checking will \textit{not} extend this model.
 \end{itemize}
 
 }
+
+\begin{center}
+{\large
+\begin{tikzpicture}[node distance=8mm]
+\input{nyc25_exo_cpu_flow.tex}
+\end{tikzpicture}
+}
+\end{center}
 
 \newpage
 \myBiggerTitle{Sequential-first Model}
@@ -543,18 +606,10 @@ Tile \blueBox{\texttt{k}} loop by \blueBox{\texttt{K0}} (\texttt{k $\mapsto$ k1 
 
 \newpage
 \myBiggerTitle{GEMM: Restructuring}
-\begin{center}
-\Large
-\begin{tikzpicture}[node distance=0mm]
-\input{nyc25_no_sync_flow.tex}
-\node (text) [below=of B] {\textbf{All steps are thread-block-cooperative.}};
-\node (move_zero) [rednode, above=of zero, yshift=+5mm] {Factor out of loop};
-\node (move_C) [rednode, above=of C, yshift=+5mm] {Factor out of loop};
-\node (k1_info) [yellownode, above=of k1, yshift=+2mm] {Main loop};
-\draw [arrow] (move_C) to[out=300, in=60] (C);
-\draw [arrow] (move_zero) to[out=300, in=60] (zero);
-\end{tikzpicture}
-\end{center}
+
+{\large
+\input{nyc25_tex/simple_gpu.5.tex}
+}
 
 \vfill
 \hrule
@@ -568,10 +623,18 @@ We need to move the ``zero accumulators'' and ``write out C'' steps out of the m
 
 \newpage
 \myBiggerTitle{GEMM: Restructuring}
-
-{\large
-\input{nyc25_tex/simple_gpu.5.tex}
-}
+\begin{center}
+\Large
+\begin{tikzpicture}[node distance=0mm]
+\input{nyc25_no_sync_flow.tex}
+\node (text) [below=of B] {\textbf{All steps are thread-block-cooperative.}};
+\node (move_zero) [rednode, above=of zero, yshift=+5mm] {Factor out of loop};
+\node (move_C) [rednode, above=of C, yshift=+5mm] {Factor out of loop};
+\node (k1_info) [yellownode, above=of k1, yshift=+2mm] {Main loop};
+\draw [arrow] (move_C) to[out=300, in=60] (C);
+\draw [arrow] (move_zero) to[out=300, in=60] (zero);
+\end{tikzpicture}
+\end{center}
 
 \vfill
 \hrule
@@ -996,23 +1059,6 @@ Each thread continues on after executing \texttt{cp.async} without waiting for t
 
 
 \newpage
-\myBiggerTitle{More to do: Overlap Compute/Memory}
-\begin{center}
-\Large
-\begin{tikzpicture}[node distance=0mm]
-\input{nyc25_sync_flow.tex}
-\input{nyc25_sync_caption.tex}
-\node (cpAsync) [redstyle, yshift=-8mm] at ($(A)!0.5!(B)$) {\textbf{Now with \texttt{cp.async}!}};
-\end{tikzpicture}
-\end{center}
-\hrule
-{\LARGE
-We need to \myKeyA{delay} the accumulate step to a future \blueBox{\texttt{k1}} iteration to make room for overlapping work!
-
-}
-
-
-\newpage
 \myBiggerTitle{Producer/Consumer Dependencies}
 
 {
@@ -1057,6 +1103,9 @@ We need to \myKeyA{delay} the accumulate step to a future \blueBox{\texttt{k1}} 
 
 {\LARGE
 Current state: load into SMEM and consume (compute) the same tile in one \blueBox{\texttt{k1}} iteration.
+
+We need to \myKeyA{delay} the accumulate step to a future \blueBox{\texttt{k1}} iteration to make room for overlapping work!
+
 }
 
 \newpage
@@ -1263,14 +1312,17 @@ Use tensor cores to accelerate \myKeyA{matrix multiply-accumulate}.
 \newpage
 \myBiggerTitle{Tensor Cores}
 
-{\large
+{\LARGE
+Substitute such blocks with calls to\\
+\myKeyA{semantically equivalent} tensor core instructions:
+
+}
+
+{\LARGE
 \input{nyc25_tex/tensor_core_instr.0.tex}
 }
 
 {\LARGE
-Substitute such blocks with calls to\\
-\myKeyA{semantically equivalent} tensor core instructions.
-
 More \myKeyA{timelines} defined for H100 async tensor cores.
 
 }
