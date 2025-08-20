@@ -768,6 +768,7 @@ Divide \& parallelize the load-shared-memory loops.
 {\LARGE
 Add synchronization:\\
 All threads in the thread block wait for each other.
+
 }
 
 \newpage
@@ -983,26 +984,10 @@ Replaced: \texttt{A\_smem[\codecomment{...}] = A[\codecomment{...}]} and \texttt
 }
 
 \newpage
-\myBiggerTitle{GEMM: cp.async (CudaAsync block)}
-
-{\large
-\input{nyc25_tex/cp_async.1.tex}
-}
-
-\vspace{3mm}
-\hrule
-
-{\LARGE
-
-Such instructions must be wrapped in a CudaAsync block.
-
-}
-
-\newpage
 \myBiggerTitle{GEMM: cp.async (Synchronization) \hfill \nBlueBox{GEMM v4}}
 
 {\large
-\input{nyc25_tex/cp_async.2.tex}
+\input{nyc25_tex/cp_async.1.tex}
 }
 
 \vspace{3mm}
