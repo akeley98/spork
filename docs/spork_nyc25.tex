@@ -71,7 +71,7 @@ Jonathan Ragan-Kelley
 \hrule
 
 {\LARGE
-\texttt{@proc} (procedure) decorator captures Python AST\\transpiled to C or CUDA C++.
+\texttt{@proc} (procedure) decorator captures Python AST\\reinterpreted as C or CUDA C++.
 
 \myKeyA{Imperative control flow:} most constructs map 1:1 to C.
 
@@ -95,41 +95,24 @@ Jonathan Ragan-Kelley
 }
 
 \newpage
-\myBiggerTitle{GEMM: Starting out with Exo}
+\myBiggerTitle{GEMM: Type Annotations}
 
 {\large
 \input{nyc25_tex/cpu.1.tex}
 }
 
-\vspace{3mm}
-\hrule
-
-{\LARGE
-\myKeyA{Static typing:}\\
-annotate proc parameters, allocated variables.
-
-}
-
 \newpage
-\myBiggerTitle{GEMM: Starting out with Exo}
+\myBiggerTitle{GEMM: Memory Type Annotations}
 
 {\large
 \input{nyc25_tex/cpu.2.tex}
-}
-
-\vspace{3mm}
-\hrule
-
-{\LARGE
-\myKeyA{Memory annotation:} \texttt{@}-sign associates memory type\\
-for parameters \& declarations.
 }
 
 \newpage
 \myBiggerTitle{Exo Rewrites}
 
 {\LARGE
-\myKeyA{User scheduling:} Python-embedded \texttt{proc} objects can be metaprogrammed using \myKeyA{behavior-preserving} rewrites.
+\myKeyA{User scheduling:} Python-embedded \texttt{proc} objects can be\\ metaprogrammed using \myKeyA{behavior-preserving} rewrites.
 
 Start with simple \texttt{proc}; rewrite into optimized \texttt{proc}.
 \begin{itemize}
@@ -137,11 +120,17 @@ Start with simple \texttt{proc}; rewrite into optimized \texttt{proc}.
   \item target \myKeyA{CPU-based} accelerators supported by Exo today (e.g. GEMMINI, Intel AMX, ARM SME)
 \end{itemize}
 
-Goal: extend rewrite model \& underlying semantics to model \myKeyB{imperative GPU programming} in a disciplined way.
-
-\yellowBox{CITE}
+Goal: extend rewrite model \& underlying semantics to model\\\myKeyB{imperative GPU programming} in a disciplined way.
 
 }
+\vspace{3mm}
+\hrule
+{\Large
+\textit{Exocompilation for Productive Programming of Hardware Accelerators}\\
+Y. Ikarashi, G. Bernstein, A. Reinking, H. Genc, J. Ragan-Kelley\\
+PLDI 2022
+}
+
 
 \newpage
 \myBiggerTitle{GEMM: M/N Tiling}
@@ -166,44 +155,18 @@ We want to \myKeyA{tile} the \greenBox{m}/\violetBox{n} loop nest.
 \input{nyc25_tex/m_divide_loop.0.tex}
 }
 
-\vspace{3mm}
-\hrule
-
-{\LARGE
-Apply \texttt{divide\_loop} twice to tile the \greenBox{m} loop by 3.
-
-}
-
 \newpage
-\myBiggerTitle{GEMM: Divide Loop (M)}
+\myBiggerTitle{GEMM: M Variable Rewritten}
 
 {\large
 \input{nyc25_tex/m_divide_loop.1.tex}
 }
 
-\vspace{3mm}
-\hrule
-
-{\LARGE
-Exo rewrites all uses of \greenBox{\texttt{m}} in the loop body.
-
-\texttt{m} $\mapsto$ \texttt{m2 * M1 + m1 * M0 + m0}
-
-}
-
 \newpage
-\myBiggerTitle{GEMM: Divide Loop (M)}
+\myBiggerTitle{GEMM: Assume Perfect Tiling}
 
 {\large
 \input{nyc25_tex/m_divide_loop.2.tex}
-}
-
-\vspace{3mm}
-\hrule
-
-{\LARGE
-Assume perfect tiling to simplify this talk (no tail case).
-
 }
 
 \newpage
@@ -213,27 +176,11 @@ Assume perfect tiling to simplify this talk (no tail case).
 \input{nyc25_tex/n_divide_loop.0.tex}
 }
 
-\vspace{3mm}
-\hrule
-
-{\LARGE
-Apply the same 3-level tiling to the \violetBox{n} loop.
-
-}
-
 \newpage
 \myBiggerTitle{GEMM: Reorder Loops}
 
 {\large
 \input{nyc25_tex/reorder_loops.0.tex}
-}
-
-\vspace{3mm}
-\hrule
-
-{\LARGE
-Reorder loops; Exo checked all rewrites for correctness.
-
 }
 
 \newpage
@@ -246,7 +193,7 @@ Reorder loops; Exo checked all rewrites for correctness.
 \hrule
 
 {\large
-\textbf{\LARGE AFTER}\\
+{\LARGE \textbf{AFTER} (Exo checked functional equivalence)}\\
 \input{nyc25_tex/reorder_loops.1.tex}
 }
 
@@ -298,27 +245,33 @@ Goal: Map tiles to different levels of the GPU hierarchy
 \end{tikzpicture}
 
 \newpage
-\myBiggerTitle{Sequential-first Model \yellowBox{emphasize key} \redBox{DENSE}}
+\myBiggerTitle{Sequential-first Model}
 
 {\LARGE
 Thus far, % you have been adrift in the sheltered harbour of my patience
 all rewrites were \myKeyA{checked for correctness}.
 \begin{itemize}
-  \item transitivity: all correct $\implies$ original/final \texttt{proc} equivalent.
+  \item Transitivity: all correct $\implies$ original/final \texttt{proc} equivalent.
+  \item Parallelism requires a different model.
 \end{itemize}
 
-Exo-GPU adds ``parallelize'' rewrites:
-\begin{itemize}
-  \item \myKeyA{Assumed correct} during scheduling.
-  \item Only check the final \texttt{proc} for correct synchronization.
-\end{itemize}
+}
 
-Rewrites treat \myKeyB{parallel for} loops as if they were \myKeyA{sequential}.
+\newpage
+\myBiggerTitle{Sequential-first Model}
+
+{\LARGE
+Exo semantics: \myKeyB{parallel} loops interpreted as-if they're \myKeyA{sequential}.
+
 \begin{itemize}
   \item Corpus of Exo rewrites kept as-is for Exo-GPU.
-  \item Only worry about parallelism at the end.
+  \item New ``parallelize loop'' rewrites are trivially correct\\(at this stage).
 \end{itemize}
+
+Parallelism checking is made orthogonal to rewrites.
+
 }
+
 
 \newpage
 \myBiggerTitle{GEMM: GPU and Memory \yellowBox{\small Remove GPU loops here}}
@@ -1186,7 +1139,12 @@ WAR hazard: require syncs before re-using ring buffer slots.
 \hrule
 
 {\LARGE
-Implement dependency graph edges with \myKeyA{split barriers}:\\Arrive/Await.
+Implement dependency graph edges with \myKeyA{split barriers}:
+
+\texttt{Arrive(...) >> \textit{barrier}}
+
+\texttt{Await(\textit{barrier}, ...)}
+
 }
 
 \newpage
@@ -1279,30 +1237,99 @@ Separate out the two with \texttt{Arrive} and \texttt{Await} statements.
 
 }
 
-
 \newpage
 \myBiggerTitle{Tensor Cores}
 
+{
+\Large
+\begin{tikzpicture}[node distance=0mm]
+\input{nyc25_dag.tex}
+\input{nyc25_dag_k.tex}
+\input{nyc25_dag_war.tex}
+\node (cpAsync) [redstyle, yshift=-4mm] at ($(B2.north east)!0.5!(B3.north west)$) {Accelerated with \texttt{cp.async}.};
+\node (caption) [redstyle, yshift=-4mm] at ($(C2.east)!0.5!(C3.west)$) {\textbf{Accelerate me!}};
+
+\end{tikzpicture}
+}
+
+\vspace{3mm}
+\hrule
+
 {\LARGE
-Tensor core instructions = multiply-accumulate matrix tile.
+Use tensor cores to accelerate \myKeyA{matrix multiply-accumulate}.
 
 }
+
+\newpage
+\myBiggerTitle{Tensor Cores}
 
 {\large
 \input{nyc25_tex/tensor_core_instr.0.tex}
 }
 
 {\LARGE
-Exo can replace such blocks with calls to \myKeyA{semantically equivalent} tensor core instructions.
+Substitute such blocks with calls to\\
+\myKeyA{semantically equivalent} tensor core instructions.
 
-Async on Hopper (sm\_90a) \& later, so on a different \myKeyA{timeline}.
+More \myKeyA{timelines} defined for H100 async tensor cores.
+
+}
+
+
+\newpage
+\myBiggerTitle{Scheduling Chain of Equivalence}
+
+{\LARGE
+Step 1: apply scheduling operators
 \begin{itemize}
-  \item Still \texttt{cuda\_in\_order} for $\le$ sm\_80.
+  \item Analyzes \myKeyB{parallel} loops as if they were \myKeyA{sequential}.
+\end{itemize}
+
+Step 2: sync check final \texttt{proc}
+\begin{itemize}
+  \item Parallelized $p_n$ functionally equivalent to sequential $p_n$.
 \end{itemize}
 }
 
+\begin{center}
+{\large
+\begin{tikzpicture}[node distance=8mm]
+\sffamily
+\node(proc0) [normalnode, text width=2cm, minimum width=2cm] {Original proc $p_0$};
+\node(proc1) [normalnode, text width=2cm, minimum width=2cm, right=of proc0] {$p_1, p_2,...$};
+\node(procNS) [normalnode, right=of proc1, text width=4cm, minimum width=4cm] {Final proc $p_n$,\\interpreted\\\myKeyA{sequentially}};
+\node(procNM) [normalnode, right=of procNS, text width=4cm, minimum width=4cm] {Final proc $p_n$,\\\myKeyB{parallel}\\interpretation};
+\node(cuda) [normalnode, right=of procNM] {CUDA C++ header};
+
+\draw [arrow] (proc0) -- (proc1);
+\draw [arrow] (proc1.north east) to[out=45, in=90] (proc1.north);
+\draw [arrow] (proc1) to node(p1arrow)[]{} (procNS);
+\draw [arrow] (procNS) to node(SM)[]{} (procNM);
+\draw [arrow] (procNM) to node(toCuda)[]{} (cuda);
+
+\node(exo) [normalnode, yshift=-8mm, text width=4cm, minimum width=4cm, below=of p1arrow, draw=blueBoxFg, fill=blueBoxBg, text=blueBoxFg] {Exo Rewrites};
+\node(sync) [normalnode, yshift=-8mm, text width=5cm, below=of SM, draw=blueBoxFg, fill=blueBoxBg, text=blueBoxFg] {Sync Checking};
+\node(spork) [normalnode, yshift=-8mm, text width=6cm, xshift=1cm, below=of toCuda, draw=blueBoxFg, fill=blueBoxBg, text=blueBoxFg] {Code Generator};
+\node(note) [above=of SM, redstyle, yshift=8mm, align=center] {Same proc, \textbf{different}\\\textbf{interpretation}};
+\node(c) [smallnode, above=of cuda, xshift=-6mm] {C code};
+\node(equiv) [left=of exo, text=blueBoxFg, xshift=9mm] {\textbf{Equivalence due to:}};
+
+\draw [line, draw=blueBoxFg] (exo.north) to[out=135, in=270] (proc0.south west);
+\draw [line, draw=blueBoxFg] (exo.north) to[out=45, in=270] (procNS.south);
+\draw [line, draw=blueBoxFg] (sync.north) to[out=135, in=270] (procNS.south);
+\draw [line, draw=blueBoxFg] (sync.north) to[out=45, in=270] (procNM.south);
+\draw [line, draw=redBoxFg] (note) -- (procNS);
+\draw [line, draw=redBoxFg] (note) -- (procNM);
+\draw [line, draw=blueBoxFg] (spork.north) to[out=135, in=270] (procNM.south);
+\draw [line, draw=blueBoxFg] (spork.north) to[out=45, in=270] (cuda.south east);
+\draw [arrow] (procNM.east) to (c.west);
+\end{tikzpicture}
+}
+\end{center}
+
+
 \newpage
-\myBiggerTitle{Abstract Machine: Visibility Sets}
+\myBiggerTitleExtra{Abstract Machine: Visibility Sets}
 
 {\LARGE
 Starting point for tackling synchronization checking.
@@ -1323,7 +1350,7 @@ These are associated for each memory read/mutate operation ever performed.
 
 
 \newpage
-\myBiggerTitle{Abstract Machine: Environment}
+\myBiggerTitleExtra{Abstract Machine: Environment}
 
 {\LARGE
 
@@ -1345,7 +1372,7 @@ Abstract machine is \myKeyA{fundamentally sequential}, but,
 
 
 \newpage
-\myBiggerTitle{Abstract Machine: Usage}
+\myBiggerTitleExtra{Abstract Machine: Usage}
 
 {\LARGE
 Exo-GPU programs target this abstract machine.
@@ -1364,53 +1391,6 @@ Exo-GPU programs target this abstract machine.
 
 }
 
-
-\newpage
-\myBiggerTitle{Conclusion: Scheduling Chain of Equivalence}
-
-{\LARGE
-Step 1: apply scheduling operators
-\begin{itemize}
-  \item Analyzes \myKeyB{parallel} loops as if they were \myKeyA{sequential}.
-\end{itemize}
-
-Step 2: sync check final \texttt{proc}
-\begin{itemize}
-  \item Parallelization doesn't change the generated output relative to sequential version.
-\end{itemize}
-}
-
-\begin{center}
-{\large
-\begin{tikzpicture}[node distance=8mm]
-\sffamily
-\node(proc0) [normalnode, text width=2cm, minimum width=2cm] {Original proc};
-\node(procNS) [normalnode, right=of proc0, text width=4cm, minimum width=4cm] {Scheduled proc,\\interpreted\\\myKeyA{sequentially}};
-\node(procNM) [normalnode, right=of procNS, text width=4cm, minimum width=4cm] {Scheduled proc,\\\myKeyB{parallel}\\interpretation};
-\node(cuda) [normalnode, right=of procNM] {CUDA C++ header};
-
-\draw [arrow] (proc0) to node(exo)[]{} (procNS);
-\draw [arrow] (procNS) to node(SM)[]{} (procNM);
-\draw [arrow] (procNM) to node(toCuda)[]{} (cuda);
-
-\node(exo) [normalnode, yshift=-8mm, text width=4cm, minimum width=4cm, below=of exo, draw=blueBoxFg, fill=blueBoxBg, text=blueBoxFg] {Exo Rewrites};
-\node(sync) [normalnode, yshift=-8mm, text width=5cm, below=of SM, draw=blueBoxFg, fill=blueBoxBg, text=blueBoxFg] {Sync Checking};
-\node(spork) [normalnode, yshift=-8mm, text width=6cm, xshift=1cm, below=of toCuda, draw=blueBoxFg, fill=blueBoxBg, text=blueBoxFg] {Code Generator};
-\node(note) [above=of SM, redstyle, yshift=8mm, align=center] {Same proc, \textbf{different}\\\textbf{interpretation}};
-\node(c) [smallnode, above=of cuda, xshift=-6mm] {C code};
-
-\draw [line, draw=blueBoxFg] (exo) -- (proc0);
-\draw [line, draw=blueBoxFg] (exo) -- (procNS);
-\draw [line, draw=blueBoxFg] (sync) -- (procNS);
-\draw [line, draw=blueBoxFg] (sync) -- (procNM);
-\draw [line, draw=redBoxFg] (note) -- (procNS);
-\draw [line, draw=redBoxFg] (note) -- (procNM);
-\draw [line, draw=blueBoxFg] (spork) -- (procNM);
-\draw [line, draw=blueBoxFg] (spork) -- (cuda);
-\draw [arrow] (procNM.east) to (c.west);
-\end{tikzpicture}
-}
-\end{center}
 
 \newpage
 \myBiggerTitleExtra{Extra Slides: Todo, Memory/Compute Overlap}
