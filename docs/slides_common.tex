@@ -1,6 +1,6 @@
 \documentclass[12pt]{article}
 
-\usepackage[paperheight=148mm, paperwidth=263mm, margin=10mm]{geometry}
+\usepackage[paperheight=148mm, paperwidth=263mm, top=10mm, bottom=10mm, left=28mm, right=28mm]{geometry}
 \usepackage{enumitem}
 \usepackage{amsmath}
 \usepackage{amssymb}
@@ -31,10 +31,10 @@
 \newcommand{\email}[2]{{\small \color{webColor} \textsf{\href{mailto:#1@#2}{#1[at]#2}}}}
 \definecolor{titleColor}{RGB}{179, 0, 149}
 \definecolor{extraTitleColor}{RGB}{0, 149, 224}
-\newcommand{\myTitle}[1]{{\large \color{titleColor} \hspace{-4mm} \textbf{\textsf{#1}}}}
-\newcommand{\myTitleExtra}[1]{{\large \color{extraTitleColor} \hspace{-4mm} \textbf{\textsf{#1}}}}
-\newcommand{\myBiggerTitle}[1]{{\huge \color{titleColor} \hspace{-4mm} \textbf{\textsf{#1}}}}
-\newcommand{\myBiggerTitleExtra}[1]{{\huge \color{extraTitleColor} \hspace{-4mm} \textbf{\textsf{#1}}}}
+\newcommand{\myTitle}[1]{{\large \color{titleColor} \hspace{-22mm} \textbf{\textsf{#1}}}}
+\newcommand{\myTitleExtra}[1]{{\large \color{extraTitleColor} \hspace{-22mm} \textbf{\textsf{#1}}}}
+\newcommand{\myBiggerTitle}[1]{{\huge \color{titleColor} \hspace{-22mm} \textbf{\textsf{#1}}}}
+\newcommand{\myBiggerTitleExtra}[1]{{\huge \color{extraTitleColor} \hspace{-22mm} \textbf{\textsf{#1}}}}
 \definecolor{subColor}{RGB}{179, 0, 149}
 \newcommand{\mySub}[1]{\textsf{\color{subColor}$\blacktriangleright$ #1}}
 \definecolor{keyColor}{RGB}{170, 149, 0}  % legacy, = keyColorA
