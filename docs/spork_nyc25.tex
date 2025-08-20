@@ -450,7 +450,7 @@ Configure with the \myKeyA{collective unit} (\texttt{unit} argument).
 
 One \myKeyA{thread collective} executes each iteration of the loop.
 \begin{itemize}
-  \item shape defined by \myKeyA{collective unit}.
+  \item Shape defined by \myKeyA{collective unit}.
 \end{itemize}
 
 }
@@ -1222,8 +1222,8 @@ The \texttt{Fence} statement combines two concepts together:
 \draw [arrow] (L1) -- (fence);
 \draw [arrow] (fence) -- (L2);
 
-\node (pre) [text width=80mm, align=left, anchor=south west] at($(L1.north west)$) {\textbf{Pre-fence condition:} All threads' \myKeyA{L1}-timeline memory accesses have finished.};
-\node (post) [text width=80mm, align=left, anchor=south east] at($(L2.north east)$) {\textbf{Post-fence effect:}\\All threads' \myKeyB{L2}-timeline memory accesses may proceed.};
+\node (pre) [text width=80mm, align=left, anchor=south west] at($(L1.north west)$) {\textbf{Pre-Fence condition:} All threads' \myKeyA{L1}-timeline memory accesses have finished.};
+\node (post) [text width=80mm, align=left, anchor=south east] at($(L2.north east)$) {\textbf{Post-Fence effect:}\\All threads' \myKeyB{L2}-timeline memory accesses may proceed.};
 \end{tikzpicture}
 \end{center}
 

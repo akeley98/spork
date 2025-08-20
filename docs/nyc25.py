@@ -36,9 +36,6 @@ if True:
       # TeX: color line cpu[3:]
       #   v    vvv
       for n in seq(0, N):
-        # TeX: color remark! *
-        #
-        # C[m, n] = dot(A[m, :], B[:, n])
         # TeX: color line cpu[1]
         #      bbb
         # TeX: color line cpu[2]
@@ -94,9 +91,6 @@ def nyc25_gemm_m_divide_loop(M: size, N: size, K: size, A: f32[M, K], B: f32[K, 
       #   gg
       for m0 in seq(0, M0):
         for n in seq(0, N):
-          # TeX: color remark! *
-          #
-          # C[m, n] = dot(A[m, :], B[:, n])
           accum: f32 @ DRAM
           accum = 0
           for k in seq(0, K):
