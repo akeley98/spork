@@ -856,8 +856,8 @@ nyc25_gemm_ring = simplify(nyc25_gemm_ring)
 
 """
 # TeX: version cp_async_pseudocode 1
-# TeX: begin cp_async_pseudocode[0]
 def cp_async_pseudocode():
+    # TeX: begin cp_async_pseudocode[0]
     # TeX: color line *
     #        rrrrrrrr
     cp.async(smem_dst, gmem_src)

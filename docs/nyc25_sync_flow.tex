@@ -15,6 +15,3 @@
 \draw [arrow] (accum) -- (war);
 \draw [arrow] ($(war.north)$) to[in=20, out=160] node[below]{\blueBox{\texttt{k1}} loop} ($(A.north)$);
 
-\node (raw_caption) [below=of raw, align=center] {\textbf{Sync:}\\\textbf{RAW Hazard}};
-\node (war_caption) [below=of war, align=center] {\textbf{Sync:}\\\textbf{WAR Hazard}};
-\node (text) [below=of A, align=center, xshift=12mm] {\textbf{All steps are thread-}\\\textbf{block-cooperative.}};

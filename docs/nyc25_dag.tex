@@ -19,15 +19,20 @@
 \node (A6) [greenstyle, minimum width=28mm, minimum height=12mm, xshift=11mm, right=of A5] {Load A};
 \node (B6) [violetstyle, minimum width=28mm, minimum height=12mm, below=of A6] {Load B};
 
+\node (A7) [greenstyle, minimum width=28mm, minimum height=12mm, xshift=11mm, right=of A6] {Load A};
+\node (B7) [violetstyle, minimum width=28mm, minimum height=12mm, below=of A7] {Load B};
+
 \node (C0) [minimum width=28mm, minimum height=21mm, below=of B0, yshift=-11mm] {};
 \node (C1) [draw=black, minimum width=28mm, minimum height=21mm, below=of B1, yshift=-11mm] {compute};
 \node (C2) [draw=black, minimum width=28mm, minimum height=21mm, below=of B2, yshift=-11mm] {compute};
 \node (C3) [draw=black, minimum width=28mm, minimum height=21mm, below=of B3, yshift=-11mm] {compute};
 \node (C4) [draw=black, minimum width=28mm, minimum height=21mm, below=of B4, yshift=-11mm] {compute};
 \node (C5) [draw=black, minimum width=28mm, minimum height=21mm, below=of B5, yshift=-11mm] {compute};
+\node (C6) [draw=black, minimum width=28mm, minimum height=21mm, below=of B6, yshift=-11mm] {compute};
 
 \draw [arrow] ($(A0.south east)$) to[out=0, in=180] (C1);
 \draw [arrow] ($(A1.south east)$) to[out=0, in=180] (C2);
 \draw [arrow] ($(A2.south east)$) to[out=0, in=180] (C3);
 \draw [arrow] ($(A3.south east)$) to[out=0, in=180] (C4);
 \draw [arrow] ($(A4.south east)$) to[out=0, in=180] (C5);
+\draw [arrow] ($(A5.south east)$) to[out=0, in=180] (C6);

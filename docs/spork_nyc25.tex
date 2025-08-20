@@ -786,6 +786,7 @@ Synchronization required: thread that loads a value to SMEM isn't the same as th
 \Large
 \begin{tikzpicture}[node distance=0mm]
 \input{nyc25_sync_flow.tex}
+\input{nyc25_sync_caption.tex}
 \end{tikzpicture}
 \end{center}
 
@@ -807,6 +808,7 @@ Second sync: don't overwrite until all SMEM reads are done\\(WAR: write-after-re
 \Large
 \begin{tikzpicture}[node distance=0mm]
 \input{nyc25_sync_flow.tex}
+\input{nyc25_sync_caption.tex}
 \end{tikzpicture}
 \end{center}
 
@@ -826,6 +828,8 @@ Next step: use accelerator instructions\\for the \myKeyA{GMEM}$\to$\myKeyB{SMEM}
 \Large
 \begin{tikzpicture}[node distance=0mm]
 \input{nyc25_sync_flow.tex}
+\input{nyc25_sync_caption.tex}
+
 \node (A_caption) [redstyle, above=of A, yshift=11mm, xshift=6mm] {Accelerate me!};
 \node (B_caption) [redstyle, above=of B, yshift=11mm, xshift=6mm] {Accelerate me!};
 \draw [redstyle, arrow, fill=none] (A) -- (A_caption);
@@ -969,7 +973,7 @@ TODO: update timeline parameters for synchronization.
 
 {\LARGE
 
-Exo allows rewriting a block of code into a call to a \myKeyA{semantically-equivalent sub-procedure}.
+Exo allows rewriting a block of code into a call to a\\\myKeyA{semantically-equivalent sub-procedure}.
 \begin{itemize}
   \item Semantics \myKeyB{ignore concurrency}.
 \end{itemize}
@@ -1016,6 +1020,7 @@ Update the timeline parameters for synchronization.
 \Large
 \begin{tikzpicture}[node distance=0mm]
 \input{nyc25_sync_flow.tex}
+% \input{nyc25_sync_caption.tex}
 
 \node (cpAsync) [redstyle, yshift=-8mm] at ($(A)!0.5!(B)$) {\textbf{Now with \texttt{cp.async}!}};
 \node (memory) [redstyle, yshift=-25mm] at ($(A.south west)!0.5!(B.south east)$) {Memory-heavy};
@@ -1028,10 +1033,10 @@ Update the timeline parameters for synchronization.
 \end{tikzpicture}
 \end{center}
 
-{\LARGE
-Syncs strictly separate memory-heavy and compute-heavy code portions.
+%% {\LARGE
+%% Syncs strictly separate memory-heavy and compute-heavy code portions.
 
-}
+%% }
 
 
 \newpage
@@ -1040,12 +1045,14 @@ Syncs strictly separate memory-heavy and compute-heavy code portions.
 {\LARGE
 Each thread continues on after executing \texttt{cp.async} without waiting for the copy to \myKeyB{SMEM} to finish.
 
-We can put other work (compute) between issuing and waiting for the \texttt{cp.async} instruction.
+% We can put other work (compute) between issuing and waiting for the \texttt{cp.async} instruction.
 
 }
-
+\vspace{5mm}
+\hrule
+\vspace{5mm}
 {
-\large
+\LARGE
 \input{nyc25_tex/cp_async_pseudocode.0.tex}
 }
 
@@ -1056,6 +1063,7 @@ We can put other work (compute) between issuing and waiting for the \texttt{cp.a
 \Large
 \begin{tikzpicture}[node distance=0mm]
 \input{nyc25_sync_flow.tex}
+\input{nyc25_sync_caption.tex}
 \node (cpAsync) [redstyle, yshift=-8mm] at ($(A)!0.5!(B)$) {\textbf{Now with \texttt{cp.async}!}};
 \end{tikzpicture}
 \end{center}
@@ -1076,6 +1084,7 @@ We need to \myKeyA{delay} the accumulate step to a future \blueBox{\texttt{k1}} 
 \node (C0) [draw=black, minimum width=28mm, minimum height=24mm] {compute};
 \node (C1) [draw=black, minimum width=28mm, minimum height=24mm, anchor=center, xshift=72mm] at(C0) {compute};
 \node (C2) [draw=black, minimum width=28mm, minimum height=24mm, anchor=center, xshift=72mm] at(C1) {compute};
+\node (C3) [draw=black, minimum width=28mm, minimum height=24mm, anchor=center, xshift=72mm] at(C2) {compute};
 %\node(bad) [left=of C0, xshift=-40mm] {\textbf{BAD}};
 
 \node (A0) [greenstyle, minimum width=28mm, minimum height=12mm, anchor=center, xshift=-36mm, yshift=6mm] at(C0) {Load A};
@@ -1087,11 +1096,21 @@ We need to \myKeyA{delay} the accumulate step to a future \blueBox{\texttt{k1}} 
 \node (A2) [greenstyle, minimum width=28mm, minimum height=12mm, anchor=center, xshift=-36mm, yshift=6mm] at(C2) {Load A};
 \node (B2) [violetstyle, minimum width=28mm, minimum height=12mm, anchor=center, xshift=-36mm, yshift=-6mm] at(C2) {Load B};
 
+\node (A3) [greenstyle, minimum width=28mm, minimum height=12mm, anchor=center, xshift=-36mm, yshift=6mm] at(C3) {Load A};
+\node (B3) [violetstyle, minimum width=28mm, minimum height=12mm, anchor=center, xshift=-36mm, yshift=-6mm] at(C3) {Load B};
+
 \draw [arrow] (A0.south east) -- (C0.west);
 \draw [arrow] (C0.east) -- (A1.south west);
 \draw [arrow] (A1.south east) -- (C1.west);
 \draw [arrow] (C1.east) -- (A2.south west);
 \draw [arrow] (A2.south east) -- (C2.west);
+\draw [arrow] (C2.east) -- (A3.south west);
+\draw [arrow] (A3.south east) -- (C3.west);
+
+\node (k0) [yshift=-2mm, anchor=north] at($(B0.south east)!0.5!(C0.south west)$) {\blueBox{\texttt{k1 = 0}}};
+\node (k1) [yshift=-2mm, anchor=north] at($(B1.south east)!0.5!(C1.south west)$) {\blueBox{\texttt{k1 = 1}}};
+\node (k2) [yshift=-2mm, anchor=north] at($(B2.south east)!0.5!(C2.south west)$) {\blueBox{\texttt{k1 = 2}}};
+\node (k3) [yshift=-2mm, anchor=north] at($(B3.south east)!0.5!(C3.south west)$) {\blueBox{\texttt{k1 = 3}}};
 
 \end{tikzpicture}
 }
@@ -1200,10 +1219,11 @@ The \texttt{Fence} statement combines two concepts together:
 \node (fence) [yellowstyle, text width=10mm, minimum height=40mm, align=center, right=of L1, xshift=40mm] {};
 \node (fence_caption) [below=of fence] {\textbf{Fence}};
 \node (L2) [draw=black, text width=40mm, minimum height=40mm, align=center, right=of fence, xshift=40mm] {\myKeyB{L2}-timeline memory access};
-\node (pre) [text width=80mm, align=left, anchor=south west] at($(L1.north west)$) {\textbf{Pre-fence condition:} All threads' \myKeyA{L1}-timeline memory accesses have finished.};
-\node (post) [text width=80mm, align=left, anchor=south east] at($(L2.north east)$) {\textbf{Post-fence effect:} All threads' \myKeyB{L2}-timeline memory accesses may proceed.};
 \draw [arrow] (L1) -- (fence);
 \draw [arrow] (fence) -- (L2);
+
+\node (pre) [text width=80mm, align=left, anchor=south west] at($(L1.north west)$) {\textbf{Pre-fence condition:} All threads' \myKeyA{L1}-timeline memory accesses have finished.};
+\node (post) [text width=80mm, align=left, anchor=south east] at($(L2.north east)$) {\textbf{Post-fence effect:}\\All threads' \myKeyB{L2}-timeline memory accesses may proceed.};
 \end{tikzpicture}
 \end{center}
 
@@ -1224,15 +1244,16 @@ Separate out the two with \texttt{Arrive} and \texttt{Await} statements.
 \node (L1) [draw=black, text width=40mm, minimum height=40mm, align=center] {\myKeyA{L1}-timeline memory access};
 \node (arrive) [yellowstyle, text width=10mm, minimum height=40mm, align=center, right=of L1, xshift=9mm] {};
 \node (arrive_caption) [below=of arrive] {\textbf{Arrive}};
-\node (unrelated) [bluestyle, align=center, right=of arrive, xshift=2mm, yshift=-9mm] { (unrelated\\work) };
-\node (await) [yellowstyle, text width=10mm, minimum height=40mm, align=center, right=of unrelated, xshift=2mm, yshift=+9mm] {};
+\node (unrelated) [bluestyle, align=center, right=of arrive, xshift=4mm, yshift=-9mm, text width=34mm] { (unrelated\\work) };
+\node (await) [yellowstyle, text width=10mm, minimum height=40mm, align=center, right=of unrelated, xshift=4mm, yshift=+9mm] {};
 \node (await_caption) [below=of await] {\textbf{Await}};
 \node (L2) [draw=black, text width=40mm, minimum height=40mm, align=center, right=of await, xshift=9mm] {\myKeyB{L2}-timeline memory access};
-\node (pre) [text width=80mm, align=left, anchor=south west] at($(L1.north west)$) {\textbf{Pre-Arrive condition:} All threads' \myKeyA{L1}-timeline memory accesses have finished.};
-\node (post) [text width=80mm, align=left, anchor=south east] at($(L2.north east)$) {\textbf{Post-Await effect:} All threads' \myKeyB{L2}-timeline memory accesses may proceed.};
 \draw [arrow] (L1) -- (arrive);
 \draw [arrow] (await) -- (L2);
 \draw [arrow] (arrive) to[out=45, in=135] (await);
+
+\node (pre) [text width=80mm, align=left, anchor=south west] at($(L1.north west)$) {\textbf{Pre-Arrive condition:} All threads' \myKeyA{L1}-timeline memory accesses have finished.};
+\node (post) [text width=80mm, align=left, anchor=south east] at($(L2.north east)$) {\textbf{Post-Await effect:}\\All threads' \myKeyB{L2}-timeline memory accesses may proceed.};
 \end{tikzpicture}
 \end{center}
 
@@ -1253,20 +1274,23 @@ Separate out the two with \texttt{Arrive} and \texttt{Await} statements.
 \node (L1) [draw=black, text width=40mm, minimum height=40mm, align=center] {\myKeyA{L1}-timeline memory access};
 \node (arrive) [yellowstyle, text width=10mm, minimum height=40mm, align=center, right=of L1, xshift=9mm] {};
 \node (arrive_caption) [below=of arrive] {\textbf{Arrive}};
-\node (unrelated) [bluestyle, align=center, right=of arrive, xshift=2mm, yshift=-9mm] { (unrelated\\work) };
-\node (await) [yellowstyle, text width=10mm, minimum height=40mm, align=center, right=of unrelated, xshift=2mm, yshift=+9mm] {};
+\node (unrelated) [bluestyle, align=center, right=of arrive, xshift=4mm, yshift=-9mm, text width=34mm] { (unrelated\\work) };
+\node (await) [yellowstyle, text width=10mm, minimum height=40mm, align=center, right=of unrelated, xshift=4mm, yshift=+9mm] {};
 \node (await_caption) [below=of await] {\textbf{Await}};
 \node (L2) [draw=black, text width=40mm, minimum height=40mm, align=center, right=of await, xshift=9mm] {\myKeyB{L2}-timeline memory access};
-\node (pre) [align=left, anchor=south west, yshift=12mm] at($(L1.north west)$) {\texttt{Arrive(\myKeyA{L1}) >> \textit{barrier}}};
-\node (post) [align=left, anchor=south east, yshift=12mm] at($(L2.north east)$) {\texttt{Await(\textit{barrier}, \myKeyB{L2})}};
 \draw [arrow] (L1) -- (arrive);
 \draw [arrow] (await) -- (L2);
 \draw [arrow] (arrive) to[out=45, in=135] (await);
+
+\node (pre) [align=left, anchor=south west, yshift=12mm] at($(L1.north west)$) {\texttt{Arrive(\myKeyA{L1}) >> \textit{barrier}}};
+\node (post) [align=left, anchor=south east, yshift=12mm] at($(L2.north east)$) {\texttt{Await(\textit{barrier}, \myKeyB{L2})}};
 \draw [arrow] (pre) -- (post);
 \end{tikzpicture}
 \end{center}
 
-\hfill Example code in extra slides.
+\vfill
+\hfill \textbf{Example code in extra slides.}
+\vfill
 
 }
 
