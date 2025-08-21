@@ -303,7 +303,7 @@ Goal: Map tiles to different levels of the GPU hierarchy
 \end{tikzpicture}
 
 \newpage
-\myBiggerTitle{Sequential-first Model}
+\myBiggerTitle{Parallel Loops are Sequential to Rewrites}
 
 {\LARGE
 Thus far, % you have been adrift in the sheltered harbour of my patience
@@ -324,7 +324,7 @@ all rewrites were \myKeyA{checked for correctness}.
 \end{center}
 
 \newpage
-\myBiggerTitle{Sequential-first Model}
+\myBiggerTitle{Parallel Loop are Sequential to Rewrites}
 
 {\LARGE
 Exo semantics: \myKeyB{parallel} loops interpreted as-if they're \myKeyA{sequential}.
@@ -680,21 +680,29 @@ Rewritten code follows.
 % We have no room for captions so I just have to remember what to say here!
 
 \newpage
+\myBiggerTitle{Separate Loops for Zero, Accumulate, Write-back}
+
 {\large
 \input{nyc25_tex/fission.0.tex}
 }
 
 \newpage
+\myBiggerTitle{Fission Preserved Loop Structure}
+
 {\large
 \input{nyc25_tex/fission.1.tex}
 }
 
 \newpage
+\myBiggerTitle{Task (Thread Block) Loops Unchanged}
+
 {\large
 \input{nyc25_tex/fission.2.tex}
 }
 
 \newpage
+\myBiggerTitle{Main Loop K-Tiling}
+
 {\large
 \input{nyc25_tex/fission.3.tex}
 }
@@ -843,6 +851,7 @@ Extend the Exo rewrite model to add a separate ``sync check'' step.
 \begin{tikzpicture}[node distance=8mm]
 \input{nyc25_exo_cpu_flow.tex}
 \node (caption) [greenstyle, align=center, anchor=south, yshift=2mm] at(toC) {CHECK\\HERE};
+\node (original) [nPurplestyle, align=center, anchor=west] at(exo.east) {Original Exo Checking};
 \end{tikzpicture}
 }
 \end{center}
@@ -1259,7 +1268,7 @@ Implement dependency graph edges with \myKeyA{split barriers}:
 }
 
 \newpage
-\myBiggerTitle{Exo-GPU: Fence vs Arrive/Await}
+\myBiggerTitle{Fence vs Arrive/Await}
 
 {\LARGE
 The \texttt{Fence} statement combines two concepts together:
@@ -1285,7 +1294,7 @@ The \texttt{Fence} statement combines two concepts together:
 
 
 \newpage
-\myBiggerTitle{Exo-GPU: Fence vs Arrive/Await}
+\myBiggerTitle{Fence vs Arrive/Await}
 
 {\LARGE
 Separate out the two with \texttt{Arrive} and \texttt{Await} statements.
@@ -1315,7 +1324,7 @@ Separate out the two with \texttt{Arrive} and \texttt{Await} statements.
 
 
 \newpage
-\myBiggerTitle{Exo-GPU: Fence vs Arrive/Await}
+\myBiggerTitle{Fence vs Arrive/Await}
 
 {\LARGE
 \texttt{Arrive}/\texttt{Await} require a common \textbf{\texttt{barrier}}-typed variable.
@@ -1433,7 +1442,7 @@ Phase 2 (self-equivalence) uses \textbf{abstract machine semantics}:
 
 
 \newpage
-\myBiggerTitle{Scheduling Chain of Equivalence}
+\myBiggerTitle{Conclusion: Scheduling Chain of Equivalence}
 
 {\LARGE
 Phase 1: apply scheduling operators (\textbf{sequential semantics})
