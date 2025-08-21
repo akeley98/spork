@@ -228,7 +228,7 @@ def nyc25_gemm_simple_gpu(M: size, N: size, K: size,
               # TeX: color line simple_gpu[4]
               #   vv    vvv
               for n0 in seq(0, N0):
-                # TeX: color line simple_gpu[0] simple_gpu[4]
+                # TeX: color line simple_gpu[0]
                 #          bbbbbbbbbb
                 accum: f32 @ CudaRmem  # CUDA per-thread register
                 # TeX: color line simple_gpu[5]

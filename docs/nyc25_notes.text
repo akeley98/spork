@@ -1,0 +1,217 @@
+1. Hello everyone. We're working on Exo-GPU, a new domain-specific language for safely optimizing CUDA algorithms, while retaining imperative control over how we use accelerators like tensor cores.
+
+2. We're extending the existing Python-embedded Exo language.
+The frontend captures Python functions as ``procs'', whose AST is reinterpreted as generated C code.
+Most constructs map 1:1 with imperative C code.
+
+3. For example, this unoptimized CPU gemm kernel includes 3 sequential for loops, which map to typical C for loops. We'll contrast these with parallel for loops later.
+
+4. Exo requires static type annotations for all parameters and allocations.
+
+5. Furthermore, we also support these memory type annotations, which specify the backing memory for a value. In this case, all values live in ordinary CPU DRAM.
+
+6. When we say we ``safely optimize'', we mean changing the internals of a proc, while preserving functional equivalence; that is, the optimized proc still gives the same outputs for the same inputs.
+
+7. Exo implements a variant of the user-schedulable programming paradigm.
+We start with a simple proc, and metaprogram it with a series of behavior-preserving rewrites.
+
+8. For example, these rewrites can optimize for efficient memory access patterns, or to target many specialized CPU instructions supported by Exo today. On a surface level, our goal is to extend this to target specialized GPU accelerators as well, but at a deeper level, we want to modify Exo's rewrite system & underlying semantics to model imperative GPU programming in a disciplined way.
+
+9. Throughout this talk, as a running example, we'll be gradually optimizing the GEMM kernel.
+We'll start out by tiling the M and N loops, which we'll later parallelize.
+
+10. We'll use divide_loop to split the original m loop into a 3-level loop nest.
+
+11. Exo automatically rewrote all uses of the original m variable to adapt.
+
+12. For this talk, we'll keep the example simpler by assuming our tile size divides the input size.
+
+13. We will do the same to create a 3-level n loop nest.
+
+14. Finally, we'll re-order the loops to implement the tiling. The top two loops iterate over large, M1 x N1 sized tiles of the output C matrix. The next two loops iterate over smaller M0 x N0 sized tiles, and the m0, n0 loops iterate over individual output C elements.
+
+15. Throughout these rewrites, Exo has verified that the proc's behavior did not change. Exo would have raised an error if the verification failed.
+
+16. We'll now use the new features of Exo-GPU to move this work to the CUDA device.
+In CUDA, the CPU launches a grid of GPU threads all running the same code.
+This corresponds to a ``with CudaDeviceFunction'' block in Exo; code inside these blocks becomes CUDA code, while code outside remains as CPU code.
+The grid of threads is grouped into thread blocks, each consisting of blockDim-many threads.
+Exo has two different forms of parallel-for loop to target this hierarchy.
+cuda_tasks loops assigns each iteration to a thread block on the device; below that, cuda_threads loops assign work to threads within a thread block.
+
+17. Correctness so far has relied on transitivity: given that each rewrite preserves behavior, the original and final procs functionally equivalent.
+Parallelization will not extend this model.
+
+18. All rewrites will continue to analyze procs with sequential semantics, by treating parallel loops as if they were sequential.
+This lets us re-use existing rewrites unchanged.
+Also, while we're rewriting the gemm kernel, any rewrites that introduce parallelism are at this stage trivially correct.
+Checking parallelism becomes a separate step.
+
+19. In this example, we'll wrap the full loop nest in a CudaDeviceFunction block.
+We'll update the function parameters to live in CUDA global memory, and allocate the temporary accumulator in a CUDA register.
+
+20. Convert the top two loops to cuda_tasks loops; this assigns large tiles to thread blocks.
+
+21. Convert the next two loops to cuda_threads loops; this assigns small tiles to threads.
+
+22. The unit parameter will be explained shortly.
+
+23. The next two loops stay as sequential; each thread iterates over its assigned small tile of the output C matrix.
+
+24. The reason for the unit parameter in the cuda_threads loop is to allow us to support non-1:1 mapping between parallel loop iterations and threads.
+This ``collective unit'' argument controls how many threads are assigned to each iteration.
+
+25. Each iteration of the loop is executed by what we call a thread collective.
+
+26. The fundamental reason for this control is, once we're inside a single thread block, we can't spawn new threads, unlike for example an OpenMP parallel for loop.
+We can only subdivide the thread collectives that are already there.
+In the gemm example, the m1 loop subdivides the full thread block into thread collectives of 16 threads each, each assigned to a different row. From there, the n1 loop subdivides these 16 threads into individual threads.
+
+27. Summarizing what we have now, we've subdivided the output C matrix into large tiles of size M1 x N1, each assigned to a different thread block.
+
+28. We can imagine that the input A and B matrices are block matrices, and each CUDA thread block is assigned to compute one block matrix product.
+
+29. Within a thread block, each thread gets assigned a small M0 x N0 tile of C to fill.
+
+30. The memory usage pattern is fairly wasteful.
+Each horizontally-adjacent thread reads the same values from A, which is in global memory.
+Similarly, each vertically-adjacent thread reads the same values from B.
+
+31. To optimize this, we will use shared memory, which is a per-thread-block scratchpad.
+Each thread block will cache its needed input blocks of A and B into shared memory.
+Since shared memory is finite, we need to tile the k dimension by a constant K0 and cycle tiles through shared memory.
+
+32. This leads to the classic GPU GEMM algorithm: the thread block starts by zero-ing its accumulators,
+
+33. Then, it alternates between reading tiles into shared memory
+
+34. and accumulating the saved tile.
+
+35. This repeats, striding by K0, until the last tile product is accumulated.
+
+47. At the end, we write a large tile back out to C.
+
+48. To start implementing this, we have to restructure the code. Currently, the zero and write-back steps are deep inside the loop nest.
+
+49. This algorithm requires that they be factored out as separate steps before and after the main loop.
+
+50. We won't go over all steps, but the key rewrite needed for this is loop fissioning: splitting a loop nest into two loop nests, which implement the first and second halves of the original loop body.
+
+51. After some rewrites, we have three loop nests, which implement the zero-init, the main accumulate loop, and the write-back separately.
+
+52. Loop fissioning preserved the loop structure that we set up earlier.
+
+53. Note that we didn't fission the cuda_tasks loop: all of this still runs on a single thread block.
+
+54. For the rest of the talk, we'll focus on the main accumulate loop.
+It's been further rewritten to tile the k dimension.
+
+55. Currently, the main loop reads from A and B in global memory directly.
+
+56. We will ask Exo to stage the needed tiles of A and B into new variables, A_smem and B_smem.
+Reads from A_smem and B_smem replace the reads from A and B.
+
+57. Exo generates loops to fill the new variables.
+
+58. These are sequential, but we'll parallelize them using similar rewrites as before.
+
+59. We also need to add synchronization statements between the tile loads and the accumulates.
+This causes all threads in the thread block to wait for each other.
+
+60. The reason we need synchronization is that in general, the thread assigned to fill an entry in the shared memory tile isn't the same as the threads that read from it.
+
+61. The first sync, before the accumulate step, resolves the obvious read-after-write hazard.
+We can't accumulate a value until we're sure it's been fully loaded.
+The second sync resolves the more subtle write-after-read hazard.
+The next iteration needs to not clobber the shared memory before we're fully done accumulating from it.
+
+62. I just added some synchronization I claimed is neccessary, but the rewrites that added the parallelism and syncs didn't check this.
+Somewhere between generating the final rewritten proc, and translating it to C or CUDA, we have to add to Exo a step to check correct synchronization.
+
+63. This added step turns correctness into a two-phase process.
+In the first phase, we check that the original and final procs are equivalent, assuming parallel loops are treated as sequential loops.
+This checking happened throughout the rewrite process.
+
+64. In the second phase, we check that the final proc is equivalent to itself, interpreted first with sequential semantics, and second as a parallel program.
+This checked proc becomes the generated CUDA program.
+This completes the chain-of-equivalence between the original sequential proc, and the final CUDA program.
+
+65. The next step is to use accelerator instructions. We'll start with the step that loads tiles from global memory to shared memory.
+
+66. The Ampere generation introduced cp.async instructions.
+Ordinarily, copying a value requires using a temporary register.
+The cp.async instruction bypasses this.
+
+67. The catch with many CUDA accelerator instructions is that they don't interact with synchronization like normal instructions.
+For example, __syncthreads(), which implements a cross-thread-block sync, doesn't wait for cp.async instructions to finish.
+
+68. In Exo, we'll categorize instructions by their interactions with synchronization.
+Each category is a timeline.
+Most CPU and CUDA instructions use the cpu_in_order and cuda_in_order timeline, respectively.
+The cp.async instruction uses the Sm80_cp_async timeline.
+We have even more timelines for newer GPU features.
+
+69. We synchronized the earlier example with a Fence statement.
+The fence takes two timeline parameters L1 and L2.
+All L1-timeline memory accesses prior to the Fence will finish before any L2-timeline memory accesses after the Fence will proceed.
+
+70. The current code uses only cuda_in_order code, so the Fence statements are parameterized with cuda_in_order.
+
+71. We need to replace these copies with cp.async
+
+72. We also have to update the Fences to match.
+
+73. Exo allows rewriting a block of code into a call to a semantically-equivalent sub-procedure.
+It knows the effect of this Sm80_cp_async_f32 intrinsic is to copy a single scalar value, so the rewrite is allowed.
+As before, the rewrite ignores concurrency.
+
+74. We also fill in Sm80_cp_async for one of the Fence timelines.
+The accumulate code is still using cuda_in_order, so the other half of the Fence doesn't change.
+
+75. There's still more to optimize.
+Currently the program strictly alternates between memory-heavy and compute-heavy workloads.
+Ideally, the memory and compute work should be overlapped.
+
+76. A key feature for this is that the cp.async instruction doesn't wait for the copy to finish before moving on to the next instruction.
+So between issuing the cp.async and waiting for it, we can put unrelated work.
+
+77. The core problem right now is that we accumulate from a shared memory tile immediately after filling it.
+We need to delay the accumulate step to a future iteration to make room for overlapping work.
+
+78. If we skew the loop, the dependency graph will look something like this.
+
+79. We need to transform the shared memory tiles into a ring buffer.
+One ring buffer entry can be filled while another is being read from.
+
+80. We also have to resolve the write-after-read hazards to safely re-use a ring buffer slot.
+
+81. We can't go over all the code for this today, but I'll introduce a key feature for implementing these one-way dependency edges: split barriers, which are implemented with pairs of arrive and await statements.
+
+82. These implement the two halves of a Fence statement.
+A fence statement has a condition: that all L1-timeline memory accesses before it have finished; and an effect: L2-timeline accesses after it may proceed.
+
+83. A pair of Arrive and Await statements does the same, but unrelated work can go on in between the two statements.
+
+84. In Exo, we introduced a new variable type, barrier, which controls the pairing between Arrive and Await statements.
+
+85. The other half of the algorithm, the matrix multiply-accumulate, can be accelerated with tensor cores.
+
+86. This uses the same concepts as before.
+Tensor core instructions implement matrix multiply-accumulate for certain fixed tile sizes.
+We can use Exo to replace such blocks of code with semantically equivalent instructions.
+We'll use different timelines to model the asynchrony of some tensor core instructions.
+
+87. I'll talk briefly about our perspective on synchronization checking.
+For phase 2, we interpret the final proc using abstract machine semantics, which are actually a strict extension of existing Exo sequential semantics.
+The only addition is it additionally tracks the guaranteed visibility of prior reads and writes, in terms of sets of timelines and threads of the real parallel hardware.
+
+88. Because it's sequential, this abstract machine is trivially functionally equivalent to Exo.
+In particular, reads and writes pair up as they would in a sequential execution.
+We'll use the additional visibility data to check that each corresponding read/write pair in the real parallel execution is synchronized correctly, even if issued using different timelines or threads.
+
+89. This leads to a model where we use different semantics for different checking phases.
+Exo rewrites continue to use sequential semantics, while the synchronization checking uses our new abstract machine semantics.
+The final proc serves both as a specification of intended behavior as a sequential program, and as a specification of how to generate parallelized CUDA code.
+The abstract machine checking verifies that these two specifications are in fact functionally equivalent.
+
+

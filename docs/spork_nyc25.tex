@@ -150,6 +150,9 @@ Process of optimization:
 \begin{itemize}
   \item Start with a simple \texttt{proc}.
   \item Issue a series of \myKeyA{behavior-preserving rewrite rules}.
+  \begin{itemize}
+    \item (metaprogram with Python)
+  \end{itemize}
   \item $p_n$ proven functionally equivalent to $p_0$; may be faster.
 \end{itemize}
 
@@ -373,7 +376,7 @@ Parallelism checking is made orthogonal to rewrites.
 \draw [arrow] (grid.south) to[out=270, in=90] (cta0.north);
 \draw [arrow] (grid.south) to[out=270, in=90] (cta1.north);
 
-\node (text) [text width=9.5cm, align=left, anchor=east] at($(grid.west)!0.5!(cta0.west)$) {\LARGE Assign large \texttt{M1} $\times$ \texttt{N1} tiles to CUDA blocks.};
+\node (text) [text width=9.5cm, align=left, anchor=east] at($(grid.west)!0.5!(cta0.west)$) {\LARGE Assign large \texttt{M1} $\times$ \texttt{N1} tiles to CUDA thread blocks.};
 \end{tikzpicture}
 \end{center}
 
@@ -443,6 +446,7 @@ Each thread loops over its own \texttt{M0} $\times$ \texttt{N0} iteration space.
 \texttt{\textbf{cuda\_threads}} support non-1:1 threads/iterations mapping.
 \begin{itemize}
   \item Assign multiple threads per parallel for loop ``iteration''.
+  \item Thread count and ``shape'' configured with the \myKeyA{collective unit} (\texttt{unit} argument).
 \end{itemize}
 
 }
@@ -458,11 +462,6 @@ Each thread loops over its own \texttt{M0} $\times$ \texttt{N0} iteration space.
 \hrule
 
 {\LARGE
-
-Configure with the \myKeyA{collective unit} (\texttt{unit} argument).
-\begin{itemize}
-  \item Static property of each scope in Exo-GPU.
-\end{itemize}
 
 One \myKeyA{thread collective} executes each iteration of the loop.
 \begin{itemize}
