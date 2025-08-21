@@ -1392,15 +1392,57 @@ More \myKeyA{timelines} defined for H100 async tensor cores.
 
 
 \newpage
+\myBiggerTitle{Abstract Machine Sketch}
+
+{\LARGE
+Abstract machine used in phase 2 (\textbf{self-equivalence}).
+\begin{itemize}
+  \item Extends \myKeyA{fundamentally sequential} Exo semantics!
+  \item Additionally tracks ``guaranteed visibility'' of prior reads \& writes, across \myKeyA{timelines} and threads.
+\end{itemize}
+
+}
+
+\begin{center}
+{\large
+\begin{tikzpicture}[node distance=8mm]
+\input{nyc25_exo_spork_flow.tex}
+\node(step2) [nPurplestyle, anchor=north west, minimum width=12mm, minimum height=12mm, xshift=-2mm, yshift=3mm] at(sync.south west) {\Huge $\star$ 2};
+\end{tikzpicture}
+}
+\end{center}
+
+
+\newpage
+\myBiggerTitle{Abstract Machine Sketch}
+
+{\LARGE
+Abstract machine used in phase 2 (\textbf{self-equivalence}).
+\begin{itemize}
+  \item {\color{lightgray} Extends \textbf{fundamentally sequential} Exo semantics!}
+  \item $(\implies)$ \myKeyA{Functionally equivalent} to sequential Exo.
+  \item $(\implies)$ \myKeyB{Read/Write} pairs are defined by sequential order.
+  \item {\color{lightgray} Additionally tracks ``guaranteed visibility'' of prior reads \& writes, across \textbf{timelines} and threads.}
+  \item $(\implies)$ Check visibility (correct sync) for corresponding\\\myKeyB{\mbox{Read/Write}} pairs in the real parallel machine.
+\end{itemize}
+
+\vfill
+
+\hfill Note: also checks for WAR, WAW hazards.
+
+}
+
+
+\newpage
 \myBiggerTitle{Scheduling Chain of Equivalence}
 
 {\LARGE
-Phase 1: apply scheduling operators
+Phase 1: apply scheduling operators (\textbf{sequential semantics})
 \begin{itemize}
   \item Analyzes \myKeyB{parallel} loops as if they were \myKeyA{sequential}.
 \end{itemize}
 
-Phase 2: sync check final \texttt{proc}
+Phase 2: sync check final \texttt{proc} (\textbf{abstract machine semantics})
 \begin{itemize}
   \item \myKeyB{parallelized} $p_n$ functionally equivalent to \myKeyA{sequential} $p_n$.
 \end{itemize}
@@ -1410,9 +1452,8 @@ Phase 2: sync check final \texttt{proc}
 {\large
 \begin{tikzpicture}[node distance=8mm]
 \input{nyc25_exo_spork_flow.tex}
-\node (sequential) [below=of exo, yshift=6mm, align=center] {\textbf{Sequential}};
-\node (am) [below=of sync, yshift=6mm, align=center] {\textbf{Abstract Machine}};
-\node (semantics) [left=of sequential] {Semantics used:};
+\node (sequential) [anchor=north, align=center] at(exo.south) {\textbf{Sequential}\\\textbf{Semantics}};
+\node (am) [anchor=north, align=center] at(sync.south) {\textbf{Abstract Machine}\\\textbf{Semantics}};
 \end{tikzpicture}
 }
 \end{center}
