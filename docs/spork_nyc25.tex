@@ -1395,7 +1395,7 @@ More \myKeyA{timelines} defined for H100 async tensor cores.
 \myBiggerTitle{Abstract Machine Sketch}
 
 {\LARGE
-Abstract machine used in phase 2 (\textbf{self-equivalence}).
+Phase 2 (self-equivalence) uses \textbf{abstract machine semantics}:
 \begin{itemize}
   \item Extends \myKeyA{fundamentally sequential} Exo semantics!
   \item Additionally tracks ``guaranteed visibility'' of prior reads \& writes, across \myKeyA{timelines} and threads.
@@ -1417,7 +1417,7 @@ Abstract machine used in phase 2 (\textbf{self-equivalence}).
 \myBiggerTitle{Abstract Machine Sketch}
 
 {\LARGE
-Abstract machine used in phase 2 (\textbf{self-equivalence}).
+Phase 2 (self-equivalence) uses \textbf{abstract machine semantics}:
 \begin{itemize}
   \item {\color{lightgray} Extends \textbf{fundamentally sequential} Exo semantics!}
   \item $(\implies)$ \myKeyA{Functionally equivalent} to sequential Exo.
@@ -1457,70 +1457,6 @@ Phase 2: sync check final \texttt{proc} (\textbf{abstract machine semantics})
 \end{tikzpicture}
 }
 \end{center}
-
-
-\newpage
-\myBiggerTitleExtra{Abstract Machine: Visibility Sets}
-
-{\LARGE
-Starting point for tackling synchronization checking.
-
-\vspace{5mm}
-
-\myKeyA{Visibility Set}: set of \myKeyA{Timeline Signatures}; pair of
-\begin{itemize}
-  \item ``Qualitative'' timeline
-  \item ``Quantitative'' thread ID (unique in system)
-\end{itemize}
-
-\vspace{5mm}
-
-These are associated for each memory read/mutate operation ever performed.
-
-}
-
-
-\newpage
-\myBiggerTitleExtra{Abstract Machine: Environment}
-
-{\LARGE
-
-Augment sequential semantics with a \myKeyA{synchronization environment}, parallel to the value environment.
-\begin{itemize}
-  \item History of reads/mutates done to each variable.
-  \item Stores \myKeyA{visibility sets}.
-\end{itemize}
-
-\vspace{5mm}
-
-Abstract machine is \myKeyA{fundamentally sequential}, but,
-\begin{itemize}
-  \item Tracks visibility of prior reads and mutates\\(``simulating'' parallel machine behavior).
-  \item Visibility sets may grow with synchronization.
-\end{itemize}
-
-}
-
-
-\newpage
-\myBiggerTitleExtra{Abstract Machine: Usage}
-
-{\LARGE
-Exo-GPU programs target this abstract machine.
-
-\textbf{Correctness View:} check predicates on visibility sets.
-\begin{itemize}
-  \item Check each read is \myKeyA{guaranteed} to get the value given by the immediately-prior write in sequential order.
-  \item Sequential-parallel equivalence.
-\end{itemize}
-
-\textbf{Optimization View:} the abstract machine trace \myKeyA{dictates} what instructions \& what threads are used for each operation.
-\begin{itemize}
-  \item Constrains the compiler.
-  \item Generated CUDA internals aren't implementation details.
-\end{itemize}
-
-}
 
 
 \newpage
@@ -1659,6 +1595,70 @@ Resolve WAR Hazard (\textbf{\texttt{cuda\_in\_order $\to$ Sm80\_cp\_async}}).
 Required to re-use ring buffer slot.
 
 }
+
+\newpage
+\myBiggerTitleExtra{Abstract Machine: Visibility Sets}
+
+{\LARGE
+Starting point for tackling synchronization checking.
+
+\vspace{5mm}
+
+\myKeyA{Visibility Set}: set of \myKeyA{Timeline Signatures}; pair of
+\begin{itemize}
+  \item ``Qualitative'' timeline
+  \item ``Quantitative'' thread ID (unique in system)
+\end{itemize}
+
+\vspace{5mm}
+
+These are associated for each memory read/mutate operation ever performed.
+
+}
+
+
+\newpage
+\myBiggerTitleExtra{Abstract Machine: Environment}
+
+{\LARGE
+
+Augment sequential semantics with a \myKeyA{synchronization environment}, parallel to the value environment.
+\begin{itemize}
+  \item History of reads/mutates done to each variable.
+  \item Stores \myKeyA{visibility sets}.
+\end{itemize}
+
+\vspace{5mm}
+
+Abstract machine is \myKeyA{fundamentally sequential}, but,
+\begin{itemize}
+  \item Tracks visibility of prior reads and mutates\\(``simulating'' parallel machine behavior).
+  \item Visibility sets may grow with synchronization.
+\end{itemize}
+
+}
+
+
+\newpage
+\myBiggerTitleExtra{Abstract Machine: Usage}
+
+{\LARGE
+Exo-GPU programs target this abstract machine.
+
+\textbf{Correctness View:} check predicates on visibility sets.
+\begin{itemize}
+  \item Check each read is \myKeyA{guaranteed} to get the value given by the immediately-prior write in sequential order.
+  \item Sequential-parallel equivalence.
+\end{itemize}
+
+\textbf{Optimization View:} the abstract machine trace \myKeyA{dictates} what instructions \& what threads are used for each operation.
+\begin{itemize}
+  \item Constrains the compiler.
+  \item Generated CUDA internals aren't implementation details.
+\end{itemize}
+
+}
+
 
 \end{document}
 
