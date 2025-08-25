@@ -259,49 +259,58 @@ We want to \myKeyA{tile} the \greenBox{m}/\violetBox{n} loop nest.
 \newpage
 \myBiggerTitle{GPU: Blocks \& Threads}
 
-{\LARGE
-
-Goal: Map tiles to different levels of the GPU hierarchy
-
-\begin{itemize}
-\item Launch \myKeyA{grid} of CUDA threads from \myKeyA{CPU}.
-\item Map work to CUDA threads with \myKeyB{parallel for} loops.
-\end{itemize}
-
-}
+\input{nyc25_grid_text.tex}
 \vfill
 \begin{tikzpicture}[node distance=2mm]
-
-\node (grid) [normalnode, nRedstyle, text width=5cm, minimum width=5cm] {\textbf{grid}};
-\node (cpu) [left=of grid, xshift=-2cm] {\textbf{CPU}};
-\draw [arrow] (cpu) -- node[above] {\textbf{launch}} (grid);
-\node (cuda) [above=of grid, yshift=+4mm] {\textbf{CUDA Constructs}};
-\node (exo) [right=of cuda, xshift=25mm] {\textbf{Exo-GPU Constructs}};
-
-\node (cta0) [normalnode, nGoldstyle, text width=20mm, minimum width=20mm, below=of grid, xshift=-15mm, yshift=-1cm] {\textbf{block}};
-\node (cta1) [normalnode, nGoldstyle, text width=20mm, minimum width=20mm, below=of grid, xshift=+15mm, yshift=-1cm] {\textbf{block}};
-
-\node (thread0) [normalnode, nGreenstyle, text width=16mm, minimum width=16mm, below=of cta0, yshift=-1cm, xshift=-32mm] {\textbf{thread}};
-\node (thread1) [normalnode, nGreenstyle, text width=16mm, minimum width=16mm, right=of thread0] {\textbf{thread}};
-\node (thread2) [normalnode, nGreenstyle, text width=16mm, minimum width=16mm, right=of thread1, xshift=22mm] {\textbf{thread}};
-
-\draw [arrow] (grid.south) to[out=270, in=90] (cta0.north);
-\draw [arrow] (grid.south) to[out=270, in=90] (cta1.north);
-
-\draw [arrow] (cta0.south) to[out=250, in=90] (thread0.north);
-\draw [arrow] (cta0.south) to[out=270, in=90] (thread1.north);
-\draw [arrow] (cta0.south) to[out=270, in=90] (thread2.north);
-\draw [dotted] (thread1.east) -- (thread2.west);
-
-\node (blockDim) [yshift=-1cm] at ($(thread0.south)!0.5!(thread2.south)$) {\blueBox{blockDim}};
-\draw [thick, bluestyle, fill=none] ($(thread0.south west) + (0.01, 0)$) to[out=270, in=90] (blockDim.north);
-\draw [thick, bluestyle, fill=none] ($(thread2.south east) - (0.01, 0)$) to[out=270, in=90] (blockDim.north);
-% Slight offset by 0.01 needed otherwise there is a mystery page break
-
-\node (CudaDeviceFunction) [align=left, right=of grid, text width=100mm] {\large\texttt{\codecomment{\# CPU launches grid}\\with \nRedBox{\textbf{CudaDeviceFunction}}(\blueBox{blockDim=\textit{arg}}):\\~~\codecomment{\# Body lowered to CUDA C++}}\\};
-\node (cudaTasks) [align=left, right=of cta1, text width=100mm] {\large\texttt{~~for \textit{iter} in \nGoldBox{\textbf{cuda\_tasks}}(\textit{lo}, \textit{hi}):}\\};
-\node (cudaThreads) [align=left, right=of thread2, text width=110mm] {\large\texttt{~~~~for \textit{iter} in \nGreenBox{\textbf{cuda\_threads}}(\textit{lo}, \textit{hi}, unit=\textit{u}):}\\};
+\input{nyc25_grid_diagram.tex}
 \end{tikzpicture}
+
+
+\newpage
+\myBiggerTitle{GPU: Blocks \& Threads}
+
+\input{nyc25_grid_text.tex}
+\vfill
+\begin{tikzpicture}[node distance=2mm]
+\input{nyc25_grid_diagram.tex}
+\draw [ultra thick, draw=magenta] ($(grid.north west) + (-3.38, 0.25)$) -- ($(grid.north east) + (0.25, 0.25)$);
+\draw [ultra thick, draw=magenta] ($(grid.south west) + (-3.38, -0.25)$) -- ($(grid.south east) + (0.25, -0.25)$);
+\draw [ultra thick, draw=magenta] ($(grid.north west) + (-3.38, 0.25)$) -- ($(grid.south west) + (-3.38, -0.25)$);
+\draw [ultra thick, draw=magenta] ($(grid.south east) + (0.25, -0.25)$) -- ($(grid.north east) + (0.25, 0.25)$);
+\end{tikzpicture}
+
+
+\newpage
+\myBiggerTitle{GPU: Blocks \& Threads}
+
+\input{nyc25_grid_text.tex}
+\vfill
+\begin{tikzpicture}[node distance=2mm]
+\input{nyc25_grid_diagram.tex}
+\draw [ultra thick, draw=magenta] ($(cta0.north west) + (-3.38, 0.25)$) -- ($(cta1.north east) + (0.25, 0.25)$);
+\draw [ultra thick, draw=magenta] ($(cta0.south west) + (-3.38, -0.25)$) -- ($(cta1.south east) + (0.25, -0.25)$);
+\draw [ultra thick, draw=magenta] ($(cta0.north west) + (-3.38, 0.25)$) -- ($(cta0.south west) + (-3.38, -0.25)$);
+\draw [ultra thick, draw=magenta] ($(cta1.south east) + (0.25, -0.25)$) -- ($(cta1.north east) + (0.25, 0.25)$);
+\draw [ultra thick, draw=magenta] ($(CudaDeviceFunction.north west) + (+4.75, 0.05)$) -- ($(CudaDeviceFunction.north east) + (0.05, 0.05)$);
+\draw [ultra thick, draw=magenta] ($(CudaDeviceFunction.south west) + (+4.75, -0.05)$) -- ($(CudaDeviceFunction.south east) + (0.05, -0.05)$);
+\draw [ultra thick, draw=magenta] ($(CudaDeviceFunction.north west) + (+4.75, 0.05)$) -- ($(CudaDeviceFunction.south west) + (+4.75, -0.05)$);
+\draw [ultra thick, draw=magenta] ($(CudaDeviceFunction.south east) + (0.05, -0.05)$) -- ($(CudaDeviceFunction.north east) + (0.05, 0.05)$);
+\end{tikzpicture}
+
+
+\newpage
+\myBiggerTitle{GPU: Blocks \& Threads}
+
+\input{nyc25_grid_text.tex}
+\vfill
+\begin{tikzpicture}[node distance=2mm]
+\input{nyc25_grid_diagram.tex}
+\draw [ultra thick, draw=magenta] ($(thread0.north west) + (-0.25, 0.25)$) -- ($(thread2.north east) + (0.25, 0.25)$);
+\draw [ultra thick, draw=magenta] ($(thread0.south west) + (-0.25, -0.25)$) -- ($(thread2.south east) + (0.25, -0.25)$);
+\draw [ultra thick, draw=magenta] ($(thread0.north west) + (-0.25, 0.25)$) -- ($(thread0.south west) + (-0.25, -0.25)$);
+\draw [ultra thick, draw=magenta] ($(thread2.south east) + (0.25, -0.25)$) -- ($(thread2.north east) + (0.25, 0.25)$);
+\end{tikzpicture}
+
 
 \newpage
 \myBiggerTitle{Parallel Loops are Sequential to Rewrites}
