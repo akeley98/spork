@@ -1,0 +1,30 @@
+\node (grid) [normalnode, nRedstyle, text width=5cm, minimum width=5cm] {\textbf{grid}};
+\node (cpu) [left=of grid, xshift=-2cm] {\textbf{CPU}};
+\node (cpuDummy) [anchor=east] at(cpu.west) {\ };  % Aligns diagram slightly to the right.
+\draw [arrow] (cpu) -- node[above] {\textbf{launch}} (grid);
+\node (cuda) [above=of grid, yshift=+4mm] {\textbf{CUDA Constructs}};
+\node (exo) [right=of cuda, xshift=25mm] {\textbf{Exo-GPU Constructs}};
+
+\node (cta0) [normalnode, nGoldstyle, text width=20mm, minimum width=20mm, below=of grid, xshift=-15mm, yshift=-1cm] {\textbf{block}};
+\node (cta1) [normalnode, nGoldstyle, text width=20mm, minimum width=20mm, below=of grid, xshift=+15mm, yshift=-1cm] {\textbf{block}};
+
+\node (thread0) [normalnode, nGreenstyle, text width=16mm, minimum width=16mm, below=of cta0, yshift=-1cm, xshift=-32mm] {\textbf{thread}};
+\node (thread1) [normalnode, nGreenstyle, text width=16mm, minimum width=16mm, right=of thread0] {\textbf{thread}};
+\node (thread2) [normalnode, nGreenstyle, text width=16mm, minimum width=16mm, right=of thread1, xshift=22mm] {\textbf{thread}};
+
+\draw [arrow] (grid.south) to[out=270, in=90] (cta0.north);
+\draw [arrow] (grid.south) to[out=270, in=90] (cta1.north);
+
+\draw [arrow] (cta0.south) to[out=250, in=90] (thread0.north);
+\draw [arrow] (cta0.south) to[out=270, in=90] (thread1.north);
+\draw [arrow] (cta0.south) to[out=270, in=90] (thread2.north);
+\draw [dotted] (thread1.east) -- (thread2.west);
+
+\node (blockDim) [yshift=-1cm] at ($(thread0.south)!0.5!(thread2.south)$) {\blueBox{blockDim}};
+\draw [thick, bluestyle, fill=none] ($(thread0.south west) + (0.01, 0)$) to[out=270, in=90] (blockDim.north);
+\draw [thick, bluestyle, fill=none] ($(thread2.south east) - (0.01, 0)$) to[out=270, in=90] (blockDim.north);
+% Slight offset by 0.01 needed otherwise there is a mystery page break
+
+\node (CudaDeviceFunction) [align=left, right=of grid, text width=100mm] {\large\texttt{\codecomment{\# CPU launches grid}\\with \nRedBox{\textbf{CudaDeviceFunction}}(\blueBox{blockDim=\textit{arg}}):\\~~\codecomment{\# Body lowered to CUDA C++}}\\};
+\node (cudaTasks) [align=left, right=of cta1, text width=100mm] {\large\texttt{~~for \textit{iter} in \nGoldBox{\textbf{cuda\_tasks}}(\textit{lo}, \textit{hi}):}\\};
+\node (cudaThreads) [align=left, right=of thread2, text width=110mm] {\large\texttt{~~~~for \textit{iter} in \nGreenBox{\textbf{cuda\_threads}}(\textit{lo}, \textit{hi}, unit=\textit{u}):}\\};
