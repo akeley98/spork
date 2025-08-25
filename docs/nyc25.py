@@ -203,6 +203,16 @@ def nyc25_gemm_simple_gpu(M: size, N: size, K: size,
   # TeX: color line simple_gpu[1]
   #                       bbbbbbbbbbbb
   with CudaDeviceFunction(blockDim=256):  # User chose 256 threads per block
+    # TeX: end simple_gpu
+    # These are needed for intermediate slides to avoid GPU loops too early.
+    # TeX: begin simple_gpu[0]
+    for m2 in seq(0, M / M1):
+      for n2 in seq(0, N / N1):
+        for m1 in seq(0, M1 / M0):
+          for n1 in seq(0, N1 / N0):
+            # TeX: end simple_gpu[0]
+            pass
+    # TeX: begin simple_gpu[1:]
     # TeX: color line simple_gpu[1]
     #   gg    gggggggggg
     for m2 in cuda_tasks(0, M / M1):
@@ -222,6 +232,8 @@ def nyc25_gemm_simple_gpu(M: size, N: size, K: size,
           # TeX: color line simple_gpu[3]
           #                                  vvvvvvvvvvvvvvvv
           for n1 in cuda_threads(0, N1 / N0, unit=cuda_thread):
+            # TeX: end simple_gpu[1:]
+            # TeX: begin simple_gpu
             # TeX: color line simple_gpu[4]
             #   gg    ggg
             for m0 in seq(0, M0):
@@ -249,7 +261,7 @@ def nyc25_gemm_simple_gpu(M: size, N: size, K: size,
                 # TeX: color line simple_gpu[5]
               # rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
                 C[m2 * M1 + m1 * M0 + m0, n2 * N1 + n1 * N0 + n0] = accum
-# TeX: end simple_gpu[1:7]
+# TeX: end simple_gpu[1:]
 
 nyc25_gemm_simple_gpu = simplify(nyc25_gemm_simple_gpu)
 
