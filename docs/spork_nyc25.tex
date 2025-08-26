@@ -460,7 +460,7 @@ Exo semantics: \myKeyB{parallel} loops interpreted as-if they're \myKeyA{sequent
 \end{center}
 
 \newpage
-\myBiggerTitle{GPU Thread Loops (``unit'' explained later)}
+\myBiggerTitle{GPU Threads Loops (``unit'' explained later)}
 
 {\large
 \input{nyc25_tex/simple_gpu.3.tex}
@@ -477,7 +477,7 @@ Exo semantics: \myKeyB{parallel} loops interpreted as-if they're \myKeyA{sequent
 \end{center}
 
 \newpage
-\myBiggerTitle{GPU per-thread work \hfill \nBlueBox{GEMM v2}}
+\myBiggerTitle{GPU Per-thread Work \hfill \nBlueBox{GEMM v2}}
 
 {\large
 \input{nyc25_tex/simple_gpu.4.tex}
@@ -937,7 +937,7 @@ $p_0 \equiv p_1 \equiv ... \equiv p_n$
 {\large
 \begin{tikzpicture}[node distance=8mm]
 \input{nyc25_exo_spork_flow.tex}
-\node (gpu) [nPurplestyle, align=center, anchor=south west, yshift=+9mm] at(proc0.north west) {\textbf{\LARGE Exo-GPU Checking}};
+\node (gpu) [nPurplestyle, align=center, anchor=south west, yshift=+19mm] at(proc0.north west) {\textbf{\LARGE Exo-GPU Checking}};
 \node(step1) [nPurplestyle, anchor=north west, minimum width=12mm, minimum height=12mm, xshift=-2mm, yshift=3mm] at(exo.south west) {\Huge $\star$ 1};
 \end{tikzpicture}
 }
@@ -960,7 +960,8 @@ Phase 2, \textbf{Self-equivalence}:
 {\large
 \begin{tikzpicture}[node distance=8mm]
 \input{nyc25_exo_spork_flow.tex}
-\node (gpu) [nPurplestyle, align=center, anchor=south west, yshift=+9mm] at(proc0.north west) {\textbf{\LARGE Exo-GPU Checking}};
+\input{nyc25_exo_spork_flow_red.tex}
+\node (gpu) [nPurplestyle, align=center, anchor=south west, yshift=+19mm] at(proc0.north west) {\textbf{\LARGE Exo-GPU Checking}};
 \node(step2) [nPurplestyle, anchor=north west, minimum width=12mm, minimum height=12mm, xshift=-2mm, yshift=3mm] at(sync.south west) {\Huge $\star$ 2};
 \end{tikzpicture}
 }
@@ -1040,8 +1041,10 @@ Exo-GPU \myKeyA{timelines}:
   \item \textbf{\texttt{cpu\_in\_order}}: CPU instructions
   \item \textbf{\texttt{cuda\_in\_order}}: most CUDA instructions
   \item \textbf{\texttt{Sm80\_cp\_async}}: \texttt{cp.async} (special syncs needed)
-  \item Others for H100 (not in this talk)
 \end{itemize}
+
+\vspace{9mm}
+Even more for H100 GPUs (not in this talk)
 
 }
 
@@ -1384,7 +1387,7 @@ Separate out the two with \texttt{Arrive} and \texttt{Await} statements.
 \myBiggerTitle{Fence vs Arrive/Await}
 
 {\LARGE
-\texttt{Arrive}/\texttt{Await} require a common \textbf{\texttt{barrier}}-typed variable.
+\texttt{Arrive}/\texttt{Await} require a common \violetBox{\textbf{\texttt{barrier}}}-typed variable.
 
 \vspace{3mm}
 \hrule
@@ -1402,8 +1405,8 @@ Separate out the two with \texttt{Arrive} and \texttt{Await} statements.
 \draw [arrow] (await) -- (L2);
 \draw [arrow] (arrive) to[out=45, in=135] (await);
 
-\node (pre) [align=left, anchor=south west, yshift=12mm] at($(L1.north west)$) {\texttt{Arrive(\myKeyA{L1}) >> \textit{barrier}}};
-\node (post) [align=left, anchor=south east, yshift=12mm] at($(L2.north east)$) {\texttt{Await(\textit{barrier}, \myKeyB{L2})}};
+\node (pre) [align=left, anchor=south west, yshift=12mm] at($(L1.north west)$) {\texttt{Arrive(\myKeyA{L1}) >> \textit{\violetBox{barrier}}}};
+\node (post) [align=left, anchor=south east, yshift=12mm] at($(L2.north east)$) {\texttt{Await(\textit{\violetBox{barrier}}, \myKeyB{L2})}};
 \draw [arrow] (pre) -- (post);
 \end{tikzpicture}
 \end{center}
@@ -1480,6 +1483,7 @@ Phase 2 (self-equivalence) uses \textbf{abstract machine semantics}:
 {\large
 \begin{tikzpicture}[node distance=8mm]
 \input{nyc25_exo_spork_flow.tex}
+\input{nyc25_exo_spork_flow_red.tex}
 \node(step2) [nPurplestyle, anchor=north west, minimum width=12mm, minimum height=12mm, xshift=-2mm, yshift=3mm] at(sync.south west) {\Huge $\star$ 2};
 \end{tikzpicture}
 }
@@ -1517,7 +1521,7 @@ Phase 1: apply scheduling operators (\textbf{sequential semantics})
 
 Phase 2: sync check final \texttt{proc} (\textbf{abstract machine semantics})
 \begin{itemize}
-  \item \myKeyB{parallelized} $p_n$ functionally equivalent to \myKeyA{sequential} $p_n$.
+  \item \myKeyB{Parallelized} $p_n$ functionally equivalent to \myKeyA{sequential} $p_n$.
 \end{itemize}
 }
 
@@ -1525,6 +1529,7 @@ Phase 2: sync check final \texttt{proc} (\textbf{abstract machine semantics})
 {\large
 \begin{tikzpicture}[node distance=8mm]
 \input{nyc25_exo_spork_flow.tex}
+\input{nyc25_exo_spork_flow_red.tex}
 \node (sequential) [anchor=north, align=center] at(exo.south) {\textbf{Sequential}\\\textbf{Semantics}};
 \node (am) [anchor=north, align=center] at(sync.south) {\textbf{Abstract Machine}\\\textbf{Semantics}};
 \end{tikzpicture}
