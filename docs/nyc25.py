@@ -872,7 +872,7 @@ def cp_async_pseudocode():
 
 
 def tensor_core():
-  # TeX: version tensor_core_instr 1
+  # TeX: version tensor_core_instr 2
   # TeX: begin tensor_core_instr[0]
   # TeX: color line *
   #   g
@@ -887,3 +887,9 @@ def tensor_core():
         # g v       g b      b v
         C[m,n] += A[m,k] * B[k,n]
         # TeX: end tensor_core_instr[0]
+
+  # TeX: begin tensor_core_instr[1]
+  # TeX: color line *
+  #               .     .     .
+  Sm80_mma_tf32(C[:], A[:], B[:])
+  # TeX: end tensor_core_instr[1]

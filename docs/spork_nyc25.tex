@@ -333,20 +333,71 @@ all rewrites were \myKeyA{checked for correctness}.
 }
 \end{center}
 
+
+%% Same slide three times but with more notes added.
+%% Next time look into using presentation software...
+
 \newpage
-\myBiggerTitle{Parallel Loop are Sequential to Rewrites}
+\myBiggerTitle{Parallel Loops are Sequential to Rewrites}
 
 {\LARGE
 Exo semantics: \myKeyB{parallel} loops interpreted as-if they're \myKeyA{sequential}.
 
-\begin{itemize}
-  \item Corpus of Exo rewrites kept as-is for Exo-GPU.
-  \item New ``parallelize loop'' rewrites are trivially correct\\(at this stage).
-\end{itemize}
+}
+\vspace{6mm}
+\begin{center}
+{\large
+\begin{tikzpicture}[node distance=8mm]
+\input{nyc25_exo_cpu_flow.tex}
+\node(parallelize) [greenstyle, align=left, anchor=south, yshift=6mm] at($(proc1.north west)!0.5!(proc1.north)$) {New ``parallelize loop'' rewrites\\are \textbf{trivially correct}\\(at this stage)};
+\draw[arrow, draw=greenBoxFg] (parallelize) -- ($(proc1.north west)!0.5!(proc1.north)$);
+\end{tikzpicture}
+}
+\end{center}
 
-Parallelism checking is made orthogonal to rewrites.
+
+\newpage
+\myBiggerTitle{Parallel Loops are Sequential to Rewrites}
+
+{\LARGE
+Exo semantics: \myKeyB{parallel} loops interpreted as-if they're \myKeyA{sequential}.
 
 }
+\vspace{6mm}
+\begin{center}
+{\large
+\begin{tikzpicture}[node distance=8mm]
+\input{nyc25_exo_cpu_flow.tex}
+\node(parallelize) [greenstyle, align=left, anchor=south, yshift=6mm] at($(proc1.north west)!0.5!(proc1.north)$) {New ``parallelize loop'' rewrites\\are \textbf{trivially correct}\\(at this stage)};
+\draw[arrow, draw=greenBoxFg] (parallelize) -- ($(proc1.north west)!0.5!(proc1.north)$);
+\node (separate) [greenstyle, align=left, anchor=north east, yshift=-9mm] at(c.south east) {Separate concern:\\synchronization checking};
+\draw[arrow, draw=greenBoxFg] (separate.north) to[out=90, in=270] ($(procNS.east)!0.5!(c.west)$);
+\end{tikzpicture}
+}
+\end{center}
+
+
+\newpage
+\myBiggerTitle{Parallel Loops are Sequential to Rewrites}
+
+{\LARGE
+Exo semantics: \myKeyB{parallel} loops interpreted as-if they're \myKeyA{sequential}.
+
+}
+\vspace{6mm}
+\begin{center}
+{\large
+\begin{tikzpicture}[node distance=8mm]
+\input{nyc25_exo_cpu_flow.tex}
+\node(parallelize) [greenstyle, align=left, anchor=south, yshift=6mm] at($(proc1.north west)!0.5!(proc1.north)$) {New ``parallelize loop'' rewrites\\are \textbf{trivially correct}\\(at this stage)};
+\draw[arrow, draw=greenBoxFg] (parallelize) -- ($(proc1.north west)!0.5!(proc1.north)$);
+\node (separate) [greenstyle, align=left, anchor=north east, yshift=-9mm] at(c.south east) {Separate concern:\\synchronization checking};
+\draw[arrow, draw=greenBoxFg] (separate.north) to[out=90, in=270] ($(procNS.east)!0.5!(c.west)$);
+\node (existing) [greenstyle, align=left, below=of exo] {Existing Exo rewrites\\kept as-is};
+\draw[arrow, draw=greenBoxFg] (existing) -- (exo);
+\end{tikzpicture}
+}
+\end{center}
 
 
 \newpage
@@ -863,8 +914,8 @@ Extend the Exo rewrite model to add a separate ``sync check'' step.
 {\large
 \begin{tikzpicture}[node distance=8mm]
 \input{nyc25_exo_cpu_flow.tex}
+\node (original) [nPurplestyle, align=center, anchor=south west, yshift=+9mm] at(proc0.north west) {\textbf{\LARGE Original Exo Checking}};
 \node (caption) [greenstyle, align=center, anchor=south, yshift=2mm] at(toC) {CHECK\\HERE};
-\node (original) [nPurplestyle, align=center, anchor=west] at(exo.east) {Original Exo Checking};
 \end{tikzpicture}
 }
 \end{center}
@@ -886,6 +937,7 @@ $p_0 \equiv p_1 \equiv ... \equiv p_n$
 {\large
 \begin{tikzpicture}[node distance=8mm]
 \input{nyc25_exo_spork_flow.tex}
+\node (gpu) [nPurplestyle, align=center, anchor=south west, yshift=+9mm] at(proc0.north west) {\textbf{\LARGE Exo-GPU Checking}};
 \node(step1) [nPurplestyle, anchor=north west, minimum width=12mm, minimum height=12mm, xshift=-2mm, yshift=3mm] at(exo.south west) {\Huge $\star$ 1};
 \end{tikzpicture}
 }
@@ -908,6 +960,7 @@ Phase 2, \textbf{Self-equivalence}:
 {\large
 \begin{tikzpicture}[node distance=8mm]
 \input{nyc25_exo_spork_flow.tex}
+\node (gpu) [nPurplestyle, align=center, anchor=south west, yshift=+9mm] at(proc0.north west) {\textbf{\LARGE Exo-GPU Checking}};
 \node(step2) [nPurplestyle, anchor=north west, minimum width=12mm, minimum height=12mm, xshift=-2mm, yshift=3mm] at(sync.south west) {\Huge $\star$ 2};
 \end{tikzpicture}
 }
@@ -1405,6 +1458,14 @@ Substitute such blocks with calls to\\
 {\LARGE
 \input{nyc25_tex/tensor_core_instr.0.tex}
 }
+
+\vspace{8mm}
+
+{\LARGE
+$\mapsto$ \input{nyc25_tex/tensor_core_instr.1.tex}
+}
+
+\vspace{8mm}
 
 {\LARGE
 More \myKeyA{timelines} defined for H100 async tensor cores.
