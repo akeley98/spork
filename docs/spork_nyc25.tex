@@ -505,10 +505,6 @@ Exo semantics: \myKeyB{parallel} loops interpreted as-if they're \myKeyA{sequent
 
 {\LARGE
 \texttt{\textbf{cuda\_threads}} support non-1:1 threads/iterations mapping.
-\begin{itemize}
-  \item Assign multiple threads per parallel for loop ``iteration''.
-  \item Thread count and ``shape'' configured with the \myKeyA{collective unit} (\texttt{unit} argument).
-\end{itemize}
 
 }
 
@@ -526,7 +522,7 @@ Exo semantics: \myKeyB{parallel} loops interpreted as-if they're \myKeyA{sequent
 
 One \myKeyA{thread collective} executes each iteration of the loop.
 \begin{itemize}
-  \item Shape defined by \myKeyA{collective unit}.
+  \item Thread count \& ``shape'' defined by \myKeyA{collective unit}.
 \end{itemize}
 
 }
@@ -1463,6 +1459,22 @@ $\mapsto$ \input{nyc25_tex/tensor_core_instr.1.tex}
 
 {\LARGE
 More \myKeyA{timelines} defined for H100 async tensor cores.
+
+}
+
+
+\newpage
+\myBiggerTitle{Summary: Concurrency Forms}
+
+{\LARGE
+Exo-GPU added features:
+\begin{itemize}
+  \item expressing cross-thread \myKeyB{parallelism}
+  \item expressing intra-thread \myKeyB{concurrency}\\(async instructions \& \myKeyA{timelines})
+\end{itemize}
+
+\vspace{6mm}
+Post-rewrites, we need to check ``correct'' usage of these.
 
 }
 
