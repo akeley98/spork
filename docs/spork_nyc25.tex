@@ -1239,14 +1239,14 @@ Each thread continues on after executing \texttt{cp.async} without waiting for t
 \hrule
 
 {\LARGE
-Current state: load into SMEM and consume (compute) the same tile in one \blueBox{\texttt{k1}} iteration.
+%Current state: load into SMEM and consume (compute) the same tile in one \blueBox{\texttt{k1}} iteration.
 
 We need to \myKeyA{delay} the accumulate step to a future \blueBox{\texttt{k1}} iteration to make room for overlapping work!
 
 }
 
 \newpage
-\myBiggerTitle{Producer/Consumer Dependencies}
+\myBiggerTitle{Loop Skew: Delay SMEM Tile Consumption}
 
 {
 \Large
@@ -1257,15 +1257,15 @@ We need to \myKeyA{delay} the accumulate step to a future \blueBox{\texttt{k1}} 
 \end{tikzpicture}
 }
 
-\hrule
+%% \hrule
 
-{\LARGE
-Loop skew: delay \myKeyA{consumption} (compute) of SMEM tile by one \blueBox{\texttt{k1}} iteration from SMEM load.
+%% {\LARGE
+%% Loop skew: delay \myKeyA{consumption} (compute) of SMEM tile by one \blueBox{\texttt{k1}} iteration from SMEM load.
 
-}
+%% }
 
 \newpage
-\myBiggerTitle{Producer/Consumer Dependencies}
+\myBiggerTitle{Ring Buffer Required}
 
 {
 \Large
@@ -1280,14 +1280,12 @@ Loop skew: delay \myKeyA{consumption} (compute) of SMEM tile by one \blueBox{\te
 \hrule
 
 {\LARGE
-Need to transform SMEM into a \myKeyA{ring buffer}.
-
 One slot may be being filled while another is consumed.
 
 }
 
 \newpage
-\myBiggerTitle{Producer/Consumer Dependencies}
+\myBiggerTitle{WAR Hazard: Ring Buffer Slot Re-Use}
 
 {
 \Large
@@ -1300,16 +1298,9 @@ One slot may be being filled while another is consumed.
 \end{tikzpicture}
 }
 
-\hrule
-
-{\LARGE
-WAR hazard: require syncs before re-using ring buffer slots.
-
-}
-
 
 \newpage
-\myBiggerTitle{Producer/Consumer Dependencies}
+\myBiggerTitle{Split Barriers}
 
 {
 \Large
