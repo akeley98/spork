@@ -1,0 +1,14 @@
+\node (write_viz) [minimum height=16mm, greenstyle, align=center] {\textbf{Write}};
+\node (sync_viz) [minimum height=16mm, greenstyle, align=center, right=of write_viz, xshift=20mm] {\textbf{Sync}};
+\node (read_viz) [minimum height=16mm, greenstyle, align=center, right=of sync_viz, xshift=20mm] {\textbf{Read}};
+\node (write_value) [minimum height=16mm, bluestyle, align=center, above=of write_viz, yshift=+6mm] {\textbf{Write}};
+\node (read_value) [minimum height=16mm, bluestyle, align=center, above=of read_viz, yshift=+6mm] {\textbf{Read}};
+\node (viz) [text=greenBoxFg, left=of write_viz, xshift=-4mm] {\textbf{Visibility:}};
+\node (value) [text=blueBoxFg, left=of write_value, xshift=-4mm] {\textbf{Value:}};
+
+\draw [arrow, draw=greenBoxFg] (write_viz) -- (sync_viz);
+\draw [arrow, ultra thick, draw=greenBoxFg] (sync_viz.south east) to[out=-45, in=-75] (sync_viz.south);
+\draw [arrow, draw=greenBoxFg] (sync_viz) -- (read_viz);
+\draw [arrow, draw=blueBoxFg] (write_value) -- (read_value);
+
+\node (note) [align=center, anchor=west, xshift=4mm] at($(read_viz.east)!0.5!(read_value.east)$) {\textbf{RAW} depicted.\\\redBox{\textbf{WAR/WAW}}\\also checked.};

@@ -291,10 +291,10 @@ We want to \myKeyA{tile} the \greenBox{m}/\violetBox{n} loop nest.
 \draw [ultra thick, draw=magenta] ($(cta0.south west) + (-3.38, -0.25)$) -- ($(cta1.south east) + (0.25, -0.25)$);
 \draw [ultra thick, draw=magenta] ($(cta0.north west) + (-3.38, 0.25)$) -- ($(cta0.south west) + (-3.38, -0.25)$);
 \draw [ultra thick, draw=magenta] ($(cta1.south east) + (0.25, -0.25)$) -- ($(cta1.north east) + (0.25, 0.25)$);
-\draw [ultra thick, draw=magenta] ($(CudaDeviceFunction.north west) + (+4.75, 0.05)$) -- ($(CudaDeviceFunction.north east) + (0.05, 0.05)$);
-\draw [ultra thick, draw=magenta] ($(CudaDeviceFunction.south west) + (+4.75, -0.05)$) -- ($(CudaDeviceFunction.south east) + (0.05, -0.05)$);
-\draw [ultra thick, draw=magenta] ($(CudaDeviceFunction.north west) + (+4.75, 0.05)$) -- ($(CudaDeviceFunction.south west) + (+4.75, -0.05)$);
-\draw [ultra thick, draw=magenta] ($(CudaDeviceFunction.south east) + (0.05, -0.05)$) -- ($(CudaDeviceFunction.north east) + (0.05, 0.05)$);
+%% \draw [ultra thick, draw=magenta] ($(CudaDeviceFunction.north west) + (+4.75, 0.05)$) -- ($(CudaDeviceFunction.north east) + (0.05, 0.05)$);
+%% \draw [ultra thick, draw=magenta] ($(CudaDeviceFunction.south west) + (+4.75, -0.05)$) -- ($(CudaDeviceFunction.south east) + (0.05, -0.05)$);
+%% \draw [ultra thick, draw=magenta] ($(CudaDeviceFunction.north west) + (+4.75, 0.05)$) -- ($(CudaDeviceFunction.south west) + (+4.75, -0.05)$);
+%% \draw [ultra thick, draw=magenta] ($(CudaDeviceFunction.south east) + (0.05, -0.05)$) -- ($(CudaDeviceFunction.north east) + (0.05, 0.05)$);
 \end{tikzpicture}
 
 
@@ -1483,10 +1483,10 @@ Post-rewrites, we need to check ``correct'' usage of these.
 \myBiggerTitle{Abstract Machine Sketch}
 
 {\LARGE
-Phase 2 (self-equivalence) uses \textbf{abstract machine semantics}:
+Phase 2 (self-equivalence) interprets procs\\with \textbf{abstract machine semantics}:
 \begin{itemize}
   \item Extends \myKeyA{fundamentally sequential} Exo semantics!
-  \item Additionally tracks ``guaranteed visibility'' of prior reads \& writes, across \myKeyA{timelines} and threads.
+  \item ... but we encode some parallel hardware details.
 \end{itemize}
 
 }
@@ -1495,7 +1495,7 @@ Phase 2 (self-equivalence) uses \textbf{abstract machine semantics}:
 {\large
 \begin{tikzpicture}[node distance=8mm]
 \input{nyc25_exo_spork_flow.tex}
-\input{nyc25_exo_spork_flow_red.tex}
+% \input{nyc25_exo_spork_flow_red.tex}
 \node(step2) [nPurplestyle, anchor=north west, minimum width=12mm, minimum height=12mm, xshift=-2mm, yshift=3mm] at(sync.south west) {\Huge $\star$ 2};
 \end{tikzpicture}
 }
@@ -1506,20 +1506,122 @@ Phase 2 (self-equivalence) uses \textbf{abstract machine semantics}:
 \myBiggerTitle{Abstract Machine Sketch}
 
 {\LARGE
-Phase 2 (self-equivalence) uses \textbf{abstract machine semantics}:
+
+\textbf{Same as Exo:} value effects (read/write)
 \begin{itemize}
-  \item {\color{lightgray} Extends \textbf{fundamentally sequential} Exo semantics!}
-  \item $(\implies)$ \myKeyA{Functionally equivalent} to sequential Exo.
-  \item $(\implies)$ \myKeyB{Read/Write} pairs are defined by sequential order.
-  \item {\color{lightgray} Additionally tracks ``guaranteed visibility'' of prior reads \& writes, across \textbf{timelines} and threads.}
-  \item $(\implies)$ Check visibility (correct sync) for corresponding\\\myKeyB{\mbox{Read/Write}} pairs in the real parallel machine.
+  \item Numeric values
 \end{itemize}
 
-\vfill
+\textbf{New:} visibility effects (read/write/\myKeyA{sync stmt})
+\begin{itemize}
+  \item Sets of (\myKeyA{timeline} $\times$ thread) involved\\as def'd by parallel loops, async instrs, etc.
+\end{itemize}
 
-\hfill Note: also checks for WAR, WAW hazards.
+Hybrid approach: sequential execution, \myKeyB{parallel metadata}.
 
 }
+\vfill
+\begin{center}
+\LARGE
+\begin{tikzpicture}[node distance=0mm]
+\input{nyc25_visibility_value.tex}
+\end{tikzpicture}
+\end{center}
+
+
+\newpage
+\myBiggerTitle{Abstract Machine Sketch}
+
+{\LARGE
+\textbf{Write/Read Pair}: read of a value given by sequentially-prior write.
+
+\blueBox{\textbf{Value Effects:}} literally the same as sequential Exo.
+
+\greenBox{\textbf{Visibility Effects:}} check sufficient syncs.% stmts in between.
+
+\begin{tikzpicture}[node distance=0mm]
+\node (write) [align=center] {Write (\myKeyA{timeline} $\times$ thread)};
+\node (read) [align=center, right=of write, xshift=24mm] {Read (\myKeyA{timeline} $\times$ thread)};
+\draw [arrow] (write) -- node[above] {\large \textbf{SYNC?}} (read);
+\node (dummy) [left=of write, xshift=-12mm] {~};
+\end{tikzpicture}
+
+}
+\vfill
+\begin{center}
+\LARGE
+\begin{tikzpicture}[node distance=0mm]
+\input{nyc25_visibility_value.tex}
+\end{tikzpicture}
+\end{center}
+
+
+%% \newpage
+%% \myBiggerTitle{Abstract Machine Sketch}
+
+%% {\LARGE
+%% \blueBox{\textbf{Value Effects}}: Trivial \myKeyA{functional equivalence}
+%% \begin{itemize}
+%%   \item $p_n$ as abstract machine proc $\equiv$ $p_n$ as sequential Exo proc.
+%% \end{itemize}
+
+%% \greenBox{\textbf{Visibility Effects:}} If checks pass,
+%% \begin{itemize}
+%%   \item each \myKeyA{Write/Read Pair} in the sequential baseline
+%%   corresponds to a correctly-sync'd \myKeyA{Write/Read Pair} in the parallel hardware.
+%% %  \item ... same for Read/Write, Write/Write.
+%% \end{itemize}
+%% }
+%% \vfill
+%% \begin{center}
+%% \LARGE
+%% \begin{tikzpicture}[node distance=0mm]
+%% \input{nyc25_visibility_value.tex}
+%% \end{tikzpicture}
+%% \end{center}
+
+
+%% \newpage
+%% \myBiggerTitle{Abstract Machine Sketch}
+
+%% {\LARGE
+%% Phase 2 (self-equivalence) uses \textbf{abstract machine semantics}:
+%% \begin{itemize}
+%%   \item Extends \myKeyA{fundamentally sequential} Exo semantics!
+%%   \item Additionally tracks ``guaranteed visibility'' of prior reads \& writes, across \myKeyA{timelines} and threads.
+%% \end{itemize}
+
+%% }
+
+%% \begin{center}
+%% {\large
+%% \begin{tikzpicture}[node distance=8mm]
+%% \input{nyc25_exo_spork_flow.tex}
+%% \input{nyc25_exo_spork_flow_red.tex}
+%% \node(step2) [nPurplestyle, anchor=north west, minimum width=12mm, minimum height=12mm, xshift=-2mm, yshift=3mm] at(sync.south west) {\Huge $\star$ 2};
+%% \end{tikzpicture}
+%% }
+%% \end{center}
+
+
+%% \newpage
+%% \myBiggerTitle{Abstract Machine Sketch}
+
+%% {\LARGE
+%% Phase 2 (self-equivalence) uses \textbf{abstract machine semantics}:
+%% \begin{itemize}
+%%   \item {\color{lightgray} Extends \textbf{fundamentally sequential} Exo semantics!}
+%%   \item $(\implies)$ \myKeyA{Functionally equivalent} to sequential Exo.
+%%   \item $(\implies)$ \myKeyB{Read/Write} pairs are defined by sequential order.
+%%   \item {\color{lightgray} Additionally tracks ``guaranteed visibility'' of prior reads \& writes, across \textbf{timelines} and threads.}
+%%   \item $(\implies)$ Check visibility (correct sync) for corresponding\\\myKeyB{\mbox{Read/Write}} pairs in the real parallel machine.
+%% \end{itemize}
+
+%% \vfill
+
+%% \hfill Note: also checks for WAR, WAW hazards.
+
+%% }
 
 
 \newpage
