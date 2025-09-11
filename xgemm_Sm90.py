@@ -53,23 +53,22 @@ def make_Sm90_gemm(N, M_CTA, N_CTA):
                     for k_iter in seq(0, K/smem_k):  # This loop should be cut at 1
                         with CudaWarps(name="producer"):
                             # TMA producer warp
-                            with CudaAsync(tma_to_smem_async):
-                                for m_cta in cuda_threads(0, M_CTA, unit=N_CTA * cuda_cta_in_cluster):
-                                    for n_cta in cuda_threads(0, N_CTA, unit=cuda_cta_in_cluster):
-                                        Await(-ringbar[m_cta,n_cta], cuda_temporal, ~(ring-1))
-                                    Sm90_multicast_copy_tensor_to_smem_swizzled_2f32(
-                                        A_smem[m_cta,:,k_iter % ring,:,:,:],
-                                        A_tensorMap[(M_CTA*m_task + m_cta) * smem_m:((M_CTA*m_task + m_cta)+1) * smem_m, k_iter * smem_k:(k_iter+1) * smem_k],
-                                        n_cta=N_CTA, cta_stride=1, size0=smem_m, size1=smem_k
-                                    ) >> +ringbar[m_cta,:]
-                                for n_cta in cuda_threads(0, N_CTA, unit=M_CTA * cuda_warp_in_cluster_strided(N_CTA)):
-                                    Sm90_multicast_copy_tensor_to_smem_swizzled_2f32(
-                                        B_smem[:,n_cta,k_iter % ring,:,:,:],
-                                        B_tensorMap[(N_CTA*n_task+n_cta) * smem_n:(N_CTA*n_task+n_cta+1) * smem_n, k_iter * smem_k:(k_iter+1) * smem_k],
-                                        n_cta=M_CTA, cta_stride=N_CTA, size0=smem_n, size1=smem_k
-                                    ) >> +ringbar[:,n_cta]
-                                    for m_cta in cuda_threads(0, M_CTA, unit=cuda_cta_in_cluster):
-                                        Arrive(cuda_temporal, 1) >> +ringbar[m_cta,:] >> +ringbar[:,n_cta]
+                            for m_cta in cuda_threads(0, M_CTA, unit=N_CTA * cuda_cta_in_cluster):
+                                for n_cta in cuda_threads(0, N_CTA, unit=cuda_cta_in_cluster):
+                                    Await(-ringbar[m_cta,n_cta], cuda_temporal, ~(ring-1))
+                                Sm90_multicast_copy_tensor_to_smem_swizzled_2f32(
+                                    A_smem[m_cta,:,k_iter % ring,:,:,:],
+                                    A_tensorMap[(M_CTA*m_task + m_cta) * smem_m:((M_CTA*m_task + m_cta)+1) * smem_m, k_iter * smem_k:(k_iter+1) * smem_k],
+                                    n_cta=N_CTA, cta_stride=1, size0=smem_m, size1=smem_k
+                                ) >> +ringbar[m_cta,:]
+                            for n_cta in cuda_threads(0, N_CTA, unit=M_CTA * cuda_warp_in_cluster_strided(N_CTA)):
+                                Sm90_multicast_copy_tensor_to_smem_swizzled_2f32(
+                                    B_smem[:,n_cta,k_iter % ring,:,:,:],
+                                    B_tensorMap[(N_CTA*n_task+n_cta) * smem_n:(N_CTA*n_task+n_cta+1) * smem_n, k_iter * smem_k:(k_iter+1) * smem_k],
+                                    n_cta=M_CTA, cta_stride=N_CTA, size0=smem_n, size1=smem_k
+                                ) >> +ringbar[:,n_cta]
+                                for m_cta in cuda_threads(0, M_CTA, unit=cuda_cta_in_cluster):
+                                    Arrive(cuda_temporal, 1) >> +ringbar[m_cta,:] >> +ringbar[:,n_cta]
 
                         with CudaWarps(name="consumer"):
                             for m_cta in cuda_threads(0, M_CTA, unit=N_CTA * cuda_cta_in_cluster):
@@ -77,13 +76,12 @@ def make_Sm90_gemm(N, M_CTA, N_CTA):
                                     # Producer warpgroups
                                     Await(ringbar[m_cta,n_cta], wgmma_async, ~0)
                                     for wg in cuda_threads(0, 2, unit=cuda_warpgroup):
-                                        with CudaAsync(wgmma_async):
-                                            Fence(wgmma_fence_1, wgmma_fence_2)
-                                            for k_mma in seq(0, smem_k / wg_k):
-                                                Sm90_mma_async_tf32(D_rmem[m_cta,n_cta,wg,:,:],
-                                                    A_smem[m_cta,n_cta,k_iter % ring,wg*8:wg*8+8,:,k_mma*8:k_mma*8+8],
-                                                    B_smem[m_cta,n_cta,k_iter % ring,:,:,k_mma*8:k_mma*8+8], M=wg_m, N=wg_n)
-                                            Arrive(wgmma_async, 1) >> cg[m_cta,n_cta,wg]
+                                        Fence(wgmma_fence_1, wgmma_fence_2)
+                                        for k_mma in seq(0, smem_k / wg_k):
+                                            Sm90_mma_async_tf32(D_rmem[m_cta,n_cta,wg,:,:],
+                                                A_smem[m_cta,n_cta,k_iter % ring,wg*8:wg*8+8,:,k_mma*8:k_mma*8+8],
+                                                B_smem[m_cta,n_cta,k_iter % ring,:,:,k_mma*8:k_mma*8+8], M=wg_m, N=wg_n)
+                                        Arrive(wgmma_async, 1) >> cg[m_cta,n_cta,wg]
                                         if k_iter >= 1:
                                             Await(cg[m_cta,n_cta,wg], cuda_in_order, 1)
                                     Arrive(cuda_in_order, 1) >> -ringbar[m_cta,:] >> -ringbar[:,n_cta]

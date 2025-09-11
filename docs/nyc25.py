@@ -206,12 +206,14 @@ def nyc25_gemm_simple_gpu(M: size, N: size, K: size,
     # TeX: end simple_gpu
     # These are needed for intermediate slides to avoid GPU loops too early.
     # TeX: begin simple_gpu[0]
+   if False:
     for m2 in seq(0, M / M1):
       for n2 in seq(0, N / N1):
         for m1 in seq(0, M1 / M0):
           for n1 in seq(0, N1 / N0):
             # TeX: end simple_gpu[0]
             pass
+   if True:
     # TeX: begin simple_gpu[1:]
     # TeX: color line simple_gpu[1]
     #   gg    gggggggggg
@@ -852,6 +854,7 @@ def nyc25_gemm_ring(M: size, N: size, K: size, A: f32[M, K] @ CudaGmemLinear, B:
 
 
 nyc25_gemm_ring = simplify(nyc25_gemm_ring)
+print(nyc25_gemm_ring)
 
 
 """
