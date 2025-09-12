@@ -1,5 +1,13 @@
 #include "cutlass_gemm.h"
 
+#ifndef CUTLASS_ENABLED
+#define CUTLASS_ENABLED 0
+#endif
+
+#include <cassert>
+
+#if CUTLASS_ENABLED
+
 #include <stdio.h>
 
 #include "cutlass/cutlass.h"
@@ -124,7 +132,18 @@ void matmul(GPU_Tensors t, StreamWorkspace& stream_ws)
 
 }  // end namespace
 
+#endif
+
 void matmul_cutlass(GPU_Tensors t, StreamWorkspace& stream_ws)
 {
+    assert(CUTLASS_ENABLED);
+#if CUTLASS_ENABLED
     cutlass_h100_gemm::matmul(t, stream_ws);
+#else
+#endif
+}
+
+bool cutlass_enabled()
+{
+    return CUTLASS_ENABLED;
 }

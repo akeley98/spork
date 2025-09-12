@@ -63,7 +63,8 @@ Make a directory in `$DFS` for this and run all this on `kennel` (you don't need
     source ../venv/bin/activate
     python3 -m pip install -U pip setuptools wheel
 
-Test that Exo-GPU is working (this runs CUDA code on one of `dogo's` H100s.
+Test that Exo-GPU is working.
+This runs CUDA code on one of `dogo's` H100s.
 If you are adapting these instructions for Ubuchan, omit `--cuda-run-Sm90a` and modify the `EXO_NVCC` path.
 
     EXO_NVCC=/usr/local/cuda-12.6/bin/nvcc h100 pytest --cuda-run-Sm80 --cuda-run-Sm90a tests/cuda/

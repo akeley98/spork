@@ -1,5 +1,6 @@
 #include "gemm_test.h"
 #include "gemm_sm80.h"
+#include "cutlass_gemm.h"
 
 #include <cuda_runtime.h>
 #include <stdio.h>
@@ -24,7 +25,9 @@ int main()
         params.algorithm_code_bits = 0;
         params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::cublas);
         if (is_h100) {
-            params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::cutlass);
+            if (cutlass_enabled()) {
+                params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::cutlass);
+            }
             params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::mine_output_stationary);
             params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::mine_split_k_inner);
             params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::mine_split_k_outer);

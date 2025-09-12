@@ -17,16 +17,12 @@
 #include "../nyc25/nyc25.h"
 
 
-#ifndef CUBLAS_TEST_ENABLED
-#define CUBLAS_TEST_ENABLED 1
+#ifndef CUBLAS_ENABLED
+#define CUBLAS_ENABLED 1
 #endif
 
-#if CUBLAS_TEST_ENABLED
+#if CUBLAS_ENABLED
 #include <cublas_v2.h>
-#endif
-
-#ifndef CUTLASS_TEST_ENABLED
-#define CUTLASS_TEST_ENABLED 1
 #endif
 
 namespace gemm_test_impl {
@@ -204,7 +200,7 @@ void gemm_test(TestParams params, cudaStream_t stream)
 {
     StreamWorkspace stream_ws{stream};
 
-#if CUBLAS_TEST_ENABLED
+#if CUBLAS_ENABLED
     cublasHandle_t cublasH;
     CUBLAS_CHECK(cublasCreate(&cublasH));
     CUBLAS_CHECK(cublasSetStream(cublasH, stream));
@@ -251,8 +247,8 @@ void gemm_test(TestParams params, cudaStream_t stream)
 
     auto run_cublas = [&] (float* d_c)
     {
-        assert(CUBLAS_TEST_ENABLED);
-#if CUBLAS_TEST_ENABLED
+        assert(CUBLAS_ENABLED);
+#if CUBLAS_ENABLED
         // Need to do A,B swap trick to deal with Fortran-inherited column majorness
         cublasOperation_t transa = CUBLAS_OP_T;
         cublasOperation_t transb = CUBLAS_OP_N;
@@ -442,7 +438,7 @@ void gemm_test(TestParams params, cudaStream_t stream)
         exit(1);
     }
 
-#if CUBLAS_TEST_ENABLED
+#if CUBLAS_ENABLED
     cublasDestroy(cublasH);
 #endif
 }
