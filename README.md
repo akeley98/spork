@@ -55,7 +55,10 @@ The `$DFS` directory is shared between `kennel` and `dogo` (the H100 server).
 
 # Exo-GPU setup
 
-Make a directory in `$DFS` for this and run all this on `kennel` (you don't need GPUs for this yet).
+**H100:** Make a directory in `$DFS` for this and run all this on `kennel` (you don't need GPUs for this yet).
+The `$DFS` directory is needed to share files between `kennel` (CPU-only) and `dogo` (H100 server).
+
+**Ubuchan:** You can run this in any directory you own.
 
     git clone --recurse-submodules https://github.com/exo-lang/exo.git
     cd exo
@@ -65,26 +68,34 @@ Make a directory in `$DFS` for this and run all this on `kennel` (you don't need
     python3 -m pip install -U pip setuptools wheel
 
 Test that Exo-GPU is working.
-This runs CUDA code on one of `dogo's` H100s.
-If you are adapting these instructions for Ubuchan, omit `--cuda-run-Sm90a` and modify the `EXO_NVCC` path.
+
+**Dogo:** This runs CUDA code on one of `dogo's` H100s.
 
     EXO_NVCC=/usr/local/cuda-12.6/bin/nvcc h100 pytest --cuda-run-Sm80 --cuda-run-Sm90a tests/cuda/
+
+**Ubuchan:** We omit the `h100` (slurm) usage and `--cuda-run-Sm90a`
+
+    EXO_NVCC=/usr/local/cuda-12.6/bin/nvcc pytest --cuda-run-Sm80 tests/cuda/
 
 
 # Build this Repo (GEMM test)
 
-Install `exocc`
+Install `exocc` by running this in the `exo` directory.
 
     source ../venv/bin/activate  # if your venv from before is not yet activated
+    python3 -m build .
     pip3 install dist/*.whl
     # The following will be needed before installing again
     # pip3 install dist/*.whl
 
-Compile and run the gemm testbed.
+Compile and run the gemm testbed (this `spork` repo, not `exo`).
 
-NOTE: this runs on dogo despite being a CPU-only task since `nvcc` on `kennel` is too out of date (CUDA 12.0 which has compiler bugs for the H100).
+**Dogo:** We build the executable on `dogo` despite being a CPU-only task since `nvcc` on `kennel` is too out of date (CUDA 12.0 which has compiler bugs for the H100).
 
     PATH=/usr/local/cuda-12.6/bin/:$PATH h100cpu ninja
     h100 gemm/gemm
 
-For ubuchan, `gemm/gemm` will automatically detect it is not running on an H100 and will not run `sm_90a` kernels.
+**Ubuchan:** `gemm/gemm` will automatically detect it is not running on an H100 and will not run `sm_90a` kernels.
+
+    ninja
+    gemm/gemm
