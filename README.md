@@ -86,7 +86,7 @@ Install `exocc` by running this in the `exo` directory.
     python3 -m build .
     pip3 install dist/*.whl
     # The following will be needed before installing again
-    # pip3 install dist/*.whl
+    # pip3 uninstall dist/*.whl
 
 Compile and run the gemm testbed (this `spork` repo, not `exo`).
 
