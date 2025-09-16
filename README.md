@@ -66,6 +66,8 @@ The `$DFS` directory is needed to share files between `kennel` (CPU-only) and `d
     python3 -m venv ../venv
     source ../venv/bin/activate
     python3 -m pip install -U pip setuptools wheel
+    python3 -m pip install -r requirements.txt
+    python3 -m pip install numpy  # we should fix this?
 
 Test that Exo-GPU is working.
 
@@ -84,9 +86,9 @@ Install `exocc` by running this in the `exo` directory.
 
     source ../venv/bin/activate  # if your venv from before is not yet activated
     python3 -m build .
-    pip3 install dist/*.whl
+    python3 -m pip install dist/*.whl
     # The following will be needed before installing again
-    # pip3 uninstall dist/*.whl
+    # python3 -m pip uninstall dist/*.whl
 
 Compile and run the gemm testbed (this `spork` repo, not `exo`).
 
