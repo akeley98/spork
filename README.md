@@ -1,5 +1,7 @@
 # Accessing H100 on Dogo -- Client Setup
 
+<span style="color:yellow">**Dogo (H100) Only -- Skip for Ubuchan**</span>
+
 After getting an account, do the following on your local machine:
 
 Put the following in `~/.ssh/config`:
@@ -41,6 +43,8 @@ You may wish to alias both of these in your local `~/.bashrc`
 
 # Accessing H100 on Dogo -- Server Setup
 
+<span style="color:yellow">**Dogo (H100) Only -- Skip for Ubuchan**</span>
+
 Once you are on kennel, use `emacs -nw ~/.bashrc` or whatever editor and add the following
 
     export DFS=/data/cl/u/$USER/
@@ -55,10 +59,10 @@ The `$DFS` directory is shared between `kennel` and `dogo` (the H100 server).
 
 # Exo-GPU setup
 
-**H100:** Make a directory in `$DFS` for this and run all this on `kennel` (you don't need GPUs for this yet).
+<span style="color:yellow">**Dogo (H100):**</span> Make a directory in `$DFS` for this and run all this on `kennel` (you don't need GPUs for this yet).
 The `$DFS` directory is needed to share files between `kennel` (CPU-only) and `dogo` (H100 server).
 
-**Ubuchan:** You can run this in any directory you own.
+<span style="color:purple">**Ubuchan:**</span> You can run this in any directory you own.
 
     git clone --recurse-submodules https://github.com/exo-lang/exo.git
     cd exo
@@ -71,11 +75,11 @@ The `$DFS` directory is needed to share files between `kennel` (CPU-only) and `d
 
 Test that Exo-GPU is working.
 
-**Dogo:** This runs CUDA code on one of `dogo's` H100s.
+<span style="color:yellow">**Dogo (H100):**</span> This runs CUDA code on one of `dogo's` H100s.
 
     EXO_NVCC=/usr/local/cuda-12.6/bin/nvcc h100 pytest --cuda-run-Sm80 --cuda-run-Sm90a tests/cuda/
 
-**Ubuchan:** We omit the `h100` (slurm) usage and `--cuda-run-Sm90a`
+<span style="color:purple">**Ubuchan:**</span> We omit the `h100` (slurm) usage and `--cuda-run-Sm90a`
 
     EXO_NVCC=/usr/local/cuda-12.6/bin/nvcc pytest --cuda-run-Sm80 tests/cuda/
 
@@ -92,12 +96,12 @@ Install `exocc` by running this in the `exo` directory.
 
 Compile and run the gemm testbed (this `spork` repo, not `exo`).
 
-**Dogo:** We build the executable on `dogo` despite being a CPU-only task since `nvcc` on `kennel` is too out of date (CUDA 12.0 which has compiler bugs for the H100).
+<span style="color:yellow">**Dogo (H100):**</span> We build the executable on `dogo` despite being a CPU-only task since `nvcc` on `kennel` is too out of date (CUDA 12.0 which has compiler bugs for the H100).
 
     PATH=/usr/local/cuda-12.6/bin/:$PATH h100cpu ninja
     h100 gemm/gemm
 
-**Ubuchan:** `gemm/gemm` will automatically detect it is not running on an H100 and will not run `sm_90a` kernels.
+<span style="color:purple">**Ubuchan:**</span> `gemm/gemm` will automatically detect it is not running on an H100 and will not run `sm_90a` kernels.
 
     PATH=/usr/local/cuda-12.6/bin/:$PATH ninja
     gemm/gemm
