@@ -99,5 +99,5 @@ Compile and run the gemm testbed (this `spork` repo, not `exo`).
 
 **Ubuchan:** `gemm/gemm` will automatically detect it is not running on an H100 and will not run `sm_90a` kernels.
 
-    ninja
+    PATH=/usr/local/cuda-12.6/bin/:$PATH ninja
     gemm/gemm
