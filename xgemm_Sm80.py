@@ -118,7 +118,8 @@ def xgemm_Sm80_mbarrier(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear,
         for m2 in cuda_tasks(0, M / M1):
             for n2 in cuda_tasks(0, N / N1):
                 # Per CTA code
-                ringbar: barrier @ CudaMbarrier
+                raw: barrier @ CudaMbarrier
+                war: barrier(raw) @ CudaMbarrier
 
                 # Tiles (ring buffer)
                 A_smem : f32[RING, M1, K0] @ CudaSmemLinear
@@ -139,7 +140,7 @@ def xgemm_Sm80_mbarrier(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear,
                 for k1 in seq(0, K / K0 + LAG):
                     if k1 < K / K0:
                         # Wait for ring buffer to be consumed; don't wait for first RING-many iterations
-                        Await(-ringbar, Sm80_cp_async, ~RING)
+                        Await(war, Sm80_cp_async, ~RING)
 
                         # Load A tile
                         for m1 in seq(0, M1 / 64):
@@ -156,11 +157,11 @@ def xgemm_Sm80_mbarrier(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear,
                                     Sm80_cp_async_f32(B_smem[k1 % RING, k0_seq * 4 + k0_par, 4 * n0 : 4 * n0 + 4],
                                                       B[k1 * K0 + k0_seq * 4 + k0_par,
                                                       n2 * N1 + 4 * n0 : n2 * N1 + 4 * n0 + 4], size=4)
-                        Arrive(Sm80_cp_async, 1) >> +ringbar
+                        Arrive(Sm80_cp_async, 1) >> raw
                 # for-k1 (K tiles) loop continues
                     if k1 >= LAG:
                         # Wait for ring buffer to be filled
-                        Await(+ringbar, cuda_in_order, ~0)
+                        Await(raw, cuda_in_order, ~0)
 
                         for mw in cuda_threads(0, M1 / Mw, unit=(N1/Nw) * cuda_warp):
                             for nw in cuda_threads(0, N1 / Nw, unit=cuda_warp):
@@ -188,7 +189,7 @@ def xgemm_Sm80_mbarrier(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear,
                                                           A_rmem[k_seq,:,:],
                                                           B_rmem[k_seq,n_seq,:,:], K=MMA_K)
                         # Signal that it's safe to overwrite ring buffer entry
-                        Arrive(cuda_in_order, 1) >> -ringbar
+                        Arrive(cuda_in_order, 1) >> war
                 # for-k1 (K tiles) loop ends
 
                 # Write out accumulator
@@ -219,7 +220,8 @@ def xgemm_Sm80_split(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B:
         for m2 in cuda_tasks(0, M / M1):
             for n2 in cuda_tasks(0, N / N1):
                 # Per CTA code
-                ringbar: barrier @ CudaMbarrier
+                raw: barrier @ CudaMbarrier
+                war: barrier(raw) @ CudaMbarrier
 
                 # Tiles (double buffered)
                 A_smem : f32[RING, M1, K0] @ CudaSmemLinear
@@ -240,7 +242,7 @@ def xgemm_Sm80_split(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B:
                     with CudaWarps(8, 12):
                         # Producer warpgroup
                         # Wait for ring buffer to be consumed; don't wait for first RING-many iterations
-                        Await(-ringbar, Sm80_cp_async, ~RING)
+                        Await(war, Sm80_cp_async, ~RING)
 
                         # Load A tile
                         for m1 in seq(0, M1 / 32):
@@ -257,13 +259,13 @@ def xgemm_Sm80_split(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B:
                                     Sm80_cp_async_f32(B_smem[k1 % RING, k0_seq * 2 + k0_par, 4 * n0 : 4 * n0 + 4],
                                                       B[k1 * K0 + k0_seq * 2 + k0_par,
                                                       n2 * N1 + 4 * n0 : n2 * N1 + 4 * n0 + 4], size=4)
-                        Arrive(Sm80_cp_async, 1) >> +ringbar
+                        Arrive(Sm80_cp_async, 1) >> raw
 
                     with CudaWarps(0, 8):
                         # Consumer warpgroup
 
                         # Wait for ring buffer to be filled
-                        Await(ringbar, cuda_in_order, ~0)
+                        Await(raw, cuda_in_order, ~0)
 
                         for mw in cuda_threads(0, M1 / Mw, unit=(N1/Nw) * cuda_warp):
                             for nw in cuda_threads(0, N1 / Nw, unit=cuda_warp):
@@ -291,7 +293,7 @@ def xgemm_Sm80_split(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B:
                                                           A_rmem[k_seq,:,:],
                                                           B_rmem[k_seq,n_seq,:,:], K=MMA_K)
                         # Signal that it's safe to overwrite ring buffer entry
-                        Arrive(cuda_in_order, 1) >> -ringbar
+                        Arrive(cuda_in_order, 1) >> war
                 # for-k1 (K tiles) loop ends
 
                 # Write out accumulator

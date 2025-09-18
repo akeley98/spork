@@ -754,8 +754,11 @@ def nyc25_gemm_ring(M: size, N: size, K: size, A: f32[M, K] @ CudaGmemLinear, B:
         # TeX: version split 3
         # TeX: begin split
         # TeX: color line split[0]
-      # yyyyyyy
-        ringbar: barrier @ CudaMbarrier
+      # yyy
+        raw: barrier @ CudaMbarrier
+      # TeX: color line split[0]
+      # yyy
+        war: barrier(raw) @ CudaMbarrier
         # TeX: begin ring[0]
         # TeX: color line ring[0] split[2]
       # gggggg      b
@@ -775,8 +778,8 @@ def nyc25_gemm_ring(M: size, N: size, K: size, A: f32[M, K] @ CudaGmemLinear, B:
           if k1 < K / K0:
             # TeX: end ring[1]
             # TeX: color line split[2]
-          # yyyyy yyyyyyyy  rrrrrrrrrrrrr  bb
-            Await(-ringbar, Sm80_cp_async, ~3)
+          # yyyyy yyy  rrrrrrrrrrrrr  bb
+            Await(war, Sm80_cp_async, ~3)
             # TeX: end split
             # TeX: begin ring[0]
             # TeX: summary
@@ -810,16 +813,16 @@ def nyc25_gemm_ring(M: size, N: size, K: size, A: f32[M, K] @ CudaGmemLinear, B:
           # TeX: end ring[0]
           # TeX: begin split
           # TeX: color line split[1]
-          # yyyyyy rrrrrrrrrrrrr        yyyyyyyyyyy
-            Arrive(Sm80_cp_async, 1) >> +ringbar
+          # yyyyyy rrrrrrrrrrrrr        yyy
+            Arrive(Sm80_cp_async, 1) >> raw
           # TeX: begin ring[1]
           # TeX: color line ring[1]
           #  rrrrrrrrrrr
           if k1 >= 1:
           # TeX: end ring[1]
             # TeX: color line split[1]
-          # yyyyy yyyyyyyy
-            Await(+ringbar, cuda_in_order, ~0)
+          # yyyyy yyy
+            Await(raw, cuda_in_order, ~0)
             # TeX: begin ring[1]
             for m1 in cuda_threads(0, M1 / M0, unit=(N1 / N0) * cuda_thread):
               for n1 in cuda_threads(0, N1 / N0, unit=cuda_thread):
@@ -841,8 +844,8 @@ def nyc25_gemm_ring(M: size, N: size, K: size, A: f32[M, K] @ CudaGmemLinear, B:
               # TeX: end ring[1]
             # TeX: begin split
             # TeX: color line split[2]
-          # yyyyyy                   yyyyyyyyyyy
-            Arrive(cuda_in_order, 1) >> -ringbar
+          # yyyyyy                   yyyyyy
+            Arrive(cuda_in_order, 1) >> war
             # TeX: end split
 
         for m1 in cuda_threads(0, M1 / M0, unit=(N1 / N0) * cuda_thread):
