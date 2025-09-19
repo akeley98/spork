@@ -857,7 +857,6 @@ def nyc25_gemm_ring(M: size, N: size, K: size, A: f32[M, K] @ CudaGmemLinear, B:
 
 
 nyc25_gemm_ring = simplify(nyc25_gemm_ring)
-print(nyc25_gemm_ring)
 
 
 """
