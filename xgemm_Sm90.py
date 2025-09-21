@@ -75,7 +75,7 @@ def make_Sm90_gemm(N, M_CTA, N_CTA):
                             for m_cta in cuda_threads(0, M_CTA, unit=N_CTA * cuda_cta_in_cluster):
                                 for n_cta in cuda_threads(0, N_CTA, unit=cuda_cta_in_cluster):
                                     # Producer warpgroups
-                                    Await(raw[m_cta,n_cta], wgmma_async, ~0)
+                                    Await(raw[m_cta,n_cta], cuda_generic_and_async_proxy, ~0)
                                     for wg in cuda_threads(0, 2, unit=cuda_warpgroup):
                                         Fence(wgmma_fence_1, wgmma_fence_2)
                                         for k_mma in seq(0, smem_k / wg_k):
