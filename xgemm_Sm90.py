@@ -86,7 +86,15 @@ def make_Sm90_gemm(N, M_CTA, N_CTA):
                                         if k_iter >= 1:
                                             Await(cg[m_cta,n_cta,wg], cuda_in_order, 1)
                                     Arrive(cuda_in_order, 1) >> war[m_cta,:] >> war[:,n_cta]
-                    
+
+                    for m_cta in cuda_threads(0, M_CTA, unit=N_CTA * cuda_cta_in_cluster):
+                        for n_cta in cuda_threads(0, N_CTA, unit=cuda_cta_in_cluster):
+                            with CudaWarps(name="consumer"):
+                                for wg in cuda_threads(0, 2, unit=cuda_warpgroup):
+                                    Await(cg[m_cta,n_cta,wg], cuda_in_order, 0)
+
+                    # Await(cg, cuda_in_order, 0) and write D_rmem -> C steps are fissioned.
+                    # We must not arrive on the epilogue cluster sync until all wgmma retire.
                     cluster_sync: barrier @ CudaClusterSync
                     Arrive(cuda_in_order, 1) >> cluster_sync
 
@@ -94,7 +102,6 @@ def make_Sm90_gemm(N, M_CTA, N_CTA):
                         for n_cta in cuda_threads(0, N_CTA, unit=cuda_cta_in_cluster):
                             with CudaWarps(name="consumer"):
                                 for wg in cuda_threads(0, 2, unit=cuda_warpgroup):
-                                    Await(cg[m_cta,n_cta,wg], cuda_in_order, 0)
                                     Sm90_mma_write_d_col_major_tf32(
                                         C [(N_CTA*n_task + n_cta) * smem_n
                                         : ((N_CTA*n_task + n_cta)+1) * smem_n,
