@@ -204,6 +204,7 @@ def xgemm_Sm80_mbarrier(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear,
                 Fence(cuda_in_order, cuda_in_order)
 
 xgemm_Sm80_mbarrier = simplify(xgemm_Sm80_mbarrier)
+xgemm_Sm80_mbarrier.sync_check(M=M1 * 2, N=N1 * 2, K=K0 * 10)
 
 
 Mw = 64

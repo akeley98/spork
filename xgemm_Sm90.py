@@ -118,4 +118,6 @@ def make_Sm90_gemm(N, M_CTA, N_CTA):
     c_n_task = xgemm_Sm90_wgmma.find_loop("n_task")
     xgemm_Sm90_wgmma = lift_scope(xgemm_Sm90_wgmma, c_n_task)
     xgemm_Sm90_wgmma = lift_scope(xgemm_Sm90_wgmma, c_n_task)
-    return rename(xgemm_Sm90_wgmma, f"xgemm_Sm90_wgmma_n{N}")
+    xgemm_Sm90_wgmma = rename(xgemm_Sm90_wgmma, f"xgemm_Sm90_wgmma_n{N}")
+    xgemm_Sm90_wgmma.sync_check(M=512, N=768, K=320)
+    return xgemm_Sm90_wgmma

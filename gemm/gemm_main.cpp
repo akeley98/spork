@@ -79,6 +79,9 @@ int main()
         }
     };
 
+    sized_tests(2048, 2048, 2048, 2);
+    sized_tests(4096, 4096, 4096, 2);
+    sized_tests(8192, 8192, 8192, 2);
     sized_tests(768, 768, 32, 2);
     sized_tests(7680, 1536, 4096, 0);
     sized_tests(15360, 1536, 8192, 3);
