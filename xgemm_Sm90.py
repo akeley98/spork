@@ -28,16 +28,18 @@ def make_Sm90_gemm(N, M_CTA, N_CTA):
 
     @proc
     def xgemm_Sm90_wgmma(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B: f32[N,K] @ CudaGmemLinear, C: f32[N,M] @ CudaGmemLinear):
-        assert M % cluster_m == 0
-        assert N % cluster_n == 0
+        # assert M % cluster_m == 0
+        # assert N % cluster_n == 0
+        assert M > 0
+        assert N > 0
         assert K % smem_k == 0
 
         A_tensorMap = A[:,:] @ Sm90_tensorMap(128, smem_m // N_CTA, smem_k)
         B_tensorMap = B[:,:] @ Sm90_tensorMap(128, smem_n // M_CTA, smem_k)  # M_CTA is not a typo
 
         with CudaDeviceFunction(clusterDim=M_CTA * N_CTA, warp_config=my_warp_config, blocks_per_sm=1):
-            for m_task in cuda_tasks(0, M / cluster_m):
-                for n_task in cuda_tasks(0, N / cluster_n):
+            for m_task in cuda_tasks(0, (M + cluster_m - 1) / cluster_m):
+                for n_task in cuda_tasks(0, (N + cluster_n - 1) / cluster_n):
                     raw : barrier[M_CTA, N_CTA] @ CudaMbarrier
                     war : barrier(raw)[M_CTA, N_CTA] @ CudaMbarrier
                     cg : barrier[M_CTA, N_CTA, 2] @ CudaCommitGroup
@@ -51,7 +53,7 @@ def make_Sm90_gemm(N, M_CTA, N_CTA):
                                 for wg in cuda_threads(0, 2, unit=cuda_warpgroup):
                                     Sm90_zero_scale_d_f32(D_rmem[m_cta,n_cta,wg,:,:], M=wg_m, N=wg_n)
 
-                    for k_iter in seq(0, K/smem_k):  # This loop should be cut at 1
+                    for k_iter in seq(0, (K + smem_k - 1) / smem_k):  # This loop should be cut at 1
                         with CudaWarps(name="producer"):
                             # TMA producer warp
                             for m_cta in cuda_threads(0, M_CTA, unit=N_CTA * cuda_cta_in_cluster):
@@ -103,6 +105,8 @@ def make_Sm90_gemm(N, M_CTA, N_CTA):
                             with CudaWarps(name="consumer"):
                                 for wg in cuda_threads(0, 2, unit=cuda_warpgroup):
                                     Sm90_mma_write_d_col_major_tf32(
+                                        M - ((M_CTA*m_task + m_cta) * smem_m + wg * wg_m),
+                                        N - (N_CTA*n_task + n_cta) * smem_n,
                                         C [(N_CTA*n_task + n_cta) * smem_n
                                         : ((N_CTA*n_task + n_cta)+1) * smem_n,
                                           (M_CTA*m_task + m_cta) * smem_m + wg * wg_m
@@ -119,5 +123,5 @@ def make_Sm90_gemm(N, M_CTA, N_CTA):
     xgemm_Sm90_wgmma = lift_scope(xgemm_Sm90_wgmma, c_n_task)
     xgemm_Sm90_wgmma = lift_scope(xgemm_Sm90_wgmma, c_n_task)
     xgemm_Sm90_wgmma = rename(xgemm_Sm90_wgmma, f"xgemm_Sm90_wgmma_n{N}")
-    xgemm_Sm90_wgmma.sync_check(M=512, N=768, K=320)
+    xgemm_Sm90_wgmma.sync_check(M=512, N=768, K=320)  # TODO this will fail if not perfectly divisible.
     return xgemm_Sm90_wgmma
