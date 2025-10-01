@@ -4,6 +4,7 @@ from exo import *
 from exo.stdlib.scheduling import *
 from exo.platforms.cuda import *
 from exo.platforms.Sm80 import *
+from exo.platforms.Sm90 import *
 
 Mw = 96
 Nw = 64
@@ -122,7 +123,8 @@ def xgemm_Sm80_mbarrier(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear,
                 war: barrier(raw) @ CudaMbarrier
 
                 # Tiles (ring buffer)
-                A_smem : f32[RING, M1, K0] @ CudaSmemLinear
+                A_smem : f32[RING, M1 / 8, 8, K0] @ Sm90_SmemSwizzled(64)
+                # A_smem : f32[RING, M1 / 8, 8, K0] @ CudaSmemLinear
                 B_smem : f32[RING, K0, N1] @ CudaSmemLinear
 
                 # Zero-out accumulator (warp code)
@@ -146,7 +148,10 @@ def xgemm_Sm80_mbarrier(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear,
                         for m1 in seq(0, M1 / 64):
                             for m0 in cuda_threads(0, 64, unit=4 * cuda_thread):
                                 for k0 in cuda_threads(0, 4, unit=cuda_thread):
-                                    Sm80_cp_async_f32(A_smem[k1 % RING, m1 * 64 + m0, 4 * k0 : 4 * k0 + 4],
+                                    Sm80_cp_async_f32(A_smem[k1 % RING,
+                                                             (m1 * 64 + m0) / 8,
+                                                             m0 % 8,
+                                                             4 * k0 : 4 * k0 + 4],
                                                       A[m2 * M1 + m1 * 64 + m0,
                                                       k1 * K0 + k0 * 4 : k1 * K0 + k0 * 4 + 4], size=4)
 
@@ -178,10 +183,12 @@ def xgemm_Sm80_mbarrier(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear,
                                     # Load A matrix tiles needed for m iteration
                                     A_rmem : f32[K0/MMA_K, 16, MMA_K] @ Sm80_RmemMatrixA(16, MMA_K)
                                     for k_seq in seq(0, K0 / MMA_K, pragma_unroll=0):
-                                        Sm80_mma_load_a_tf32(A_rmem[k_seq,:,:],
-                                                             A_smem[(k1 - LAG) % RING,
-                                                             mw*Mw + m_seq*16 : mw*Mw + (m_seq+1)*16,
-                                                             k_seq*MMA_K:(k_seq+1)*MMA_K], K=MMA_K)
+                                        Sm80_mma_load_a_divided_tf32(
+                                            A_rmem[k_seq,:,:],
+                                            A_smem[(k1 - LAG) % RING,
+                                            (mw*Mw + m_seq*16) / 8 : (mw*Mw + m_seq*16) / 8 + 2,
+                                            0:8,
+                                            k_seq*MMA_K:(k_seq+1)*MMA_K], K=MMA_K)
                                     # Accumulate to tile of warp tiles owned by warp.
                                     for n_seq in seq(0, Nw / 8, pragma_unroll=0):
                                         for k_seq in seq(0, K0 / MMA_K, pragma_unroll=0):
