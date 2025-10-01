@@ -123,5 +123,5 @@ def make_Sm90_gemm(N, M_CTA, N_CTA):
     xgemm_Sm90_wgmma = lift_scope(xgemm_Sm90_wgmma, c_n_task)
     xgemm_Sm90_wgmma = lift_scope(xgemm_Sm90_wgmma, c_n_task)
     xgemm_Sm90_wgmma = rename(xgemm_Sm90_wgmma, f"xgemm_Sm90_wgmma_n{N}")
-    xgemm_Sm90_wgmma.sync_check(M=512, N=768, K=320)  # TODO this will fail if not perfectly divisible.
+    xgemm_Sm90_wgmma.sync_check(M=500, N=800, K=324)
     return xgemm_Sm90_wgmma
