@@ -104,17 +104,22 @@ def xgemm_Sm80_fence(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B:
 
 
 xgemm_Sm80_fence = simplify(xgemm_Sm80_fence)
+xgemm_Sm80_fence.sync_check(M=M1 * 2, N=N1 * 2, K=K0 * 10)
 
 RING = 3
 LAG = 1
+K1 = 1024
 
 @proc
 def xgemm_Sm80_mbarrier(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear, B: f32[K,N] @ CudaGmemLinear, C: f32[M,N] @ CudaGmemLinear):
     assert M % M1 == 0
     assert N % N1 == 0
-    assert K % K0 == 0
+    assert K % K1 == 0
+
+    cudaMemsetAsync0_2f32(M, N, C[:,:])
 
     with CudaDeviceFunction(blockDim = 256, blocks_per_sm = 1):
+      for k2 in cuda_tasks(0, K / K1):
         for m2 in cuda_tasks(0, M / M1):
             for n2 in cuda_tasks(0, N / N1):
                 # Per CTA code
@@ -137,8 +142,8 @@ def xgemm_Sm80_mbarrier(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear,
                 # Don't accum tile in first LAG-many iterations.
                 # Don't load tile in last LAG-many iterations.
                 # LAG iteration delay between load and use.
-                for k1 in seq(0, K / K0 + LAG):
-                    if k1 < K / K0:
+                for k1 in seq(0, K1 / K0 + LAG):
+                    if k1 < K1 / K0:
                         # Wait for ring buffer to be consumed; don't wait for first RING-many iterations
                         Await(war, Sm80_cp_async, ~RING)
 
@@ -148,14 +153,15 @@ def xgemm_Sm80_mbarrier(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear,
                                 for k0 in cuda_threads(0, 4, unit=cuda_thread):
                                     Sm80_cp_async_f32(A_smem[k1 % RING, m1 * 64 + m0, 4 * k0 : 4 * k0 + 4],
                                                       A[m2 * M1 + m1 * 64 + m0,
-                                                      k1 * K0 + k0 * 4 : k1 * K0 + k0 * 4 + 4], size=4)
+                                                      k2 * K1 + k1 * K0 + k0 * 4 : k2 * K1 + k1 * K0 + k0 * 4 + 4],
+                                                      size=4)
 
                         # Load B tile
                         for k0_seq in seq(0, 4):
                             for k0_par in cuda_threads(0, 4, unit=64 * cuda_thread):
                                 for n0 in cuda_threads(0, 64, unit=cuda_thread):
                                     Sm80_cp_async_f32(B_smem[k1 % RING, k0_seq * 4 + k0_par, 4 * n0 : 4 * n0 + 4],
-                                                      B[k1 * K0 + k0_seq * 4 + k0_par,
+                                                      B[k2 * K1 + k1 * K0 + k0_seq * 4 + k0_par,
                                                       n2 * N1 + 4 * n0 : n2 * N1 + 4 * n0 + 4], size=4)
                         Arrive(Sm80_cp_async, 1) >> raw
                 # for-k1 (K tiles) loop continues
@@ -197,14 +203,15 @@ def xgemm_Sm80_mbarrier(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear,
                     for nw in cuda_threads(0, N1 / Nw, unit=cuda_warp):
                         for m_seq in seq(0, Mw / 16, pragma_unroll=0):
                             for n_seq in seq(0, Nw / 8, pragma_unroll=0):
-                                Sm80_mma_store_d_tf32(
+                                Sm80_mma_atomic_reduce_d_tf32(
                                     C[m2 * M1 + mw * Mw + m_seq * 16 : m2 * M1 + mw * Mw + (m_seq+1) * 16,
                                     n2 * N1 + nw * Nw + n_seq * 8 : n2 * N1 + nw * Nw + (n_seq+1) * 8],
                                     D_rmem[mw,nw,m_seq,n_seq,:,:])
                 Fence(cuda_in_order, cuda_in_order)
 
+
 xgemm_Sm80_mbarrier = simplify(xgemm_Sm80_mbarrier)
-xgemm_Sm80_mbarrier.sync_check(M=M1 * 2, N=N1 * 2, K=K0 * 10)
+# xgemm_Sm80_mbarrier.sync_check(M=M1, N=N1 * 2, K=0)
 
 
 Mw = 64
