@@ -21,7 +21,8 @@ enum class AlgorithmCode
     exo_sm_80_fence,
     exo_sm_80_mbarrier,
     exo_sm_90_n256,
-    exo_sm_90_n256_tma_to_gmem,
+    exo_sm_90_n256_tma_K1,
+    exo_sm_90_n256_tma_K4,
     exo_sm_90_n128,
     exo_sm_90_n64,
     mine_sm_80,
@@ -72,8 +73,10 @@ inline const char* algorithm_name(AlgorithmCode code)
         return "exo_sm_80_mbarrier";
       case AlgorithmCode::exo_sm_90_n256:
         return "exo_sm_90_n256";
-      case AlgorithmCode::exo_sm_90_n256_tma_to_gmem:
-        return "exo_sm_90_n256_tma_to_gmem";
+      case AlgorithmCode::exo_sm_90_n256_tma_K1:
+        return "exo_sm_90_n256_tma_K1";
+      case AlgorithmCode::exo_sm_90_n256_tma_K4:
+        return "exo_sm_90_n256_tma_K4";
       case AlgorithmCode::exo_sm_90_n128:
         return "exo_sm_90_n128";
       case AlgorithmCode::exo_sm_90_n64:

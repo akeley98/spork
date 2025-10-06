@@ -323,9 +323,13 @@ void gemm_test(TestParams params, cudaStream_t stream)
                 assert(stream == 0);
                 xgemm_Sm90_wgmma_n256(nullptr, int(params.N), int(params.M), int(params.K), d_bCol, d_a, d_c_tested);
             }
-            else if (algo == AlgorithmCode::exo_sm_90_n256_tma_to_gmem) {
+            else if (algo == AlgorithmCode::exo_sm_90_n256_tma_K1) {
                 assert(stream == 0);
-                xgemm_Sm90_wgmma_n256_tma_to_gmem(nullptr, int(params.N), int(params.M), int(params.K), d_bCol, d_a, d_c_tested);
+                xgemm_Sm90_wgmma_n256_tma_K1(nullptr, int(params.N), int(params.M), int(params.K), d_bCol, d_a, d_c_tested);
+            }
+            else if (algo == AlgorithmCode::exo_sm_90_n256_tma_K4) {
+                assert(stream == 0);
+                xgemm_Sm90_wgmma_n256_tma_K4(nullptr, int(params.N), int(params.M), int(params.K), d_bCol, d_a, d_c_tested);
             }
             else if (algo == AlgorithmCode::exo_sm_90_n128) {
                 assert(stream == 0);
@@ -400,12 +404,14 @@ void gemm_test(TestParams params, cudaStream_t stream)
               case AlgorithmCode::exo_sm_80_fence:
               case AlgorithmCode::exo_sm_80_mbarrier:
               case AlgorithmCode::exo_sm_90_n256:
-              case AlgorithmCode::exo_sm_90_n256_tma_to_gmem:
               case AlgorithmCode::exo_sm_90_n128:
               case AlgorithmCode::exo_sm_90_n64:
                 color_code = 36;
                 break;
-              case AlgorithmCode::mine_split_k_inner: case AlgorithmCode::mine_split_k_outer:
+              case AlgorithmCode::exo_sm_90_n256_tma_K1:
+              case AlgorithmCode::exo_sm_90_n256_tma_K4:
+              case AlgorithmCode::mine_split_k_inner:
+              case AlgorithmCode::mine_split_k_outer:
                 color_code = 34;
                 break;
               case AlgorithmCode::mine_stream_k_early_tma: case AlgorithmCode::mine_stream_k_late_tma:
