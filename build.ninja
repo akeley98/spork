@@ -34,6 +34,10 @@ rule exocc_xgemm_Sm90_n256
   command = exocc $in
   depfile = xgemm_Sm90_n256/xgemm_Sm90_n256.d
 
+rule exocc_xgemm_Sm90_n256_tma_to_gmem
+  command = exocc $in
+  depfile = xgemm_Sm90_n256_tma_to_gmem/xgemm_Sm90_n256_tma_to_gmem.d
+
 rule exocc_xgemm_Sm90_n128
   command = exocc $in
   depfile = xgemm_Sm90_n128/xgemm_Sm90_n128.d
@@ -45,6 +49,7 @@ rule exocc_xgemm_Sm90_n64
 
 build xgemm_Sm80/xgemm_Sm80.c xgemm_Sm80/xgemm_Sm80.cu xgemm_Sm80/xgemm_Sm80.cuh xgemm_Sm80/xgemm_Sm80.h: exocc_xgemm_Sm80 xgemm_Sm80.py
 build xgemm_Sm90_n256/xgemm_Sm90_n256.c xgemm_Sm90_n256/xgemm_Sm90_n256.cu xgemm_Sm90_n256/xgemm_Sm90_n256.cuh xgemm_Sm90_n256/xgemm_Sm90_n256.h: exocc_xgemm_Sm90_n256 xgemm_Sm90_n256.py
+build xgemm_Sm90_n256_tma_to_gmem/xgemm_Sm90_n256_tma_to_gmem.c xgemm_Sm90_n256_tma_to_gmem/xgemm_Sm90_n256_tma_to_gmem.cu xgemm_Sm90_n256_tma_to_gmem/xgemm_Sm90_n256_tma_to_gmem.cuh xgemm_Sm90_n256_tma_to_gmem/xgemm_Sm90_n256_tma_to_gmem.h: exocc_xgemm_Sm90_n256_tma_to_gmem xgemm_Sm90_n256_tma_to_gmem.py
 build xgemm_Sm90_n128/xgemm_Sm90_n128.c xgemm_Sm90_n128/xgemm_Sm90_n128.cu xgemm_Sm90_n128/xgemm_Sm90_n128.cuh xgemm_Sm90_n128/xgemm_Sm90_n128.h: exocc_xgemm_Sm90_n128 xgemm_Sm90_n128.py
 build xgemm_Sm90_n64/xgemm_Sm90_n64.c xgemm_Sm90_n64/xgemm_Sm90_n64.cu xgemm_Sm90_n64/xgemm_Sm90_n64.cuh xgemm_Sm90_n64/xgemm_Sm90_n64.h: exocc_xgemm_Sm90_n64 xgemm_Sm90_n64.py
 build nyc25/nyc25.c nyc25/nyc25.cu nyc25/nyc25.cuh nyc25/nyc25.h: exocc_nyc25 docs/nyc25.py
@@ -59,17 +64,20 @@ build bin/xgemm_Sm80/xgemm_Sm80.c.o : nvcc_80 xgemm_Sm80/xgemm_Sm80.c
 build bin/xgemm_Sm80/xgemm_Sm80.cu.o : nvcc_80 xgemm_Sm80/xgemm_Sm80.cu
 build bin/xgemm_Sm90_n256/xgemm_Sm90_n256.c.o : nvcc xgemm_Sm90_n256/xgemm_Sm90_n256.c
 build bin/xgemm_Sm90_n256/xgemm_Sm90_n256.cu.o : nvcc_keep xgemm_Sm90_n256/xgemm_Sm90_n256.cu
+build bin/xgemm_Sm90_n256_tma_to_gmem/xgemm_Sm90_n256_tma_to_gmem.c.o : nvcc xgemm_Sm90_n256_tma_to_gmem/xgemm_Sm90_n256_tma_to_gmem.c
+build bin/xgemm_Sm90_n256_tma_to_gmem/xgemm_Sm90_n256_tma_to_gmem.cu.o : nvcc_keep xgemm_Sm90_n256_tma_to_gmem/xgemm_Sm90_n256_tma_to_gmem.cu
 build bin/xgemm_Sm90_n128/xgemm_Sm90_n128.c.o : nvcc xgemm_Sm90_n128/xgemm_Sm90_n128.c
 build bin/xgemm_Sm90_n128/xgemm_Sm90_n128.cu.o : nvcc_keep xgemm_Sm90_n128/xgemm_Sm90_n128.cu
 build bin/xgemm_Sm90_n64/xgemm_Sm90_n64.c.o : nvcc xgemm_Sm90_n64/xgemm_Sm90_n64.c
 build bin/xgemm_Sm90_n64/xgemm_Sm90_n64.cu.o : nvcc_keep xgemm_Sm90_n64/xgemm_Sm90_n64.cu
-build bin/gemm/gemm_test.o : nvcc_80 gemm/gemm_test.cu | xgemm_Sm80/xgemm_Sm80.h xgemm_Sm90_n256/xgemm_Sm90_n256.h xgemm_Sm90_n128/xgemm_Sm90_n128.h xgemm_Sm90_n64/xgemm_Sm90_n64.h nyc25/nyc25.h
+build bin/gemm/gemm_test.o : nvcc_80 gemm/gemm_test.cu | xgemm_Sm80/xgemm_Sm80.h xgemm_Sm90_n256/xgemm_Sm90_n256.h xgemm_Sm90_n256_tma_to_gmem/xgemm_Sm90_n256_tma_to_gmem.h xgemm_Sm90_n128/xgemm_Sm90_n128.h xgemm_Sm90_n64/xgemm_Sm90_n64.h nyc25/nyc25.h
 build bin/gemm/gemm_main.o : nvcc_80 gemm/gemm_main.cpp
 
 build gemm/gemm: link bin/gemm/gemm_test.o bin/gemm/gemm_main.o $
     bin/gemm/cutlass_gemm.o bin/gemm/gemm_sm90.o bin/gemm/gemm_sm80.o bin/gemm/gemm_baseline.o $
     bin/nyc25/nyc25.c.o bin/nyc25/nyc25.cu.o $
     bin/xgemm_Sm90_n256/xgemm_Sm90_n256.c.o bin/xgemm_Sm90_n256/xgemm_Sm90_n256.cu.o $
+    bin/xgemm_Sm90_n256_tma_to_gmem/xgemm_Sm90_n256_tma_to_gmem.c.o bin/xgemm_Sm90_n256_tma_to_gmem/xgemm_Sm90_n256_tma_to_gmem.cu.o $
     bin/xgemm_Sm90_n128/xgemm_Sm90_n128.c.o bin/xgemm_Sm90_n128/xgemm_Sm90_n128.cu.o $
     bin/xgemm_Sm90_n64/xgemm_Sm90_n64.c.o bin/xgemm_Sm90_n64/xgemm_Sm90_n64.cu.o $
     bin/xgemm_Sm80/xgemm_Sm80.c.o bin/xgemm_Sm80/xgemm_Sm80.cu.o

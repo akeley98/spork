@@ -8,7 +8,7 @@ from exo.platforms.cuda import *
 from exo.platforms.Sm80 import *
 from exo.platforms.Sm90 import *
 
-def make_Sm90_gemm(N, M_CTA, N_CTA):
+def make_Sm90_gemm(N, M_CTA, N_CTA, tma_to_gmem=False):
     M1 = 4
     smem_m = 128
     smem_n = N
@@ -36,6 +36,7 @@ def make_Sm90_gemm(N, M_CTA, N_CTA):
 
         A_tensorMap = A[:,:] @ Sm90_tensorMap(128, smem_m // N_CTA, smem_k)
         B_tensorMap = B[:,:] @ Sm90_tensorMap(128, smem_n // M_CTA, smem_k)  # M_CTA is not a typo
+        C_tensorMap = C[:,:] @ Sm90_tensorMap(0, smem_n, smem_m)
 
         with CudaDeviceFunction(clusterDim=M_CTA * N_CTA, warp_config=my_warp_config, blocks_per_sm=1):
             for m_task in cuda_tasks(0, (M + cluster_m - 1) / cluster_m):
@@ -95,25 +96,49 @@ def make_Sm90_gemm(N, M_CTA, N_CTA):
                                 for wg in cuda_threads(0, 2, unit=cuda_warpgroup):
                                     Await(cg[m_cta,n_cta,wg], cuda_in_order, 0)
 
-                    # Await(cg, cuda_in_order, 0) and write D_rmem -> C steps are fissioned.
-                    # We must not arrive on the epilogue cluster sync until all wgmma retire.
-                    cluster_sync: barrier @ CudaClusterSync
-                    Arrive(cuda_in_order, 1) >> cluster_sync
+                    if tma_to_gmem:
+                        Fence(cuda_in_order, cuda_in_order)
+                        for m_cta in cuda_threads(0, M_CTA, unit=N_CTA * cuda_cta_in_cluster):
+                            for n_cta in cuda_threads(0, N_CTA, unit=cuda_cta_in_cluster):
+                                C_smem: f32[smem_n, smem_m] @ CudaSmemLinear
+                                with CudaWarps(name="consumer"):
+                                    for wg in cuda_threads(0, 2, unit=cuda_warpgroup):
+                                        Sm90_mma_write_d_col_major_tf32(
+                                            wg_m, wg_n, C_smem[:,wg * wg_m: wg * wg_m + wg_m],
+                                            D_rmem[m_cta,n_cta,wg,:,:], M=wg_m, N=wg_n)
+                                Fence(cuda_in_order, tma_to_gmem_async)
+                                with CudaWarps(name="producer"):
+                                    Sm90_copy_tensor_to_gmem_linear_2f32(
+                                        C_tensorMap[
+                                            (N_CTA*n_task + n_cta) * smem_n: (N_CTA*n_task + n_cta) * smem_n + smem_n,
+                                            (M_CTA*m_task + m_cta) * smem_m: (M_CTA*m_task + m_cta) * smem_m + smem_m],
+                                        C_smem[:, :],
+                                        size0 = smem_n, size1 = smem_m,
+                                    )
+                                    tma_cg: barrier @ CudaCommitGroup
+                                    Arrive(tma_to_gmem_async, 1) >> tma_cg
+                                    Await(tma_cg, cuda_in_order, 0)
+                                Fence(cuda_in_order, cuda_in_order)
+                    else:
+                        # Await(cg, cuda_in_order, 0) and write D_rmem -> C steps are fissioned.
+                        # We must not arrive on the epilogue cluster sync until all wgmma retire.
+                        cluster_sync: barrier @ CudaClusterSync
+                        Arrive(cuda_in_order, 1) >> cluster_sync
 
-                    for m_cta in cuda_threads(0, M_CTA, unit=N_CTA * cuda_cta_in_cluster):
-                        for n_cta in cuda_threads(0, N_CTA, unit=cuda_cta_in_cluster):
-                            with CudaWarps(name="consumer"):
-                                for wg in cuda_threads(0, 2, unit=cuda_warpgroup):
-                                    Sm90_mma_write_d_col_major_tf32(
-                                        M - ((M_CTA*m_task + m_cta) * smem_m + wg * wg_m),
-                                        N - (N_CTA*n_task + n_cta) * smem_n,
-                                        C [(N_CTA*n_task + n_cta) * smem_n
-                                        : ((N_CTA*n_task + n_cta)+1) * smem_n,
-                                          (M_CTA*m_task + m_cta) * smem_m + wg * wg_m
-                                        : (M_CTA*m_task + m_cta) * smem_m + wg * wg_m + wg_m],
-                                        D_rmem[m_cta,n_cta,wg,:,:], M=wg_m, N=wg_n)
+                        for m_cta in cuda_threads(0, M_CTA, unit=N_CTA * cuda_cta_in_cluster):
+                            for n_cta in cuda_threads(0, N_CTA, unit=cuda_cta_in_cluster):
+                                with CudaWarps(name="consumer"):
+                                    for wg in cuda_threads(0, 2, unit=cuda_warpgroup):
+                                        Sm90_mma_write_d_col_major_tf32(
+                                            M - ((M_CTA*m_task + m_cta) * smem_m + wg * wg_m),
+                                            N - (N_CTA*n_task + n_cta) * smem_n,
+                                            C [(N_CTA*n_task + n_cta) * smem_n
+                                            : ((N_CTA*n_task + n_cta)+1) * smem_n,
+                                              (M_CTA*m_task + m_cta) * smem_m + wg * wg_m
+                                            : (M_CTA*m_task + m_cta) * smem_m + wg * wg_m + wg_m],
+                                            D_rmem[m_cta,n_cta,wg,:,:], M=wg_m, N=wg_n)
 
-                    Await(cluster_sync, cuda_in_order, 0)
+                        Await(cluster_sync, cuda_in_order, 0)
 
 
     xgemm_Sm90_wgmma = simplify(xgemm_Sm90_wgmma)
@@ -122,6 +147,7 @@ def make_Sm90_gemm(N, M_CTA, N_CTA):
     c_n_task = xgemm_Sm90_wgmma.find_loop("n_task")
     xgemm_Sm90_wgmma = lift_scope(xgemm_Sm90_wgmma, c_n_task)
     xgemm_Sm90_wgmma = lift_scope(xgemm_Sm90_wgmma, c_n_task)
-    xgemm_Sm90_wgmma = rename(xgemm_Sm90_wgmma, f"xgemm_Sm90_wgmma_n{N}")
+    tma_suffix = "_tma_to_gmem" if tma_to_gmem else ""
+    xgemm_Sm90_wgmma = rename(xgemm_Sm90_wgmma, f"xgemm_Sm90_wgmma_n{N}{tma_suffix}")
     xgemm_Sm90_wgmma.sync_check(M=500, N=800, K=324)
     return xgemm_Sm90_wgmma

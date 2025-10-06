@@ -57,6 +57,7 @@ int main()
         if (M % 4 == 0 && N % 4 == 0 && K % 4 == 0) {
             if (is_h100) {
                 params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::exo_sm_90_n256);
+                params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::exo_sm_90_n256_tma_to_gmem);
                 params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::exo_sm_90_n128);
                 params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::exo_sm_90_n64);
             }
