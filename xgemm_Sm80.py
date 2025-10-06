@@ -211,7 +211,7 @@ def xgemm_Sm80_mbarrier(M: size, N: size, K: size, A: f32[M,K] @ CudaGmemLinear,
 
 
 xgemm_Sm80_mbarrier = simplify(xgemm_Sm80_mbarrier)
-# xgemm_Sm80_mbarrier.sync_check(M=M1, N=N1 * 2, K=0)
+xgemm_Sm80_mbarrier.sync_check(M=M1, N=N1 * 2, K=K1 * 2)
 
 
 Mw = 64
