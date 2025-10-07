@@ -31,15 +31,22 @@ def make_Sm90_gemm(N, M_CTA, N_CTA, tma_to_gmem=False, K_tasks=1):
         assert tma_to_gmem
     enable_split_k = K_tasks != 1
 
-    smem_box_A = (1, smem_m // N_CTA, smem_k)
-    smem_box_B = (1, smem_n // M_CTA, smem_k)  # M_CTA is not a typo
+    # (batch dim, MN smem, k_task, K smem)
+    smem_box_A = (1, smem_m // N_CTA, 1, smem_k)
+    smem_box_B = (1, smem_n // M_CTA, 1, smem_k)  # M_CTA is not a typo
+    # (batch dim, N smem, M smem)
     smem_box_C = (1, smem_n, smem_m)
 
+    # K dimension of tensor is K_tasks * cluster_k
+    # i.e. each task (cluster) is responsible for cluster_m * cluster_n * cluster_k
+    # We divide the K dim into [K_tasks, cluster_k] as a workaround for Exo
+    # quasi-affine indexing restrictions.
+    # Unfortunately, the caller has to manually pass cluster_k = K // K_tasks.
     @proc
     def xgemm_Sm90_wgmma(
-        L: size, M: size, N: size, K: size,
-        A: f32[L,M,K] @ CudaGmemLinear,
-        B: f32[L,N,K] @ CudaGmemLinear,
+        L: size, M: size, N: size, cluster_k: size,
+        A: f32[L,M,K_tasks,cluster_k] @ CudaGmemLinear,
+        B: f32[L,N,K_tasks,cluster_k] @ CudaGmemLinear,
         C: f32[L,N,M] @ CudaGmemLinear
     ):
         # assert M % cluster_m == 0
@@ -47,10 +54,10 @@ def make_Sm90_gemm(N, M_CTA, N_CTA, tma_to_gmem=False, K_tasks=1):
         assert L > 0
         assert M > 0
         assert N > 0
-        assert K > 0
+        assert cluster_k > 0
 
-        A_tensorMap = A[:,:,:] @ Sm90_tensorMap(128, *smem_box_A)
-        B_tensorMap = B[:,:,:] @ Sm90_tensorMap(128, *smem_box_B)
+        A_tensorMap = A[:,:,:,:] @ Sm90_tensorMap(128, *smem_box_A)
+        B_tensorMap = B[:,:,:,:] @ Sm90_tensorMap(128, *smem_box_B)
         C_tensorMap = C[:,:,:] @ Sm90_tensorMap(0, *smem_box_C)
 
         if enable_split_k:
@@ -75,7 +82,7 @@ def make_Sm90_gemm(N, M_CTA, N_CTA, tma_to_gmem=False, K_tasks=1):
                                     Sm90_zero_scale_d_f32(D_rmem[m_cta,n_cta,wg,:,:], M=wg_m, N=wg_n)
 
                     # This loop should be cut at 1
-                    for k_iter in seq(0, (K + smem_k * K_tasks - 1) / smem_k / K_tasks):
+                    for k_iter in seq(0, (cluster_k + smem_k - 1) / smem_k):
                         with CudaWarps(name="producer"):
                             # TMA producer warp
                             for m_cta in cuda_threads(0, M_CTA, unit=N_CTA * cuda_cta_in_cluster):
@@ -87,11 +94,9 @@ def make_Sm90_gemm(N, M_CTA, N_CTA, tma_to_gmem=False, K_tasks=1):
                                         batch,
                                         (M_CTA*m_task + m_cta) * smem_m:
                                         ((M_CTA*m_task + m_cta)+1) * smem_m,
-                                        # XXX due to affine restriction for Exo, the split_K is backwards!!!
-                                        # The k_task strides fast and k_iter strides slowly.
-                                        # This may be suboptimal L2 cache usage!
-                                        (k_iter * K_tasks + k_task) * smem_k:
-                                        (k_iter * K_tasks + k_task) * smem_k + smem_k],
+                                        k_task,
+                                        k_iter * smem_k:
+                                        k_iter * smem_k + smem_k],
                                     n_cta=N_CTA, cta_stride=1, size0=smem_m, size1=smem_k, smem_box=smem_box_A
                                 ) >> raw[m_cta,:]
                             for n_cta in cuda_threads(0, N_CTA, unit=M_CTA * cuda_warp_in_cluster_strided(N_CTA)):
@@ -101,8 +106,9 @@ def make_Sm90_gemm(N, M_CTA, N_CTA, tma_to_gmem=False, K_tasks=1):
                                         batch,
                                         (N_CTA*n_task+n_cta) * smem_n:
                                         (N_CTA*n_task+n_cta+1) * smem_n,
-                                        (k_iter * K_tasks + k_task) * smem_k:
-                                        (k_iter * K_tasks + k_task) * smem_k + smem_k],
+                                        k_task,
+                                        k_iter * smem_k:
+                                        k_iter * smem_k + smem_k],
                                     n_cta=M_CTA, cta_stride=N_CTA, size0=smem_n, size1=smem_k, smem_box=smem_box_B
                                 ) >> raw[:,n_cta]
                                 for m_cta in cuda_threads(0, M_CTA, unit=cuda_cta_in_cluster):
@@ -198,5 +204,5 @@ def make_Sm90_gemm(N, M_CTA, N_CTA, tma_to_gmem=False, K_tasks=1):
     else:
         suffix = ""
     xgemm_Sm90_wgmma = rename(xgemm_Sm90_wgmma, f"xgemm_Sm90_wgmma_n{N}{suffix}")
-    xgemm_Sm90_wgmma.sync_check(L=2, M=500, N=800, K=256)
+    xgemm_Sm90_wgmma.sync_check(L=2, M=500, N=800, cluster_k=240)
     return xgemm_Sm90_wgmma

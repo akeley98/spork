@@ -54,13 +54,15 @@ int main()
                 // params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::nyc25_ring);
             }
         }
-        if (M % 4 == 0 && N % 4 == 0 && K % 4 == 0) {
-            if (is_h100) {
+        if (M % 4 == 0 && N % 4 == 0) {
+            if (is_h100 && K % 4 == 0) {
                 params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::exo_sm_90_n256);
                 params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::exo_sm_90_n256_tma_K1);
-                params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::exo_sm_90_n256_tma_K4);
                 params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::exo_sm_90_n128);
                 params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::exo_sm_90_n64);
+            }
+            if (is_h100 && K % 16 == 0) {
+                params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::exo_sm_90_n256_tma_K4);
             }
         }
 

@@ -329,7 +329,7 @@ void gemm_test(TestParams params, cudaStream_t stream)
             }
             else if (algo == AlgorithmCode::exo_sm_90_n256_tma_K4) {
                 assert(stream == 0);
-                xgemm_Sm90_wgmma_n256_tma_K4(nullptr, 1, int(params.N), int(params.M), int(params.K), d_bCol, d_a, d_c_tested);
+                xgemm_Sm90_wgmma_n256_tma_K4(nullptr, 1, int(params.N), int(params.M), int(params.K / 4), d_bCol, d_a, d_c_tested);
             }
             else if (algo == AlgorithmCode::exo_sm_90_n128) {
                 assert(stream == 0);
