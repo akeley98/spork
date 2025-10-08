@@ -140,7 +140,7 @@ def make_Sm90_gemm(N, M_CTA, N_CTA, tma_to_gmem=False, enable_split_k=False):
                                 C_smem: f32[smem_n, smem_m] @ CudaSmemLinear
                                 with CudaWarps(name="consumer"):
                                     for wg in cuda_threads(0, 2, unit=cuda_warpgroup):
-                                        Sm90_mma_write_d_col_major_tf32(
+                                        Sm90_mma_store_d_col_major_tf32(
                                             wg_m, wg_n, C_smem[:,wg * wg_m: wg * wg_m + wg_m],
                                             D_rmem[m_cta,n_cta,wg,:,:], M=wg_m, N=wg_n)
                                 Fence(cuda_in_order, tma_to_gmem_async)
@@ -177,7 +177,7 @@ def make_Sm90_gemm(N, M_CTA, N_CTA, tma_to_gmem=False, enable_split_k=False):
                             for n_cta in cuda_threads(0, N_CTA, unit=cuda_cta_in_cluster):
                                 with CudaWarps(name="consumer"):
                                     for wg in cuda_threads(0, 2, unit=cuda_warpgroup):
-                                        Sm90_mma_write_d_col_major_tf32(
+                                        Sm90_mma_store_d_col_major_tf32(
                                             M - ((M_CTA*m_task + m_cta) * smem_m + wg * wg_m),
                                             N - (N_CTA*n_task + n_cta) * smem_n,
                                             C[batch,
