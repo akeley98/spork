@@ -8,7 +8,7 @@ from exo.platforms.cuda import *
 from exo.platforms.Sm80 import *
 from exo.platforms.Sm90 import *
 
-def make_Sm90_gemm(N, M_CTA, N_CTA, tma_to_gmem=False, K_tasks=1):
+def make_Sm90_gemm(N, M_CTA, N_CTA, tma_to_gmem=False, enable_split_k=False):
     M1 = 4
     smem_m = 128
     smem_n = N
@@ -26,10 +26,8 @@ def make_Sm90_gemm(N, M_CTA, N_CTA, tma_to_gmem=False, K_tasks=1):
         CudaWarpConfig("consumer", 8, setmaxnreg_inc=232),
     ]
 
-    assert K_tasks > 0
-    if K_tasks > 1:
+    if enable_split_k:
         assert tma_to_gmem
-    enable_split_k = K_tasks != 1
 
     # (batch dim, MN smem, k_task, K smem)
     smem_box_A = (1, smem_m // N_CTA, 1, smem_k)
@@ -37,24 +35,23 @@ def make_Sm90_gemm(N, M_CTA, N_CTA, tma_to_gmem=False, K_tasks=1):
     # (batch dim, N smem, M smem)
     smem_box_C = (1, smem_n, smem_m)
 
-    # K dimension of tensor is K_tasks * cluster_k
+    # K dimension of tensor is K_splits * cluster_k
     # i.e. each task (cluster) is responsible for cluster_m * cluster_n * cluster_k
-    # We divide the K dim into [K_tasks, cluster_k] as a workaround for Exo
+    # We divide the K dim into [K_splits, cluster_k] as a workaround for Exo
     # quasi-affine indexing restrictions.
-    # Unfortunately, the caller has to manually pass cluster_k = K // K_tasks.
+    # Unfortunately, the caller has to manually pass cluster_k = K // K_splits.
     @proc
     def xgemm_Sm90_wgmma(
-        L: size, M: size, N: size, cluster_k: size,
-        A: f32[L,M,K_tasks,cluster_k] @ CudaGmemLinear,
-        B: f32[L,N,K_tasks,cluster_k] @ CudaGmemLinear,
+        L: size, M: size, N: size, K_splits: size, cluster_k: size,
+        A: f32[L,M,K_splits,cluster_k] @ CudaGmemLinear,
+        B: f32[L,N,K_splits,cluster_k] @ CudaGmemLinear,
         C: f32[L,N,M] @ CudaGmemLinear
     ):
-        # assert M % cluster_m == 0
-        # assert N % cluster_n == 0
         assert L > 0
         assert M > 0
         assert N > 0
         assert cluster_k > 0
+        assert cluster_k % 4 == 0
 
         A_tensorMap = A[:,:,:,:] @ Sm90_tensorMap(128, *smem_box_A)
         B_tensorMap = B[:,:,:,:] @ Sm90_tensorMap(128, *smem_box_B)
@@ -65,7 +62,7 @@ def make_Sm90_gemm(N, M_CTA, N_CTA, tma_to_gmem=False, K_tasks=1):
 
         with CudaDeviceFunction(clusterDim=M_CTA * N_CTA, warp_config=my_warp_config, blocks_per_sm=1):
           for batch in cuda_tasks(0, L):
-            for k_task in cuda_tasks(0, K_tasks):
+            for k_task in cuda_tasks(0, K_splits):
               for m_task in cuda_tasks(0, (M + cluster_m - 1) / cluster_m):
                 for n_task in cuda_tasks(0, (N + cluster_n - 1) / cluster_n):
                     raw : barrier[M_CTA, N_CTA] @ CudaMbarrier
@@ -199,10 +196,13 @@ def make_Sm90_gemm(N, M_CTA, N_CTA, tma_to_gmem=False, K_tasks=1):
     c_n_task = xgemm_Sm90_wgmma.find_loop("n_task")
     xgemm_Sm90_wgmma = lift_scope(xgemm_Sm90_wgmma, c_n_task)
     xgemm_Sm90_wgmma = lift_scope(xgemm_Sm90_wgmma, c_n_task)
-    if tma_to_gmem:
-        suffix = f"_tma_K{K_tasks}"
+    if enable_split_k:
+        suffix = f"_split_k"
+    elif tma_to_gmem:
+        suffix = f"_tma_to_gmem"
     else:
         suffix = ""
     xgemm_Sm90_wgmma = rename(xgemm_Sm90_wgmma, f"xgemm_Sm90_wgmma_n{N}{suffix}")
-    xgemm_Sm90_wgmma.sync_check(L=2, M=500, N=800, cluster_k=240)
+    K_splits = 2 if enable_split_k else 1
+    xgemm_Sm90_wgmma.sync_check(L=2, M=500, N=800, cluster_k=240, K_splits=K_splits)
     return xgemm_Sm90_wgmma

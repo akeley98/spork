@@ -61,8 +61,20 @@ int main()
                 params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::exo_sm_90_n128);
                 params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::exo_sm_90_n64);
             }
+            if (is_h100 && K % 8 == 0) {
+                params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::exo_sm_90_n256_tma_K2);
+            }
             if (is_h100 && K % 16 == 0) {
                 params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::exo_sm_90_n256_tma_K4);
+            }
+            if (is_h100 && K % 32 == 0) {
+                params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::exo_sm_90_n256_tma_K8);
+            }
+            if (is_h100 && K % 64 == 0 && K > 4096) {
+                params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::exo_sm_90_n256_tma_K16);
+            }
+            if (is_h100 && K % 128 == 0 && K > 4096) {
+                params.algorithm_code_bits |= algorithm_code_bit(AlgorithmCode::exo_sm_90_n256_tma_K32);
             }
         }
 
