@@ -94,7 +94,7 @@ def make_Sm90_gemm(N, M_CTA, N_CTA, tma_to_gmem=False, enable_split_k=False):
                                         k_task,
                                         k_iter * smem_k:
                                         k_iter * smem_k + smem_k],
-                                    n_cta=N_CTA, cta_stride=1, size0=smem_m, size1=smem_k, smem_box=smem_box_A
+                                    ncta=N_CTA, cta_stride=1, size0=smem_m, size1=smem_k, smem_box=smem_box_A
                                 ) >> raw[m_cta,:]
                             for n_cta in cuda_threads(0, N_CTA, unit=M_CTA * cuda_warp_in_cluster_strided(N_CTA)):
                                 Sm90_multicast_copy_tensor_to_smem_swizzled_2f32(
@@ -106,7 +106,7 @@ def make_Sm90_gemm(N, M_CTA, N_CTA, tma_to_gmem=False, enable_split_k=False):
                                         k_task,
                                         k_iter * smem_k:
                                         k_iter * smem_k + smem_k],
-                                    n_cta=M_CTA, cta_stride=N_CTA, size0=smem_n, size1=smem_k, smem_box=smem_box_B
+                                    ncta=M_CTA, cta_stride=N_CTA, size0=smem_n, size1=smem_k, smem_box=smem_box_B
                                 ) >> raw[:,n_cta]
                                 for m_cta in cuda_threads(0, M_CTA, unit=cuda_cta_in_cluster):
                                     Arrive(cuda_temporal, 1) >> raw[m_cta,:] >> raw[:,n_cta]
