@@ -85,6 +85,14 @@ A thread collective $\mu$ matches $\delta$ if there exist subsets $C_m \subseteq
   \item $\mu = \{ \ell_D(v) \mid v \in C_1 \times ... \times C_m \}$
 \end{itemize}
 
+An example of an aligned collective type is $D = (\lighttt{clutserDim},\;\lighttt{blockDim} / 32,\;32)$, $B = (\lighttt{clusterDim},\;1,\;32)$ which represents ``one warp selected from each CTA in the cluster''.
+A specific thread collective that matches this collective type is ``warp 2 of each CTA in the cluster'', which satisfies the above criteria with
+\begin{itemize}
+  \item $C_1 = \{ 0, 1, ..., \lighttt{clusterDim}-1 \}$
+  \item $C_2 = \{ 2 \}$
+  \item $C_3 = \{ 0, 1, ..., 31 \}$
+\end{itemize}
+
 \filbreak
 \myTitle{Collective Tiling Interpretation}
 
@@ -139,11 +147,74 @@ The \myKeyA{function} $(\mathbb{Y} \to \mathbb{Z}) \to \mathbb{T}$ of the collec
   \sigma_c \to \{ \ell_D(v) \mid v \in F_1(\sigma_c) \times ... \times F_M(\sigma_c) \}
 \end{equation}
 
+Note that a collective tiling with no $\mathsf{CollDimOp}$ gives $\mu^\text{top}$.
+
 \filbreak
 \myTitle{Domain Completion}
 
+\mainSub{Collective Tiling Reshape}
+
+Since each dimension of a collective tiling supports only hierarchical decomposition, we need to provide the user with a way to reshape the dimensions of a collective tiling to implement non-hierarchical decompositions
+(for example, assigning work to every other CTA in a cluster).
+
 \filbreak
-\myTitle{Unit Typing Function}
+We split a dimension by a factor $f$ when we replace a single $F_m: \mathsf{CollDim}$ with a pair $F_m': \mathsf{CollDim}, F_{m+1}': \mathsf{CollDim}$ defined by
+\begin{itemize}
+  \item $D_m' = D_m / f$
+  \filbreak
+  \item $D_{m+1}' = f$
+  \filbreak
+  \item $P_m' = P_m f$
+  \filbreak
+  \item $P_{m+1}' = P_m$
+  \filbreak
+  \item $\mathsf{ops}_m' = [\mathsf{op} \in \mathsf{ops}_m \mid \mathsf{op.linearBox} / P_m \ge f]$
+  \filbreak
+  \item $\mathsf{ops}_{m+1}' = [\mathsf{op} \in \mathsf{ops}_m \mid \mathsf{op.linearBox} / P_m < f]$
+\end{itemize}
+\filbreak
+For the split to be well-formed, all divisions must produce natural numbers, and the $\mathsf{linearBox}$ and $\mathsf{linearOffset}$ of each $\mathsf{CollDimOp}$ must be divisible by the $\mathsf{threadPitch}$ ($P_m'$ or $P_{m+1}'$) of the $\mathsf{CollDim}$ that contains it.
+
+\filbreak
+A collective tiling is completed for a given \myKeyA{target thread pitch set} $S$ by splitting dimensions until the set of $\mathsf{CollDim}$ thread pitches $\{P_1, ..., P_M\}$ is a non-strict superset of $S$.
+
+\filbreak
+\mainSub{Unit Typing Function}
+
+To convert a collective unit to a collective type, first substitute concrete values for the collective parameters \lighttt{clusterDim} and \lighttt{blockDim}.
+This converts $\mathsf{CollSizeExpr}$ to $\mathbb{N}$ ($\top$ stays as $\top$).
+
+Calculate the product $\prod D_m$ of the domain coordinates.
+If not equal to $\abs{\mu^\text{top}}$ (which is \lighttt{clusterDim} $\times$ \lighttt{blockDim} for CUDA), let $f = \abs{\mu^\text{top}} / \prod D_m$ and prepend
+\begin{itemize}
+  \item domain coordinate $D_1 = f$
+  \filbreak
+  \item box coordinate $B_1 = 1$ for \myKeyA{unitary collective typing}, $B_1 = \top$ for \myKeyA{agnostic collective typing}.
+\end{itemize}
+\filbreak
+Finally, split dimensions by a factor $f$ by replacing a pair of domain coordinate $D_m$ and box coordinate $B_m$ with
+\begin{itemize}
+  \item $D_m' = D_m / f$
+  \filbreak
+  \item $B_m' = 1$ if $B_m < f$, otherwise $B_m' = B_m / f$
+  \filbreak
+  \item $D_{m+1}' = f$
+  \filbreak
+  \item $B_{m+1}' = B_m$ if $B_m < f$, otherwise $B_{m+1}' = f$.
+\end{itemize}
+
+The collective type has a thread pitch set defined by
+\begin{equation}
+  P_m = \prod_{i = m+1}^M D_i
+\end{equation}
+Like for collective tilings, a collective type is completed for a given \myKeyA{target thread pitch set} $S$ by splitting dimensions until its thread pitch set $\{P_1, ..., P_M\}$ is a non-strict superset of $S$.
+A collective type is \myKeyA{aligned} by splitting dimensions until the requirements to be an aligned collective type are met.
+
+\filbreak
+\mainSub{Domain Completion}
+
+We apply domain completion to a collective tiling and a collective unit together by calculating the thread pitch set of both (substituting concrete values for \lighttt{clusterDim} and \lighttt{blockDim}), and applying domain completion and the unit typing function respectively with the union of those two thread pitch sets as the target thread pitch set.
+This yields a new collective tiling and a collective type that have the same domain and dimensionality.
 
 \filbreak
 \myTitle{Derived Collective Tilings}
