@@ -1,4 +1,4 @@
-% python3 code_to_tex.py coll_samples.py coll_samples && xelatex </dev/null coll_algebra.tex
+% python3 code_to_tex.py old_coll_samples.py old_coll_samples && xelatex </dev/null old_coll_algebra.tex
 
 \input{whitepaper_common.tex}
 
@@ -299,7 +299,7 @@ For all dimensions $x$, $0 < B_x \le B_x + O_x \le T_x$.
 
 A \lighttt{cuda\_threads} loop defines a new collective tiling in-scope in the loop body, using the collective tiling of the outer scope:
 
-\input{coll_samples/cuda_threads.0.tex}
+\input{old_coll_samples/cuda_threads.0.tex}
 
 In common cases, the collective unit of the loop body is the same as the \lighttt{unit} parameter specified.
 However, the collective unit may be modified to adapt to the parent collective tiling.
@@ -519,14 +519,14 @@ For example, each thread may allocate a $8 \times 4$ tile, and the threads in th
 \filbreak
 In Exo syntax, this example looks like
 
-\input{coll_samples/simple.0.tex}
+\input{old_coll_samples/simple.0.tex}
 
 \filbreak
 The number and behavior of the distributed dimensions gets deduced by Exo-GPU based on subsequent usage.\footnote{Future discussion: is this implicitness a good idea?}
 We expect distributed indices to be plain variables, with no arithmetic done.
 As part of code lowering, we strip the distributed dimensions so the generated CUDA C++ declares the size of only the distributed shard.
 
-\input{coll_samples/simple_cxx.0.tex}
+\input{old_coll_samples/simple_cxx.0.tex}
 
 \filbreak
 Similar patterns may occur with larger granularity, for example, allocating per-warpgroup shards for wgmma, or per-CTA shards for (cluster) distributed SMEM.
@@ -568,7 +568,7 @@ Each \lighttt{cuda\_threads} iterator variable (previous example : \texttt{\gree
 \filbreak
 We deduce from each usage a tuple of \lighttt{CollIndexExpr}; the length of this tuple is the number of distributed dimensions, and the values are the indexing variables' \lighttt{CollIndexExpr}.
 
-\input{coll_samples/simple.1.tex}
+\input{old_coll_samples/simple.1.tex}
 
 \filbreak
 \mainSub{Requirements}
@@ -620,24 +620,24 @@ Failure conditions:
 \filbreak
 \mainSub{Negative Example: Invalid Index Expression}
 
-\input{coll_samples/seq_fail.0.tex}
+\input{old_coll_samples/seq_fail.0.tex}
 
 \filbreak
 \mainSub{Negative Example: Mismatched \texttt{CollIndexExpr}}
 
-\input{coll_samples/mismatched.0.tex}
+\input{old_coll_samples/mismatched.0.tex}
 
 \filbreak
 \mainSub{Positive Example: Matched \texttt{CollIndexExpr}}
 
-\input{coll_samples/matched.0.tex}
+\input{old_coll_samples/matched.0.tex}
 
 \filbreak
 \mainSub{Positive Example: Warp Matrix Tile}
 
 The \lighttt{Sm80\_RmemMatrixD} memory type has a native unit of \lighttt{cuda\_warp}; $t_n = 32$.
 
-\input{coll_samples/warp_example.0.tex}
+\input{old_coll_samples/warp_example.0.tex}
 
 Note how the deduction in this case is based on a window expression.
 The \lighttt{Sm80\_mma\_zero\_d\_tf32} function takes only one distributed shard, so all intervals (\texttt{:}) correspond to non-distributed dimensions.
@@ -649,7 +649,7 @@ This use case is a major motivation for why distributed memory as a concept exis
 \filbreak
 \mainSub{Negative Example: Broken Chain}
 
-\input{coll_samples/broken_chain.0.tex}
+\input{old_coll_samples/broken_chain.0.tex}
 
 \filbreak
 \mainSub{Positive Example: Broken Chain Fixes}
@@ -658,33 +658,33 @@ Minor changes to the broken chain example will compile successfully.
 For example, we can replace the \texttt{for \yellowBox{b} in cuda\_threads(...)} loop with \texttt{with CudaWarps}.
 This highlights the importance that the deduction relies on chaining tile sizes, not box sizes.
 
-\input{coll_samples/chain.0.tex}
+\input{old_coll_samples/chain.0.tex}
 
 Another possible correction is to include \texttt{\yellowBox{b}} in the indexing expression.
 This increases the number of distributed dimensions to 3, and consequently reduces the distributed shard size (from 2 to 1).
 
-\input{coll_samples/chain.1.tex}
+\input{old_coll_samples/chain.1.tex}
 
 \filbreak
 \mainSub{Negative Example: Repeated Index}
 
-\input{coll_samples/repeated.0.tex}
+\input{old_coll_samples/repeated.0.tex}
 
 \filbreak
 \mainSub{Positive Example: Modified Repeated Index}
 
 If we reorder \greenBox{m} and \violetBox{n} in the above example, we get a correct Exo-GPU program.
 
-\input{coll_samples/repeated.1.tex}
+\input{old_coll_samples/repeated.1.tex}
 
 Since the second usage of \greenBox{m} is \textit{not} deduced as distributed index, it appears as a literal index in the generated CUDA C++ code.
 This is unusual, but valid, Exo GPU code:
 
-\input{coll_samples/repeated_cxx.0.tex}
+\input{old_coll_samples/repeated_cxx.0.tex}
 
 \filbreak
 \minorSub{Multiple Tensors}
 
-\input{coll_samples/many_tensors.0.tex}
+\input{old_coll_samples/many_tensors.0.tex}
 
 \end{document}
