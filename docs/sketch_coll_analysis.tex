@@ -1,0 +1,151 @@
+% xelatex </dev/null sketch_coll_analysis.tex
+
+\input{whitepaper_common.tex}
+
+\begin{document}
+\myTitle{Exo-GPU Collective Analysis (CollAnalysis)}
+
+We begin by summarizing the types involved.
+Many objects are defined here as functions, but they contain internal state that may be inspected (i.e. they are not just black-box functions).
+
+\filbreak
+\mainKey{Statement Node:} A statement within a program, akin to ``static instruction'' in computer architecture.
+
+\filbreak
+\mainKey{Statement Instance:} A given execution/interpretation of a statement node, akin to ``dynamic instruction'' in computer architecture.
+
+\filbreak
+\mainKey{Device Scope:} CPU or CUDA.
+
+\filbreak
+\mainKey{Natural thread index:} Integer uniquely identifying a thread within a CUDA cluster, given by \lighttt{cluster\_ctarank * blockDim.x + threadIdx.x}.
+Exo only uses the $x$ block/thread dimension, and only has static analysis of thread assignment within clusters -- the mapping between Exo tasks and CUDA clusters is not statically analyzed.
+
+\filbreak
+\mainKey{Thread Collective:} $(\mu \in \mathbb{T})$ A set of threads within a cluster assigned to execute a specific statement instance.
+Threads are identified by natural thread index.
+Runtime concept.
+The top-level-collective $\mu^\text{top}$ consists of all threads in the cluster.
+
+For a given \lighttt{cuda\_threads} loop with at least two iterations, let $\mu_0$ and $\mu_1$ be thread collectives assigned to two consecutive iterations.
+The \myKeyA{thread pitch} is $\min(\mu_1) - \min(\mu_0)$
+(c.f. ``seat pitch''; we are measuring the distance between adjacent things).
+The thread pitch is 0 for $\le 1$ iteration loops.
+
+\filbreak
+\mainKey{Collective Type:} $(\delta \in \Delta)$ A ``unit of measure'' describing a certain number and arrangement of threads (e.g. ``warp'' or ``CTA'') within one CUDA cluster.
+An $M$-dimensional $\delta$ is a 2-tuple of domain $D: \mathbb{N}^M$ and box $B: \mathbb{N}_\top^M$; the product of the domain coordinates equals the number of threads in the cluster.
+$\mathbb{N}_\top = \mathbb{N} \cup \{\top\}$.
+
+Let $\mathbb{N}^M_\delta$ = $[0, D_1 - 1]_\mathbb{N} \times ... \times [0, D_M - 1]_\mathbb{N}$ .
+
+The domain defines a ``linearize'' function $\ell_D: \mathbb{N}^M_\delta \to \mu^\text{top}$ mapping multidimensional coordinates to natural thread indices in lexicographical order.
+
+$\mathbb{T}_\delta$ denotes the set of all thread collectives that are described by (match) the collective type $\delta$.
+
+\filbreak
+\mainKey{Collective Unit:} $(\tau_u \in \mathsf{CollUnit})$
+Frontend concept, used to parameterize \lighttt{cuda\_threads} loops and hardware instructions.
+An $M$-dimensional $\tau_u$ is a 2-tuple of domain $D: \mathsf{CollSizeExpr}^M$ and box $B: \mathsf{CollSizeExpr}^M_\top$, where a $\mathsf{CollSizeExpr}$ is a product of a rational number and zero or more of the collective parameters \lighttt{blockDim} and \lighttt{clusterDim}.
+The ``unit typing function'' translates $\tau_u$ to $\delta$ through \myKeyA{collective parameter substitution} and \myKeyA{unit domain completion}.
+
+\filbreak
+\mainKey{Collective Tiling:} $(\mathbb{Y} \to \mathbb{Z}) \to \mathbb{T}$.
+Static assignment of parallel loop iterations to thread collectives.
+So basically the control environment determines which parallel loop iteration is being executed, and this gets translated to a thread collective for execution.
+
+\filbreak
+\myTitle{Scoped State}
+
+Each scope either has (or is a) CPU or CUDA device scope.
+
+\filbreak
+A CUDA scope has additional attributes:
+\begin{itemize}
+  \item \lighttt{clusterDim} \& \lighttt{blockDim} collective parameter values (uniform throughout the device function)
+  \item collective tiling: $(\mathbb{Y} \to \mathbb{Z}) \to \mathbb{T}$
+  \item unit typing function: $\mathsf{unitTyping}: \mathsf{CollUnit} \to \Delta$ [derived from other attributes]
+\end{itemize}
+
+\filbreak
+Note, the collective tiling is a \textit{static} property of a statement node; evaluating it (by passing in $\sigma_c$) yields a thread collective, which is a \textit{dynamic} property of a statement instance.
+
+\filbreak
+For a given $\tau_u : \mathsf{CollUnit}$, we say that a scope is a $\tau_u$-scope when its collective tiling always has output that matches $\delta$ where $\delta = \mathsf{unitTyping}(\tau_u)$.
+In other words, this is the case when we can accurately type the collective tiling as $(\mathbb{Y} \to \mathbb{Z}) \to \mathbb{T}_\delta$.
+
+\filbreak
+\myTitle{Collective Type Interpretation}
+
+An $M$-dimensional collective type $\delta = (D, B)$ is in \myKeyA{aligned form} if $\forall B_m, B_m \in \{1, D_m, \top\}$.
+A thread collective $\mu$ matches $\delta$ if there exist subsets $C_m \subseteq [0, D_m - 1]_\mathbb{N}$ such that
+\begin{itemize}
+  \item $B_m = 1 \implies \abs{C_m} = 1$
+  \item $B_m = D_m \implies C_m = [0, D_m-1]_\mathbb{N}$
+  \item $\mu = \{ \ell_D(v) \mid v \in C_1 \times ... \times C_m \}$
+\end{itemize}
+
+\filbreak
+\myTitle{Collective Tiling Interpretation}
+
+tl;dr we reorganize the cluster into an $M$-dimensional space, and hierarchically decompose each dimension.
+
+We build collective tilings out of $\mathsf{CollDimOp}: (\mathbb{Y} \to \mathbb{Z}) \times [\mathbb{N}, \mathbb{N}] \to [\mathbb{N}, \mathbb{N}]$, which contains attributes
+\begin{itemize}
+  \item $\mathsf{iter}: \mathbb{Y} \cup \{0\}$
+  \filbreak
+  \item $\mathsf{linearBox}: \mathbb{N}$
+  \filbreak
+  \item $\mathsf{linearOffset}: \mathbb{N}$
+  \filbreak
+  \item $\mathsf{threadPitch}: \mathbb{N}$
+  \filbreak
+  \item $\mathsf{tileCount}: \mathbb{N}$
+  \filbreak
+  \item $\mathsf{treeDepth}: \mathbb{N}$
+\end{itemize}
+and maps $(\sigma_c, [a, b]_\mathbb{N})$ to $[x, x + \mathsf{linearBox} - 1]_\mathbb{N}$ where $x = (a + \mathsf{linearOffset} + \sigma_c[\mathsf{iter}] \mathsf{linearBox})$.
+
+\filbreak
+$b$ is not explicitly used, but the compiler aims to statically guarantee that the output interval is a subset of the input interval $[a, b]$.
+
+\filbreak
+If the collective tiling corresponds to an $M$-dimensional domain, then the collective tiling consists of an $M$-tuple of $\mathsf{CollDim}: (\mathbb{Y} \to \mathbb{Z}) \to [\mathbb{N}, \mathbb{N}]$.
+
+\filbreak
+$F_m: \mathsf{CollDim}$ contains attributes
+\begin{itemize}
+  \item $D_m: \mathbb{N}$ (dim extent)
+  \filbreak
+  \item $P_m: \mathbb{N}$ (thread pitch)
+  \filbreak
+  \item $\mathsf{ops}_m$: ordered list of $\mathsf{CollDimOp}$
+\end{itemize}
+where the \myKeyA{thread pitch} is defined by $P_m = \prod_{i = m+1}^M D_i$
+
+\filbreak
+Define $F_m(\sigma_c)$ with the pseudocode
+\begin{itemize}
+  \item $[a, b] = [0, D_mP_m-1]$
+  \item For each $\mathsf{op}$ in order in $\mathsf{ops}_m$, $[a, b] = \mathsf{op}(\sigma_c, [a, b])$
+  \item Return $[a / P_m, b / P_m]$.
+\end{itemize}
+
+\filbreak
+The \myKeyA{domain} $D$ of the collective tiling is $(D_1, ..., D_M)$
+
+The \myKeyA{function} $(\mathbb{Y} \to \mathbb{Z}) \to \mathbb{T}$ of the collective tiling is defined by
+\begin{equation}
+  \sigma_c \to \{ \ell_D(v) \mid v \in F_1(\sigma_c) \times ... \times F_M(\sigma_c) \}
+\end{equation}
+
+\filbreak
+\myTitle{Domain Completion}
+
+\filbreak
+\myTitle{Unit Typing Function}
+
+\filbreak
+\myTitle{Derived Collective Tilings}
+
+\end{document}
