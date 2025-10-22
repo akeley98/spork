@@ -33,26 +33,43 @@ The \myKeyA{thread pitch} is $\min(\mu_1) - \min(\mu_0)$
 The thread pitch is 0 for $\le 1$ iteration loops.
 
 \filbreak
+\mainKey{Domain:} A tuple of natural numbers describing a multidimensional organization of threads in the cluster.
+Let $M$ be the dimension, and $D: \mathbb{N}^M$ be the domain.
+Then the product of the domain coordinates $(D_1) ...(D_M)$ equals \lighttt{blockDim * clusterDim}.
+
+Let $\mathbb{N}^M_\delta$ = $[0, D_1 - 1]_\mathbb{N} \times ... \times [0, D_M - 1]_\mathbb{N}$.
+This is an $M$-dimensional grid of coordinates each uniquely identifying a thread in a cluster.
+
+The domain defines a ``linearize'' function $\ell_D: \mathbb{N}^M_\delta \to \mu^\text{top}$ mapping multidimensional coordinates to natural thread indices in lexicographical order.
+
+\filbreak
+\mainKey{Thread Pitch Set:} the thread pitch set of a domain $D: \mathbb{N}^M$ is $\{ \prod_{i=m+1}^M D_i \mid i = 1 ... M \}$.
+
+\filbreak
 \mainKey{Collective Type:} $(\delta \in \Delta)$ A ``unit of measure'' describing a certain number and arrangement of threads (e.g. ``warp'' or ``CTA'') within one CUDA cluster.
 An $M$-dimensional $\delta$ is a 2-tuple of domain $D: \mathbb{N}^M$ and box $B: \mathbb{N}_\top^M$; the product of the domain coordinates equals the number of threads in the cluster.
 $\mathbb{N}_\top = \mathbb{N} \cup \{\top\}$.
-
-Let $\mathbb{N}^M_\delta$ = $[0, D_1 - 1]_\mathbb{N} \times ... \times [0, D_M - 1]_\mathbb{N}$ .
-
-The domain defines a ``linearize'' function $\ell_D: \mathbb{N}^M_\delta \to \mu^\text{top}$ mapping multidimensional coordinates to natural thread indices in lexicographical order.
 
 $\mathbb{T}_\delta$ denotes the set of all thread collectives that are described by (match) the collective type $\delta$.
 
 \filbreak
 \mainKey{Collective Unit:} $(\tau_u \in \mathsf{CollUnit})$
 Frontend concept, used to parameterize \lighttt{cuda\_threads} loops and hardware instructions.
-An $M$-dimensional $\tau_u$ is a 2-tuple of domain $D: \mathsf{CollSizeExpr}^M$ and box $B: \mathsf{CollSizeExpr}^M_\top$, where a $\mathsf{CollSizeExpr}$ is a product of a rational number and zero or more of the collective parameters \lighttt{blockDim} and \lighttt{clusterDim}.
-The ``unit typing function'' translates $\tau_u$ to $\delta$ through \myKeyA{collective parameter substitution} and \myKeyA{unit domain completion}.
+This contains a collective type $\delta$ (in the language, these contain \lighttt{clusterDim} and \lighttt{blockDim} which are immediately substituted for concrete values).
 
 \filbreak
-\mainKey{Collective Tiling:} $(\mathbb{Y} \to \mathbb{Z}) \to \mathbb{T}$.
-Static assignment of parallel loop iterations to thread collectives.
+\mainKey{Collective Assignment Function:} $((\mathbb{Y} \to \mathbb{Z}) \to \mathbb{T})$
+Description of the static assignment of parallel loop iterations to thread collectives.
 So basically the control environment determines which parallel loop iteration is being executed, and this gets translated to a thread collective for execution.
+The output of collective analysis is to annotate each statement node at CUDA scope with a collective assignment function.
+
+\filbreak
+\mainKey{Collective Tiling:} $\mathsf{tiling} \in \mathsf{CollTiling}$.
+This is an $M$-tuple of $\mathsf{CollDim}$ (to be defined later), describing a division of the cluster's threads into an $M$-dimensional space and which parallel loop iterators iterate upon each dimension.
+Underlying data for a collective assignment function.
+This can be converted to a collective assignment function with $\mathsf{evalCollTiling}: \mathsf{CollTiling} \to (\mathbb{Y} \to \mathbb{Z}) \to \mathbb{T}$,
+which produces the \myKeyA{resulting function} of a $\mathsf{CollTiling}$.
+
 
 \filbreak
 \myTitle{Scoped State}
@@ -63,21 +80,20 @@ Each scope either has (or is a) CPU or CUDA device scope.
 A CUDA scope has additional attributes:
 \begin{itemize}
   \item \lighttt{clusterDim} \& \lighttt{blockDim} collective parameter values (uniform throughout the device function)
-  \item collective tiling: $(\mathbb{Y} \to \mathbb{Z}) \to \mathbb{T}$
-  \item unit typing function: $\mathsf{unitTyping}: \mathsf{CollUnit} \to \Delta$ [derived from other attributes]
+  \item collective tiling: $\mathsf{tiling}: \mathsf{CollTiling}$, convertible to $(\mathbb{Y} \to \mathbb{Z}) \to \mathbb{T}$
 \end{itemize}
 
 \filbreak
 Note, the collective tiling is a \textit{static} property of a statement node; evaluating it (by passing in $\sigma_c$) yields a thread collective, which is a \textit{dynamic} property of a statement instance.
 
 \filbreak
-For a given $\tau_u : \mathsf{CollUnit}$, we say that a scope is a $\tau_u$-scope when its collective tiling always has output that matches $\delta$ where $\delta = \mathsf{unitTyping}(\tau_u)$.
-In other words, this is the case when we can accurately type the collective tiling as $(\mathbb{Y} \to \mathbb{Z}) \to \mathbb{T}_\delta$.
+For a given $\tau_u : \mathsf{CollUnit}$, we say that a scope is a $\tau_u$-scope when its collective tiling always has output that matches $\delta$ where $\delta$ is the collective type held by $\tau_u$.
+In other words, this is the case when we can accurately type the collective tiling's resulting function as $(\mathbb{Y} \to \mathbb{Z}) \to \mathbb{T}_\delta$.
 
 \filbreak
 \myTitle{Collective Type Interpretation}
 
-An $M$-dimensional collective type $\delta = (D, B)$ is in \myKeyA{aligned form} if $\forall B_m, B_m \in \{1, D_m, \top\}$.
+An $M$-dimensional collective type $\delta = (D: \mathbb{N}^M, B: \mathbb{N}^M)$ is in \myKeyA{aligned form} if $\forall B_m, B_m \in \{1, D_m, \top\}$.
 A thread collective $\mu$ matches $\delta$ if there exist subsets $C_m \subseteq [0, D_m - 1]_\mathbb{N}$ such that
 \begin{itemize}
   \item $B_m = 1 \implies \abs{C_m} = 1$
@@ -98,9 +114,9 @@ A specific thread collective that matches this collective type is ``warp 2 of ea
 
 tl;dr we reorganize the cluster into an $M$-dimensional space, and hierarchically decompose each dimension.
 
-We build collective tilings out of $\mathsf{CollDimOp}: (\mathbb{Y} \to \mathbb{Z}) \times [\mathbb{N}, \mathbb{N}] \to [\mathbb{N}, \mathbb{N}]$, which contains attributes
+We build collective tilings out of $\mathsf{CollDimOp}: \mathbb{Y} \times \mathbb{N}^5$, containing:
 \begin{itemize}
-  \item $\mathsf{iter}: \mathbb{Y} \cup \{0\}$
+  \item $\mathsf{iter}: \mathbb{Y}$
   \filbreak
   \item $\mathsf{linearBox}: \mathbb{N}$
   \filbreak
@@ -112,18 +128,24 @@ We build collective tilings out of $\mathsf{CollDimOp}: (\mathbb{Y} \to \mathbb{
   \filbreak
   \item $\mathsf{treeDepth}: \mathbb{N}$
 \end{itemize}
-and maps $(\sigma_c, [a, b]_\mathbb{N})$ to $[x, x + \mathsf{linearBox} - 1]_\mathbb{N}$ where $x = (a + \mathsf{linearOffset} + \sigma_c[\mathsf{iter}] \mathsf{linearBox})$.
-
 \filbreak
+and usable in the function $\mathsf{evalCollDimOp}: \mathsf{CollDimOp} \to (\mathbb{Y} \to \mathbb{Z}) \to [\mathbb{N}, \mathbb{N}] \to [\mathbb{N}, \mathbb{N}]$
+\begin{gather*}
+    (\mathsf{iter}, \mathsf{linearBox}, \mathsf{linearOffset}, \mathsf{threadPitch}, \mathsf{tileCount}, \mathsf{treeDepth}) \to
+    \sigma_c \to
+    [a, b]_\mathbb{N} \to
+    [x, x + \mathsf{linearBox} - 1]_\mathbb{N} \\
+    \text{where } x = a + \mathsf{linearOffset} + \sigma_c[\mathsf{iter}] \mathsf{linearBox}
+\end{gather*}
 $b$ is not explicitly used, but the compiler aims to statically guarantee that the output interval is a subset of the input interval $[a, b]$.
 
 \filbreak
-If the collective tiling corresponds to an $M$-dimensional domain, then the collective tiling consists of an $M$-tuple of $\mathsf{CollDim}: (\mathbb{Y} \to \mathbb{Z}) \to [\mathbb{N}, \mathbb{N}]$.
+If the collective tiling corresponds to an $M$-dimensional domain, then the collective tiling consists of an $M$-tuple of $\mathsf{CollDim}: \mathbb{N} \times \mathbb{N} \times \mathsf{CollDimOp}^*$.
 
 \filbreak
-$F_m: \mathsf{CollDim}$ contains attributes
+Each $F_m : \mathsf{CollDim} \in \mathsf{tiling}$ contains attributes
 \begin{itemize}
-  \item $D_m: \mathbb{N}$ (dim extent)
+  \item $D_m: \mathbb{N}$ (domain coordinate)
   \filbreak
   \item $P_m: \mathbb{N}$ (thread pitch)
   \filbreak
@@ -132,20 +154,21 @@ $F_m: \mathsf{CollDim}$ contains attributes
 where the \myKeyA{thread pitch} is defined by $P_m = \prod_{i = m+1}^M D_i$
 
 \filbreak
-Define $F_m(\sigma_c)$ with the pseudocode
+Define $\mathsf{evalCollDim}: \mathsf{CollDim} \to (\mathbb{Y} \to \mathbb{Z}) \to [\mathbb{N}, \mathbb{N}]$
+as the mapping $F_m \to \sigma_c \to [a', b']_\mathbb{N}$ defined by the pseudocode
 \begin{itemize}
-  \item $[a, b] = [0, D_mP_m-1]$
-  \item For each $\mathsf{op}$ in order in $\mathsf{ops}_m$, $[a, b] = \mathsf{op}(\sigma_c, [a, b])$
-  \item Return $[a / P_m, b / P_m]$.
+  \item $[a, b]_\mathbb{N} = [0, D_mP_m-1]_\mathbb{N}$
+  \item For each $\mathsf{op}$ in order in $\mathsf{ops}_m$, $[a, b]_\mathbb{N} = \mathsf{evalCollDimOp}(\mathsf{op}, \sigma_c, [a, b]_\mathbb{N})$
+  \item Set $[a', b']_\mathbb{N} = [a / P_m, b / P_m]_\mathbb{N}$
 \end{itemize}
 
 \filbreak
 The \myKeyA{domain} $D$ of the collective tiling is $(D_1, ..., D_M)$
 
-The \myKeyA{function} $(\mathbb{Y} \to \mathbb{Z}) \to \mathbb{T}$ of the collective tiling is defined by
-\begin{equation}
+The \myKeyA{resulting function} $\mathsf{evalCollTiling(tiling)}: (\mathbb{Y} \to \mathbb{Z}) \to \mathbb{T}$ of the collective tiling is defined by
+\begin{gather*}
   \sigma_c \to \{ \ell_D(v) \mid v \in F_1(\sigma_c) \times ... \times F_M(\sigma_c) \}
-\end{equation}
+\end{gather*}
 
 Note that a collective tiling with no $\mathsf{CollDimOp}$ gives $\mu^\text{top}$.
 
@@ -176,45 +199,70 @@ We split a dimension by a factor $f$ when we replace a single $F_m: \mathsf{Coll
 For the split to be well-formed, all divisions must produce natural numbers, and the $\mathsf{linearBox}$ and $\mathsf{linearOffset}$ of each $\mathsf{CollDimOp}$ must be divisible by the $\mathsf{threadPitch}$ ($P_m'$ or $P_{m+1}'$) of the $\mathsf{CollDim}$ that contains it.
 
 \filbreak
-A collective tiling is completed for a given \myKeyA{target thread pitch set} $S$ by splitting dimensions until the set of $\mathsf{CollDim}$ thread pitches $\{P_1, ..., P_M\}$ is a non-strict superset of $S$.
+A collective tiling is completed for a given \myKeyA{thread pitch set} $S$ by splitting dimensions until the set of $\mathsf{CollDim}$ thread pitches $\{P_1, ..., P_M\}$ is a non-strict superset of $S$.
 
 \filbreak
-\mainSub{Unit Typing Function}
+Define $\mathsf{completeCollTiling}: \mathbb{N}^* \to \mathsf{CollTiling} \to \mathsf{CollTiling}$ as the mapping $D \to \mathsf{tiling} \to \mathsf{tiling}'$ where the output tiling is the input tiling completed for the thread pitch set of the domain $D$.
 
-To convert a collective unit to a collective type, first substitute concrete values for the collective parameters \lighttt{clusterDim} and \lighttt{blockDim}.
-This converts $\mathsf{CollSizeExpr}$ to $\mathbb{N}$ ($\top$ stays as $\top$).
+\filbreak
+\mainSub{Collective Type Reshape}
 
-Calculate the product $\prod D_m$ of the domain coordinates.
-If not equal to $\abs{\mu^\text{top}}$ (which is \lighttt{clusterDim} $\times$ \lighttt{blockDim} for CUDA), let $f = \abs{\mu^\text{top}} / \prod D_m$ and prepend
+Define \myKeyA{unitary collective type completion} $\mathsf{completeCollType}_1: \mathbb{N}^* \to \Delta \to \Delta$ as the mapping $D^\text{env} \to (D, B) \to (D', B')$ where $(D', B')$ is defined as $(D, B)$ with the following modifications applied:
+
+\filbreak
+Calculate the product $\prod_m D_m$ of the domain coordinates.
+If not equal to $\prod_m D^\text{env}_m$ (which is expected to be \lighttt{clusterDim} $\times$ \lighttt{blockDim} for CUDA), prepend
+\filbreak
 \begin{itemize}
-  \item domain coordinate $D_1 = f$
+  \item domain coordinate $D'_1 = \prod_m D_m^\text{env} / \prod_m D_m$
   \filbreak
-  \item box coordinate $B_1 = 1$ for \myKeyA{unitary collective typing}, $B_1 = \top$ for \myKeyA{agnostic collective typing}.
+  \item box coordinate $B'_1 = 1$
 \end{itemize}
 \filbreak
-Finally, split dimensions by a factor $f$ by replacing a pair of domain coordinate $D_m$ and box coordinate $B_m$ with
+Then, split dimensions until the thread pitch set of the collective type's domain is a non-strict superset of the thread pitch set of $D^\text{env}$.
+We split a dimension by a factor $f$ by replacing a domain coordinate $D_m$ and a box coordinate $B_m$ with a pair of coordinates $(D_m', D_{m+1}')$ and $(B_m', B_{m+1}')$:
 \begin{itemize}
-  \item $D_m' = D_m / f$
+  \item $(D_m', D_{m+1}') = (D_m / f, f)$
   \filbreak
-  \item $B_m' = 1$ if $B_m < f$, otherwise $B_m' = B_m / f$
+  \item $(B_m', B_{m+1}') = (1, B_m)$ if $B_m < f$
   \filbreak
-  \item $D_{m+1}' = f$
-  \filbreak
-  \item $B_{m+1}' = B_m$ if $B_m < f$, otherwise $B_{m+1}' = f$.
+  \item $(B_m', B_{m+1}') = (B_m / f, f)$ if $B_m \ge f$
 \end{itemize}
+\filbreak
+Define \myKeyA{agnostic collective type completion} $\mathsf{completeCollType}_\top: \mathbb{N}^* \to \Delta \to \Delta$
+the same as above, except with $B'_1 = \top$ in the prepend step.
 
-The collective type has a thread pitch set defined by
-\begin{equation}
-  P_m = \prod_{i = m+1}^M D_i
-\end{equation}
-Like for collective tilings, a collective type is completed for a given \myKeyA{target thread pitch set} $S$ by splitting dimensions until its thread pitch set $\{P_1, ..., P_M\}$ is a non-strict superset of $S$.
-A collective type is \myKeyA{aligned} by splitting dimensions until the requirements to be an aligned collective type are met.
+\filbreak
+Define $\mathsf{align}: \Delta \to \Delta$; this splits dimensions until the collective type is an aligned collective type.
+
+\filbreak
+All of these functions can fail if a division fails to yield a natural number, or if no sequence of splitting dimensions yields the desired result.c
 
 \filbreak
 \mainSub{Domain Completion}
 
-We apply domain completion to a collective tiling and a collective unit together by calculating the thread pitch set of both (substituting concrete values for \lighttt{clusterDim} and \lighttt{blockDim}), and applying domain completion and the unit typing function respectively with the union of those two thread pitch sets as the target thread pitch set.
-This yields a new collective tiling and a collective type that have the same domain and dimensionality.
+Domain completion operates on a pair of collective tiling and collective type.
+This yields a new pair with the same domain and dimensionality, making them ``compatible'' with each other.
+\filbreak
+$\mathsf{domainCompletion_\top} : \mathsf{CollTiling} \times \delta \to \mathsf{CollTiling} \times \delta$
+maps $(\mathsf{tiling}, \delta) \to (\mathsf{tiling}', \delta')$ where
+\begin{itemize}
+  \item Let $\delta' = \mathsf{completeCollType}_\top(D^\text{env}, \delta)$
+    where $D^\text{env}$ is the domain of $\mathsf{tiling}$
+  \filbreak
+  \item Let $\mathsf{tiling}' = \mathsf{completeCollTiling}(D, \mathsf{tiling})$
+    where $D$ is the domain of $\delta$.
+\end{itemize}
+\filbreak
+$\mathsf{domainCompletion_{align}} : \mathsf{CollTiling} \times \delta \to \mathsf{CollTiling} \times \delta$
+maps $(\mathsf{tiling}, \delta) \to (\mathsf{tiling}', \delta')$ where
+\begin{itemize}
+  \item Let $\delta' = \mathsf{completeCollType}_1(D^\text{env}, \mathsf{align}(\delta))$
+    where $D^\text{env}$ is the domain of $\mathsf{tiling}$
+  \filbreak
+  \item Let $\mathsf{tiling}' = \mathsf{completeCollTiling}(D, \mathsf{tiling})$
+    where $D$ is the domain of $\mathsf{align}(\delta)$.
+\end{itemize}
 
 \filbreak
 \myTitle{Derived Collective Tilings}
