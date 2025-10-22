@@ -244,7 +244,7 @@ All of these functions can fail if a division fails to yield a natural number, o
 Domain completion operates on a pair of collective tiling and collective type.
 This yields a new pair with the same domain and dimensionality, making them ``compatible'' with each other.
 \filbreak
-$\mathsf{domainCompletion_\top} : \mathsf{CollTiling} \times \delta \to \mathsf{CollTiling} \times \delta$
+$\mathsf{domainCompletion_\top} : \mathsf{CollTiling} \times \Delta \to \mathsf{CollTiling} \times \Delta$
 maps $(\mathsf{tiling}, \delta) \to (\mathsf{tiling}', \delta')$ where
 \begin{itemize}
   \item Let $\delta' = \mathsf{completeCollType}_\top(D^\text{env}, \delta)$
@@ -254,7 +254,7 @@ maps $(\mathsf{tiling}, \delta) \to (\mathsf{tiling}', \delta')$ where
     where $D$ is the domain of $\delta$.
 \end{itemize}
 \filbreak
-$\mathsf{domainCompletion_{align}} : \mathsf{CollTiling} \times \delta \to \mathsf{CollTiling} \times \delta$
+$\mathsf{domainCompletion_{align}} : \mathsf{CollTiling} \times \Delta \to \mathsf{CollTiling} \times \Delta$
 maps $(\mathsf{tiling}, \delta) \to (\mathsf{tiling}', \delta')$ where
 \begin{itemize}
   \item Let $\delta' = \mathsf{completeCollType}_1(D^\text{env}, \mathsf{align}(\delta))$
