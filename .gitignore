@@ -10,6 +10,7 @@ compile_commands.json
 *.log
 *.out
 *.aux
+docs/amspork_instr.pdf
 docs/spork_nyc25.pdf
 docs/nyc25
 docs/nyc25_tex
