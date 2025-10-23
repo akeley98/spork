@@ -18,7 +18,7 @@ Many objects are defined here as functions, but they contain internal state that
 \mainKey{Device Scope:} CPU or CUDA.
 
 \filbreak
-\mainKey{Natural thread index:} Integer uniquely identifying a thread within a CUDA cluster, given by \lighttt{cluster\_ctarank * blockDim.x + threadIdx.x}.
+\mainKey{Natural Thread Index:} Integer uniquely identifying a thread within a CUDA cluster, given by \lighttt{cluster\_ctarank * blockDim.x + threadIdx.x}.
 Exo only uses the $x$ block/thread dimension, and only has static analysis of thread assignment within clusters -- the mapping between Exo tasks and CUDA clusters is not statically analyzed.
 
 \filbreak
@@ -43,7 +43,7 @@ This is an $M$-dimensional grid of coordinates each uniquely identifying a threa
 The domain defines a ``linearize'' function $\ell_D: \mathbb{N}^M_\delta \to \mu^\text{top}$ mapping multidimensional coordinates to natural thread indices in lexicographical order.
 
 \filbreak
-\mainKey{Thread Pitch Set:} the thread pitch set of a domain $D: \mathbb{N}^M$ is $\{ \prod_{i=m+1}^M D_i \mid i = 1 ... M \}$.
+\mainKey{Dimension Thread Pitch Set:} The dimension thread pitch set of a domain $D: \mathbb{N}^M$ is $\{ \prod_{i=m+1}^M D_i \mid i = 1 ... M \}$.
 
 \filbreak
 \mainKey{Collective Type:} $(\delta \in \Delta)$ A ``unit of measure'' describing a certain number and arrangement of threads (e.g. ``warp'' or ``CTA'') within one CUDA cluster.
@@ -96,9 +96,8 @@ In other words, this is the case when we can accurately type the collective tili
 An $M$-dimensional collective type $\delta = (D: \mathbb{N}^M, B: \mathbb{N}^M)$ is in \myKeyA{aligned form} if $\forall B_m, B_m \in \{1, D_m, \top\}$.
 A thread collective $\mu$ matches $\delta$ if there exist subsets $C_m \subseteq [0, D_m - 1]_\mathbb{N}$ such that
 \begin{itemize}
-  \item $B_m = 1 \implies \abs{C_m} = 1$
-  \item $B_m = D_m \implies C_m = [0, D_m-1]_\mathbb{N}$
-  \item $\mu = \{ \ell_D(v) \mid v \in C_1 \times ... \times C_m \}$
+  \item $B_m \ne \top \implies \abs{C_m} = B_m$
+  \item $\mu = \{ \ell_D(v) \mid v \in C_1 \times ... \times C_M \}$
 \end{itemize}
 
 An example of an aligned collective type is $D = (\lighttt{clutserDim},\;\lighttt{blockDim} / 32,\;32)$, $B = (\lighttt{clusterDim},\;1,\;32)$ which represents ``one warp selected from each CTA in the cluster''.
@@ -113,7 +112,7 @@ A specific thread collective that matches this collective type is ``warp 2 of ea
 \myTitle{Collective Tiling Interpretation}
 
 tl;dr we reorganize the cluster into an $M$-dimensional space, and hierarchically decompose each dimension.
-
+\filbreak
 We build collective tilings out of $\mathsf{CollDimOp}: \mathbb{Y} \times \mathbb{N}^5$, containing:
 \begin{itemize}
   \item $\mathsf{iter}: \mathbb{Y}$
@@ -147,11 +146,11 @@ Each $F_m : \mathsf{CollDim} \in \mathsf{tiling}$ contains attributes
 \begin{itemize}
   \item $D_m: \mathbb{N}$ (domain coordinate)
   \filbreak
-  \item $P_m: \mathbb{N}$ (thread pitch)
+  \item $P_m: \mathbb{N}$ (dimension thread pitch)
   \filbreak
   \item $\mathsf{ops}_m$: ordered list of $\mathsf{CollDimOp}$
 \end{itemize}
-where the \myKeyA{thread pitch} is defined by $P_m = \prod_{i = m+1}^M D_i$
+where the \myKeyA{dimension thread pitch} is defined by $P_m = \prod_{i = m+1}^M D_i$
 
 \filbreak
 Define $\mathsf{evalCollDim}: \mathsf{CollDim} \to (\mathbb{Y} \to \mathbb{Z}) \to [\mathbb{N}, \mathbb{N}]$
@@ -165,12 +164,21 @@ as the mapping $F_m \to \sigma_c \to [a', b']_\mathbb{N}$ defined by the pseudoc
 \filbreak
 The \myKeyA{domain} $D$ of the collective tiling is $(D_1, ..., D_M)$
 
+\filbreak
+The \myKeyA{box} $B$ of the collective tiling is $(B_1, ..., B_M)$ where
+\begin{itemize}
+  \item $B_m = D_m$ if $\mathsf{ops}_m$ is empty.
+  \item $B_m$ is $\mathsf{linearBox} / P_m$ of the last $\mathsf{op}$ in $\mathsf{ops}_m$, otherwise.
+\end{itemize}
+
+\filbreak
 The \myKeyA{resulting function} $\mathsf{evalCollTiling(tiling)}: (\mathbb{Y} \to \mathbb{Z}) \to \mathbb{T}$ of the collective tiling is defined by
 \begin{gather*}
   \sigma_c \to \{ \ell_D(v) \mid v \in F_1(\sigma_c) \times ... \times F_M(\sigma_c) \}
 \end{gather*}
-
-Note that a collective tiling with no $\mathsf{CollDimOp}$ gives $\mu^\text{top}$.
+\filbreak
+The output thread collectives of this function match $\delta = (D, B)$ with domain and box as defined above; however, this is not necessarily the only collective type that the thread collectives match.
+Corollary, a collective tiling with no $\mathsf{CollDimOp}$ gives $\mu^\text{top}$.
 
 \filbreak
 \myTitle{Domain Completion}
@@ -199,10 +207,10 @@ We split a dimension by a factor $f$ when we replace a single $F_m: \mathsf{Coll
 For the split to be well-formed, all divisions must produce natural numbers, and the $\mathsf{linearBox}$ and $\mathsf{linearOffset}$ of each $\mathsf{CollDimOp}$ must be divisible by the $\mathsf{threadPitch}$ ($P_m'$ or $P_{m+1}'$) of the $\mathsf{CollDim}$ that contains it.
 
 \filbreak
-A collective tiling is completed for a given \myKeyA{thread pitch set} $S$ by splitting dimensions until the set of $\mathsf{CollDim}$ thread pitches $\{P_1, ..., P_M\}$ is a non-strict superset of $S$.
+A collective tiling is completed for a given \myKeyA{dimension thread pitch set} $S$ by splitting dimensions until the set of $\mathsf{CollDim}$ thread pitches $\{P_1, ..., P_M\}$ is a non-strict superset of $S$.
 
 \filbreak
-Define $\mathsf{completeCollTiling}: \mathbb{N}^* \to \mathsf{CollTiling} \to \mathsf{CollTiling}$ as the mapping $D \to \mathsf{tiling} \to \mathsf{tiling}'$ where the output tiling is the input tiling completed for the thread pitch set of the domain $D$.
+Define $\mathsf{completeCollTiling}: \mathbb{N}^* \to \mathsf{CollTiling} \to \mathsf{CollTiling}$ as the mapping $D \to \mathsf{tiling} \to \mathsf{tiling}'$ where the output tiling is the input tiling completed for the dimension thread pitch set of the domain $D$.
 
 \filbreak
 \mainSub{Collective Type Reshape}
@@ -210,7 +218,11 @@ Define $\mathsf{completeCollTiling}: \mathbb{N}^* \to \mathsf{CollTiling} \to \m
 Define \myKeyA{unitary collective type completion} $\mathsf{completeCollType}_1: \mathbb{N}^* \to \Delta \to \Delta$ as the mapping $D^\text{env} \to (D, B) \to (D', B')$ where $(D', B')$ is defined as $(D, B)$ with the following modifications applied:
 
 \filbreak
-Calculate the product $\prod_m D_m$ of the domain coordinates.
+(1/3) For all dimension indices $m$, check that $1 \le B_m \le D_m$; the collective type is not well-formed otherwise.
+Then, remove all dimensions where $D_m = 1$.
+
+\filbreak
+(2/3) Calculate the product $\prod_m D_m$ of the domain coordinates.
 If not equal to $\prod_m D^\text{env}_m$ (which is expected to be \lighttt{clusterDim} $\times$ \lighttt{blockDim} for CUDA), prepend
 \filbreak
 \begin{itemize}
@@ -219,10 +231,12 @@ If not equal to $\prod_m D^\text{env}_m$ (which is expected to be \lighttt{clust
   \item box coordinate $B'_1 = 1$
 \end{itemize}
 \filbreak
-Then, split dimensions until the thread pitch set of the collective type's domain is a non-strict superset of the thread pitch set of $D^\text{env}$.
+(3/3) Then, split dimensions until the dimension thread pitch set of the collective type's domain is a non-strict superset of the dimension thread pitch set of $D^\text{env}$.
 We split a dimension by a factor $f$ by replacing a domain coordinate $D_m$ and a box coordinate $B_m$ with a pair of coordinates $(D_m', D_{m+1}')$ and $(B_m', B_{m+1}')$:
 \begin{itemize}
   \item $(D_m', D_{m+1}') = (D_m / f, f)$
+  \filbreak
+  \item $(B_m', B_{m+1}') = (\top, \top)$ if $B_m$ is $\top$
   \filbreak
   \item $(B_m', B_{m+1}') = (1, B_m)$ if $B_m < f$
   \filbreak
@@ -266,5 +280,109 @@ maps $(\mathsf{tiling}, \delta) \to (\mathsf{tiling}', \delta')$ where
 
 \filbreak
 \myTitle{Derived Collective Tilings}
+
+We create a new $\mathsf{CollTiling}$ from another by
+\begin{itemize}
+  \item Applying domain completion
+  \filbreak
+  \item Conditionally adding a new $\mathsf{CollDimOp}$
+\end{itemize}
+\filbreak
+Define $\mathsf{derivedCollTiling}: \mathsf{CollTiling} \to \mathbb{Y} \to \mathsf{CollUnit} \to \mathbb{N} \to \mathbb{N} \to \mathbb{N} \to \mathsf{CollTiling}$ as
+\begin{gather*}
+  \mathsf{tiling^{env}} \to y \to \tau_u \to \mathsf{lo} \to \mathsf{hi} \to \mathsf{tileCount} \to \mathsf{tiling'}
+\end{gather*}
+where we create $\mathsf{tiling'}$ by
+\filbreak
+\begin{itemize}
+  \item Let $\mathsf{tiling}, \delta = \mathsf{domainCompletion_\top}(\mathsf{tiling^{env}}, \delta^\text{env})$ where $\delta^\text{env}$ is unpacked from $\tau_u$.
+  \filbreak
+  \item Let $D^\text{tiling}$, $B^\text{tiling}$ be the domain and box of $\mathsf{tiling}$ and let $D, B$ be the domain and box of $\delta$.
+  \filbreak
+  \item The $m^{th}$ dimension is a \myKeyA{tiled dimension} when $B_m \notin \{ \top, D_m^\text{tiling}, B_m^\text{tiling} \}$
+  \filbreak
+  \item If no dimension is tiled,
+  \begin{itemize}
+    \item Require $\mathsf{lo}=0, \mathsf{hi}=1, \mathsf{tileCount} = 1$, otherwise the program is not well-formed.
+    \item $\mathsf{tiling}' = \mathsf{tiling}$.
+  \end{itemize}
+  \filbreak
+  \item If multiple dimensions are tiled, the program is not well-formed.
+  \filbreak
+  \item If a unique dimension $m$ is tiled, first check that $B_m \mathsf{hi} \le B_m^\text{tiling}$ (otherwise the program is not well formed; there are not enough threads), and define $\mathsf{tiling}'$ as $\mathsf{tiling}$ with the following $\mathsf{op}: \mathsf{CollDimOp}$ appended to $\mathsf{ops}_m$:
+  \begin{itemize}
+    \item $\mathsf{op.iter} = y$
+    \filbreak
+    \item $\mathsf{op.linearBox} = P_m B_m (\mathsf{hi} - \mathsf{lo}) / \mathsf{tileCount}$
+    \filbreak
+    \item $\mathsf{op.linearOffset} = P_m B_m \mathsf{lo}$
+    \filbreak
+    \item $\mathsf{op.threadPitch} = 0$ if $\mathsf{tileCount} \le 1$, otherwise $B_m P_m$
+    \filbreak
+    \item $\mathsf{op.tileCount} = \mathsf{tileCount}$
+    \filbreak
+    \item Set $\mathsf{op.treeDepth}$ to be greater than the $\mathsf{treeDepth}$ of any $\mathsf{op: CollDimOp}$ on any dimension of $\mathsf{tiling}$
+  \end{itemize}
+\end{itemize}
+\filbreak
+Most statements have the same $\mathsf{tiling}$ as their parents.
+The exceptions get listed below:
+
+\filbreak
+\mainSub{CudaDeviceFunction}
+
+If \lighttt{clusterDim} = 1, then the initial collective tiling is 1 dimensional, with $D_0 = \lighttt{blockDim}$ and $P_0 = 1$.
+If \lighttt{clusterDim} > 1, then the initial collective tiling is 2 dimensional, with $D_0 = \lighttt{clusterDim}$, $D_1 = P_0 = \lighttt{blockDim}$, $P_1 = 1$.
+In both cases, no $\mathsf{CollDimOp}$ exist.
+
+\filbreak
+\mainSub{cuda\_threads Loop}
+
+Evaluate $\mathsf{derivedCollTiling}$ with $\mathsf{tiling^{env}}$ being that of the for loop statement's scope, $y$, $\tau_u$, $\mathsf{lo}$ and $\mathsf{hi}$ taken directly from the loop, and $\mathsf{tileCount} = \mathsf{hi}$.
+Currently, $\mathsf{lo}$ must be 0 and $\mathsf{hi}$ must be a positive constant int.
+The body statements of the loop use the resulting $\mathsf{tiling}$.
+
+\filbreak
+\mainSub{Warp Specialization $\texttt{CudaWarps}(\mathsf{lo\_arg}, \mathsf{hi\_arg}, r)$}
+
+This requires a bit more set up.
+In the \lighttt{CudaDeviceFunction} launch, there was a tuple of named warp variables $r \in \mathbb{W}$, each specifying a warp count, which we will denote as $\mathsf{warpCount}(r)$ (the register counts are not relevant here).
+Further, let $\mathsf{warpPrefix}(r)$ be the exclusive prefix sum of warp counts up to $r$.
+
+\filbreak
+If no parent statement of the warp specialization statement is a warp specialization statement, set $\mathsf{prefix} = \mathsf{warpPrefix}(r)$; otherwise, set $\mathsf{prefix}=0$, and require that the same $r$ be used for all parent warp specialization statements.
+Evaluate $\mathsf{derivedCollTiling}$ with
+\begin{itemize}
+  \item $\mathsf{tiling^{env}}$ being the collective tiling of the warp specialization statement's scope.
+  \filbreak
+  \item $y$ being a ``dummy'' iterator variable that's always 0.
+  \filbreak
+  \item $\tau_u$ = \lighttt{cuda\_warp}
+  \filbreak
+  \item $\mathsf{lo} = \mathsf{prefix} + \mathsf{lo\_arg}$
+  \filbreak
+  \item $\mathsf{hi} = \mathsf{prefix} + \mathsf{hi\_arg}$
+  \filbreak
+  \item $\mathsf{tileCount} = 1$
+\end{itemize}
+to get the $\mathsf{tiling}$ for the child statements.
+
+\filbreak
+In the current implementation, the two integer parameters are inferred to be $0$ and $\mathsf{warpCount}(r)$ if not given.
+We additionally check that
+\begin{itemize}
+  \item $\mathsf{lo\_arg} \ge 0$
+  \filbreak
+  \item $\mathsf{hi\_arg} \le \mathsf{warpCount}(r)$
+  \filbreak
+  \item If no parent statement of the warp specialization statement is a warp specialization statement, and more than one warp variable was specified in the \lighttt{CudaDeviceFunction} launch, then require that the warp specialization statement appears at \lighttt{cuda\_agnostic\_intact\_cta} scope.
+\end{itemize}
+
+\filbreak
+\myTitle{Unit Matching}
+
+To check if a $\mathsf{tiling^{in}}: \mathsf{CollTiling}$ matches a collective type $\delta^\text{in}$, use $\mathsf{domainCompletion_{align}}(\mathsf{tiling^{in}}, \delta^\text{in})$ to get $\mathsf{tiling}, \delta$; let $B^\text{tiling}$, $B$ be the boxes of $\mathsf{tiling}$ and $\delta$ respectively.
+
+The collective tiling matches $\delta$ when for all dimensions $m$, $B_m \ne \top \implies B_m = B_m^\text{tiling}$.
 
 \end{document}
