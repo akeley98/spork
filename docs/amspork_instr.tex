@@ -4,22 +4,22 @@
 
 \begin{document}
 
-$\blacktt{RecordRead}(\mathrm{VL}, e^\#, \tau_q, \tau_q^*, e_z^{\#*})$ \codecomment{\# The $\tau_q^*$ is the atomic qual-tl set.}\\
-$\blacktt{RecordMutate}(\mathrm{VL}, e^\#, \tau_q, \tau_q^*, e_z^{\#*})$\\
-$\blacktt{CheckReadsVisible}(\mathrm{VL}, e^\#, \tau_q^*)$\\
-$\blacktt{CheckMutatesVisible}(\mathrm{VL}, e^\#, \tau_q^*)$
+$\texttt{RecordRead}(\mathrm{VL}, e^\#, \tau_q, \tau_q^*, e_z^{\#*})$ \codecomment{\# The $\tau_q^*$ is the atomic qual-tl set.}\\
+$\texttt{RecordMutate}(\mathrm{VL}, e^\#, \tau_q, \tau_q^*, e_z^{\#*})$\\
+$\texttt{CheckReadsVisible}(\mathrm{VL}, e^\#, \tau_q^*)$\\
+$\texttt{CheckMutatesVisible}(\mathrm{VL}, e^\#, \tau_q^*)$
 
 Each instruction parameter defines its own
 \begin{itemize}
-  \item \blacktt{out\_of\_order}, boolean
-  \item \blacktt{initial\_qual\_tl} $\in \mathrm{QualTL}$
-  \item \blacktt{ext\_qual\_tl} $\in \mathcal{P}(\mathrm{QualTL})$
-  \item Whether it is atomic, and if so, it defines \blacktt{atomicity.qual\_tl\_list} $\in \mathcal{P}(\mathrm{QualTL})$
+  \item \texttt{out\_of\_order}, boolean
+  \item \texttt{initial\_qual\_tl} $\in \mathrm{QualTL}$
+  \item \texttt{ext\_qual\_tl} $\in \mathcal{P}(\mathrm{QualTL})$
+  \item Whether it is atomic, and if so, it defines \texttt{atomicity.qual\_tl\_list} $\in \mathcal{P}(\mathrm{QualTL})$
   \item Whether it is convergent.
     \textbf{This needs to be a new argument to the above functions!}
     \begin{itemize}
       \item For checks, the convergent case requires visibility only to one thread; the non-convergent case requires visibility to all threads.
-      \item For record, the convergent case records one \blacktt{VisRecord} encompassing all threads; the non-convergent case records one \blacktt{VisRecord} for each thread in the thread collective.
+      \item For record, the convergent case records one \texttt{VisRecord} encompassing all threads; the non-convergent case records one \texttt{VisRecord} for each thread in the thread collective.
     \end{itemize}
 \end{itemize}
 
@@ -27,9 +27,9 @@ Each instruction parameter defines its own
 
 For $e^\# \in \mathsf{filterMem}(\mathsf{eToScalars}(e))$,
 \begin{itemize}
-  \item Let $\mathrm{VL_{post}} = \mathrm{VL_{unordered}}$ if \blacktt{out\_of\_order} is true, otherwise $\mathrm{VL_{post}} = \mathrm{VL_{full\_ordered}}$
-  \item $\blacktt{CheckMutatesVisible}(\mathrm{VL_{full\_ordered}}, e^\#, \blacktt{ext\_qual\_tl})$
-  \item $\blacktt{RecordRead}(\mathrm{VL_{post}}, e^\#, \blacktt{initial\_qual\_tl}, \{\}, e_z^{\#*})$
+  \item Let $\mathrm{VL_{post}} = \mathrm{VL_{unordered}}$ if \texttt{out\_of\_order} is true, otherwise $\mathrm{VL_{post}} = \mathrm{VL_{full\_ordered}}$
+  \item $\texttt{CheckMutatesVisible}(\mathrm{VL_{full\_ordered}}, e^\#, \texttt{ext\_qual\_tl})$
+  \item $\texttt{RecordRead}(\mathrm{VL_{post}}, e^\#, \texttt{initial\_qual\_tl}, \{\}, e_z^{\#*})$
 \end{itemize}
 
 \mainSub{Non-atomic non-read-only instr parameter $e$}
@@ -37,10 +37,10 @@ For $e^\# \in \mathsf{filterMem}(\mathsf{eToScalars}(e))$,
 For $e^\# \in \mathsf{filterMem}(\mathsf{eToScalars}(e))$,
 \begin{itemize}
   \item Let $\mathrm{VL_{pre}} = \mathrm{VL_{temporal\_ordered}}$ if the parameter is write-only, otherwise $\mathrm{VL_{pre}} = \mathrm{VL_{full\_ordered}}$
-  \item Let $\mathrm{VL_{post}} = \mathrm{VL_{unordered}}$ if \blacktt{out\_of\_order} is true, otherwise $\mathrm{VL_{post}} = \mathrm{VL_{full\_ordered}}$
-  \item $\blacktt{CheckMutatesVisible}(\mathrm{VL_{pre}}, e^\#, \blacktt{ext\_qual\_tl})$
-  \item $\blacktt{CheckReadsVisible}(\mathrm{VL_{pre}}, e^\#, \blacktt{ext\_qual\_tl})$
-  \item $\blacktt{RecordMutate}(\mathrm{VL_{post}}, e^\#, \blacktt{initial\_qual\_tl}, \{\}, e_z^{\#*})$
+  \item Let $\mathrm{VL_{post}} = \mathrm{VL_{unordered}}$ if \texttt{out\_of\_order} is true, otherwise $\mathrm{VL_{post}} = \mathrm{VL_{full\_ordered}}$
+  \item $\texttt{CheckMutatesVisible}(\mathrm{VL_{pre}}, e^\#, \texttt{ext\_qual\_tl})$
+  \item $\texttt{CheckReadsVisible}(\mathrm{VL_{pre}}, e^\#, \texttt{ext\_qual\_tl})$
+  \item $\texttt{RecordMutate}(\mathrm{VL_{post}}, e^\#, \texttt{initial\_qual\_tl}, \{\}, e_z^{\#*})$
 \end{itemize}
 
 \mainSub{Atomic instr parameter $e$}
@@ -48,10 +48,10 @@ For $e^\# \in \mathsf{filterMem}(\mathsf{eToScalars}(e))$,
 For $e^\# \in \mathsf{filterMem}(\mathsf{eToScalars}(e))$,
 \begin{itemize}
   \item Let $\mathrm{VL_{pre}} = \mathrm{VL_{atomic\_only}}$
-  \item Let $\mathrm{VL_{post}} = \mathrm{VL_{unordered}}$ if \blacktt{out\_of\_order} is true, otherwise $\mathrm{VL_{post}} = \mathrm{VL_{full\_ordered}}$
-  \item $\blacktt{CheckMutatesVisible}(\mathrm{VL_{pre}}, e^\#, \blacktt{ext\_qual\_tl})$
-  \item $\blacktt{CheckReadsVisible}(\mathrm{VL_{pre}}, e^\#, \blacktt{ext\_qual\_tl})$
-  \item $\blacktt{RecordMutate}(\mathrm{VL_{post}}, e^\#, \blacktt{initial\_qual\_tl}, \blacktt{atomicity.qual\_tl\_list}, e_z^{\#*})$
+  \item Let $\mathrm{VL_{post}} = \mathrm{VL_{unordered}}$ if \texttt{out\_of\_order} is true, otherwise $\mathrm{VL_{post}} = \mathrm{VL_{full\_ordered}}$
+  \item $\texttt{CheckMutatesVisible}(\mathrm{VL_{pre}}, e^\#, \texttt{ext\_qual\_tl})$
+  \item $\texttt{CheckReadsVisible}(\mathrm{VL_{pre}}, e^\#, \texttt{ext\_qual\_tl})$
+  \item $\texttt{RecordMutate}(\mathrm{VL_{post}}, e^\#, \texttt{initial\_qual\_tl}, \texttt{atomicity.qual\_tl\_list}, e_z^{\#*})$
 \end{itemize}
 
 \end{document}
