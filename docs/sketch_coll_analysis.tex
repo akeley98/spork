@@ -141,7 +141,7 @@ $b$ is not explicitly used, but the compiler aims to statically guarantee that t
 If the collective tiling corresponds to an $M$-dimensional domain, then the collective tiling consists of an $M$-tuple of \myKeyA{dimension descriptors} $\mathcal{D}: \mathbb{N} \times \mathbb{N} \times \mathcal{O}^*$.
 
 \filbreak
-Each $\mathcal{D}_m : \mathsf{CollDim} \in \mathsf{tiling}$ contains attributes
+Each $\mathcal{D}_m$ in $\omega = (\mathcal{D}_1, ..., \mathcal{D}_M)$ contains attributes
 \begin{itemize}
   \item $D_m: \mathbb{N}$ (domain coordinate)
   \filbreak
@@ -296,7 +296,7 @@ where we create $\omega'$ by
 \begin{itemize}
   \item Let $\omega, \delta = \mathsf{domainCompletion_\top}(\mathsf{\omega^{env}}, \delta^\text{env})$ where $\delta^\text{env}$ is unpacked from $\tau_u$.
   \filbreak
-  \item Let $D^\text{tiling}$, $B^\text{tiling}$ be the domain and box of $\mathsf{tiling}$ and let $D, B$ be the domain and box of $\delta$.
+  \item Let $D^\text{tiling}$, $B^\text{tiling}$ be the domain and box of $\omega$ and let $D, B$ be the domain and box of $\delta$.
   \filbreak
   \item The $m^{th}$ dimension is a \myKeyA{tiled dimension} when $B_m \notin \{ \top, D_m^\text{tiling}, B_m^\text{tiling} \}$
   \filbreak
@@ -320,11 +320,11 @@ where we create $\omega'$ by
     \filbreak
     \item $\mathsf{op.tileCount} = \mathsf{tileCount}$
     \filbreak
-    \item Set $\mathsf{op.treeDepth}$ to be greater than the $\mathsf{treeDepth}$ of any $\mathsf{op: CollDimOp}$ on any dimension of $\mathsf{tiling}$
+    \item Set $\mathsf{op.treeDepth}$ to be greater than the $\mathsf{treeDepth}$ of any $\mathsf{op} : \mathcal{O}$ on any dimension of $\omega$
   \end{itemize}
 \end{itemize}
 \filbreak
-Most statements have the same $\mathsf{tiling}$ as their parents.
+Most statements have the same collective tiling as their parents.
 The exceptions get listed below:
 
 \filbreak
