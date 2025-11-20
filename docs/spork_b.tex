@@ -1,0 +1,194 @@
+% exocc b_samples.py && python3 code_to_tex.py b_samples.py b_samples && xelatex spork_b.tex </dev/null
+\input{whitepaper_common.tex}
+
+\begin{document}
+
+% Kernel launch \& loops:
+% CudaDeviceFunction defines clusterDim & blockDim
+% Loops: seq, cuda_task, cuda_threads (loop mode)
+% nest of cuda_tasks loops in CudaDeviceFunction. Inner-most body is device task; one instance of the body is assigned to one cluster.
+% Within the device task, each instance of a stmt is executed by a set of threads within the cluster (thread collective)
+% cuda_threads(0, c_{hi}, unit=...) loop subdivides its executing thread collective into c_{hi}-many disjoint thread collectives, guided by the unit parameter.
+% Uniform execution encoded in language.
+%
+% Collective Types
+% cuda_threads loop takes a collective unit from which a collective type \delta is unpacked (section link).
+% Collective type encodes number and arrangement of threads (e.g. warp, CTA, CTA pair).
+% In typical case, the thread collectives assigned to iteration is described by \delta (section link).
+% Local thread index, thread collective need not be contiguous range of local thread indices.
+% Lexicographical ordering wrt domain.
+% Box and so on.
+%
+% Distributed Memory
+% Thread pitch is crucial concept.
+% Thread pitch of iterator.
+% Distributed memory; shard mapped to thread collectives described by \delta
+% Thread pitch tuple, describes residency.
+%
+% Synchronization
+% Read|Write -> Fence|Arrive
+% Read|Write -> Await, when trailing bar
+% Fence|Await -> Read
+% Fence|Await -> Write
+% Arrive -> Await
+
+
+\section{Overview}
+\label{sec:Overview}
+
+{\sffamily
+
+\myChapterLink{sec:CudaDeviceFunction}{Cuda Device Function}
+
+\myChapterLink{sec:CollectiveTypes}{Collective Units \& Collective Types}
+
+\myChapterLink{sec:CollectiveTiling}{Collective Tiling}
+
+\myChapterLink{sec:DistributedMemory}{Distributed Memory}
+
+\myChapterLink{sec:Synchronization}{Synchronization}
+
+\myChapterLink{sec:Glossary}{Glossary}
+
+}
+
+This document assumes knowledge of CPU-only Exo.
+We describe the concepts of the GPU extension.
+All Exo code continues to be CPU code by default (we say that such code is at \myKeyA{CPU-scope}).
+To move code to the GPU, wrap it inside a \lighttt{with CudaDeviceFunction} block (Section~\ref{sec:CudaDeviceFunction}).
+The body (which is at \myKeyA{CUDA-scope}) must consist of a single statement: a nest of one or more \lighttt{cuda\_tasks} loops.
+The body of the inner-most \lighttt{cuda\_tasks} loop is a \myKeyA{device task}; each is assigned to a CUDA cluster for execution.
+
+Within the device task, \lighttt{cuda\_threads} loops may be used to assign work to threads within the cluster.
+A cornerstone of Exo-GPU is that we perform static analysis (collective analysis) on which threads are used to execute which statement instances\footnote{A \emph{statement} is a syntactic construct, while a \emph{statement instance} is a single interpretation/``execution'' of a statement. For example, ``\lighttt{for i in seq(0, 10): $s_1$; $s_2$}'' is a loop containing two statements: $s_1$ and $s_2$, and when the loop is executed, 20 statement instances are created (10 for $s_1$ and 10 for $s_2$).}.
+We annotate each statement at CUDA-scope with a \myKeyA{collective tiling} (Section~\ref{sec:CollectiveTiling}), partially describing a mapping between the control environment and the set of threads assigned to execute instances of that statement (i.e. which loop iterations execute with which threads in a cluster).
+We call this assigned set of threads a \myKeyA{thread collective}.
+This description is partial in the sense that the static analysis only identifies threads by their index within a cluster (the \myKeyA{local thread index}) and not which cluster is used.
+
+We define collective units $\tau_u$ (Section~\ref{sec:CollectiveTypes}) that describe a certain grouping of threads without a concrete index (e.g. single thread, warp, warpgroup, CTA (thread block), cluster).
+We say a statement is at $\tau_u$-scope when the thread collectives that execute instances of that statement are accurately described by $\tau_u$.
+Statements that are not at single-thread-scope are executed cooperatively by multiple threads; this statically encodes uniform execution in the frontend language.
+This does \emph{not} imply a convergence\footnote{Threads are uniform when their control flow are identical; convergence implies additional ``lockstep''/synchronization guarantees beyond uniform execution} guarantee; in particular, \lighttt{cuda\_threads} loops do \emph{not} imply fork-join semantics.
+Statements outside single-thread-scope must not access data variables except through instructions that require uniform execution (e.g. warp or warpgroup MMA).
+
+We use the collective tiling downstream to
+\begin{itemize}
+  \item Map shards of a tensor into different threads for storage; this is \myKeyA{distributed memory} (Section~\ref{sec:DistributedMemory}).
+  \item Check correct synchronization (Section~\ref{sec:Synchronization}).
+\end{itemize}
+
+\section{Cuda Device Function \& Warp Specialization}
+\label{sec:CudaDeviceFunction}
+
+Wrap code with a \lighttt{with CudaDeviceFunction(...):} statement to transform it to CUDA.
+The body of the \lighttt{CudaDeviceFunction} statement must consist of exactly one statement: a nest of one or more \lighttt{cuda\_tasks} loops.
+The body of the inner-most \lighttt{cuda\_tasks} loop is a \myKeyA{device task}; each is assigned to a CUDA cluster for execution.
+We implement a persistent-kernel design, so multiple tasks may be co-located on the same cluster.
+The shape of the \lighttt{cuda\_tasks} iteration space must be a cuboid, i.e., the loop bounds of one \lighttt{cuda\_tasks} loop must not be dependent on another \lighttt{cuda\_tasks} loop.
+
+The \lighttt{CudaDeviceFunction} object is a Python object, containing attributes
+\begin{itemize}
+  \item \lighttt{clusterDim} (default 1), number of CTAs per cluster.
+  \item \lighttt{blocks\_per\_sm} (default 1), number of CTAs concurrently executing per hardware SM.
+  \item \lighttt{blockDim}, number of threads per CTA.
+  \item \lighttt{warp\_config}, list of \lighttt{CudaWarpConfig} objects.
+\end{itemize}
+Exactly one of \lighttt{blockDim} or \lighttt{warp\_config} must be given.
+The latter is intended for kernels with warp specialization, where we partition the warps in the CTA into named groups of warps, possibly with a different number of registers each.
+Each \lighttt{CudaWarpConfig} defines a \myKeyA{warp variable}, and has attributes
+\begin{itemize}
+  \item \lighttt{name: str}, the name of the warp variable.
+  \item \lighttt{count: int}, number of warps.
+  \item \lighttt{setmaxnreg\_dec: Optional[int]}, registers per thread; regs allocated by \lighttt{setmaxnreg.dec}.
+  \item \lighttt{setmaxnreg\_inc: Optional[int]}, registers per thread; regs allocated by \lighttt{setmaxnreg.inc}.
+\end{itemize}
+The \lighttt{blockDim} of the CTA is implicitly 32 times the sum of the number of warps defined.
+Within the device task, a \lighttt{with CudaWarps(name=<str>)} statement may be used to restrict the body of the statement to only execute on the subset of warps named.
+
+\subsection{CudaDeviceFunction Sample}
+
+\input{b_samples/CudaDeviceFunction.0.tex}
+
+\subsection{Scheduling Functions}
+
+\input{b_samples/CudaDeviceFunction_scheduling.0.tex}
+
+\section{Collective Units \& Collective Types}
+\label{sec:CollectiveTypes}
+
+We use collective types $\delta$ to describe a quantity and arrangement of threads within a cluster, such as ``single thread'', ``warp'', ``CTA'', ``one warp from a pair of CTAs''.
+These are unpacked from a collective unit $\tau_u$ defined in the frontend language (Section~\ref{sec:CollectiveUnit}).
+A collective type consists of two equal-length tuples: a domain and a box.
+The dimension $M$ of the collective type is the length of these tuples.
+The \myKeyA{domain} ($\delta.D_0...\delta.D_{M-1}$): $\mathbb{N}_{\ge2}^M$ describes an organization of the threads in a cluster into an $M$-dimensional space.
+The \myKeyA{box} ($\delta.B_0...\delta.B_{M-1}$): $\mathbb{N}_\bot^M$ describes the number of threads on each dimension to select.
+
+We first define a linear ordering of threads in a cluster, then extend to multidimensional coordinates.
+The local thread index of a thread is
+\[
+    \lighttt{cluster\_ctarank * blockDim.x + threadIdx.x}
+\]
+i.e., the threads in a cluster are numbered in (\lighttt{cluster\_ctarank, threadIdx.x})-lexicographical order (Exo-GPU parallelizes on the x dimension only).
+For a given domain, we derive the \myKeyA{dimension thread pitch} $\delta.P_i$:
+\begin{align*}
+    \delta.P_i = \prod_{k=i+1}^{M-1} \delta.D_k
+\end{align*}
+and we define the mapping $\mathsf{toLocal}: \mathbb{N}^M \to \mathbb{N}^M \to \mathbb{N}$, which converts a domain and coordinates to a local thread index, as
+\begin{align*}
+    \mathsf{toLocal}((\delta.D_0,...,\delta.D_{M-1}), (c_0,...,c_{M-1})) \mapsto \sum_{k=0}^{M-1} c_k \delta.P_k
+\end{align*}
+i.e. the coordinates $[0, \delta.D_0-1]_\mathbb{N} \times ... \times [0, \delta.D_{M-1}-1]_\mathbb{N}$ get mapped to local thread indices in lexicographical order.
+The product of the domain coordinates $\delta.D_0 \times ... \times \delta.D_{M-1}$ must be equal to the number of threads in the cluster (\lighttt{clusterDim.x * blockDim.x}).
+
+A thread collective is described by a collective type $\delta$ when all threads are in the same cluster, and, with $\mu: \mathcal{P}(\mathbb{N})$ being the set of local thread indices of the threads, there exist sets $C_0 ... C_{M-1}: \mathcal{P}(\mathbb{N})$ such that
+\begin{itemize}
+  \item $C_i \subseteq [0, \delta.D_i - 1]$
+  \item $\delta.B_i \ne \bot \implies \exists x \mid C_i = [x, x + \delta.B_i - 1]_\mathbb{N}$.
+  \item $\mu = \{ \mathsf{toLocal}(\delta.D, c) \mid c \in C_0 \times ... \times C_{M-1}\}$
+\end{itemize}
+
+\subsection{Collective Unit to Collective Type}
+\label{sec:CollectiveUnit}
+
+Collective units are also parameterized by a pair of $M$-tuples (domain and box), with coordinates being integer expressions of \lighttt{blockDim} and \lighttt{clusterDim}, or $\bot$ in the case of the box.
+We convert to 
+\begin{itemize}
+  \item (fail if any coordinate is not a natural number)
+\end{itemize}
+
+
+\subsection{Reshape}
+
+\section{Collective Tiling}
+\label{sec:CollectiveTiling}
+
+The \lighttt{cuda\_tasks} loops assign work to different clusters on the system, and the user has no control (yet) over the mapping between device tasks and clusters.
+On the other hand, the \lighttt{cuda\_threads} loop, which assigns work to threads within a cluster, provides the user with tight control over this work mapping.
+
+The deduced collective tiling of each CUDA-scope statement describes a mapping between the control environment and the local thread indices of the thread collective assigned to execute a statement instance.
+
+A statement's collective tiling describes an organization of the threads in a cluster into a multidimensional grid of threads, and the effect that each control environment variable has on the set of threads assigned to execute the statement instance.
+Let $M$ denote the dimensionality of the collective tiling.
+The collective tiling consists of a tuple of \myKeyA{collective dimensions} $\mathcal{D}_0, ..., \mathcal{D}_{M-1}$; each $\mathcal{D}_i$ contains
+\begin{itemize}
+  \item $D_i$: dimension extent
+  \item $\mathcal{O}_i$: dimension operators
+\end{itemize}
+
+
+Commonly, a \lighttt{cuda\_threads} loop will fail to compile because the user requests more threads than is available in the scope, e.g., a \lighttt{cuda\_threads(0, 40, unit=cuda\_thread)} loop at warp-scope, which would require 40 of the 32 available threads.
+More infrequently, the loop will fail to compile because the bounds are not of the form (0, $c_\text{hi}$), or because the compiler is unable to deduce which collective dimension to tile on.
+
+\section{Distributed Memory}
+\label{sec:DistributedMemory}
+
+\section{Synchronization}
+\label{sec:Synchronization}
+
+\section{Glossary}
+\label{sec:Glossary}
+
+\subsection{Statement Instance}
+\label{def:StatementInstance}
+
+\end{document}

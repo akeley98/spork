@@ -17,6 +17,7 @@
 \usepackage{fontspec}
 \usepackage{mdframed}
 \usepackage{tikz}
+\usepackage{titlesec}
 \usetikzlibrary{shapes.geometric, arrows, positioning, calc}
 
 \setsansfont{FreeSans}
@@ -36,8 +37,10 @@
 \definecolor{keyColor}{RGB}{118, 185, 0}
 \newcommand{\myKey}[1]{{\color{keyColor}\textbf{#1}}}
 
-\setcounter{secnumdepth}{0}
+%\setcounter{secnumdepth}{0}
 \newcommand{\mySection}[1]{{ \vspace{2mm} \section{\large \color{titleColor} \hspace{-12mm} \textbf{\textsf{#1}}} \vspace{2mm}}}
+\newcommand{\mySubsection}[1]{{ \subsection{\color{mainColor} \hspace{-9mm} \textsf{#1}}}}
+\newcommand{\mySubsectionMinor}[1]{{ \subsection{\color{minorColor} \hspace{-9mm} \textsf{#1}}}}
 \newcommand{\myChapterLink}[2]{{\color{webColor} \hyperref[#1]{#2}}, page \pageref{#1}}
 
 \definecolor{keyColorA}{RGB}{170, 149, 0}
@@ -51,6 +54,13 @@
 \newcommand{\minorKey}[1]{\textbf{\color{minorColor}#1}}
 \newcommand{\mainSub}[1]{{\color{mainColor}\hspace{-9mm} \textsf{#1}}}
 \newcommand{\minorSub}[1]{{\color{minorColor}\hspace{-9mm} \textsf{#1}}}
+
+\titleformat*{\section}{\normalfont\sffamily\Large\bfseries}
+\titlespacing{\section}{-15mm}{4mm}{2mm}
+\newcommand{\useMainSub}{\titleformat*{\subsection}{\color{mainColor}\normalfont\sffamily}}
+\newcommand{\useMinorSub}{\titleformat*{\subsection}{\color{minorColor}\normalfont\sffamily}}
+\titlespacing{\subsection}{-15mm}{2mm}{1mm}
+\useMainSub
 
 \definecolor{hookColor}{RGB}{204, 0, 255}
 \newcommand{\hook}[1]{{\color{hookColor}\textbf{#1}}}

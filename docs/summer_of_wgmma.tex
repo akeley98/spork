@@ -60,7 +60,7 @@ This document is meant more as a reference guide, and not something to read end-
 }
 
 \newpage
-\mySection{Instr Class}
+\section{Instr Class}
 \label{ch:InstrClass}
 
 ``New-style'' instruction templates are created as \lighttt{@instr}-decorated Python classes, rather than functions.
@@ -131,7 +131,7 @@ As an alternative, let's support codegen with a Python function that's given inf
 This ties into my proposed changes to the window system that allow deeper introspection of windows.
 
 \newpage
-\mySection{Make Windows Better}
+\section{Make Windows Better}
 \label{ch:Windows}
 
 Windows serve two purposes in Exo
@@ -514,7 +514,7 @@ We need to provide both the window encoder and indexer with helpers that check
 \end{itemize}
 
 \newpage
-\mySection{Instrs \& Distributed Memory}
+\section{Instrs \& Distributed Memory}
 \label{ch:Instrs}
 
 The vast majority of instructions follow the ``each thread collective owns its own distributed shard'' model, i.e., any window parameters passed in refer to a portion of just one distributed shard.
@@ -545,7 +545,7 @@ just make a mental note we did this in case there's problems later.
 \end{figure*}
 
 \newpage
-\mySection{Timelines \& Synchronization}
+\section{Timelines \& Synchronization}
 \label{ch:Timelines}
 
 For now I'll just sketch out the basics of how the abstract machine tracks read/write visibility, and go over the changes entailed by moving from the actor kind / actor signature model to the new timeline model:
@@ -726,7 +726,7 @@ Remarks:
 \end{itemize}
 
 \newpage
-\mySection{Arrive/Await Pairing}
+\section{Arrive/Await Pairing}
 \label{ch:ArriveAwaitPairing}
 
 It's time to define the correspondence between arrive and await statements.
@@ -813,7 +813,7 @@ Let \lighttt{lag = \textasciitilde N} (complement, not negate), and do:
 Essentially, the first \lighttt{lag}-many await statements are no-ops, and then arrives and awaits pair up 1:1.
 
 \newpage
-\mySection{Multicasting mbarriers}
+\section{Multicasting mbarriers}
 \label{ch:Multicasting}
 
 See this \webText{Colfax Research Article}{https://research.colfax-intl.com/cutlass-tutorial-gemm-with-thread-block-clusters-on-nvidia-blackwell-gpus/}, especially ``Constructing bitmasks'', for background.
@@ -1019,7 +1019,7 @@ In a way, the cleanest design would be to have some sort of ``compound statement
 I do not have any concrete ideas in this direction, or even confidence that this will be worth it from a language design standpoint and not cause all sorts of other issues down the line (including the interaction with \myChapterLink{ch:tma}{TMA Instruction Barrier Parameter}).
 
 \newpage
-\mySection{TMA Instruction Barrier Parameter}
+\section{TMA Instruction Barrier Parameter}
 \label{ch:tma}
 
 TMA GMEM-to-SMEM instructions specifically require an mbarrier, and multicasting information (a.k.a. CTA mask) to operate.
@@ -1064,7 +1064,7 @@ If the barrier argument is absent from the instruction definition (which is the 
 TODO it's a bit weird how the barrier appears inside the argument list for \lighttt{behavior(...)}, but outside as a trailing \lighttt{>> $Q$} in the instr call site ... my motivation for the \lighttt{>>} was to emphasize the non-normalness of barriers (they're meaningless in S-semantics), but maybe I'm just trying to look cool.
 
 \newpage
-\mySection{Exo mbarrier Pairing Requirement}
+\section{Exo mbarrier Pairing Requirement}
 \label{ch:mbarrier}
 
 Arrive-indexed queue barriers lower to commit groups trivially.
@@ -1253,7 +1253,7 @@ Let $r = \lighttt{F\_lag} + \lighttt{B\_lag}$ (the needed ring buffer size) and 
 Substitute $x = n + \lighttt{B\_lag}$, $y = n+r$, to get the same conclusion from (c), (d), and (a) for $\widehat{Q}$.
 
 \newpage
-\mySection{Abstract Machine Grammar}
+\section{Abstract Machine Grammar}
 \label{ch:AbstractMachineGrammar}
 
 \mainSub{Timeline Types}
