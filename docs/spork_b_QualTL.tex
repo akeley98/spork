@@ -1,0 +1,11 @@
+\texttt{cpu\_in\_order\_qual} (cpu): accessed by non-explicitly-async CPU instruction\\
+\texttt{cpu\_cuda\_stream\_qual} (strm): accessed by stream-ordered CUDA API call (e.g. \lighttt{cudaMemcpyAsync})\\
+\texttt{cuda\_in\_order\_rmem\_qual} (cuda1): register accessed by non-explicitly-async CUDA instruction\\
+\texttt{cuda\_in\_order\_ram\_qual} (cuda2): non-register accessed by non-explicitly-async CUDA instruction\\
+\texttt{Sm80\_cp\_async\_qual} (Sm80): accessed by \lighttt{cp.async} instruction (non-bulk, i.e. not TMA)\\
+\texttt{tma\_to\_smem\_async\_qual} (tmaS): accessed by \lighttt{cp.async.bulk} ``load'' instruction (GMEM$\to$SMEM)\\
+\texttt{tma\_to\_gmem\_async\_qual} (tmaG): accessed by \lighttt{cp.async.bulk} ``store instruction (SMEM$\to$GMEM)\\
+\texttt{wgmma\_async\_rmem\_a\_qual} (wgA): $A$ parameter in registers accessed by \lighttt{wgmma.mma\_async}\\
+\texttt{wgmma\_async\_rmem\_d\_qual} (wgD): $D$ parameter in registers accessed by \lighttt{wgmma.mma\_async}\\
+\texttt{wgmma\_async\_smem\_qual} (wgS): $A$ or $B$ parameter in SMEM accessed by \lighttt{wgmma.mma\_async}\\
+\texttt{wgmma\_zero\_qual} (wg0): Special case for modeling \textsf{scale-d = 0}\\
