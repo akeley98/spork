@@ -208,24 +208,20 @@ These are unpacked from a collective unit $\tau_u$ defined in the frontend langu
 A collective type consists of two equal-length tuples: a domain and a box.
 The dimension $M$ of the collective type is the length of these tuples.
 The \myKeyA{domain} ($\delta.D_0...\delta.D_{M-1}$): $\mathbb{N}_{\ge2}^M$ describes an organization of the threads in a cluster into an $M$-dimensional space.
-The \myKeyA{box} ($\delta.B_0...\delta.B_{M-1}$): $\mathbb{N}_\bot^M$ describes the number of threads on each dimension to select.
+The \myKeyA{box} ($\delta.B_0...\delta.B_{M-1}$): $\mathbb{N}_\bot^M$ describes the number of threads on each dimension to select (the special value $\bot$ indicates ``no requirement'').
 
 We first define a linear ordering of threads in a cluster, then extend to multidimensional coordinates.
-The local thread index of a thread is
-\[
-    \lighttt{cluster\_ctarank * blockDim.x + threadIdx.x}
-\]
+The local thread index of a thread is \lighttt{cluster\_ctarank * blockDim.x + threadIdx.x}
 i.e., the threads in a cluster are numbered in (\lighttt{cluster\_ctarank, threadIdx.x})-lexicographical order (Exo-GPU parallelizes on the x dimension only).
+
 For a given domain, we derive the \myKeyA{dimension thread pitch} $\delta.P_i$:
 \begin{align*}
     \delta.P_i = \prod_{k=i+1}^{M-1} \delta.D_k
 \end{align*}
-and we define the mapping $\mathsf{toLocal}: \mathbb{N}^M \to \mathbb{N}^M \to \mathbb{N}$, which converts a domain and coordinates to a local thread index, as
-\begin{align*}
-    \mathsf{toLocal}((\delta.D_0,...,\delta.D_{M-1}), (c_0,...,c_{M-1})) \mapsto \sum_{k=0}^{M-1} c_k \delta.P_k
-\end{align*}
-i.e. the coordinates $[0, \delta.D_0-1]_\mathbb{N} \times ... \times [0, \delta.D_{M-1}-1]_\mathbb{N}$ get mapped to local thread indices in lexicographical order.
+and we define the mapping $\mathsf{toLocal}(D, c)$ (def~\ref{sec:gToLocal}), which converts a domain $D$ and coordinates $c$ to a local thread index; the coordinates $[0, \delta.D_0-1]_\mathbb{N} \times ... \times [0, \delta.D_{M-1}-1]_\mathbb{N}$ get mapped to local thread indices in lexicographical order.
 The product of the domain coordinates $\delta.D_0 \times ... \times \delta.D_{M-1}$ must be equal to the number of threads in the cluster (\lighttt{clusterDim.x * blockDim.x}).
+
+\subsection{Collective Types \& Thread Collectives}
 
 A thread collective is described by a collective type $\delta$ when all threads are in the same cluster, and, with $\mu: \mathcal{P}(\mathbb{N})$ being the set of local thread indices of the threads, there exist sets $C_0 ... C_{M-1}: \mathcal{P}(\mathbb{N})$ such that
 \begin{itemize}
@@ -233,6 +229,8 @@ A thread collective is described by a collective type $\delta$ when all threads 
   \item $\delta.B_i \ne \bot \implies \exists x \mid C_i = [x, x + \delta.B_i - 1]_\mathbb{N}$.
   \item $\mu = \{ \mathsf{toLocal}(\delta.D, c) \mid c \in C_0 \times ... \times C_{M-1}\}$
 \end{itemize}
+
+\subsection{Reshape}
 
 \subsection{Collective Unit to Collective Type}
 \label{sec:CollectiveUnit}
@@ -243,8 +241,6 @@ We convert to
   \item (fail if any coordinate is not a natural number)
 \end{itemize}
 
-
-\subsection{Reshape}
 
 \FloatBarrier
 \newpage
@@ -293,6 +289,53 @@ Group of \lighttt{clusterDim}-many CTAs (def~\ref{sec:gCta}) that execute concur
 When \lighttt{clusterDim = 1} (which is the case by default for Exo-GPU), then CTA and cluster are synonymous.
 The PTX variable \lighttt{cluster\_ctarank} is the 0-based index of the CTA in the cluster.
 
+\subsection{Collective Type (Scope)}
+\label{sec:gCollectiveType}
+
+Description of a certain number and arrangement of threads in a cluster, e.g. thread, warp, CTA (Section~\ref{sec:CollectiveTypes}).
+A collective type $\delta$ has a certain dimensionality $M$, and consists of
+\begin{itemize}
+  \item domain, $\delta.D: \mathbb{N}_{\ge2}^M$ (coordinates are natural numbers at least 2).
+  \item box, $\delta.B: \mathbb{N}_\bot^M$ (coordinates are natural numbers or $\bot$).
+\end{itemize}
+As well as implied dimension thread pitch values $\delta.P$ (def~\ref{sec:gThreadPitch}).
+A statement is at $\delta$-scope when it is in CUDA scope (def~\ref{sec:gCudaScope}) and the thread collectives assigned to execute instances of that statement are always described by $\delta$.
+
+
+\subsection{Collective Unit (Scope)}
+\label{sec:gCollectiveUnit}
+
+Syntactic construct that wraps a collective type (Section~\ref{sec:CollectiveUnit}).
+This may be parameterized based on \lighttt{blockDim} and \lighttt{clusterDim}.
+A statement is at $\tau_u$-scope when it is in $\delta$-scope (def~\ref{sec:gCollectiveType}), where $\delta$ is unpacked from $\tau_u$ with alignment and 1-padding (Section~\ref{sec:CollectiveUnit}).
+
+{
+\footnotesize
+\centering
+\arraycolsep=1.8pt\def\arraystretch{1.0}
+\setlength{\tabcolsep}{2pt}
+\begin{tabular}{rrlll}
+\toprule
+& & & \emph{domain} & \emph{box} \\
+$\tau_u : \mathrm{CollUnit} $ & $\Coloneqq$ &
+  \texttt{standalone\_thread} & \texttt{(1,)} & \texttt{(1,)} \\
+  &|& \texttt{$n_1$ * cuda\_thread} & \texttt{(blockDim,)} & \texttt{($n_1$,)} \\
+  &|& \texttt{cuda\_quadpair} & \texttt{(blockDim/16, 16)} & \texttt{(2, 4)} \\
+  &|& \texttt{$n_1$ * cuda\_warp} & \texttt{(blockDim,)} & \texttt{($n_1$ * 32,)} \\
+  &|& \texttt{$n_1$ * cuda\_warpgroup} & \texttt{(blockDim,)} & \texttt{($n_1$ * 128,)} \\
+  &|& \texttt{$n_1$ * cuda\_threads\_strided($n_2$, $n_3$)} & \texttt{(blockDim/$n_3$, $n_3$)} & \texttt{($n_1$, $n_2$)} \\
+  &|& \texttt{$n_1$ * cuda\_warp\_in\_cluster} & \texttt{(clusterDim, blockDim)} & \texttt{($n_1$, 32)} \\
+  &|& \texttt{$n_1$ * cuda\_cta\_in\_cluster} & \texttt{(clusterDim * blockDim,)} & \texttt{($n_1$ * blockDim,)} \\
+  &|& \texttt{cuda\_cluster} & \texttt{(clusterDim * blockDim,)} & \texttt{(clusterDim * blockDim,)} \\
+  &|& \texttt{$n_1$ * cuda\_cta\_in\_cluster\_strided($n_3$)} & \texttt{(ClusterDim/$n_3$, $n_3$, blockDim)} & \texttt{($n_1$, 1, blockDim)} \\
+  &|& \texttt{$n_1$ * cuda\_warp\_in\_cluster\_strided($n_3$)} & \texttt{(clusterDim/$n_3$, $n_3$, blockDim)} & \texttt{($n_1$, 1, 32)} \\
+  &|& \texttt{cuda\_agnostic\_sub\_cta} & \texttt{(clusterDim, blockDim)} & \texttt{(1, \_)} \\
+  &|& \texttt{cuda\_agnostic\_intact\_cta} & \texttt{(clusterDim, blockDim)} & \texttt{(\_, blockDim)} \\
+\bottomrule
+\end{tabular}
+}
+
+
 \subsection{CPU Scope}
 \label{sec:gCpuScope}
 
@@ -328,6 +371,13 @@ Statements within a \lighttt{CudaDeviceFunction} block (def~\ref{sec:gCudaDevice
 
 The body of the inner-most \lighttt{cuda\_tasks} loop is a device task (see~\ref{sec:gCudaDeviceFunction}).
 
+\subsection{Domain}
+\label{sec:gDomain}
+
+Attribute $\delta.D$ of a collective type $\delta$ and attribute $\omega.D$ of a collective tiling $\omega$.
+Both are of type $\mathbb{N}_{\ge2}^M$ for some dimension $M: \mathbb{N}$.
+This describes the arrangement of threads within a cluster into an $M$-dimensional grid via the \textsf{toLocal} function (def~\ref{sec:gToLocal}).
+
 % >E
 % >F
 % >G
@@ -362,9 +412,9 @@ The respective frontend syntax is
 
 Scheduling functions:
 \begin{itemize}
-  \item \lighttt{set\_loop\_mode}: use new loop mode object.
-  \item \lighttt{update\_loop\_mode}: modify attribute of loop mode.
-  \item \lighttt{parallelize\_loop}: use \lighttt{Par()} as the loop mode (legacy).
+  \item \texttt{set\_loop\_mode}: use new loop mode object.
+  \item \texttt{update\_loop\_mode}: modify attribute of loop mode.
+  \item \texttt{parallelize\_loop}: use \lighttt{Par()} as the loop mode (legacy).
 \end{itemize}
 
 % >M
@@ -424,7 +474,72 @@ $\tau_s$ & cpu & strm & cuda1 & cuda2 & Sm80 & tmaS & tmaG & wgA & wgD & wgS & w
 
 \input{spork_b_QualTL.tex}
 
+\subsection{Synchronization Statement}
+\label{sec:gSyncStmt}
+
+One of
+
+\hphantom{spacing}
+\texttt{Fence($\tau_s^\mathrm{pre}, \tau_s^\mathrm{post}$)}
+\hfill
+\texttt{Arrive($\tau_s^\mathrm{pre}$) >}\texttt{> $z$}
+\hfill
+\texttt{Await($z, \tau_s^\mathrm{post}, n$)}
+\hphantom{spacing}
+
+where $\tau_s^\mathrm{pre}$ and $\tau_s^\mathrm{post}$ are \myKeyA{sync timelines} (\textsf{SyncTL}, \ref{sec:gSyncTL}), which filter the set of qualitative timelines of memory accesses that are synchronized, and $z$ and $n$ are a barrier variable read and an integer, which together control pairing of executed \lighttt{Arrive} and \lighttt{Await} instances.
+
+Scheduling functions:
+\begin{itemize}
+  \item \texttt{insert\_barrier\_alloc}: insert allocation of a barrier variable
+  \item \texttt{insert\_fence}
+  \item \texttt{insert\_arrive}
+  \item \texttt{insert\_await}
+\end{itemize}
+
+
 % >T
+\subsection{Thread Collective}
+\label{sec:gThreadCollective}
+
+Set of threads assigned to execute one statement instance (def~\ref{sec:gStatementInstance}).
+The threads in the thread collective are uniquely identified by its cluster index (which is not statically analyzed) and its local thread index (def~\ref{sec:gLocalThreadIndex}), which is analyzed by collective analysis (Section~\ref{sec:CollectiveTiling}).
+
+\subsection{Thread Pitch (Set)}
+\label{sec:gThreadPitch}
+
+The thread pitch is used in multiple contexts.
+In all cases, it describes the ``distance'', in local thread indices (def~\ref{sec:gLocalThreadIndex}), between adjacent items of some sort.
+
+\textbf{\texttt{cuda\_threads} Loop Iterator:} Let $\mu: \mathcal{P}(\mathbb{N})$ be the local thread indices of the thread collective executing the 0th iteration of the loop.
+The local thread indices of the thread collective execucting the $j^{th}$ iteration of the loop are $\{t + jp \mid t \in \mu\}$, $p$ being the thread pitch of the loop iterator.
+If the loop has no more than 1 iteration, then the thread pitch of the loop iterator is 0.
+
+\textbf{Distributed Memory:} Let $\mu: \mathcal{P}(\mathbb{N})$ be the local thread indices of the thread collective allocating the physical memory holding $x[0, ..., 0]$, and let the deduced thread pitch tuple for the variable $x$ be $(p_0, ..., p_{M-1})$.
+Then the local thread indices of the thread collective for $x[i_0, i_1, ...]$ are
+\begin{equation*}
+  \left \{ t + \sum_{k=0}^{M-1} p_k i_k \mid t \in \mu \right \}
+\end{equation*}
+
+\textbf{Domain:} For a domain $(D_0, ..., D_{M-1})$, we define respective dimension thread pitch values as
+\begin{equation*}
+    P_m = \prod_{k=m+1}^{M-1} D_k
+\end{equation*}
+As a shorthand, we say $\delta.P_k$ or $\omega.P_k$ to mean the $k^{th}$ dimension thread pitch defined above, with respect to $\delta.D$ or $\omega.D$.
+The thread pitch set of $D$ is $\{P_0, ..., P_{M-1}\}$; note $P_0 = 1$ always.
+
+\textbf{Collective Tiling/Type:} The thread pitch set of a collective tiling/type is that of its domain.
+
+\subsection{toLocal}
+\label{sec:gToLocal}
+
+We define the mapping $\mathsf{toLocal}: \mathbb{N}^M \to \mathbb{N}^M \to \mathbb{N}$, which converts a domain (def~\ref{sec:gDomain}) and coordinates to a local thread index, as
+\begin{align*}
+    \mathsf{toLocal}((D_0,...,D_{M-1}), (c_0,...,c_{M-1})) \mapsto \sum_{k=0}^{M-1} c_k \times D_{k+1} \times ... \times D_{M-1}
+\end{align*}
+i.e. the coordinates $[0, D_0-1]_\mathbb{N} \times ... \times [0, D_{M-1}-1]_\mathbb{N}$ get mapped to local thread indices (def~\ref{sec:gLocalThreadIndex}) in lexicographical order.
+For this definition to work as expected, the product of the domain coordinates $D_0 \times ... \times D_{M-1}$ must be equal to the number of threads in the cluster (\lighttt{clusterDim.x * blockDim.x}).
+
 % >U
 % >V
 % >W
