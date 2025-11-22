@@ -1,6 +1,19 @@
 % exocc b_samples.py && python3 code_to_tex.py b_samples.py b_samples && xelatex spork_b.tex </dev/null
 \input{whitepaper_common.tex}
 
+\tikzstyle{redstyle} = [draw=redBoxFg, fill=redBoxBg, text=redBoxFg]
+\tikzstyle{yellowstyle} = [draw=yellowBoxFg, fill=yellowBoxBg, text=yellowBoxFg]
+\tikzstyle{greenstyle} = [draw=greenBoxFg, fill=greenBoxBg, text=greenBoxFg]
+\tikzstyle{bluestyle} = [draw=blueBoxFg, fill=blueBoxBg, text=blueBoxFg]
+\tikzstyle{violetstyle} = [draw=violetBoxFg, fill=violetBoxBg, text=violetBoxFg]
+\tikzstyle{nRedstyle} = [draw=nRedBoxFg, fill=nRedBoxBg, text=nRedBoxFg]
+\tikzstyle{nGoldstyle} = [draw=nGoldBoxFg, fill=nGoldBoxBg, text=nGoldBoxFg]
+\tikzstyle{nGreenstyle} = [draw=nGreenBoxFg, fill=nGreenBoxBg, text=nGreenBoxFg]
+\tikzstyle{nBluestyle} = [draw=nBlueBoxFg, fill=nBlueBoxBg, text=nBlueBoxFg]
+\tikzstyle{nPurplestyle} = [draw=nPurpleBoxFg, fill=nPurpleBoxBg, text=nPurpleBoxFg]
+
+\tikzstyle{CollTypeExampleStyle} = [rectangle, draw=black, text centered, text width=20mm]
+
 \begin{document}
 
 % Kernel launch \& loops:
@@ -40,11 +53,11 @@
 
 Launching kernels, distributing work to clusters with \lighttt{cuda\_tasks} loops, \lighttt{CudaWarps} blocks.
 
-\myChapterLink{sec:CollectiveTypes}{Collective Units \& Collective Types}
+\myChapterLink{sec:CollTypes}{Collective Units \& Collective Types}
 
 Modeling subdivisions of threads in the cluster, e.g. threads, warps, warpgroups, CTAs, CTA pairs.
 
-\myChapterLink{sec:CollectiveTiling}{Collective Tiling}
+\myChapterLink{sec:CollTiling}{Collective Tiling}
 
 Distributing work to threads-in-cluster with \lighttt{cuda\_threads} loops.
 
@@ -75,7 +88,7 @@ Within the device task, each statement instance (def~\ref{sec:gStatementInstance
 
 A \lighttt{cuda\_threads(0, $c_\text{hi}$, unit=\_)} loop may appear anywhere inside a device task.
 This statement divides its executing thread collective into $c_\text{hi}$-many disjoint subsets (possibly with some inactive threads left over), and assigns one to execute each iteration of the loop.
-The \lighttt{unit} parameter is a \myKeyA{collective unit}, from which a \myKeyA{collective type} $\delta$ is unpacked (Section~\ref{sec:CollectiveTypes}).
+The \lighttt{unit} parameter is a \myKeyA{collective unit}, from which a \myKeyA{collective type} $\delta$ is unpacked (Section~\ref{sec:CollTypes}).
 The collective type describes a number and arrangement of threads (e.g. single thread, warp, CTA, CTA pair).
 In the common case, the thread collectives assigned to each iteration are described by this unpacked $\delta$.
 
@@ -201,13 +214,13 @@ Within the device task, a \lighttt{with CudaWarps(name=<str>)} statement may be 
 \FloatBarrier
 \newpage
 \section{Collective Units \& Collective Types}
-\label{sec:CollectiveTypes}
+\label{sec:CollTypes}
 
 We use collective types $\delta$ to describe a quantity and arrangement of threads within a cluster, such as ``single thread'', ``warp'', ``CTA'', ``one warp from a pair of CTAs''.
-These are unpacked from a collective unit $\tau_u$ defined in the frontend language (Section~\ref{sec:CollectiveUnit}).
+These are unpacked from a collective unit $\tau_u$ defined in the frontend language (Section~\ref{sec:CollUnit}).
 A collective type consists of two equal-length tuples: a domain and a box.
 The dimension $M$ of the collective type is the length of these tuples.
-The \myKeyA{domain} ($\delta.D_0...\delta.D_{M-1}$): $\mathbb{N}_{\ge2}^M$ describes an organization of the threads in a cluster into an $M$-dimensional space.
+The \myKeyA{domain} ($\delta.D_0...\delta.D_{M-1}$): $\mathbb{N}_{\ge2}^M$ describes an organization of the threads in a cluster into an $M$-dimensional grid.
 The \myKeyA{box} ($\delta.B_0...\delta.B_{M-1}$): $\mathbb{N}_\bot^M$ describes the number of threads on each dimension to select (the special value $\bot$ indicates ``no requirement'').
 
 We first define a linear ordering of threads in a cluster, then extend to multidimensional coordinates.
@@ -222,6 +235,7 @@ and we define the mapping $\mathsf{toLocal}(D, c)$ (def~\ref{sec:gToLocal}), whi
 The product of the domain coordinates $\delta.D_0 \times ... \times \delta.D_{M-1}$ must be equal to the number of threads in the cluster (\lighttt{clusterDim.x * blockDim.x}).
 
 \subsection{Collective Types \& Thread Collectives}
+\label{sec:CollTypeThreadCollective}
 
 A thread collective is described by a collective type $\delta$ when all threads are in the same cluster, and, with $\mu: \mathcal{P}(\mathbb{N})$ being the set of local thread indices of the threads, there exist sets $C_0 ... C_{M-1}: \mathcal{P}(\mathbb{N})$ such that
 \begin{itemize}
@@ -229,23 +243,132 @@ A thread collective is described by a collective type $\delta$ when all threads 
   \item $\delta.B_i \ne \bot \implies \exists x \mid C_i = [x, x + \delta.B_i - 1]_\mathbb{N}$.
   \item $\mu = \{ \mathsf{toLocal}(\delta.D, c) \mid c \in C_0 \times ... \times C_{M-1}\}$
 \end{itemize}
+If we have no $\bot$ box coordinates, this is specifying that the thread collective forms a cuboid of dimensions $\delta.B_0 \times ... \times \delta.B_{M-1}$ when its threads are arranged in the grid implied by $\delta.D$; therefore, the number of threads in the thread collective is the product of the box coordinates (Figure~\ref{fig:CollTypeExample}).
 
-\subsection{Reshape}
+\begin{figure}[t]
+\sffamily
+\begin{tikzpicture}[node distance=0mm]
+\node(t000a) [CollTypeExampleStyle] {(0, 0)\\0 $ \in \mu$\\0, 0, 0, 0};
+\node(t000b) [CollTypeExampleStyle, right=of t000a, xshift=6mm] {(0, 127)\\127 $ \in \mu$\\0, 0, 0, 127};
+\draw [dotted] (t000a) -- (t000b);
+\node(t001a) [CollTypeExampleStyle, right=of t000b, xshift=2mm, yshift=-3mm] {(0, 128)\\128 $ \in \mu$\\0, 0, 1, 0};
+\node(t001b) [CollTypeExampleStyle, right=of t001a, xshift=6mm] {(0, 255)\\255 $ \in \mu$\\0, 0, 1, 127};
+\draw [dotted] (t001a) -- (t001b);
+\node(t002a) [CollTypeExampleStyle, right=of t001b, xshift=2mm, yshift=-3mm] {(0, 256)\\256 $ \in \mu$\\0, 0, 2, 0};
+\node(t002b) [CollTypeExampleStyle, right=of t002a, xshift=6mm] {(0, 383)\\383 $ \in \mu$\\0, 0, 2, 127};
+\draw [dotted] (t002a) -- (t002b);
+\node(t010a) [CollTypeExampleStyle, below=of t000a, yshift=-2mm] {(1, 0)\\384 $ \in \mu$\\0, 1, 0, 0};
+\node(t010b) [CollTypeExampleStyle, right=of t010a, xshift=6mm] {(1, 127)\\511 $ \in \mu$\\0, 1, 0, 127};
+\draw [dotted] (t010a) -- (t010b);
+\node(t011a) [CollTypeExampleStyle, right=of t010b, xshift=2mm, yshift=-3mm] {(1, 128)\\512 $ \in \mu$\\0, 1, 1, 0};
+\node(t011b) [CollTypeExampleStyle, right=of t011a, xshift=6mm] {(1, 255)\\639 $ \in \mu$\\0, 1, 1, 127};
+\draw [dotted] (t011a) -- (t011b);
+\node(t012a) [CollTypeExampleStyle, right=of t011b, xshift=2mm, yshift=-3mm] {(1, 256)\\640 $ \in \mu$\\0, 1, 2, 0};
+\node(t012b) [CollTypeExampleStyle, right=of t012a, xshift=6mm] {(1, 383)\\767 $ \in \mu$\\0, 1, 2, 127};
+\draw [dotted] (t012a) -- (t012b);
 
-\subsection{Collective Unit to Collective Type}
-\label{sec:CollectiveUnit}
+\node(t100a) [CollTypeExampleStyle, below=of t010a, yshift=-4mm, xshift=-4mm] {(2, 0)\\768 $ \in \mu$\\1, 0, 0, 0};
+\node(t100b) [CollTypeExampleStyle, right=of t100a, xshift=6mm] {(2, 127)\\895 $ \in \mu$\\1, 0, 0, 127};
+\draw [dotted] (t100a) -- (t100b);
+\node(t101a) [CollTypeExampleStyle, right=of t100b, xshift=2mm, yshift=-3mm] {(2, 128)\\896 $ \in \mu$\\1, 0, 1, 0};
+\node(t101b) [CollTypeExampleStyle, right=of t101a, xshift=6mm] {(2, 255)\\1023 $ \in \mu$\\1, 0, 1, 127};
+\draw [dotted] (t101a) -- (t101b);
+\node(t102a) [greenstyle, CollTypeExampleStyle, right=of t101b, xshift=2mm, yshift=-3mm] {(2, 256)\\1024 $ \in \mu$\\1, 0, 2, 0};
+\node(t102b) [greenstyle, CollTypeExampleStyle, right=of t102a, xshift=6mm] {(2, 383)\\1151 $ \in \mu$\\1, 0, 2, 127};
+\draw [dotted] (t102a) -- (t102b);
+\node(t110a) [CollTypeExampleStyle, below=of t100a, yshift=-2mm] {(3, 0)\\1152 $ \in \mu$\\1, 1, 0, 0};
+\node(t110b) [CollTypeExampleStyle, right=of t110a, xshift=6mm] {(3, 127)\\1279 $ \in \mu$\\1, 1, 0, 127};
+\draw [dotted] (t110a) -- (t110b);
+\node(t111a) [CollTypeExampleStyle, right=of t110b, xshift=2mm, yshift=-3mm] {(3, 128)\\1280 $ \in \mu$\\1, 1, 1, 0};
+\node(t111b) [CollTypeExampleStyle, right=of t111a, xshift=6mm] {(3, 255)\\1407 $ \in \mu$\\1, 1, 1, 127};
+\draw [dotted] (t111a) -- (t111b);
+\node(t112a) [greenstyle, CollTypeExampleStyle, right=of t111b, xshift=2mm, yshift=-3mm] {(3, 256)\\1408 $ \in \mu$\\1, 1, 2, 0};
+\node(t112b) [greenstyle, CollTypeExampleStyle, right=of t112a, xshift=6mm] {(3, 383)\\1535 $ \in \mu$\\1, 1, 2, 127};
+\draw [dotted] (t112a) -- (t112b);
+
+\node(t200a) [CollTypeExampleStyle, below=of t110a, yshift=-4mm, xshift=-4mm] {(4, 0)\\1536 $ \in \mu$\\2, 0, 0, 0};
+\node(t200b) [CollTypeExampleStyle, right=of t200a, xshift=6mm] {(4, 127)\\1663 $ \in \mu$\\2, 0, 0, 127};
+\draw [dotted] (t200a) -- (t200b);
+\node(t201a) [CollTypeExampleStyle, right=of t200b, xshift=2mm, yshift=-3mm] {(4, 128)\\1664 $ \in \mu$\\2, 0, 1, 0};
+\node(t201b) [CollTypeExampleStyle, right=of t201a, xshift=6mm] {(4, 255)\\1791 $ \in \mu$\\2, 0, 1, 127};
+\draw [dotted] (t201a) -- (t201b);
+\node(t202a) [CollTypeExampleStyle, right=of t201b, xshift=2mm, yshift=-3mm] {(4, 256)\\1792 $ \in \mu$\\2, 0, 2, 0};
+\node(t202b) [CollTypeExampleStyle, right=of t202a, xshift=6mm] {(4, 383)\\1919 $ \in \mu$\\2, 0, 2, 127};
+\draw [dotted] (t202a) -- (t202b);
+\node(t210a) [CollTypeExampleStyle, below=of t200a, yshift=-2mm] {(5, 0)\\1920 $ \in \mu$\\2, 1, 0, 0};
+\node(t210b) [CollTypeExampleStyle, right=of t210a, xshift=6mm] {(5, 127)\\2047 $ \in \mu$\\2, 1, 0, 127};
+\draw [dotted] (t210a) -- (t210b);
+\node(t211a) [CollTypeExampleStyle, right=of t210b, xshift=2mm, yshift=-3mm] {(5, 128)\\2048 $ \in \mu$\\2, 1, 1, 0};
+\node(t211b) [CollTypeExampleStyle, right=of t211a, xshift=6mm] {(5, 255)\\2175 $ \in \mu$\\2, 1, 1, 127};
+\draw [dotted] (t211a) -- (t211b);
+\node(t212a) [CollTypeExampleStyle, right=of t211b, xshift=2mm, yshift=-3mm] {(5, 256)\\2176 $ \in \mu$\\2, 1, 2, 0};
+\node(t212b) [CollTypeExampleStyle, right=of t212a, xshift=6mm] {(5, 383)\\2303 $ \in \mu$\\2, 1, 2, 127};
+\draw [dotted] (t212a) -- (t212b);
+
+\node(t300a) [CollTypeExampleStyle, below=of t210a, yshift=-4mm, xshift=-4mm] {(6, 0)\\2304 $ \in \mu$\\3, 0, 0, 0};
+\node(t300b) [CollTypeExampleStyle, right=of t300a, xshift=6mm] {(6, 127)\\2431 $ \in \mu$\\3, 0, 0, 127};
+\draw [dotted] (t300a) -- (t300b);
+\node(t301a) [CollTypeExampleStyle, right=of t300b, xshift=2mm, yshift=-3mm] {(6, 128)\\2432 $ \in \mu$\\3, 0, 1, 0};
+\node(t301b) [CollTypeExampleStyle, right=of t301a, xshift=6mm] {(6, 255)\\2559 $ \in \mu$\\3, 0, 1, 127};
+\draw [dotted] (t301a) -- (t301b);
+\node(t302a) [CollTypeExampleStyle, right=of t301b, xshift=2mm, yshift=-3mm] {(6, 256)\\2560 $ \in \mu$\\3, 0, 2, 0};
+\node(t302b) [CollTypeExampleStyle, right=of t302a, xshift=6mm] {(6, 383)\\2687 $ \in \mu$\\3, 0, 2, 127};
+\draw [dotted] (t302a) -- (t302b);
+\node(t310a) [CollTypeExampleStyle, below=of t300a, yshift=-2mm] {(7, 0)\\2688 $ \in \mu$\\3, 1, 0, 0};
+\node(t310b) [CollTypeExampleStyle, right=of t310a, xshift=6mm] {(7, 127)\\2815 $ \in \mu$\\3, 1, 0, 127};
+\draw [dotted] (t310a) -- (t310b);
+\node(t311a) [CollTypeExampleStyle, right=of t310b, xshift=2mm, yshift=-3mm] {(7, 128)\\2816 $ \in \mu$\\3, 1, 1, 0};
+\node(t311b) [CollTypeExampleStyle, right=of t311a, xshift=6mm] {(7, 255)\\2943 $ \in \mu$\\3, 1, 1, 127};
+\draw [dotted] (t311a) -- (t311b);
+\node(t312a) [CollTypeExampleStyle, right=of t311b, xshift=2mm, yshift=-3mm] {(7, 256)\\2944 $ \in \mu$\\3, 1, 2, 0};
+\node(t312b) [CollTypeExampleStyle, right=of t312a, xshift=6mm] {(7, 383)\\3071 $ \in \mu$\\3, 1, 2, 127};
+\draw [dotted] (t312a) -- (t312b);
+
+\node(legend) [rectangle, draw=black, text centered, text width=5cm, above=of t000a, xshift=40mm, yshift=2mm] {(cluster\_ctarank, threadIdx.x)\\linear thread index $\in \mu$\\coordinates};
+\end{tikzpicture}
+\caption{Example of a thread collective being described by the collective type $\delta$ with $\delta.B = (1, 2, 1, 128)$ and $\delta.D = (4, 2, 3, 128)$, which is a collective type in aligned form. \lighttt{clusterDim = 8} and \lighttt{blockDim = 384}. $\mu = \mathsf{toLocal}(\delta.D, [1, 1]_\mathbb{N} \times [0, 1]_\mathbb{N} \times [2, 2]_\mathbb{N} \times [0, 127]_\mathbb{N})$. This is one warpgroup each selected from one CTA of a CTA pair.}
+\label{fig:CollTypeExample}
+\end{figure}
+
+\useMinorSub
+\subsection{(Extra Info) Reshape}
+
+Reshaping a collective type means to apply a series of dimension split operations to yield a new collective type.
+We split the $k^{th}$ dimension of a collective type by a factor $f \in \mathbb{N}$ by
+\begin{itemize}
+  \item Inserting the coordinate pair $(\delta.D_k / f, f)$ in place of $\delta.D_k$.
+  \item Inserting the coordinate pair $(\delta.B_k / f, f)$ in place of $\delta.B_k$, if $\delta.B_k \ne \bot$ and $\delta.B_k \ge f$.
+  \item Inserting the coordinate pair $(1, \delta.B_k)$ in place of $\delta.B_k$, if $\delta.B_k \ne \bot$ and $\delta.B_k < f$.
+  \item Inserting the coordinate pair $(\bot, \bot)$ in place of $\delta.B_k$, if $\delta.B_k = \bot$.
+\end{itemize}
+e.g. if $\delta.D = (4, 384)$ and $\delta.B = (1, 128)$, then splitting dimension 1 by $32$ gives $\delta.D = (4, 12, 32)$ and $\delta.B = (1, 4, 32)$.
+
+\subsection{(Extra Info) Collective Unit to Collective Type}
+\label{sec:CollUnit}
 
 Collective units are also parameterized by a pair of $M$-tuples (domain and box), with coordinates being integer expressions of \lighttt{blockDim} and \lighttt{clusterDim}, or $\bot$ in the case of the box.
-We convert to 
-\begin{itemize}
-  \item (fail if any coordinate is not a natural number)
-\end{itemize}
+This is represented in the frontend language as a Python \lighttt{CollUnit} object (the code consistently abbreviates ``collective'' as ``coll''), with $\bot$ represented by \lighttt{None}.
+These \lighttt{CollUnit} objects are listed in def~\ref{sec:gCollUnit}.
 
+The conversion to a collective type may or may not be \textit{aligned} and may or may not be \textit{1-padded}.
+The steps to unpack a collective type from a collective unit are
+
+\begin{itemize}
+  \item Substitute concrete values for \lighttt{clusterDim} and \lighttt{blockDim}.
+    This converts the domain and box into tuples of rational numbers or $\bot$.
+  \item Fail if any non-$\bot$ coordinate is not a natural number, or if $B_i \ne \bot \land B_i \notin [1, D_i]$ for any box coordinate $B_i$ and corresponding domain coordinate $D_i$.
+  \item Remove any domain coordinates $D_i$ with $D_i = 1$ and remove corresponding box coordinates $B_i$ (it must be the case that $B_i = 1$ or $B_i = \bot$ by the above check).
+  \item Initialize the collective type $\delta$ with the box and domain.
+  \item Let $f = \frac{\texttt{clusterDim * blockDim}}{\delta.D_0 \times \delta.D_1 \times ...}$; fail if $f \notin \mathbb{N}$.
+  \item If $f > 1$, prepend $f$ to $\delta.D$, and prepend $1$ or $\bot$ to $\delta.B$, for the 1-padded and non-1-padded cases, respectively.
+  \item If the conversion is \textit{aligned}, reshape until the collective type is in aligned form; fail if this cannot be done.
+\end{itemize}
 
 \FloatBarrier
 \newpage
+\useMainSub
 \section{Collective Tiling}
-\label{sec:CollectiveTiling}
+\label{sec:CollTiling}
 
 The \lighttt{cuda\_tasks} loops assign work to different clusters on the system, and the user has no control (yet) over the mapping between device tasks and clusters.
 On the other hand, the \lighttt{cuda\_threads} loop, which assigns work to threads within a cluster, provides the user with tight control over this work mapping.
@@ -290,24 +413,26 @@ When \lighttt{clusterDim = 1} (which is the case by default for Exo-GPU), then C
 The PTX variable \lighttt{cluster\_ctarank} is the 0-based index of the CTA in the cluster.
 
 \subsection{Collective Type (Scope)}
-\label{sec:gCollectiveType}
+\label{sec:gCollType}
 
-Description of a certain number and arrangement of threads in a cluster, e.g. thread, warp, CTA (Section~\ref{sec:CollectiveTypes}).
+Description of a certain number and arrangement of threads in a cluster, e.g. thread, warp, CTA (Section~\ref{sec:CollTypes}).
 A collective type $\delta$ has a certain dimensionality $M$, and consists of
 \begin{itemize}
   \item domain, $\delta.D: \mathbb{N}_{\ge2}^M$ (coordinates are natural numbers at least 2).
   \item box, $\delta.B: \mathbb{N}_\bot^M$ (coordinates are natural numbers or $\bot$).
 \end{itemize}
 As well as implied dimension thread pitch values $\delta.P$ (def~\ref{sec:gThreadPitch}).
-A statement is at $\delta$-scope when it is in CUDA scope (def~\ref{sec:gCudaScope}) and the thread collectives assigned to execute instances of that statement are always described by $\delta$.
+A statement is at $\delta$-scope when it is in CUDA scope (def~\ref{sec:gCudaScope}) and the thread collectives assigned to execute instances of that statement are always described by $\delta$ (Section~\ref{sec:CollTypeThreadCollective}).
 
 
 \subsection{Collective Unit (Scope)}
-\label{sec:gCollectiveUnit}
+\label{sec:gCollUnit}
 
-Syntactic construct that wraps a collective type (Section~\ref{sec:CollectiveUnit}).
+Syntactic construct that wraps a collective type.
 This may be parameterized based on \lighttt{blockDim} and \lighttt{clusterDim}.
-A statement is at $\tau_u$-scope when it is in $\delta$-scope (def~\ref{sec:gCollectiveType}), where $\delta$ is unpacked from $\tau_u$ with alignment and 1-padding (Section~\ref{sec:CollectiveUnit}).
+A collective unit instance is $\tau_u$ in the grammar, and is an instance of \lighttt{CollUnit} in Python, with $\bot$ represented by \lighttt{None} and other coordinate values represented by an instance of \lighttt{CollSizeExpr}.
+
+A statement is at $\tau_u$-scope when it is in $\delta$-scope (def~\ref{sec:gCollType}), where $\delta$ is unpacked from $\tau_u$ with alignment and 1-padding (Section~\ref{sec:CollUnit}).
 
 {
 \footnotesize
@@ -329,8 +454,8 @@ $\tau_u : \mathrm{CollUnit} $ & $\Coloneqq$ &
   &|& \texttt{cuda\_cluster} & \texttt{(clusterDim * blockDim,)} & \texttt{(clusterDim * blockDim,)} \\
   &|& \texttt{$n_1$ * cuda\_cta\_in\_cluster\_strided($n_3$)} & \texttt{(ClusterDim/$n_3$, $n_3$, blockDim)} & \texttt{($n_1$, 1, blockDim)} \\
   &|& \texttt{$n_1$ * cuda\_warp\_in\_cluster\_strided($n_3$)} & \texttt{(clusterDim/$n_3$, $n_3$, blockDim)} & \texttt{($n_1$, 1, 32)} \\
-  &|& \texttt{cuda\_agnostic\_sub\_cta} & \texttt{(clusterDim, blockDim)} & \texttt{(1, \_)} \\
-  &|& \texttt{cuda\_agnostic\_intact\_cta} & \texttt{(clusterDim, blockDim)} & \texttt{(\_, blockDim)} \\
+  &|& \texttt{cuda\_agnostic\_sub\_cta} & \texttt{(clusterDim, blockDim)} & \texttt{(1, $\bot$)} \\
+  &|& \texttt{cuda\_agnostic\_intact\_cta} & \texttt{(clusterDim, blockDim)} & \texttt{($\bot$, blockDim)} \\
 \bottomrule
 \end{tabular}
 }
@@ -503,7 +628,7 @@ Scheduling functions:
 \label{sec:gThreadCollective}
 
 Set of threads assigned to execute one statement instance (def~\ref{sec:gStatementInstance}).
-The threads in the thread collective are uniquely identified by its cluster index (which is not statically analyzed) and its local thread index (def~\ref{sec:gLocalThreadIndex}), which is analyzed by collective analysis (Section~\ref{sec:CollectiveTiling}).
+The threads in the thread collective are uniquely identified by its cluster index (which is not statically analyzed) and its local thread index (def~\ref{sec:gLocalThreadIndex}), which is analyzed by collective analysis (Section~\ref{sec:CollTiling}).
 
 \subsection{Thread Pitch (Set)}
 \label{sec:gThreadPitch}
@@ -511,24 +636,24 @@ The threads in the thread collective are uniquely identified by its cluster inde
 The thread pitch is used in multiple contexts.
 In all cases, it describes the ``distance'', in local thread indices (def~\ref{sec:gLocalThreadIndex}), between adjacent items of some sort.
 
-\textbf{\texttt{cuda\_threads} Loop Iterator:} Let $\mu: \mathcal{P}(\mathbb{N})$ be the local thread indices of the thread collective executing the 0th iteration of the loop.
+\mainKey{\texttt{cuda\_threads} Loop Iterator:} Let $\mu: \mathcal{P}(\mathbb{N})$ be the local thread indices of the thread collective executing the 0th iteration of the loop.
 The local thread indices of the thread collective execucting the $j^{th}$ iteration of the loop are $\{t + jp \mid t \in \mu\}$, $p$ being the thread pitch of the loop iterator.
 If the loop has no more than 1 iteration, then the thread pitch of the loop iterator is 0.
 
-\textbf{Distributed Memory:} Let $\mu: \mathcal{P}(\mathbb{N})$ be the local thread indices of the thread collective allocating the physical memory holding $x[0, ..., 0]$, and let the deduced thread pitch tuple for the variable $x$ be $(p_0, ..., p_{M-1})$.
+\mainKey{Distributed Memory:} Let $\mu: \mathcal{P}(\mathbb{N})$ be the local thread indices of the thread collective allocating the physical memory holding $x[0, ..., 0]$, and let the deduced thread pitch tuple for the variable $x$ be $(p_0, ..., p_{M-1})$.
 Then the local thread indices of the thread collective for $x[i_0, i_1, ...]$ are
 \begin{equation*}
   \left \{ t + \sum_{k=0}^{M-1} p_k i_k \mid t \in \mu \right \}
 \end{equation*}
 
-\textbf{Domain:} For a domain $(D_0, ..., D_{M-1})$, we define respective dimension thread pitch values as
+\mainKey{Domain:} For a domain $(D_0, ..., D_{M-1})$, we define respective dimension thread pitch values as
 \begin{equation*}
     P_m = \prod_{k=m+1}^{M-1} D_k
 \end{equation*}
 As a shorthand, we say $\delta.P_k$ or $\omega.P_k$ to mean the $k^{th}$ dimension thread pitch defined above, with respect to $\delta.D$ or $\omega.D$.
 The thread pitch set of $D$ is $\{P_0, ..., P_{M-1}\}$; note $P_0 = 1$ always.
 
-\textbf{Collective Tiling/Type:} The thread pitch set of a collective tiling/type is that of its domain.
+\mainKey{Collective Tiling/Type:} The thread pitch set of a collective tiling/type is that of its domain.
 
 \subsection{toLocal}
 \label{sec:gToLocal}
