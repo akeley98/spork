@@ -221,7 +221,7 @@ These are unpacked from a collective unit $\tau_u$ defined in the frontend langu
 A collective type consists of two equal-length tuples: a domain and a box.
 The dimension $M$ of the collective type is the length of these tuples.
 The \myKeyA{domain} ($\delta.D_0...\delta.D_{M-1}$): $\mathbb{N}_{\ge2}^M$ describes an organization of the threads in a cluster into an $M$-dimensional grid.
-The \myKeyA{box} ($\delta.B_0...\delta.B_{M-1}$): $\mathbb{N}_\bot^M$ describes the number of threads on each dimension to select (the special value $\bot$ indicates ``no requirement'').
+The \myKeyA{box} ($\delta.B_0...\delta.B_{M-1}$): $\mathbb{N}_\top^M$ describes the number of threads on each dimension to select (the special value $\top$ indicates ``no requirement'').
 
 We first define a linear ordering of threads in a cluster, then extend to multidimensional coordinates.
 The local thread index of a thread is \lighttt{cluster\_ctarank * blockDim.x + threadIdx.x}
@@ -240,10 +240,10 @@ The product of the domain coordinates $\delta.D_0 \times ... \times \delta.D_{M-
 A thread collective is described by a collective type $\delta$ when all threads are in the same cluster, and, with $\mu: \mathcal{P}(\mathbb{N})$ being the set of local thread indices of the threads, there exist sets $C_0 ... C_{M-1}: \mathcal{P}(\mathbb{N})$ such that
 \begin{itemize}
   \item $C_i \subseteq [0, \delta.D_i - 1]$
-  \item $\delta.B_i \ne \bot \implies \exists x \mid C_i = [x, x + \delta.B_i - 1]_\mathbb{N}$.
+  \item $\delta.B_i \ne \top \implies \exists x \mid C_i = [x, x + \delta.B_i - 1]_\mathbb{N}$.
   \item $\mu = \{ \mathsf{toLocal}(\delta.D, c) \mid c \in C_0 \times ... \times C_{M-1}\}$
 \end{itemize}
-If we have no $\bot$ box coordinates, this is specifying that the thread collective forms a cuboid of dimensions $\delta.B_0 \times ... \times \delta.B_{M-1}$ when its threads are arranged in the grid implied by $\delta.D$; therefore, the number of threads in the thread collective is the product of the box coordinates (Figure~\ref{fig:CollTypeExample}).
+If we have no $\top$ box coordinates, this is specifying that the thread collective forms a cuboid of dimensions $\delta.B_0 \times ... \times \delta.B_{M-1}$ when its threads are arranged in the grid implied by $\delta.D$; therefore, the number of threads in the thread collective is the product of the box coordinates (Figure~\ref{fig:CollTypeExample}).
 
 \begin{figure}[h!]
 \sffamily
@@ -337,17 +337,17 @@ Reshaping a collective type means to apply a series of dimension split operation
 We split the $k^{th}$ dimension of a collective type by a factor $f \in \mathbb{N}$ by
 \begin{itemize}
   \item Inserting the coordinate pair $(\delta.D_k / f, f)$ in place of $\delta.D_k$.
-  \item Inserting the coordinate pair $(\delta.B_k / f, f)$ in place of $\delta.B_k$, if $\delta.B_k \ne \bot$ and $\delta.B_k \ge f$.
-  \item Inserting the coordinate pair $(1, \delta.B_k)$ in place of $\delta.B_k$, if $\delta.B_k \ne \bot$ and $\delta.B_k < f$.
-  \item Inserting the coordinate pair $(\bot, \bot)$ in place of $\delta.B_k$, if $\delta.B_k = \bot$.
+  \item Inserting the coordinate pair $(\delta.B_k / f, f)$ in place of $\delta.B_k$, if $\delta.B_k \ne \top$ and $\delta.B_k \ge f$.
+  \item Inserting the coordinate pair $(1, \delta.B_k)$ in place of $\delta.B_k$, if $\delta.B_k \ne \top$ and $\delta.B_k < f$.
+  \item Inserting the coordinate pair $(\top, \top)$ in place of $\delta.B_k$, if $\delta.B_k = \top$.
 \end{itemize}
 e.g. if $\delta.D = (4, 384)$ and $\delta.B = (1, 128)$, then splitting dimension 1 by $32$ gives $\delta.D = (4, 12, 32)$ and $\delta.B = (1, 4, 32)$.
 
 \subsection{Collective Unit to Collective Type}
 \label{sec:CollUnit}
 
-Collective units are also parameterized by a pair of $M$-tuples (domain and box), with coordinates being integer expressions of \lighttt{blockDim} and \lighttt{clusterDim}, or $\bot$ in the case of the box.
-This is represented in the frontend language as a Python \lighttt{CollUnit} object (the code consistently abbreviates ``collective'' as ``coll''), with $\bot$ represented by \lighttt{None}.
+Collective units are also parameterized by a pair of $M$-tuples (domain and box), with coordinates being integer expressions of \lighttt{blockDim} and \lighttt{clusterDim}, or $\top$ in the case of the box.
+This is represented in the frontend language as a Python \lighttt{CollUnit} object (the code consistently abbreviates ``collective'' as ``coll''), with $\top$ represented by \lighttt{None}.
 We describe this further in def~\ref{sec:gCollUnit}.
 
 \FloatBarrier
@@ -393,8 +393,8 @@ More infrequently, the loop will fail to compile because the bounds are not of t
 \subsection{Aligned Form (Collective Type)}
 \label{sec:gAlignedForm}
 
-A collective type $\delta$ is in aligned form when all box coordinates $\delta.B_i$ satisfy $\delta.B_i \in \{\bot, 1, \delta.D_i\}$.
-If no box coordinate is $\bot$, then if $\delta$ describes two thread collectives, those two thread collectives are either identical or disjoint.
+A collective type $\delta$ is in aligned form when all box coordinates $\delta.B_i$ satisfy $\delta.B_i \in \{\top, 1, \delta.D_i\}$.
+If no box coordinate is $\top$, then if $\delta$ describes two thread collectives, those two thread collectives are either identical or disjoint.
 
 % >B
 % >C
@@ -412,7 +412,7 @@ Description of a certain number and arrangement of threads in a cluster, e.g. th
 A collective type $\delta$ has a certain dimensionality $M$, and consists of
 \begin{itemize}
   \item domain, $\delta.D: \mathbb{N}_{\ge2}^M$ (coordinates are natural numbers at least 2).
-  \item box, $\delta.B: \mathbb{N}_\bot^M$ (coordinates are natural numbers or $\bot$).
+  \item box, $\delta.B: \mathbb{N}_\top^M$ (coordinates are natural numbers or $\top$).
 \end{itemize}
 As well as implied dimension thread pitch values $\delta.P$ (def~\ref{sec:gThreadPitch}).
 A statement is at $\delta$-scope when it is in CUDA scope (def~\ref{sec:gCudaScope}) and the thread collectives assigned to execute instances of that statement are always described by $\delta$ (Section~\ref{sec:CollTypeThreadCollective}).
@@ -423,7 +423,7 @@ A statement is at $\delta$-scope when it is in CUDA scope (def~\ref{sec:gCudaSco
 
 Syntactic construct that wraps a collective type.
 This may be parameterized based on \lighttt{blockDim} and \lighttt{clusterDim}.
-A collective unit instance is $\tau_u$ in the grammar, and is an instance of \lighttt{CollUnit} in Python, with $\bot$ represented by \lighttt{None} and other coordinate values represented by an instance of \lighttt{CollSizeExpr}.
+A collective unit instance is $\tau_u$ in the grammar, and is an instance of \lighttt{CollUnit} in Python, with $\top$ represented by \lighttt{None} and other coordinate values represented by an instance of \lighttt{CollSizeExpr}.
 
 A statement is at $\tau_u$-scope when it is in $\delta$-scope (def~\ref{sec:gCollType}), where $\delta$ is unpacked from $\tau_u$ with alignment and 1-padding; we define this after the table.
 
@@ -447,8 +447,8 @@ $\tau_u : \mathrm{CollUnit} $ & $\Coloneqq$ &
   &|& \texttt{cuda\_cluster} & \texttt{(clusterDim * blockDim,)} & \texttt{(clusterDim * blockDim,)} \\
   &|& \texttt{$n_1$ * cuda\_cta\_in\_cluster\_strided($n_3$)} & \texttt{(ClusterDim/$n_3$, $n_3$, blockDim)} & \texttt{($n_1$, 1, blockDim)} \\
   &|& \texttt{$n_1$ * cuda\_warp\_in\_cluster\_strided($n_3$)} & \texttt{(clusterDim/$n_3$, $n_3$, blockDim)} & \texttt{($n_1$, 1, 32)} \\
-  &|& \texttt{cuda\_agnostic\_sub\_cta} & \texttt{(clusterDim, blockDim)} & \texttt{(1, $\bot$)} \\
-  &|& \texttt{cuda\_agnostic\_intact\_cta} & \texttt{(clusterDim, blockDim)} & \texttt{($\bot$, blockDim)} \\
+  &|& \texttt{cuda\_agnostic\_sub\_cta} & \texttt{(clusterDim, blockDim)} & \texttt{(1, $\top$)} \\
+  &|& \texttt{cuda\_agnostic\_intact\_cta} & \texttt{(clusterDim, blockDim)} & \texttt{($\top$, blockDim)} \\
 \bottomrule
 \end{tabular}
 }
@@ -458,13 +458,14 @@ The steps to unpack a collective type from a collective unit are
 
 \begin{itemize}
   \item Substitute concrete values for \lighttt{clusterDim} and \lighttt{blockDim}.
-    This converts the domain and box into tuples of rational numbers or $\bot$.
-  \item Fail if any non-$\bot$ coordinate is not a natural number, or if $B_i \ne \bot \land B_i \notin [1, D_i]$ for any box coordinate $B_i$ and corresponding domain coordinate $D_i$.
-  \item Remove any domain coordinates $D_i$ with $D_i = 1$ and remove corresponding box coordinates $B_i$ (it must be the case that $B_i = 1$ or $B_i = \bot$ by the above check).
+    This converts the domain and box into tuples of rational numbers or $\top$.
+  \item Fail if any non-$\top$ coordinate is not a natural number, or if $B_i \ne \top \land B_i \notin [1, D_i]$ for any box coordinate $B_i$ and corresponding domain coordinate $D_i$.
+  \item Remove any domain coordinates $D_i$ with $D_i = 1$ and remove corresponding box coordinates $B_i$ (it must be the case that $B_i = 1$ or $B_i = \top$ by the above check).
   \item Initialize the collective type $\delta$ with the box and domain.
   \item Let $f = \frac{\texttt{clusterDim * blockDim}}{\delta.D_0 \times \delta.D_1 \times ...}$; fail if $f \notin \mathbb{N}$.
-  \item If $f > 1$, prepend $f$ to $\delta.D$, and prepend $1$ or $\bot$ to $\delta.B$, for the 1-padded and non-1-padded cases, respectively.
+  \item If $f > 1$, prepend $f$ to $\delta.D$, and prepend $1$ or $\top$ to $\delta.B$, for the 1-padded and non-1-padded cases, respectively.
   \item If the conversion is \textit{aligned}, reshape (Section~\ref{sec:CollTypeReshape}) until the collective type is in aligned form (def~\ref{sec:gAlignedForm}); fail if this cannot be done.
+  \item \textbf{NOTE:} not all of these failures seem to be checked by Exo-GPU today.
 \end{itemize}
 
 \mainKey{Example 1:} Suppose \lighttt{clusterDim = 2}, \lighttt{blockDim=256}, and the collective unit has domain (\lighttt{blockDim},), box (128,).
@@ -477,27 +478,28 @@ If we have alignment and 1-padding, then
     Now $\delta.D = (2, 256)$ and $\delta.B = (1, 128)$.
   \item Since we have alignment, split dimension 1 by 128 to get the final collective type $\delta$, with $\delta.D = (2, 2, 128)$ and $\delta.B = (1, 1, 128)$.
 \end{itemize}
-If we have neither alignment nor 1-padding, then the result would instead be $\delta.D = (2, 256)$ and $\delta.B = (\bot, 128)$.
+If we have neither alignment nor 1-padding, then the result would instead be $\delta.D = (2, 256)$ and $\delta.B = (\top, 128)$.
 
 \mainKey{Example 2:} Suppose \lighttt{clusterDim = 8}, \lighttt{blockDim=384}, and the collective unit has domain (\lighttt{clusterDim}, \lighttt{blockDim}) and box (2, 128).
 
-If we have alignment and 1-padding, then
+If we have alignment, then
 \begin{itemize}
   \item Substitution gives $\delta.D = (8, 384), \delta.B = (2, 128)$.
   \item No domain coordinates are 1.
   \item $f = 1$, so no change needed.
   \item Since we have alignment, we do two splits to get $\delta.D = (4, 2, 3, 128)$ and $\delta.B = (1, 2, 1, 128)$.
 \end{itemize}
-If we have neither alignment nor 1-padding, then the result would instead be $\delta.D = (8, 384)$ and $\delta.B = (2, 128)$.
+If we don't have alignment, then the result would instead be $\delta.D = (8, 384)$ and $\delta.B = (2, 128)$.
+1-padding does not impact this result.
 
-\mainKey{Example 3:} Suppose \lighttt{clusterDim=1}, \lighttt{blockDim=128}, and the collective unit has domain $(\lighttt{clusterDim}, \lighttt{blockDim})$ and box $(1, \bot)$.
+\mainKey{Example 3:} Suppose \lighttt{clusterDim=1}, \lighttt{blockDim=128}, and the collective unit has domain $(\lighttt{clusterDim}, \lighttt{blockDim})$ and box $(1, \top)$.
 \begin{itemize}
-  \item Substitution gives $\delta.D = (1, 128), \delta.B = (1, \bot)$.
-  \item Remove the $0^{th}$ dimension as $\delta.D_0 = 1$. So $\delta.D = (128,), \delta.B = (\bot,)$.
+  \item Substitution gives $\delta.D = (1, 128), \delta.B = (1, \top)$.
+  \item Remove the $0^{th}$ dimension as $\delta.D_0 = 1$. So $\delta.D = (128,), \delta.B = (\top,)$.
   \item $f = 1$, so no change needed.
 \end{itemize}
 Alignment and 1-padding don't affect this example.
-The unpacked collective type is always $\delta.D = (128,), \delta.B = (\bot,)$.
+The unpacked collective type is always $\delta.D = (128,), \delta.B = (\top,)$.
 
 \subsection{CPU Scope}
 \label{sec:gCpuScope}
