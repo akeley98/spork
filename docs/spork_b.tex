@@ -69,6 +69,8 @@ Sharding tensor and barrier allocations onto different groups of threads.
 
 \lighttt{Fence}, \lighttt{Arrive}, \lighttt{Await}, async instructions, timelines.
 
+\myChapterLink{sec:Instructions}{Instructions}
+
 \myChapterLink{sec:Glossary}{Glossary \& Reference}
 
 \section{Overview}
@@ -88,7 +90,7 @@ Within the device task, each statement instance (def~\ref{sec:gStatementInstance
 
 A \lighttt{cuda\_threads(0, $c_\text{hi}$, unit=\_)} loop may appear anywhere inside a device task.
 This statement divides its executing thread collective into $c_\text{hi}$-many disjoint subsets (possibly with some inactive threads left over), and assigns one to execute each iteration of the loop.
-The \lighttt{unit} parameter is a \myKeyA{collective unit}, from which a \myKeyA{collective type} $\delta$ is unpacked (Section~\ref{sec:CollTypes}).
+The \lighttt{unit} parameter is a \myKeyA{collective unit} (def~\ref{sec:gCollUnit}), from which a \myKeyA{collective type} $\delta$ is unpacked (Section~\ref{sec:CollTypes}).
 The collective type describes a number and arrangement of threads (e.g. single thread, warp, CTA, CTA pair).
 In the common case, the thread collectives assigned to each iteration are described by this unpacked $\delta$.
 
@@ -97,7 +99,7 @@ When the thread collectives that execute instances of a statement are described 
 The underlying static analysis for this is based on \myKeyA{local thread indices} (def~\ref{sec:gLocalThreadIndex}), which number the threads within a cluster lexicographically based on CTA index, then thread index.
 The threads within a thread collective need not have a contiguous range of local thread indices (e.g., ``all even numbered CTAs in a cluster'' is a valid thread collective).
 
-Based on this static analysis, we define \myKeyA{distributed memory} (Section~\ref{sec:DistributedMemory}), which maps shards of an array onto different thread collectives for storage, and we define correct synchronization (Section~\ref{sec:Synchronization}), which we currently can check for a selection of concrete problem sizes.
+Based on this static analysis, we define a \myKeyA{collective tiling} (Section~\ref{sec:CollTiling}) and thread mapping function annotating each CUDA-scope statement, we define \myKeyA{distributed memory} (Section~\ref{sec:DistributedMemory}), which maps shards of an array onto different thread collectives for storage, and we define correct synchronization (Section~\ref{sec:Synchronization}), which we currently can check for a selection of concrete problem sizes.
 
 \subsection{Distributed Memory Overview}
 
@@ -240,7 +242,7 @@ The product of the domain coordinates $\delta.D_0 \times ... \times \delta.D_{M-
 A thread collective is described by a collective type $\delta$ when all threads are in the same cluster, and, with $\mu: \mathcal{P}(\mathbb{N})$ being the set of local thread indices of the threads, there exist sets $C_0 ... C_{M-1}: \mathcal{P}(\mathbb{N})$ such that
 \begin{itemize}
   \item $C_i \subseteq [0, \delta.D_i - 1]$
-  \item $\delta.B_i \ne \top \implies \exists x \mid C_i = [x, x + \delta.B_i - 1]_\mathbb{N}$.
+  \item $\delta.B_i \ne \top \implies \exists x.\; C_i = [x, x + \delta.B_i - 1]_\mathbb{N}$.
   \item $\mu = \{ \mathsf{toLocal}(\delta.D, c) \mid c \in C_0 \times ... \times C_{M-1}\}$
 \end{itemize}
 If we have no $\top$ box coordinates, this is specifying that the thread collective forms a cuboid of dimensions $\delta.B_0 \times ... \times \delta.B_{M-1}$ when its threads are arranged in the grid implied by $\delta.D$; therefore, the number of threads in the thread collective is the product of the box coordinates (Figure~\ref{fig:CollTypeExample}).
@@ -326,11 +328,11 @@ If we have no $\top$ box coordinates, this is specifying that the thread collect
 
 \node(legend) [rectangle, draw=black, text centered, text width=5cm, above=of t000a, xshift=40mm, yshift=2mm] {(cluster\_ctarank, threadIdx.x)\\linear thread index $\in \mu$\\coordinates};
 \end{tikzpicture}
-\caption{Example of a thread collective being described by the collective type $\delta$ with $\delta.B = (1, 2, 1, 128)$ and $\delta.D = (4, 2, 3, 128)$, which is a collective type in aligned form (def~\ref{sec:gAlignedForm}). \lighttt{clusterDim = 8} and \lighttt{blockDim = 384}. $\mu = \mathsf{toLocal}(\delta.D, [1, 1]_\mathbb{N} \times [0, 1]_\mathbb{N} \times [2, 2]_\mathbb{N} \times [0, 127]_\mathbb{N})$. This is one warpgroup each selected from one CTA of a CTA pair.}
+\caption{Example of a thread collective being described by the collective type $\delta$ with $\delta.B = (1, 2, 1, 128)$ and $\delta.D = (4, 2, 3, 128)$, which is a collective type in aligned form (def~\ref{sec:gAlignedForm}). \lighttt{clusterDim = 8} and \lighttt{blockDim = 384}. $\mu = \mathsf{toLocal}(\delta.D, [1, 1]_\mathbb{N} \times [0, 1]_\mathbb{N} \times [2, 2]_\mathbb{N} \times [0, 127]_\mathbb{N})$. This is one warpgroup per CTA of a CTA pair.}
 \label{fig:CollTypeExample}
 \end{figure}
 
-\subsection{Reshape}
+\subsection{Collective Type Reshape}
 \label{sec:CollTypeReshape}
 
 Reshaping a collective type means to apply a series of dimension split operations to yield a new collective type.
@@ -356,32 +358,154 @@ We describe this further in def~\ref{sec:gCollUnit}.
 \section{Collective Tiling}
 \label{sec:CollTiling}
 
-The \lighttt{cuda\_tasks} loops assign work to different clusters on the system, and the user has no control (yet) over the mapping between device tasks and clusters.
+The \lighttt{cuda\_tasks} loops assign instances of device tasks (def~\ref{sec:gDeviceTask}) to different clusters on the system, and the user has no control (yet) over the mapping between device tasks and clusters.
 On the other hand, the \lighttt{cuda\_threads} loop, which assigns work to threads within a cluster, provides the user with tight control over this work mapping.
 
-The deduced collective tiling of each CUDA-scope statement describes a mapping between the control environment and the local thread indices of the thread collective assigned to execute a statement instance.
-
-A statement's collective tiling describes an organization of the threads in a cluster into a multidimensional grid of threads, and the effect that each control environment variable has on the set of threads assigned to execute the statement instance.
-Let $M$ denote the dimensionality of the collective tiling.
-The collective tiling consists of a tuple of \myKeyA{collective dimensions} $\mathcal{D}_0, ..., \mathcal{D}_{M-1}$; each $\mathcal{D}_i$ contains
+Each statement at CUDA scope (def~\ref{sec:gCudaScope}) has a deduced \myKeyA{collective tiling} attribute.
+The collective tiling describes an arrangement of the threads in the cluster into a multidimensional space, in the same manner as a collective type's domain (def~\ref{sec:gDomain}), and groups \lighttt{cuda\_threads} loop iterators by the dimension they operate on.
+The statement's collective tiling may be converted to
 \begin{itemize}
-  \item $D_i$: dimension extent
-  \item $\mathcal{O}_i$: dimension operators
+  \item an \myKeyA{output collective type}.
+    The thread collective assigned to execute an instance of this statement will always be described (Section~\ref{sec:CollTypeThreadCollective}) by this collective type.
+  \item a \myKeyA{thread mapping function} of type $\Sigma_c \to \mathcal{P}(\mathbb{N})$; this converts the control environment $\sigma_c:\Sigma_c$ (i.e. $\sigma_c: \mathbb{Y} \to \mathbb{Z}$; the per-control-variable values) to the local thread indices (def~\ref{sec:gLocalThreadIndex}) of the thread collective assigned to execute an instance of this statement.
+  NB this is using syntax from the PLDI submission.
+  \item a per-\lighttt{cuda\_threads} iterator \myKeyA{thread pitch}: $\mathbb{N}$ (def~\ref{sec:gThreadPitch}).
+  \item a per-\lighttt{cuda\_threads} iterator \myKeyA{tiled dimension index}: $\mathbb{N}_\bot$.
+\end{itemize}
+The domain and box of a collective tiling $\omega$ are that of its output collective type, and for brevity, we denote it as $\omega.D$ and $\omega.B$ respectively.
+
+\subsection{Collective Tiling State}
+\label{sec:CollTilingState}
+
+A collective tiling $\omega: \Omega$ (of some dimensionality $M$) is an $M$-tuple of \myKeyA{collective dimension descriptors} $(\omega_0 ... \omega_{M-1})$.
+Each descriptor $\omega_i$ consists of
+\begin{itemize}
+  \item $\omega_i.n: \mathbb{N}$, dimension extent
+  \item $\omega_i.\textit{ops}: \mathcal{O}^*$, tuple of \myKeyA{collective dimension operators}
+\end{itemize}
+where $\mathcal{O}$ is $\mathbb{Y} \times \mathbb{N}^3$, with each attribute denoted as
+\begin{itemize}
+  \item $\omega_i.\textit{ops}_j.\textit{iter}: \mathbb{Y}$ (name of a control variable; no two ops in $\omega$ can have the same \textit{iter})
+  \item $\omega_i.\textit{ops}_j.\textit{offset}: \mathbb{N}$
+  \item $\omega_i.\textit{ops}_j.\textit{box}: \mathbb{N}$
+  \item $\omega_i.\textit{ops}_j.\textit{tileCount}: \mathbb{N}$
+\end{itemize}
+The \myKeyA{output collective type} of $\omega$ is a collective type $(\omega.D, \omega.B)$ defined by
+\begin{itemize}
+  \item $\omega.D_i = \omega_i.n$
+  \item $\omega.B_i$ is $\omega_i.n$ if $\omega_i.\textit{ops}$ is empty, otherwise it is the $\textit{box}$ of the last op.
+  \item (recall dimension thread pitch values $\omega.P_i$ are implicit, as in def~\ref{sec:gThreadPitch}).
+\end{itemize}
+The \myKeyA{thread mapping function} selects, for each collective dimension descriptor $\omega_i$, an interval of size $\omega.B_i$ based on an affine transform of the values of the iterators associated with that dimension.
+These intervals together select a sub-grid of the $M$-dimensional space of threads-in-cluster.
+
+We derive the thread mapping from $\omega$ based on the function
+\begin{align*}
+    & \textsf{collMap}: \Omega \to \Sigma_c \to \mathcal{P}(\mathbb{N}) \\
+    & \textsf{collMap}((\omega_0, ..., \omega_{M-1}), \sigma_c) \mapsto \{ \textsf{toLocal}(\omega.D, c) \mid
+      c \in [x_0, x_0 + \omega.B_0 - 1]_\mathbb{N} \times ... \times
+            [x_{M-1}, x_{M-1} + \omega.B_{M-1} - 1]_\mathbb{N} \} \\
+    & \text{ with } x_i = \sum_{\textit{op} \in \omega_i.\textit{ops}} \textit{op}.\textit{offset} + \sigma_c(\textit{op}.\textit{iter}) \textit{op}.\textit{box}
+\end{align*}
+where \textsf{toLocal} is def~\ref{sec:gToLocal} and the actual thread mapping function is $\textsf{collMap}(\omega)$ (partial evaluation).
+
+For a given $y: \mathbb{Y}$, let $\textit{op}_y = \omega_i.\textit{ops}_j$ such that $y = \textit{op}_y.\textit{iter}$, if it exists.
+The \myKeyA{thread pitch} and \myKeyA{tiled dimension index} of $y: \mathbb{Y}$ as defined by $\omega$ is
+\begin{itemize}
+  \item 0 and $i$, if $\textit{op}_y$ exists and $\textit{op}_y.\textit{tileCount} \le 1$
+  \item $(\omega.P_i)(\textit{op}_y.\textit{box})$ and $i$, if $\textit{op}_y$ exists and $\textit{op}_y.\textit{tileCount} > 1$
+  \item 0 and $\bot$ if $\textit{op}_y$ does not exist.
 \end{itemize}
 
+\subsection{Collective Tiling Reshape \& Domain Completion}
+\label{sec:CollTilingReshape}
 
-Commonly, a \lighttt{cuda\_threads} loop will fail to compile because the user requests more threads than is available in the scope, e.g., a \lighttt{cuda\_threads(0, 40, unit=cuda\_thread)} loop at warp-scope, which would require 40 of the 32 available threads.
-More infrequently, the loop will fail to compile because the bounds are not of the form (0, $c_\text{hi}$), or because the compiler is unable to deduce which collective dimension to tile on.
+Similar to collective types (Section~\ref{sec:CollTypeReshape}), collective tilings may be reshaped by splitting dimensions.
+We split the $k^{th}$ dimension of $\omega$ by a factor $f: \mathbb{N}$ by replacing the collective dimension descriptor $\omega_k$ with a pair $(\omega_\text{hi}, \omega_\text{lo})$ defined by
+\begin{itemize}
+  \item $\omega_\text{hi}.n = \omega_k.n / f$
+  \item $\omega_\text{hi}.\textit{ops}$ is all $\textit{op} \in \omega_k.\textit{ops}$ with $\textit{op}.\textit{box} \ge f$, modified by dividing both $\textit{op}.\textit{box}$ and $\textit{op}.\textit{offset}$ by $f$. This fails if any division gives a non-integer.
+  \item $\omega_\text{lo}.n = f$
+  \item $\omega_\text{lo}.\textit{ops}$ is all $\textit{op} \in \omega_k.\textit{ops}$ with $\textit{op}.\textit{box} < f$, unmodified.
+\end{itemize}
+
+This mirrors Section~\ref{sec:CollTypeReshape}, in that this results in the single domain coordinate $\omega.D_k$ being replaced with $\omega.D_k / f$ and $f$.
+We use the function $\textsf{domainCompletion}: \Omega \times \Delta \to \Omega \times \Delta$ (TODO define) to reshape a collective tiling and a collective type so that they have the same domain.
+
+\subsection{Derived Collective Tilings}
+\label{sec:DerivedCollTiling}
+
+The collective tiling of each statement is the same as that of its parent, except that \lighttt{with CudaDeviceFunction}, \lighttt{for cuda\_threads}, and \lighttt{with CudaWarps} assign a new collective tiling for their children.
+The latter two are defined based on the \textsf{deriveCollTiling} function (TODO define); here we just summarize the collective tilings.
+
+\subsection{CudaDeviceFunction}
+\label{sec:CollTilingCudaDeviceFunction}
+
+If \lighttt{clusterDim = 1}, then $\omega$ is one-dimensional, with $\omega_0.n = \lighttt{blockDim}$.
+Otherwise, $\omega$ is two-dimensional, with $\omega_0.n = \lighttt{clusterDim}$ and $\omega_1.n = \lighttt{blockDim}$.
+In both cases, $\omega_*.\textit{ops}$ is empty.
+
+\subsection{cuda\_threads Loops}
+\label{sec:CollTilingCudaThreads}
+
+A \lighttt{cuda\_threads} loop must be in the form \lighttt{for $y$ in cuda\_threads(0, $c_\text{hi}$, unit=$\tau_u$)}, with $c_\text{hi}$ a positive constant integer.
+Let $\omega_\text{raw}$ be the collective tiling of the loop statement, and let $\delta_\text{raw}$ be the collective type unpacked from $\tau_u$ without alignment and without 1-padding (def~\ref{sec:gCollUnit}).
+Let $(\omega, \delta) = \textsf{domainCompletion}(\omega_\text{raw}, \delta_\text{raw})$ so that $\omega$ and $\delta$ have the same domain.
+
+The tiled dimension index $k$ is the value such that $\delta.B_k \notin \{ \top, \omega.B_k, \omega.D_k \}$.
+If no such $k$ exists, then the collective tiling of the child statements is $\omega$, and $c_\text{hi}$ must be 1 (trivial tiling).
+
+If multiple such $k$ exist, then the loop is ill-formed (ambiguous tiling).
+
+If $k$ exists uniquely, then we must have $c_\text{hi} \delta.B_k \le \omega.B_k$, otherwise the loop is ill-formed (not enough threads).
+In this case, the collective tiling $\omega'$ of the child statements is like $\omega$, but with a new $\textit{op}: \mathcal{O}$ added to $\omega_k$, with
+\begin{itemize}
+  \item $\textit{op}.\textit{iter} = y$
+  \item $\textit{op}.\textit{offset} = 0$
+  \item $\textit{op}.\textit{box} = \delta.B_k$
+  \item $\textit{op}.\textit{tileCount} = c_\text{hi}$
+\end{itemize}
+so that the output collective type of $\omega'$ is the same as that of $\omega$, except that $\omega'.B_k = \delta.B_k$.
+If all other box coordinates of $\omega'$ already match those of $\delta$, then the output collective type of $\omega'$ is $\delta$.
+This is commonly the case, but we designed this to allow for mismatches on dimensions other than $k$ to make it easier to place CTA-in-cluster loops inside thread-in-CTA loops or \lighttt{with CudaWarps} blocks.
+
+\subsection{CudaWarps}
+\label{sec:CollTilingCudaWarps}
+
+% Pants-on-fire simplified explanation for the end user.
+We describe this somewhat informally in terms of the \lighttt{cuda\_threads} loop behavior.
+A \lighttt{with CudaWarps(lo, hi, name=...)} statement has the following defaults:
+\begin{itemize}
+  \item \lighttt{lo = 0} if not given.
+  \item \lighttt{hi}, if not given, is the number of warps of the warp variable named.
+  \item \lighttt{name} is \lighttt{""} if this is a top-level case (see below), or the same as the parent \lighttt{with CudaWarps} statement if this is a leaf case.
+\end{itemize}
+
+\lighttt{with CudaWarps} statements that appear in CUDA device functions with at least two warp variables and with no other \lighttt{with CudaWarps} as a direct or indirect parent are a top-level case.
+A top-level case must appear in \lighttt{cuda\_agnostic\_intact\_cta}-scope (def~\ref{sec:gCollUnit}).
+The \lighttt{true\_lo} and \lighttt{true\_hi} of the statement are \lighttt{lo + p} and \lighttt{hi + p}, \lighttt{p} being the prefix of the warp variable (def~\ref{sec:gWarpVariable}).
+All other cases are leaf cases, which have \lighttt{true\_lo} and \lighttt{true\_hi} being the same as \lighttt{lo} and \lighttt{hi}.
+
+The \lighttt{with CudaWarps} statement defines the collective tiling $\omega'$ of its child statements in a similar manner as \lighttt{for \_ in cuda\_threads(true\_lo, true\_hi, unit=cuda\_warp)}, except that the threads that would have executed iterations \lighttt{true\_lo} through \lighttt{true\_hi - 1} instead cooperate to execute the statement body.
+The \lighttt{with CudaWarps} statement defines a dummy iterator variable $y$ and adds a new collective dimension operator to $\omega'$ for $y$ (except in case of a trivial tiling).
 
 \FloatBarrier
 \newpage
 \section{Distributed Memory}
 \label{sec:DistributedMemory}
 
+
 \FloatBarrier
 \newpage
 \section{Synchronization}
 \label{sec:Synchronization}
+
+
+\FloatBarrier
+\newpage
+\section{Instructions}
+\label{sec:Instructions}
+
 
 \FloatBarrier
 \newpage
@@ -468,7 +592,7 @@ The steps to unpack a collective type from a collective unit are
   \item \textbf{NOTE:} not all of these failures seem to be checked by Exo-GPU today.
 \end{itemize}
 
-\mainKey{Example 1:} Suppose \lighttt{clusterDim = 2}, \lighttt{blockDim=256}, and the collective unit has domain (\lighttt{blockDim},), box (128,).
+\mainKey{Example 1:} Suppose \lighttt{clusterDim = 2}, \lighttt{blockDim = 256}, and the collective unit has domain (\lighttt{blockDim},), box (128,).
 
 If we have alignment and 1-padding, then
 \begin{itemize}
@@ -480,7 +604,7 @@ If we have alignment and 1-padding, then
 \end{itemize}
 If we have neither alignment nor 1-padding, then the result would instead be $\delta.D = (2, 256)$ and $\delta.B = (\top, 128)$.
 
-\mainKey{Example 2:} Suppose \lighttt{clusterDim = 8}, \lighttt{blockDim=384}, and the collective unit has domain (\lighttt{clusterDim}, \lighttt{blockDim}) and box (2, 128).
+\mainKey{Example 2:} Suppose \lighttt{clusterDim = 8}, \lighttt{blockDim = 384}, and the collective unit has domain (\lighttt{clusterDim}, \lighttt{blockDim}) and box (2, 128).
 
 If we have alignment, then
 \begin{itemize}
@@ -492,7 +616,7 @@ If we have alignment, then
 If we don't have alignment, then the result would instead be $\delta.D = (8, 384)$ and $\delta.B = (2, 128)$.
 1-padding does not impact this result.
 
-\mainKey{Example 3:} Suppose \lighttt{clusterDim=1}, \lighttt{blockDim=128}, and the collective unit has domain $(\lighttt{clusterDim}, \lighttt{blockDim})$ and box $(1, \top)$.
+\mainKey{Example 3:} Suppose \lighttt{clusterDim=1}, \lighttt{blockDim = 128}, and the collective unit has domain $(\lighttt{clusterDim}, \lighttt{blockDim})$ and box $(1, \top)$.
 \begin{itemize}
   \item Substitution gives $\delta.D = (1, 128), \delta.B = (1, \top)$.
   \item Remove the $0^{th}$ dimension as $\delta.D_0 = 1$. So $\delta.D = (128,), \delta.B = (\top,)$.
@@ -668,7 +792,8 @@ Scheduling functions:
 \label{sec:gThreadCollective}
 
 Set of threads assigned to execute one statement instance (def~\ref{sec:gStatementInstance}).
-The threads in the thread collective are uniquely identified by its cluster index (which is not statically analyzed) and its local thread index (def~\ref{sec:gLocalThreadIndex}), which is analyzed by collective analysis (Section~\ref{sec:CollTiling}).
+On the CUDA device, the threads in the thread collective are uniquely identified by its cluster index (which is not statically analyzed) and its local thread index (def~\ref{sec:gLocalThreadIndex}), which is analyzed by collective analysis (Section~\ref{sec:CollTiling}).
+In the context of the abstract machine, the cluster index is replaced with a task index, since the mapping betwveen tasks and clusters is a hardware-dependent detail we abstract over.
 
 \subsection{Thread Pitch (Set)}
 \label{sec:gThreadPitch}
@@ -691,7 +816,7 @@ Then the local thread indices of the thread collective for $x[i_0, i_1, ...]$ ar
     P_m = \prod_{k=m+1}^{M-1} D_k
 \end{equation*}
 As a shorthand, we say $\delta.P_k$ or $\omega.P_k$ to mean the $k^{th}$ dimension thread pitch defined above, with respect to $\delta.D$ or $\omega.D$.
-The thread pitch set of $D$ is $\{P_0, ..., P_{M-1}\}$; note $P_0 = 1$ always.
+The thread pitch set of $D$ is $\{P_0, ..., P_{M-1}\}$; note $P_{M-1} = 1$ always.
 
 \mainKey{Collective Tiling/Type:} The thread pitch set of a collective tiling/type is that of its domain.
 
@@ -721,6 +846,12 @@ For this definition to work as expected, the product of the domain coordinates $
 The warp variables for a specific CUDA device function are specified by the \lighttt{warp\_config: List[CudaWarpConfig]} parameter of \lighttt{CudaDeviceFunction}.
 This specifies a name and register count for a certain number of warps in the CTA.
 See example~\ref{sec:gCudaDeviceFunction}, Section~\ref{sec:CudaDeviceFunction}.
+
+If \lighttt{blockDim} is given instead of \lighttt{warp\_config}, then there's implicitly a single warp variable with name \lighttt{""}, warp count $\lighttt{blockDim}/32$, and no register count modification.
+
+The ``prefix'' of a warp variable is the sum of the warp counts of the warp variables specified before itself.
+
+The CUDA device function is compiled separately for each warp variable, with code paths for other warp variables statically elimintated.
 
 \subsection{Warpgroup}
 \label{sec:gWarpgroup}
