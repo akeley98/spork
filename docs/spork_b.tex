@@ -402,7 +402,7 @@ These intervals together select a sub-grid of the $M$-dimensional space of threa
 We derive the thread mapping from $\omega$ based on the function
 \begin{align*}
     & \textsf{collMap}: \Omega \to \Sigma_c \to \mathcal{P}(\mathbb{N}) \\
-    & \textsf{collMap}((\omega_0, ..., \omega_{M-1}), \sigma_c) \mapsto \{ \textsf{toLocal}(\omega.D, c) \mid
+    & (\omega_0, ..., \omega_{M-1}) \mapsto \sigma_c \mapsto \{ \textsf{toLocal}(\omega.D, c) \mid
       c \in [x_0, x_0 + \omega.B_0 - 1]_\mathbb{N} \times ... \times
             [x_{M-1}, x_{M-1} + \omega.B_{M-1} - 1]_\mathbb{N} \} \\
     & \text{ with } x_i = \sum_{\textit{op} \in \omega_i.\textit{ops}} \textit{op}.\textit{offset} + \sigma_c(\textit{op}.\textit{iter}) \textit{op}.\textit{box}
@@ -458,7 +458,7 @@ If no such $k$ exists, then the collective tiling of the child statements is $\o
 If multiple such $k$ exist, then the loop is ill-formed (ambiguous tiling).
 
 If $k$ exists uniquely, then we must have $c_\text{hi} \delta.B_k \le \omega.B_k$, otherwise the loop is ill-formed (not enough threads).
-In this case, the collective tiling $\omega'$ of the child statements is like $\omega$, but with a new $\textit{op}: \mathcal{O}$ added to $\omega_k$, with
+In this case, the collective tiling $\omega'$ of the child statements is like $\omega$, but with a new $\textit{op}: \mathcal{O}$ appended to $\omega'_k.\textit{ops}$, with
 \begin{itemize}
   \item $\textit{op}.\textit{iter} = y$
   \item $\textit{op}.\textit{offset} = 0$
