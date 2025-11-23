@@ -478,13 +478,13 @@ A \lighttt{with CudaWarps(lo, hi, name=...)} statement has the following default
 \begin{itemize}
   \item \lighttt{lo = 0} if not given.
   \item \lighttt{hi}, if not given, is the number of warps of the warp variable named.
-  \item \lighttt{name} is \lighttt{""} if this is a top-level case (see below), or the same as the parent \lighttt{with CudaWarps} statement if this is a leaf case.
+  \item \lighttt{name} is \lighttt{""} if this is a top-level case (see below), or the same as the parent \lighttt{with CudaWarps} statement if this is a nested case.
 \end{itemize}
 
 \lighttt{with CudaWarps} statements that appear in CUDA device functions with at least two warp variables and with no other \lighttt{with CudaWarps} as a direct or indirect parent are a top-level case.
 A top-level case must appear in \lighttt{cuda\_agnostic\_intact\_cta}-scope (def~\ref{sec:gCollUnit}).
 The \lighttt{true\_lo} and \lighttt{true\_hi} of the statement are \lighttt{lo + p} and \lighttt{hi + p}, \lighttt{p} being the prefix of the warp variable (def~\ref{sec:gWarpVariable}).
-All other cases are leaf cases, which have \lighttt{true\_lo} and \lighttt{true\_hi} being the same as \lighttt{lo} and \lighttt{hi}.
+All other cases are nested cases, which have \lighttt{true\_lo} and \lighttt{true\_hi} being the same as \lighttt{lo} and \lighttt{hi}.
 
 The \lighttt{with CudaWarps} statement defines the collective tiling $\omega'$ of its child statements in a similar manner as \lighttt{for \_ in cuda\_threads(0, true\_hi, unit=cuda\_warp)}, except that the threads that would have executed iterations \lighttt{true\_lo} through \lighttt{true\_hi - 1} instead cooperate to execute the statement body.
 The \lighttt{with CudaWarps} statement defines a dummy iterator variable $y$ and adds a new collective dimension operator to $\omega'$ for $y$ (except in case of a trivial tiling).
