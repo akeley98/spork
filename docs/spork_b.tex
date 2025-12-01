@@ -103,12 +103,12 @@ Based on this static analysis, we define a \myKeyA{collective tiling} (Section~\
 
 \subsection{Distributed Memory Overview}
 
-Each \lighttt{cuda\_threads} loop iterator indirectly defines a \myKeyA{thread pitch}.
+Each \lighttt{cuda\_threads} loop iterator indirectly defines a \myKeyA{thread pitch} (def~\ref{sec:gThreadPitch}).
 This is the difference, in linear thread indices, between thread collectives assigned to consecutive loop iterations.
 Distributed memory is deduced from the indexing pattern of an array, and attempts to map shards of the array into thread collectives described by the collective type specified by the memory type.
 This flexibility allows memory to be sharded at different levels of the CUDA thread hierarchy (e.g. per-CTA shared memory shards, per-thread register shards).
-The deduction assigns a thread pitch to each dimension; elements that are adjacent on a dimension are resident in thread collectives whose local thread indices differ by that dimension's thread pitch.
-We define requirements for distributed memory deduction (Section~\ref{sec:DistributedMemory}); in particular, the iterator used to index a particular dimension must have the same thread pitch as that dimension (Figure~\ref{fig:OverviewThreads}, bottom).
+The deduction assigns a thread pitch to each distributed dimension; elements that are adjacent on a dimension are resident in thread collectives whose local thread indices differ by that dimension's thread pitch.
+We define requirements for distributed memory deduction (Section~\ref{sec:DistributedMemory}); in particular, the index used to index a distributed dimension must be a plain read of an iterator with the same thread pitch as that dimension (Figure~\ref{fig:OverviewThreads}, bottom).
 
 \begin{figure}[t]
 \codehrule
@@ -162,7 +162,7 @@ Italicized values are defined in Section~\ref{sec:Synchronization}.
   \item \texttt{Fence(\_, $\tau_s^\text{post}$)|Await(\_, $\tau_s^\text{post}$, \_) $\to$ Fence($\tau_s^\text{pre}$, \_)|Arrive($\tau_s^\text{pre}$) >}\texttt{> \_}\\when there is a qualitative timeline in common to the \textit{full timeline sets} of $\tau_s^\text{pre}$ and $\tau_s^\text{post}$, and $\tau_s^\text{post}$ is transitive.
 \end{itemize}
 
-Finally, there are dependency edges from instances of \lighttt{Arrive(\_) >}\lighttt{> $b$} and \lighttt{Await($b$, \_, \_)} defined by arrive/await pairing, and dependency edges from reads/writes to \lighttt{Await} instances directly for instructions that take a barrier directly (currently, only TMA-to-SMEM instructions).
+Finally, we have special handling for atomics, there are dependency edges from instances of \lighttt{Arrive(\_) >}\lighttt{> $b$} and \lighttt{Await($b$, \_, \_)} defined by arrive/await pairing, and dependency edges from reads/writes to \lighttt{Await} instances directly for instructions that take a barrier directly (currently, only TMA-to-SMEM instructions).
 
 \begin{figure}[h!]
 \codehrule
@@ -390,7 +390,7 @@ where $\mathcal{O}$ is $\mathbb{Y} \times \mathbb{N}^3$, with each attribute den
   \item $\omega_i.\textit{ops}_j.\textit{box}: \mathbb{N}$
   \item $\omega_i.\textit{ops}_j.\textit{tileCount}: \mathbb{N}$
 \end{itemize}
-The \myKeyA{output collective type} of $\omega$ is a collective type $(\omega.D, \omega.B)$ defined by
+The \myKeyA{output collective type} of $\omega$ is a collective type $\delta = (\omega.D, \omega.B)$ defined by
 \begin{itemize}
   \item $\omega.D_i = \omega_i.n$
   \item $\omega.B_i$ is $\omega_i.n$ if $\omega_i.\textit{ops}$ is empty, otherwise it is the $\textit{box}$ of the last op.
@@ -430,7 +430,7 @@ We split the $k^{th}$ dimension of $\omega$ by a factor $f: \mathbb{N}$ by repla
 \end{itemize}
 
 This mirrors Section~\ref{sec:CollTypeReshape}, in that this results in the single domain coordinate $\omega.D_k$ being replaced with $\omega.D_k / f$ and $f$.
-We use the function $\textsf{domainCompletion}: \Omega \times \Delta \to \Omega \times \Delta$ (TODO define) to reshape a collective tiling and a collective type so that they have the same domain.
+We use the function $\textsf{domainCompletion}: \Omega \times \Delta \to \Omega \times \Delta$ (def~\ref{sec:gDomainCompletion}) to reshape a collective tiling and a collective type so that they have the same domain.
 
 \subsection{Derived Collective Tilings}
 \label{sec:DerivedCollTiling}
@@ -450,7 +450,7 @@ In both cases, $\omega_*.\textit{ops}$ is empty.
 
 A \lighttt{cuda\_threads} loop must be in the form \lighttt{for $y$ in cuda\_threads(0, $c_\text{hi}$, unit=$\tau_u$)}, with $c_\text{hi}$ a positive constant integer.
 Let $\omega_\text{raw}$ be the collective tiling of the loop statement, and let $\delta_\text{raw}$ be the collective type unpacked from $\tau_u$ without alignment and without 1-padding (def~\ref{sec:gCollUnit}).
-Let $(\omega, \delta) = \textsf{domainCompletion}(\omega_\text{raw}, \delta_\text{raw})$ so that $\omega$ and $\delta$ have the same domain.
+Let $(\omega, \delta) = \textsf{domainCompletion}(\omega_\text{raw}, \delta_\text{raw})$ (def~\ref{sec:gDomainCompletion}) so that $\omega$ and $\delta$ have the same domain.
 
 The tiled dimension index $k$ is the value such that $\delta.B_k \notin \{ \top, \omega.B_k, \omega.D_k \}$.
 If no such $k$ exists, then the collective tiling of the child statements is $\omega$, and $c_\text{hi}$ must be 1 (trivial tiling).
@@ -494,6 +494,69 @@ The \lighttt{with CudaWarps} statement defines a dummy iterator variable $y$ and
 \section{Distributed Memory}
 \label{sec:DistributedMemory}
 
+Both barrier and data allocations in CUDA scope are subject to distributed memory analysis, although the rules are somewhat different for the two.
+For barrier allocations, all dimensions are distributed.
+For data allocations, the memory type specifies a collective unit (the \myKeyA{native unit}) from which a collective type $\delta_0$ is unpacked with alignment and 1-padding (def~\ref{sec:gCollUnit}).
+Exo-GPU then deduces a certain number of distributed dimensions (say, $R$) so that each slice $x[c_0,...,c_{R-1},:,...,:]$ is allocated on a different thread collective described by $\delta_0$ (Section~\ref{sec:CollTypeThreadCollective}).
+The distributed dimensions are always to the left of non-distributed dimensions.
+During codegen, Exo-GPU erases indicies and array extents corresponding to distributed dimensions.
+The codegen functions for memory and instructions only see indices and extents corresponding to non-distributed dimensions.
+
+Distributed memory analysis for a variable is based on the collective tiling $\omega_0^\text{alloc}$ (Section~\ref{sec:CollTiling}) of the variable allocation statement, and the set of \myKeyA{collective indexing pairs} $\Omega \times \mathsf{Expr}^*$ collected from all statements and expressions that index the variable:
+\begin{itemize}
+  \item For read expressions ``$x[e^*]$'' not in the context of an instruction call, the collective indexing pair is $(\omega, e^*)$, where $\omega$ is the collective tiling of the statement containing the read expression.
+  \item For write statements ``$x[e^*] \texttt{= \_}$'' and reduce statements ``$x[e^*] \texttt{+= \_}$'', the collective indexing pair is $(\omega, e^*)$, where $\omega$ is the collective tiling of the statement.
+  \item TODO sync statement
+  \item TODO describe instructions.
+\end{itemize}
+
+\subsection{Thread Pitch Requirement}
+
+For each collective indexing pair, we deduce a thread pitch tuple.
+The deduced number of distributed dimensions ($R$) is the length of this tuple.
+All collective indexing pairs must lead to the same deduced tuple.
+
+We will soon define what a \myKeyA{required iterator} is separately for data and barriers.
+A \myKeyA{required index expression} is a plain read of a required iterator.
+A \myKeyA{permitted index expression} is a plain read of a required iterator, or of a \lighttt{cuda\_threads} iterator with 0 thread pitch, as defined by $\omega$ (Section~\ref{sec:CollTilingState}).
+
+\mainKey{Data:} A collective index pair $(\omega_0, e^*)$ is first updated with domain completion (def~\ref{sec:gDomainCompletion}) so that the memory type's collective type has the same domain as the collective tiling.
+Let $(\omega, \delta) = \mathsf{domainCompletion}(\omega_0, \delta_0)$.
+
+Dimension $i$ is an \myKeyA{intact dimension} if $\delta.B_i = 1$.
+An iterator is a \myKeyA{required iterator} if all these conditions apply:
+\begin{itemize}
+  \item appears in $\omega$
+  \item does not appear in $\omega_0^\text{alloc}$
+  \item its tiled dimension index is that of an intact dimension
+  \item its thread pitch is not 0
+\end{itemize}
+with ``tiled dimension index'' and ``thread pitch'' as defined by $\omega$ (Section~\ref{sec:CollTilingState}).
+The number of distributed dimensions $R$ is the lowest possible value $R$ such that $e_0, ..., e_{R-1}$ consists only of permitted index expressions and all required index expressions appear exactly once (fail if this is not possible).
+The thread pitch tuple is $(g(e_0), ..., g(e_{R-1}))$ where $g(e)$ gives the thread pitch (as defined by $\omega$) of the iterator indexed by the permitted index expression $e$.
+
+\mainKey{Barrier:} A collective index pair $(\omega, e^*)$ is processed without domain completion.
+An iterator is a \myKeyA{required iterator} if all these conditions apply:
+\begin{itemize}
+  \item appears in $\omega$
+  \item does not appear in $\omega_0^\text{alloc}$
+  \item its thread pitch is not 0
+\end{itemize}
+with ``thread pitch'' as defined by $\omega$ (Section~\ref{sec:CollTilingState}).
+The number of distributed dimensions $R$ is the number of index expressions $e^*$, which must consist only of permitted index expressions, and all required index expressions must appear exactly once (fail if this is not the case).
+The thread pitch tuple is $(g(e_0), ..., g(e_{R-1}))$ where $g(e)$ gives the thread pitch (as defined by $\omega$) of the iterator indexed by the permitted index expression $e$.
+
+\subsection{Base Threads Requirement}
+
+
+
+TODO mbarrier guarding.
+
+\subsection{Subdivision Requirement}
+
+These additional requirements for data allocations only ensure the storage for each shard is truly allocated by a thread collective described by $\delta_0$.
+
+% Alloc full, usage 1.
 
 \FloatBarrier
 \newpage
@@ -528,6 +591,13 @@ If no box coordinate is $\top$, then if $\delta$ describes two thread collective
 Group of \lighttt{clusterDim}-many CTAs (def~\ref{sec:gCta}) that execute concurrently on the same GPC, and can synchronize with cluster sync, or using mbarriers.
 When \lighttt{clusterDim = 1} (which is the case by default for Exo-GPU), then CTA and cluster are synonymous.
 The PTX variable \lighttt{cluster\_ctarank} is the 0-based index of the CTA in the cluster.
+
+\subsection{Collective Tiling}
+\label{sec:gCollTiling}
+
+A per-statement attribute of statements at CUDA scope (def~\ref{sec:gCudaScope}).
+We denote a collective tiling with $\omega \in \Omega$.
+This describes via the function $\textsf{collMap}: \Omega \to \Sigma_c \to \mathcal{P}(\mathbb{N})$ (Section~\ref{sec:CollTilingState}) a mapping between control variable values and the local thread indices (def~\ref{sec:gLocalThreadIndex}) of the thread collective (def~\ref{sec:gThreadCollective}) assigned to execute an instance of the statement (def~\ref{sec:gStatementInstance}).
 
 \subsection{Collective Type (Scope)}
 \label{sec:gCollType}
@@ -666,6 +736,33 @@ The body of the inner-most \lighttt{cuda\_tasks} loop is a device task (see~\ref
 Attribute $\delta.D$ of a collective type $\delta$ and attribute $\omega.D$ of a collective tiling $\omega$.
 Both are of type $\mathbb{N}_{\ge2}^M$ for some dimension $M: \mathbb{N}$.
 This describes the arrangement of threads within a cluster into an $M$-dimensional grid via the \textsf{toLocal} function (def~\ref{sec:gToLocal}).
+
+\subsection{Domain Completion}
+\label{sec:gDomainCompletion}
+
+$\textsf{domainCompletion}: \Omega \times \Delta \to \Omega \times \Delta$ takes a collective tiling $\omega$ (def~\ref{sec:gCollTiling}) and a collective type $\delta$ (def~\ref{sec:gCollType}) and returns $(\omega', \delta')$ such that $\omega'.D = \delta'.D$ (def~\ref{sec:gDomain}), with $\omega$ converted to $\omega'$ and $\delta$ converted to $\delta'$ using only reshape operations.
+This ensures the ``meaning'' of $\omega'$ and $\delta'$ is the same as $\omega$ and $\delta$, except that $\delta'$ may imply stricter alignment requirements.
+
+An example (inefficient) implementation sketch of domain completion is given:
+
+\begin{itemize}
+  \item If $\omega.D = \delta.D$, return $(\omega, \delta)$.
+  \item If $\prod \omega.D_i \ne \prod \delta.D_i$, fail (the implied cluster thread count isn't equal).
+  \item Calculate the thread pitch sets (def~\ref{sec:gThreadPitch}) $\omega.P$ and $\delta.P$.
+  \item Pick $p \in \omega.P \setminus \delta.P$, if it exists, then,
+  \begin{itemize}
+    \item Let $\delta.P_i = \max \{ a \in \delta.P \mid a < p \}$.
+    \item Let $f = p / \delta.P_i$; fail if this is not an integer.
+    \item Split the $i^{th}$ dimension of $\delta$ by $f$ (Section~\ref{sec:CollTypeReshape}); this has the effect of adding $p$ to the thread pitch set of $\delta$.
+  \end{itemize}
+  \item Otherwise, pick $p \in \delta.P \setminus \omega.P$, which must exist, then,
+  \begin{itemize}
+    \item Let $\omega.P_i = \max \{ a \in \omega.P \mid a < p \}$.
+    \item Let $f = p / \omega.P_i$; fail if this is not an integer.
+    \item Split the $i^{th}$ dimension of $\omega$ by $f$ (Section~\ref{sec:CollTilingReshape}); this has the effect of adding $p$ to the thread pitch set of $\omega$.
+  \end{itemize}
+  \item Return $\mathsf{domainCompletion}(\omega, \delta)$.
+\end{itemize}
 
 % >E
 % >F
