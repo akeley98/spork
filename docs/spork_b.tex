@@ -67,7 +67,7 @@ Sharding tensor and barrier allocations onto different groups of threads.
 
 \myChapterLink{sec:Synchronization}{Synchronization}
 
-\lighttt{Fence}, \lighttt{Arrive}, \lighttt{Await}, async instructions, timelines.
+\lighttt{Fence}, \lighttt{Arrive}, \lighttt{Await}, home barrier, guarding, async instructions, timelines.
 
 \myChapterLink{sec:Instructions}{Instructions}
 
@@ -432,6 +432,14 @@ We split the $k^{th}$ dimension of $\omega$ by a factor $f: \mathbb{N}$ by repla
 This mirrors Section~\ref{sec:CollTypeReshape}, in that this results in the single domain coordinate $\omega.D_k$ being replaced with $\omega.D_k / f$ and $f$.
 We use the function $\textsf{domainCompletion}: \Omega \times \Delta \to \Omega \times \Delta$ (def~\ref{sec:gDomainCompletion}) to reshape a collective tiling and a collective type so that they have the same domain.
 
+\subsection{Collective Type Matching}
+\label{sec:CollTilingCollTypeMatching}
+
+Given a collective type $\delta_0$ and collective tiling $\omega_0$, we can query if $\omega_0$ \myKeyA{matches} $\delta_0$.
+Let $(\omega, \delta) = \mathsf{domainCompletion}(\omega_0, \delta_0)$.
+Then the query returns true if domain completion succeeded and $\omega.B = \delta.B$.
+This certifies that statements with collective tiling $\omega_0$ are at $\delta_0$-scope (def~\ref{sec:gCollType}).
+
 \subsection{Derived Collective Tilings}
 \label{sec:DerivedCollTiling}
 
@@ -496,7 +504,7 @@ The \lighttt{with CudaWarps} statement defines a dummy iterator variable $y$ and
 
 Both barrier and data allocations in CUDA scope are subject to distributed memory analysis, although the rules are somewhat different for the two.
 For barrier allocations, all dimensions are distributed.
-For data allocations, the memory type specifies a collective unit (the \myKeyA{native unit}) from which a collective type $\delta_0$ is unpacked with alignment and 1-padding (def~\ref{sec:gCollUnit}).
+For data allocations, the memory type specifies a collective unit (the \myKeyA{native unit}) from which a collective type $\delta_0$ is unpacked with alignment and 1-padding (def~\ref{sec:gCollUnit}); this must not be agnostic (def~\ref{sec:gAgnostic}).
 Exo-GPU then deduces a certain number of distributed dimensions (say, $R$) so that each slice $x[c_0,...,c_{R-1},:,...,:]$ is allocated on a different thread collective described by $\delta_0$ (Section~\ref{sec:CollTypeThreadCollective}).
 The distributed dimensions are always to the left of non-distributed dimensions.
 During codegen, Exo-GPU erases indicies and array extents corresponding to distributed dimensions.
@@ -511,6 +519,7 @@ Distributed memory analysis for a variable is based on the collective tiling $\o
 \end{itemize}
 
 \subsection{Thread Pitch Requirement}
+\label{sec:DistributedMemoryThreadPitch}
 
 For each collective indexing pair, we deduce a thread pitch tuple.
 The deduced number of distributed dimensions ($R$) is the length of this tuple.
@@ -547,16 +556,42 @@ The number of distributed dimensions $R$ is the number of index expressions $e^*
 The thread pitch tuple is $(g(e_0), ..., g(e_{R-1}))$ where $g(e)$ gives the thread pitch (as defined by $\omega$) of the iterator indexed by the permitted index expression $e$.
 
 \subsection{Base Threads Requirement}
+\label{sec:DistributedMemoryBaseThreads}
 
+The thread pitch tuple requirement will diagnose many cases of inconsistent sharding, but will not detect ``offset-only'' mismatches, such as $x[0], x[1], x[2]...$ being accessed by threads 0, 1, 2, ... in one usage and threads 64, 65, 66, ... in another usage (as could occur with warp specialization).
+We further need to enforce that over the lifetime of a barrier array element $z[c^*]$, the same thread collective is used for all \lighttt{Arrive} statements (similarly for all \lighttt{Await} statements).
 
+We will define the \myKeyA{base offset} and \myKeyA{base box} of a collective tiling separately for data and barrier variables.
+For data variables and non-mbarrier barrier variables, all collective indexing pairs must have equivalent base offsets and base boxes.
+For mbarrier-mechanism barrier variables\footnote{This case is distinguished with \lighttt{different\_arrive\_await\_threads=True}}, all collective indexing pairs taken from \lighttt{Arrive} statements must have equivalent base offsets and base boxes; the same requirement applies separately to all \lighttt{Await} statements.
 
-TODO mbarrier guarding.
+\mainKey{Barrier:} Given an $M$-dimensional collective tiling $\omega$, the \myKeyA{base offset} is defined by the tuple $(O_0, ..., O_{M-1})$ where $O_i = \sum_{j} \omega_i.\textit{ops}_j.\textit{offset}$ (Section~\ref{sec:CollTilingState}).
+The \myKeyA{base box} is $\omega.B$.
 
-\subsection{Subdivision Requirement}
+\mainKey{Data:} Given a collective tiling $\omega_0$ and the collective type $\delta_0$ unpacked from the native unit, let $(\omega, \delta) = \mathsf{domainCompletion}(\omega_0, \delta_0)$.
+The \myKeyA{base offset} $O$ and the \myKeyA{base box} $\textit{BB}$ are both $M$ tuples, $M$ being the dimensionality of $\omega$.
+The $i^{th}$ dimension is a \myKeyA{intact dimension} if $\delta.B_i = \delta.D_i$.
+For intact dimensions $i$, $O_i = 0$ and $\textit{BB}_i = \delta.D_i$.
+For other dimensions, $O_i = \sum_{j} \omega_i.\textit{ops}_j.\textit{offset}$ (Section~\ref{sec:CollTilingState}) and $\textit{BB}_i = \omega.B_i$.
+
+\mainKey{Base Offset Equivalence:} Compute the linear offset of $\omega$ as $\sum_{i} O_i \omega.P_i$, $O$ denoting the base offset derived from $\omega$ and $\omega.P_i$ the thread pitch (def~\ref{sec:gThreadPitch}).
+Base offset equivalence means that the linear offset computed for two collective tilings are the same.
+
+\mainKey{Base Box Equivalence:} Given collective tilings $\omega_1$ and $\omega_2$ with base boxes $\textit{BB}_1$ and $\textit{BB}_2$ respectively, the two collective tilings have equivalent base boxes when $\delta_1 = \delta_2$ given $(\delta_1, \delta_2) = \mathsf{domainCompletionTypeOnly}((\omega_1.D, \textit{BB}_1), (\omega_2.D, \textit{BB}_2))$ (def~\ref{sec:gDomainCompletionTypeOnly}).
+
+\subsection{Box Size Requirements}
+\label{sec:DistributedMemoryBoxSize}
 
 These additional requirements for data allocations only ensure the storage for each shard is truly allocated by a thread collective described by $\delta_0$.
 
-% Alloc full, usage 1.
+\mainKey{Alloc Box Requirement:} Let $(\omega^\text{alloc}, \delta) = \mathsf{domainCompletion}(\omega_0^\text{alloc}, \delta_0)$.
+The $i^{th}$ dimension is an \myKeyA{intact dimension} if $\delta.B_i = \delta.D_i$.
+For each intact dimension $i$, we must have $\omega^\text{alloc}.B_i = \delta.B_i$.
+
+\mainKey{Usage Box Requirement:} For each collective indexing pair $(\omega_0, e^*)$, let $(\omega, \delta) = \mathsf{domainCompletion}(\omega_0, \delta_0)$.
+The $i^{th}$ dimension is a \myKeyA{subdivided dimension} if $\delta.B_i = 1$.
+Given $\delta_0$ is in aligned form (def~\ref{sec:gAlignedForm}) and not agnostic (def~\ref{sec:gAgnostic}), this is mutually exclusive with being an intact dimension.
+For each subdivided dimension $i$, we must have $\omega.B_i = 1$.
 
 \FloatBarrier
 \newpage
@@ -576,6 +611,11 @@ These additional requirements for data allocations only ensure the storage for e
 \label{sec:Glossary}
 
 % >A
+
+\subsection{Agnostic (Collective Type)}
+\label{sec:gAgnostic}
+
+A collective type $\delta$ is agnostic if any $\delta.B_i$ is $\top$.
 
 \subsection{Aligned Form (Collective Type)}
 \label{sec:gAlignedForm}
@@ -763,6 +803,11 @@ An example (inefficient) implementation sketch of domain completion is given:
   \end{itemize}
   \item Return $\mathsf{domainCompletion}(\omega, \delta)$.
 \end{itemize}
+
+\subsection{Domain Completion Type Only}
+\label{sec:gDomainCompletionTypeOnly}
+
+$\textsf{domainCompletionTypeOnly}: \Delta \times \Delta \to \Delta \times \Delta$ is defined as $\textsf{domainCompletion}$ (def~\ref{sec:gDomainCompletion}), but with the role of $\omega: \Omega$ replaced with $\delta_2: \Delta$.
 
 % >E
 % >F
