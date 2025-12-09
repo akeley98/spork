@@ -1,0 +1,204 @@
+% xelatex </dev/null myricube25.tex
+% This has nothing to do with spork/Exo-GPU but it's here anyway...
+%
+% Background: voxel rendering
+%   Memory-intensive
+%   Cubic growth in detail (without tricks)
+%   Fast rendering - more upfront work
+%   Fast loading & edits -- less upfront work
+%   Real-world applications: OMG none
+%
+% Compute vs. graphics
+%   Explicit vs implicit parallelism
+%
+% Vertex Shading
+%
+% Fragment Shading
+%
+% Voxels-to-triangles
+%
+% Raycasting
+%
+% Both: translate voxel grid to another format
+%   Zero-in on data that matters
+%   Skip work
+%
+% Magic of graphics pipeline
+%
+% Implicit sequential semantics
+%
+% Workload balancing
+%
+% Early z-culling
+%
+% Chunks: 16 × 16 × 16 voxels
+%   AABB
+%   Draw AABB (12 triangles), raycast only within chunk
+%
+% Demo 1
+%
+% Reverse Painters
+%   Only waste 12 tringles, not thousands/millions
+%
+% Upload from disk
+%
+% Demo 2
+\input{slides_common.tex}
+
+\tikzstyle{arrow} = [thick,->,>=stealth]
+\tikzstyle{line} = [thick]
+
+\tikzstyle{basic} = [rectangle, minimum height=1cm, text centered, draw=black, fill=white, text=black]
+\tikzstyle{redstyle} = [draw=redBoxFg, fill=redBoxBg, text=redBoxFg]
+\tikzstyle{yellowstyle} = [draw=yellowBoxFg, fill=yellowBoxBg, text=yellowBoxFg]
+\tikzstyle{greenstyle} = [draw=greenBoxFg, fill=greenBoxBg, text=greenBoxFg]
+\tikzstyle{bluestyle} = [draw=blueBoxFg, fill=blueBoxBg, text=blueBoxFg]
+\tikzstyle{violetstyle} = [draw=violetBoxFg, fill=violetBoxBg, text=violetBoxFg]
+\tikzstyle{nRedstyle} = [draw=nRedBoxFg, fill=nRedBoxBg, text=nRedBoxFg]
+\tikzstyle{nGoldstyle} = [draw=nGoldBoxFg, fill=nGoldBoxBg, text=nGoldBoxFg]
+\tikzstyle{nGreenstyle} = [draw=nGreenBoxFg, fill=nGreenBoxBg, text=nGreenBoxFg]
+\tikzstyle{nBluestyle} = [draw=nBlueBoxFg, fill=nBlueBoxBg, text=nBlueBoxFg]
+\tikzstyle{nPurplestyle} = [draw=nPurpleBoxFg, fill=nPurpleBoxBg, text=nPurpleBoxFg]
+\tikzstyle{cheesyVertex} = [text width=2mm, text height=2mm, anchor=center]
+
+\begin{document}
+
+\hfill\myBiggerTitle{Myricube: Adventures in Voxel Rendering \& Fast Edits}
+
+\includegraphics[width=\linewidth]{myricube/title.jpg}
+
+\newpage
+\myBiggerTitle{Voxel Rendering Background}
+
+{\LARGE
+
+3D voxel grid $\to$ 2D color image
+
+Voxel = int-aligned $1 \times 1 \times 1$ cube
+
+\begin{itemize}
+  \item Opaque color, or ``transparent'' (for my purposes)
+\end{itemize}
+
+Minecraft render distance is lame: why is it hard to scale?
+
+\vfill
+
+\includegraphics[width=\linewidth]{myricube/background_0.jpg}
+
+}
+
+\newpage
+\myBiggerTitle{Voxel Rendering Scaling Challenges}
+
+{\LARGE
+
+Challenge: memory-intensive (cubic-ish in render distance)
+
+Challenge: High \# of triangles, sharp detail (low pixels per voxel)
+
+\vfill
+
+\includegraphics[width=0.4\linewidth]{myricube/background_1.jpg}
+\includegraphics[width=0.4\linewidth]{myricube/background_2.jpg}
+
+}
+
+\newpage
+\myBiggerTitle{Voxel Rendering Goals}
+
+{\LARGE
+My goals: think Minecraft, not scientific visualization
+
+\vspace{4mm}
+
+\begin{enumerate}
+  \item High render distance at full detail (no level-of-detail)
+  \item Fast rendering (motivates \myKeyA{more} upfront work)
+  \item Fast loading \& edits (motivates \myKeyA{less} upfront work)
+\end{enumerate}
+
+\vspace{4mm}
+
+Real-world applications... OMG, NONE!
+
+Ex post facto goal: learn Vulkan and convince Nvidia to hire me
+
+}
+
+\newpage
+\myBiggerTitle{GPU: Compute vs Graphics API}
+
+{\large
+\begin{tikzpicture}[node distance=0mm]
+\node (cpu) [basic, text width=42mm] {\textbf{CPU} API calls};
+\node (compute) [basic, text width=42mm, anchor=north east, yshift=-4mm] at(cpu.south west) {\textbf{Compute API}\\e.g. CUDA};
+\node (graphics) [basic, text width=42mm, anchor=north west, yshift=-4mm] at(cpu.south east) {\textbf{Graphics API}\\e.g. OpenGL};
+
+\node (grids) [basic, text width=60mm, anchor=north, yshift=-4mm] at(compute.south) {\textbf{Verb:} launch grids\\ (\myKeyA{explicitly parallel})};
+\node (triangles) [basic, text width=80mm, anchor=north, yshift=-4mm] at(graphics.south) {\textbf{Verb:} draw triangles\\ (\myKeyA{sequential semantics}, mostly)};
+
+\node (gpu) [basic, thick, draw=nGreenBoxBg, text width=190mm, anchor=north, text height=26mm, yshift=-46mm] at(cpu.south) {};
+\node (vertex) [basic, nPurplestyle, text width=55mm, anchor=north, yshift=-50mm] at(cpu.south) {Runs\\\textbf{Vertex Shaders}\\(positions each vertex)};
+\node (fragment) [basic, greenstyle, text width=55mm, anchor=west, xshift=6mm] at(vertex.east) {Runs\\\textbf{Fragment Shaders}\\(colors interior pixels)};
+\node (thread) [basic, text width=55mm, anchor=east, xshift=-6mm] at(vertex.west) {Runs\\\textbf{CUDA Threads}\\(grouped into CTAs)};
+\node (gpuCaption) [text=nGreenBoxBg, anchor=north west] at(gpu.south west) {\textbf{Execution on programmable GPU}};
+
+\draw [arrow] (cpu.south) to[out=270, in=0] (compute.east);
+\draw [arrow] (cpu.south) to[out=270, in=180] (graphics.west);
+\draw [line] (compute.south) -- (grids.north);
+\draw [line] (graphics.south) -- (triangles.north);
+\draw[arrow] (grids.south) to[out=270, in=90] (thread.north);
+\draw[arrow] (triangles.south) to[out=270, in=90] (vertex.north);
+\draw[arrow] (triangles.south) to[out=270, in=90] (fragment.north);
+
+\node (v0) [yshift=-20mm, xshift=+3mm, fill=nPurpleBoxBg, cheesyVertex] at(vertex.south) {};
+\node (v1) [yshift=-10mm, xshift=+43mm, fill=nPurpleBoxBg, cheesyVertex] at(vertex.south) {};
+\node (v2) [yshift=-35mm, xshift=+30mm, fill=nPurpleBoxBg, cheesyVertex] at(vertex.south) {};
+\fill [greenBoxBg] (v0.center) -- (v1.center) -- (v2.center) -- cycle;
+
+\draw [arrow, dotted] (vertex) -- (v0);
+\draw [arrow, dotted] (vertex) -- (v1);
+\draw [arrow, dotted] (vertex) -- (v2);
+\draw [arrow, dotted] (fragment.south) to[out=270, in=0] ($(v2)!0.5!(v1) + (-0.3,0)$);
+
+\end{tikzpicture}
+}
+
+\newpage
+\myBiggerTitle{Vertex Shading (Triangle Strip Topology)}
+
+\newpage
+\myBiggerTitle{Fragment Shading}
+
+\newpage
+\myBiggerTitle{Prior Art: Voxels to Triangle Mesh}
+
+\newpage
+\myBiggerTitle{Prior Art: Raycasting}
+
+\newpage
+\myBiggerTitle{``Research'' Question}
+
+\newpage
+\myBiggerTitle{Embarassingly Parallel (but not really)}
+
+\newpage
+\myBiggerTitle{Implicit Sequential Semantics}
+
+\newpage
+\myBiggerTitle{Workload Balancing}
+
+\newpage
+\myBiggerTitle{Early z-culling}
+
+\newpage
+\myBiggerTitle{Myricube: Chunks}
+
+\newpage
+\myBiggerTitle{Myricube: Reverse Painter's}
+
+\newpage
+\myBiggerTitle{Myricube: Uploads from Disk}
+
+\end{document}

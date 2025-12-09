@@ -574,7 +574,7 @@ The $i^{th}$ dimension is a \myKeyA{intact dimension} if $\delta.B_i = \delta.D_
 For intact dimensions $i$, $O_i = 0$ and $\textit{BB}_i = \delta.D_i$.
 For other dimensions, $O_i = \sum_{j} \omega_i.\textit{ops}_j.\textit{offset}$ (Section~\ref{sec:CollTilingState}) and $\textit{BB}_i = \omega.B_i$.
 
-\mainKey{Base Offset Equivalence:} Compute the linear offset of $\omega$ as $\sum_{i} O_i \omega.P_i$, $O$ denoting the base offset derived from $\omega$ and $\omega.P_i$ the thread pitch (def~\ref{sec:gThreadPitch}).
+\mainKey{Base Offset Equivalence:} Compute the linear offset of $\omega$ as $\sum_{i} O_i \omega.P_i$, $O$ denoting the base offset derived from $\omega$ and $\omega.P_i$ the dimension thread pitch (def~\ref{sec:gThreadPitch}).
 Base offset equivalence means that the linear offset computed for two collective tilings are the same.
 
 \mainKey{Base Box Equivalence:} Given collective tilings $\omega_1$ and $\omega_2$ with base boxes $\textit{BB}_1$ and $\textit{BB}_2$ respectively, the two collective tilings have equivalent base boxes when $\delta_1 = \delta_2$ given $(\delta_1, \delta_2) = \mathsf{domainCompletionTypeOnly}((\omega_1.D, \textit{BB}_1), (\omega_2.D, \textit{BB}_2))$ (def~\ref{sec:gDomainCompletionTypeOnly}).

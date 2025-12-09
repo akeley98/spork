@@ -12,6 +12,7 @@ compile_commands.json
 *.aux
 docs/amspork_instr.pdf
 docs/spork_nyc25.pdf
+docs/myricube25.pdf
 docs/nyc25
 docs/nyc25_tex
 docs/spork_b.pdf
