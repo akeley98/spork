@@ -59,7 +59,7 @@
 \tikzstyle{nGreenstyle} = [draw=nGreenBoxFg, fill=nGreenBoxBg, text=nGreenBoxFg]
 \tikzstyle{nBluestyle} = [draw=nBlueBoxFg, fill=nBlueBoxBg, text=nBlueBoxFg]
 \tikzstyle{nPurplestyle} = [draw=nPurpleBoxFg, fill=nPurpleBoxBg, text=nPurpleBoxFg]
-\tikzstyle{cheesyVertex} = [text width=2mm, text height=2mm, anchor=center]
+\tikzstyle{cheesyvertex} = [text width=2mm, text height=2mm, anchor=center]
 
 \begin{document}
 
@@ -152,9 +152,9 @@ Ex post facto goal: learn Vulkan and convince Nvidia to hire me
 \draw[arrow] (triangles.south) to[out=270, in=90] (vertex.north);
 \draw[arrow] (triangles.south) to[out=270, in=90] (fragment.north);
 
-\node (v0) [yshift=-20mm, xshift=+3mm, fill=nPurpleBoxBg, cheesyVertex] at(vertex.south) {};
-\node (v1) [yshift=-10mm, xshift=+43mm, fill=nPurpleBoxBg, cheesyVertex] at(vertex.south) {};
-\node (v2) [yshift=-35mm, xshift=+30mm, fill=nPurpleBoxBg, cheesyVertex] at(vertex.south) {};
+\node (v0) [yshift=-20mm, xshift=+3mm, fill=nPurpleBoxBg, cheesyvertex] at(vertex.south) {};
+\node (v1) [yshift=-10mm, xshift=+43mm, fill=nPurpleBoxBg, cheesyvertex] at(vertex.south) {};
+\node (v2) [yshift=-35mm, xshift=+30mm, fill=nPurpleBoxBg, cheesyvertex] at(vertex.south) {};
 \fill [greenBoxBg] (v0.center) -- (v1.center) -- (v2.center) -- cycle;
 
 \draw [arrow, dotted] (vertex) -- (v0);
@@ -221,7 +221,7 @@ Ex post facto goal: learn Vulkan and convince Nvidia to hire me
 % \node (vs5) [text centered, text width=10mm, anchor=north] at(vs4.south) {\Huge $\downarrow$\\$\downarrow$};
 
 \node (vs) [text centered, text width=80mm, anchor=north, yshift=-2mm] at(vs4.south) {\textbf{Vertex Shaders\\1 Vertex = 1 Thread}};
-\node (strip) [text centered, text width=80mm, anchor=west] at(vs.east) {\textbf{Each 3 Adjacent Vertices\\$\to$ 1 Triangle}};
+\node (strip) [text centered, text width=80mm, anchor=west] at(vs.east) {\textbf{\myKeyA{Ordered} Triangles\\Each 3 Adjacent Vertices\\$\to$ 1 Triangle}};
 
 \node (oa00) [basic, text width=10mm, text height=10mm, anchor=west, xshift=9mm] at(vs0.east) {};
 \node (oa01) [basic, text width=10mm, text height=10mm, anchor=north] at(oa00.south) {};
@@ -253,11 +253,11 @@ Ex post facto goal: learn Vulkan and convince Nvidia to hire me
 
 \node (rasterizer) [text centered, text width=60mm, anchor=west] at(out.east) {\textbf{Primitive Assembly\\\&\\Rasterizer}};
 
-\node (v0) [cheesyVertex, fill=nRedBoxBg, anchor=center, xshift=16mm] at(oa10.east) {};
-\node (v1) [cheesyVertex, fill=nGoldBoxBg, anchor=center, xshift=42mm] at(oa11.east) {};
-\node (v2) [cheesyVertex, fill=nGreenBoxBg, anchor=center, xshift=16mm] at(oa12.east) {};
-\node (v3) [cheesyVertex, fill=nBlueBoxBg, anchor=center, xshift=42mm] at(oa13.east) {};
-\node (v4) [cheesyVertex, fill=nPurpleBoxBg, anchor=center, xshift=16mm] at(oa14.east) {};
+\node (v0) [cheesyvertex, fill=nRedBoxBg, anchor=center, xshift=16mm] at(oa10.east) {};
+\node (v1) [cheesyvertex, fill=nGoldBoxBg, anchor=center, xshift=42mm] at(oa11.east) {};
+\node (v2) [cheesyvertex, fill=nGreenBoxBg, anchor=center, xshift=16mm] at(oa12.east) {};
+\node (v3) [cheesyvertex, fill=nBlueBoxBg, anchor=center, xshift=42mm] at(oa13.east) {};
+\node (v4) [cheesyvertex, fill=nPurpleBoxBg, anchor=center, xshift=16mm] at(oa14.east) {};
 
 \draw [line] (v0) -- (v1);
 \draw [line] (v1) -- (v2);
@@ -272,6 +272,68 @@ Ex post facto goal: learn Vulkan and convince Nvidia to hire me
 
 \newpage
 \myBiggerTitle{Fragment Shading}
+
+{\large
+\begin{tikzpicture}[node distance=0mm]
+
+\node(for) [text centered, text width=75mm] {For each triangle \myKeyA{in order},\\ for each pixel in the triangle,\\\hphantom{M}\\1 shaded pixel = 1 thread (sorta)};
+
+\node(screen) [basic, text width=60mm, text height=40mm, anchor=west] at(for.east) {};
+\node(controls) [anchor=north east] at(screen.north east) {$-\Box\times$};  % LOL
+\node(dv0) [fill=gray, cheesyvertex, anchor=center, xshift=10mm, yshift=-10mm] at(screen.north west) {};
+\node(dv1) [fill=gray, cheesyvertex, anchor=center, xshift=18mm, yshift=-34mm] at(screen.north west) {};
+\node(dv2) [fill=gray, cheesyvertex, anchor=center, xshift=50mm, yshift=-13mm] at(screen.north west) {};
+\node(dPixel) [fill=black, cheesyvertex, anchor=center, xshift=20mm, yshift=-22mm] at(screen.north west) {};
+\draw [dotted] (dv0) -- (dv1);
+\draw [dotted] (dv0) -- (dv2);
+\draw [dotted] (dv1) -- (dv2);
+
+\node(dColor) [anchor=north east] at(screen.south east) {\textbf{Dest. Color}};
+\node(dDepth) [anchor=north east] at(dColor.south east) {\textbf{Dest. Depth}};
+\node(sColor) [anchor=north east] at(dDepth.south east) {\textbf{Src. Color}};
+\node(sDepth) [anchor=north east] at(sColor.south east) {\textbf{Src. Depth}};
+
+\node(write) [basic, text width=25mm, minimum height=25mm, anchor=west, xshift=45mm] at(dPixel.east) {Write back\\new color,\\new depth};
+\draw [arrow] (write.west) -- (dPixel.east);
+\node(OR) [anchor=west] at(write.east) {\textbf{OR}};
+\node(discard) [basic, text width=25mm, minimum height=25mm, anchor=west] at(OR.east) {\myKeyA{DISCARD}};
+
+\node(sv0) [fill=nRedBoxBg, cheesyvertex, anchor=center, yshift=-75mm] at(dv0.center) {};
+\node(sv1) [fill=nGoldBoxBg, cheesyvertex, anchor=center, yshift=-75mm] at(dv1.center) {};
+\node(sv2) [fill=nGreenBoxBg, cheesyvertex, anchor=center, yshift=-75mm] at(dv2.center) {};
+\node(vs) [anchor=west, xshift=4mm, yshift=2mm] at(sv1.east) {(from vertex shaders)};
+\node(sPixel) [fill=black, cheesyvertex, anchor=center, yshift=-75mm] at(dPixel.center) {};
+\draw [dotted] (sv0) -- (sv1);
+\draw [dotted] (sv0) -- (sv2);
+\draw [dotted] (sv1) -- (sv2);
+
+\node(blending) [basic, anchor=north, yshift=-25mm] at(OR.south) {Blending};
+\draw [arrow] (blending) -- ($(OR)+(0, -9mm)$);
+\node(depthTest) [basic, text width=40mm, anchor=north, yshift=-8mm] at(blending.south) {Depth Test\\\myKeyA{MAY DISCARD}};
+
+\draw [arrow] (dColor.east) to[out=0, in=180] ($(blending.west)+(0, 2mm)$);
+\draw [arrow] (sColor.east) to[out=0, in=180] ($(blending.west)+(0, -2mm)$);
+\draw [arrow] (dDepth.east) to[out=0, in=180] ($(depthTest.west)+(0, 2mm)$);
+\draw [arrow] (sDepth.east) to[out=0, in=180] ($(depthTest.west)+(0, -2mm)$);
+\draw [arrow] (dPixel.south) to[out=270, in=180] (dColor.west);
+\draw [arrow] (dPixel.south) to[out=270, in=180] (dDepth.west);
+
+\node(fragment) [basic, text width=40mm, anchor=east, xshift=-6mm] at($(sColor.west)!0.5!(sDepth.west)$) {Fragment Shader\\\myKeyA{MAY DISCARD}};
+\node(iDepth) [anchor=east, xshift=-66mm] at(sDepth.west) {\textbf{Interpolated Depth}};
+\node(uniforms) [anchor=south, yshift=6mm] at(iDepth.north) {\textbf{Uniforms from CPU}};
+\node(iAttrs) [anchor=north, yshift=-6mm, text width=50mm] at(iDepth.south) {\textbf{Interpolated Output\\Vertex Attributes}};
+
+\draw [arrow] ($(fragment.east)+(0, +4mm)$) to[out=0, in=180] (sColor.west);
+\draw [arrow] ($(fragment.east)+(0, -4mm)$) to[out=0, in=180] (sDepth.west);
+\draw [arrow] (iDepth.east) to[out=0, in=180] ($(fragment.west)+(0, -4mm)$);
+\draw [arrow] (uniforms.east) to[out=0, in=180] ($(fragment.west)+(0, +4mm)$);
+\draw [arrow] (iAttrs.east) to[out=0, in=225] (fragment.south west);
+\draw [arrow] (sPixel.west) to[out=180, in=315] (iDepth.south east);
+\draw [arrow] (sPixel.west) to[out=180, in=315] (iAttrs.south east);
+
+\end{tikzpicture}
+}
+
 
 \newpage
 \myBiggerTitle{Prior Art: Voxels to Triangle Mesh}
