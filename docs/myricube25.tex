@@ -136,7 +136,7 @@ Ex post facto goal: learn Vulkan and convince Nvidia to hire me
 \node (graphics) [basic, text width=42mm, anchor=north west, yshift=-4mm] at(cpu.south east) {\textbf{Graphics API}\\e.g. OpenGL};
 
 \node (grids) [basic, text width=60mm, anchor=north, yshift=-4mm] at(compute.south) {\textbf{Verb:} launch grids\\ (\myKeyA{explicitly parallel})};
-\node (triangles) [basic, text width=80mm, anchor=north, yshift=-4mm] at(graphics.south) {\textbf{Verb:} draw triangles\\ (\myKeyA{sequential semantics}, mostly)};
+\node (triangles) [basic, text width=80mm, anchor=north, yshift=-4mm] at(graphics.south) {\textbf{Verb:} draw triangles / primitives\\ (\myKeyA{sequential semantics}, mostly)};
 
 \node (gpu) [basic, thick, draw=nGreenBoxBg, text width=190mm, anchor=north, text height=26mm, yshift=-46mm] at(cpu.south) {};
 \node (vertex) [basic, nPurplestyle, text width=55mm, anchor=north, yshift=-50mm] at(cpu.south) {Runs\\\textbf{Vertex Shaders}\\(positions each vertex)};
@@ -162,11 +162,113 @@ Ex post facto goal: learn Vulkan and convince Nvidia to hire me
 \draw [arrow, dotted] (vertex) -- (v2);
 \draw [arrow, dotted] (fragment.south) to[out=270, in=0] ($(v2)!0.5!(v1) + (-0.3,0)$);
 
+\node (etc) [text width=80mm, yshift=-6mm, anchor=north west] at(gpuCaption.south west) {Not shown, GPU primitive gen:\\geometry, tess, mesh, task shaders};
+
 \end{tikzpicture}
 }
-
 \newpage
 \myBiggerTitle{Vertex Shading (Triangle Strip Topology)}
+
+{\large
+\begin{tikzpicture}[node distance=0mm]
+
+\node (vb00) [basic, text width=10mm, text height=10mm, anchor=north] {};
+\node (vb01) [basic, text width=10mm, text height=10mm, anchor=north] at(vb00.south) {};
+\node (vb02) [basic, text width=10mm, text height=10mm, anchor=north] at(vb01.south) {};
+\node (vb03) [basic, text width=10mm, text height=10mm, anchor=north] at(vb02.south) {};
+\node (vb04) [basic, text width=10mm, text height=10mm, anchor=north] at(vb03.south) {};
+% \node (vb05) [text centered, text width=10mm, anchor=north] at(vb04.south) {\Huge $\downarrow$\\$\downarrow$};
+
+\node (text0) [anchor=east, text height=10mm] at(vb00.west) {Vertex 0};
+\node (text1) [anchor=east, text height=10mm] at(vb01.west) {Vertex 1};
+\node (text2) [anchor=east, text height=10mm] at(vb02.west) {Vertex 2};
+\node (text3) [anchor=east, text height=10mm] at(vb03.west) {Vertex 3};
+\node (text4) [anchor=east, text height=10mm] at(vb04.west) {Vertex 4};
+\node (text5) [text centered, text height=10mm, anchor=north] at(text4.south) {Vertex ...};
+
+\node (vb10) [basic, text width=10mm, text height=10mm, anchor=west, xshift=8mm] at(vb00.east) {};
+\node (vb11) [basic, text width=10mm, text height=10mm, anchor=north] at(vb10.south) {};
+\node (vb12) [basic, text width=10mm, text height=10mm, anchor=north] at(vb11.south) {};
+\node (vb13) [basic, text width=10mm, text height=10mm, anchor=north] at(vb12.south) {};
+\node (vb14) [basic, text width=10mm, text height=10mm, anchor=north] at(vb13.south) {};
+% \node (vb15) [text centered, text width=10mm, anchor=north] at(vb14.south) {\Huge $\downarrow$\\$\downarrow$};
+
+\node (vb0) [text centered, anchor=north] at(vb04.south) {Buffer 0};
+\node (vb1) [text centered, anchor=north] at(vb14.south) {Buffer 1...};
+\node (vbo) [text centered, text width=30mm, anchor=south] at($(vb00.north)!0.5!(vb10.north)$) {\textbf{Vertex\\Buffer\\Attributes}};
+
+\node (u0) [anchor=center, xshift=17mm] at(vb10.east) {};
+\node (u1) [anchor=center, xshift=17mm] at(vb11.east) {};
+\node (u2) [anchor=center, xshift=17mm] at(vb12.east) {};
+\node (u3) [anchor=center, xshift=17mm] at(vb13.east) {};
+\node (u4) [anchor=center, xshift=17mm] at(vb14.east) {};
+\node (u5) [anchor=center, yshift=-10mm] at(u4.south) {};
+
+\node (uniforms) [text centered, text width=30mm, anchor=south, yshift=8mm] at(u0.north) {\textbf{Uniforms\\from CPU}};
+
+\draw [arrow] (uniforms.south) to[out=270, in=135] (u0.west);
+\draw [arrow] (u0.south) to[out=270, in=135] (u1.west);
+\draw [arrow] (u1.south) to[out=270, in=135] (u2.west);
+\draw [arrow] (u2.south) to[out=270, in=135] (u3.west);
+\draw [arrow] (u3.south) to[out=270, in=135] (u4.west);
+\draw [arrow] (u4.south) to[out=270, in=135] (u5.west);
+
+\node (vs0) [basic, text width=10mm, text height=10mm, anchor=west, xshift=16mm, fill=nRedBoxBg, text=white] at(u0.east) {VS};
+\node (vs1) [basic, text width=10mm, text height=10mm, anchor=west, xshift=16mm, fill=nGoldBoxBg, text=white] at(u1.east) {VS};
+\node (vs2) [basic, text width=10mm, text height=10mm, anchor=west, xshift=16mm, fill=nGreenBoxBg, text=white] at(u2.east) {VS};
+\node (vs3) [basic, text width=10mm, text height=10mm, anchor=west, xshift=16mm, fill=nBlueBoxBg, text=white] at(u3.east) {VS};
+\node (vs4) [basic, text width=10mm, text height=10mm, anchor=west, xshift=16mm, fill=nPurpleBoxBg, text=white] at(u4.east) {VS};
+% \node (vs5) [text centered, text width=10mm, anchor=north] at(vs4.south) {\Huge $\downarrow$\\$\downarrow$};
+
+\node (vs) [text centered, text width=80mm, anchor=north, yshift=-2mm] at(vs4.south) {\textbf{Vertex Shaders\\1 Vertex = 1 Thread}};
+\node (strip) [text centered, text width=80mm, anchor=west] at(vs.east) {\textbf{Each 3 Adjacent Vertices\\$\to$ 1 Triangle}};
+
+\node (oa00) [basic, text width=10mm, text height=10mm, anchor=west, xshift=9mm] at(vs0.east) {};
+\node (oa01) [basic, text width=10mm, text height=10mm, anchor=north] at(oa00.south) {};
+\node (oa02) [basic, text width=10mm, text height=10mm, anchor=north] at(oa01.south) {};
+\node (oa03) [basic, text width=10mm, text height=10mm, anchor=north] at(oa02.south) {};
+\node (oa04) [basic, text width=10mm, text height=10mm, anchor=north] at(oa03.south) {};
+% \node (oa05) [text centered, text width=10mm, anchor=north] at(oa04.south) {\Huge $\downarrow$\\$\downarrow$};
+
+\node (oa10) [basic, text width=10mm, text height=10mm, anchor=west, xshift=4mm] at(oa00.east) {};
+\node (oa11) [basic, text width=10mm, text height=10mm, anchor=north] at(oa10.south) {};
+\node (oa12) [basic, text width=10mm, text height=10mm, anchor=north] at(oa11.south) {};
+\node (oa13) [basic, text width=10mm, text height=10mm, anchor=north] at(oa12.south) {};
+\node (oa14) [basic, text width=10mm, text height=10mm, anchor=north] at(oa13.south) {};
+% \node (oa15) [text centered, text width=10mm, anchor=north] at(oa14.south) {\Huge $\downarrow$\\$\downarrow$};
+
+\node (out) [text centered, text width=30mm, anchor=south] at($(oa00.north)!0.5!(oa10.north)$) {\textbf{Output\\Vertex\\Attributes}};
+
+\draw [arrow, thick, draw=nRedBoxBg] ($(vb00.west) + (3mm ,0)$) -- (vs0.west);
+\draw [arrow, thick, draw=nGoldBoxBg] ($(vb01.west) + (3mm ,0)$) -- (vs1.west);
+\draw [arrow, thick, draw=nGreenBoxBg] ($(vb02.west) + (3mm ,0)$) -- (vs2.west);
+\draw [arrow, thick, draw=nBlueBoxBg] ($(vb03.west) + (3mm ,0)$) -- (vs3.west);
+\draw [arrow, thick, draw=nPurpleBoxBg] ($(vb04.west) + (3mm ,0)$) -- (vs4.west);
+
+\draw [arrow, thick, draw=nRedBoxBg] (vs0.east) -- ($(oa10.east) - (3mm ,0)$);
+\draw [arrow, thick, draw=nGoldBoxBg] (vs1.east) -- ($(oa11.east) - (3mm ,0)$);
+\draw [arrow, thick, draw=nGreenBoxBg] (vs2.east) -- ($(oa12.east) - (3mm ,0)$);
+\draw [arrow, thick, draw=nBlueBoxBg] (vs3.east) -- ($(oa13.east) - (3mm ,0)$);
+\draw [arrow, thick, draw=nPurpleBoxBg] (vs4.east) -- ($(oa14.east) - (3mm ,0)$);
+
+\node (rasterizer) [text centered, text width=60mm, anchor=west] at(out.east) {\textbf{Primitive Assembly\\\&\\Rasterizer}};
+
+\node (v0) [cheesyVertex, fill=nRedBoxBg, anchor=center, xshift=16mm] at(oa10.east) {};
+\node (v1) [cheesyVertex, fill=nGoldBoxBg, anchor=center, xshift=42mm] at(oa11.east) {};
+\node (v2) [cheesyVertex, fill=nGreenBoxBg, anchor=center, xshift=16mm] at(oa12.east) {};
+\node (v3) [cheesyVertex, fill=nBlueBoxBg, anchor=center, xshift=42mm] at(oa13.east) {};
+\node (v4) [cheesyVertex, fill=nPurpleBoxBg, anchor=center, xshift=16mm] at(oa14.east) {};
+
+\draw [line] (v0) -- (v1);
+\draw [line] (v1) -- (v2);
+\draw [line] (v2) -- (v3);
+\draw [line] (v3) -- (v4);
+\draw [line] (v0) -- (v2);
+\draw [line] (v1) -- (v3);
+\draw [line] (v2) -- (v4);
+
+\end{tikzpicture}
+}
 
 \newpage
 \myBiggerTitle{Fragment Shading}
