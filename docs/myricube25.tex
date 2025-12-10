@@ -704,15 +704,18 @@ Should we do occlusion culling?
 Myricube draws chunks in near-to-far order
 
 Farther chunks \emph{might} be subject to early z-culling
+\begin{itemize}
+  \item Rely on implicit hardware culling, instead of DIY
+\end{itemize}
 
 \vspace{6mm}
 
-Why did the triangle mesh approach benefit from occlusion culling?
+Why did the triangle mesh approach need occlusion culling more?
 
 \begin{itemize}
   \item Early-z skips fragment shaders, not vertex shaders
   \item Have to rasterize triangles to know the tiles covered
-  \item We only waste 12 triangles (AABB) when culled
+  \item We only waste 12 triangles (AABB) if we don't cull
   \item Other approach wastes thousands/millions of triangles
 \end{itemize}
 
@@ -731,8 +734,8 @@ Chunk Storage:
 \vspace{4mm}
 Background threads listen for CPU/GPU version number mismatches; upon detection, the thread
 \begin{itemize}
-\item Uses DMA engine (Vulkan transfer queue) to copy raw voxels from file to 3D texture (faaast)
-\item Calculates new AABB (faaast)
+\item Uses the DMA engine (Vulkan transfer queue) to copy raw voxels from file to 3D texture (faaast)
+\item Calculates the new AABB (faaast)
 \end{itemize}
 \vspace{4mm}
 Supports Linux and Windows (pain)
