@@ -1,0 +1,4 @@
+\node(vertexDown) [anchor=west, text width=14mm, xshift=6mm] at(tile.east) {Vertex Data};
+\node(tileUp) [anchor=west, text width=50mm, xshift=14mm] at(vertexDown.east) {Broadcast triangle to covered tiles' GPCs};
+\draw[arrow] ($(vertexDown.east)+(0, 15mm)$) -- ($(vertexDown.east)+(0, -15mm)$);
+\draw[arrow] ($(tileUp.west)+(0, -15mm)$) -- ($(tileUp.west)+(0, +15mm)$);

@@ -1,0 +1,36 @@
+\node (L2) [basic, bluestyle] {L2 Cache};
+\node (gmem) [basic, bluestyle, xshift=-20mm, anchor=east] at(L2.west) {GMEM};
+\node (cpu) [basic, xshift=-20mm, anchor=east] at(gmem.west) {Host CPU};
+\draw [line] (gmem.east) -- (L2.west);
+\draw [line] (cpu.east) -- (gmem.west);
+
+\node (gpc2) [basic, anchor=north east, yshift=-15mm] at(L2.south east) {GPC};
+\node (gpc1) [basic, anchor=east, xshift=-25mm] at(gpc2.west) {GPC};
+\node (gpc0) [basic, anchor=east, xshift=-25mm] at(gpc1.west) {GPC};
+
+\node (sm00) [basic, anchor=north east, yshift=-6mm, xshift=-2mm] at(gpc0.south) {SM};
+\node (sm01) [basic, anchor=north west, yshift=-6mm, xshift=+2mm] at(gpc0.south) {SM};
+\node (sm10) [basic, anchor=north east, yshift=-6mm, xshift=-2mm] at(gpc1.south) {SM};
+\node (sm11) [basic, anchor=north west, yshift=-6mm, xshift=+2mm] at(gpc1.south) {SM};
+\node (sm20) [basic, anchor=north east, yshift=-6mm, xshift=-2mm] at(gpc2.south) {SM};
+\node (sm21) [basic, anchor=north west, yshift=-6mm, xshift=+2mm] at(gpc2.south) {SM};
+
+\node (L1_00) [basic, bluestyle, anchor=north, yshift=-6mm] at(sm00.south) {L1};
+\node (L1_01) [basic, bluestyle, anchor=north, yshift=-6mm] at(sm01.south) {L1};
+\node (L1_10) [basic, bluestyle, anchor=north, yshift=-6mm] at(sm10.south) {L1};
+\node (L1_11) [basic, bluestyle, anchor=north, yshift=-6mm] at(sm11.south) {L1};
+\node (L1_20) [basic, bluestyle, anchor=north, yshift=-6mm] at(sm20.south) {L1};
+\node (L1_21) [basic, bluestyle, anchor=north, yshift=-6mm] at(sm21.south) {L1};
+
+\draw [line] ($(gpc0.south) + (-4mm, 0)$) -- (sm00.north);
+\draw [line] ($(gpc0.south) + (+4mm, 0)$) -- (sm01.north);
+\draw [line] (sm00.south) -- (L1_00.north);
+\draw [line] (sm01.south) -- (L1_01.north);
+\draw [line] ($(gpc1.south) + (-4mm, 0)$) -- (sm10.north);
+\draw [line] ($(gpc1.south) + (+4mm, 0)$) -- (sm11.north);
+\draw [line] (sm10.south) -- (L1_10.north);
+\draw [line] (sm11.south) -- (L1_11.north);
+\draw [line] ($(gpc2.south) + (-4mm, 0)$) -- (sm20.north);
+\draw [line] ($(gpc2.south) + (+4mm, 0)$) -- (sm21.north);
+\draw [line] (sm20.south) -- (L1_20.north);
+\draw [line] (sm21.south) -- (L1_21.north);

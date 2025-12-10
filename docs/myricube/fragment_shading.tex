@@ -1,0 +1,58 @@
+\node(for) [text width=70mm] {For each triangle \myKeyA{in order},\\for each pixel covered\\by the triangle,};
+
+\node(screen) [basic, text width=60mm, text height=40mm, anchor=west] at(for.east) {};
+\node(controls) [anchor=north east] at(screen.north east) {$-\Box\times$};  % LOL
+\node(dv0) [fill=gray, cheesyvertex, anchor=center, xshift=10mm, yshift=-10mm] at(screen.north west) {};
+\node(dv1) [fill=gray, cheesyvertex, anchor=center, xshift=18mm, yshift=-34mm] at(screen.north west) {};
+\node(dv2) [fill=gray, cheesyvertex, anchor=center, xshift=50mm, yshift=-13mm] at(screen.north west) {};
+\node(dPixel) [fill=black, cheesyvertex, anchor=center, xshift=20mm, yshift=-22mm] at(screen.north west) {};
+\draw [dotted] (dv0) -- (dv1);
+\draw [dotted] (dv0) -- (dv2);
+\draw [dotted] (dv1) -- (dv2);
+
+\node(dColor) [anchor=north east] at(screen.south east) {\textbf{Dest. Color}};
+\node(dDepth) [anchor=north east] at(dColor.south east) {\textbf{Dest. Depth}};
+\node(sColor) [anchor=north east] at(dDepth.south east) {\textbf{Src. Color}};
+\node(sDepth) [anchor=north east] at(sColor.south east) {\textbf{Src. Depth}};
+
+\node(write) [basic, text width=25mm, minimum height=25mm, anchor=west, xshift=45mm] at(dPixel.east) {Write back\\new color,\\new depth};
+\draw [arrow] (write.west) -- (dPixel.east);
+\node(OR) [anchor=west] at(write.east) {\textbf{OR}};
+\node(discard) [basic, text width=25mm, minimum height=25mm, anchor=west] at(OR.east) {\myKeyA{DISCARD}};
+
+\node(sv0) [fill=nRedBoxBg, cheesyvertex, anchor=center, yshift=-75mm] at(dv0.center) {};
+\node(sv1) [fill=nGoldBoxBg, cheesyvertex, anchor=center, yshift=-75mm] at(dv1.center) {};
+\node(sv2) [fill=nGreenBoxBg, cheesyvertex, anchor=center, yshift=-75mm] at(dv2.center) {};
+\node(vs) [anchor=east, xshift=-4mm, yshift=2mm] at(sv1.west) {(from vertex shaders)};
+\node(sPixel) [fill=black, cheesyvertex, anchor=center, yshift=-75mm] at(dPixel.center) {};
+\draw [dotted] (sv0) -- (sv1);
+\draw [dotted] (sv0) -- (sv2);
+\draw [dotted] (sv1) -- (sv2);
+
+\node(blending) [basic, anchor=north, yshift=-25mm] at(OR.south) {Blending};
+\draw [arrow] (blending) -- ($(OR)+(0, -9mm)$);
+\node(depthTest) [basic, text width=40mm, anchor=north west, yshift=-8mm] at(blending.south west) {Depth Test\\\myKeyA{MAY DISCARD}};
+
+\draw [arrow] (dColor.east) to[out=0, in=180] ($(blending.west)+(0, 2mm)$);
+\draw [arrow] (sColor.east) to[out=0, in=180] ($(blending.west)+(0, -2mm)$);
+\draw [arrow, draw=magenta] (dDepth.east) to[out=0, in=180] ($(depthTest.west)+(0, 2mm)$);
+\draw [arrow, draw=magenta] (sDepth.east) to[out=0, in=180] ($(depthTest.west)+(0, -2mm)$);
+\draw [arrow] ($(dPixel.south)+(1mm, 0)$) to[out=270, in=180] (dColor.west);
+\draw [arrow, draw=magenta] ($(dPixel.south)+(-1mm, 0)$) to[out=270, in=180] (dDepth.west);
+
+\node(fragment) [basic, text width=40mm, anchor=east, xshift=-6mm] at($(sColor.west)!0.5!(sDepth.west)$) {Fragment Shader\\\myKeyA{MAY DISCARD}};
+\node(fragmentText) [anchor=north west] at(fragment.south west) {\textbf{1 fragment = 1 thread}};
+\node(iDepth) [anchor=east, xshift=-66mm] at(sDepth.west) {\textbf{Interpolated Depth}};
+\node(uniforms) [anchor=south, yshift=6mm] at(iDepth.north) {\textbf{Uniforms from CPU}};
+\node(iAttrs) [anchor=north, yshift=-6mm, text width=50mm] at(iDepth.south) {\textbf{Interpolated Output\\Vertex Attributes}};
+
+\draw [arrow] ($(fragment.east)+(0, +4mm)$) to[out=0, in=180] (sColor.west);
+\draw [arrow, draw=magenta] ($(fragment.east)+(0, -4mm)$) to[out=0, in=180] (sDepth.west);
+\draw [arrow, draw=magenta] (iDepth.east) to[out=0, in=180] ($(fragment.west)+(0, -4mm)$);
+\draw [arrow] (uniforms.east) to[out=0, in=180] ($(fragment.west)+(0, +4mm)$);
+\draw [arrow] (iAttrs.east) to[out=0, in=225] (fragment.south west);
+\draw [arrow, draw=magenta] ($(sPixel.west)+(0, 1mm)$) to[out=180, in=315] (iDepth.south east);
+\draw [arrow] ($(sPixel.west)+(0, -1mm)$) to[out=180, in=315] (iAttrs.south east);
+
+\node (depthInfo) [text width=75mm, anchor=north east] at(depthTest.south east) {{\color{magenta}\textbf{Depth Idea:}}
+Per-pixel depth encodes ``distance from camera'';\\closest fragment wins depth test.};

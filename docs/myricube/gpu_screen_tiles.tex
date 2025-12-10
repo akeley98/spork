@@ -1,0 +1,12 @@
+\node(screen) [basic, text width=60mm, text height=40mm, anchor=north west, xshift=12mm] at(L2.north east) {};
+\node(controls) [anchor=north east] at(screen.north east) {$-\Box\times$};  % LOL
+\node(tile0) [basic, redstyle, text width=6mm, text height=6mm, xshift=1mm, yshift=-1mm, anchor=north west] at(screen.north west) {};
+\node(tile1) [basic, redstyle, text width=6mm, text height=6mm, xshift=1mm, anchor=north west] at(tile0.north east) {};
+\node(tile2) [basic, redstyle, text width=6mm, text height=6mm, xshift=1mm, anchor=north west] at(tile1.north east) {};
+
+\draw [line, dotted, redstyle] (tile0.south west) -- (gpc0.north west);
+\draw [line, dotted, redstyle] (tile0.south east) -- (gpc0.north east);
+\draw [line, dotted, redstyle] (tile1.south west) -- (gpc1.north west);
+\draw [line, dotted, redstyle] (tile1.south east) -- (gpc1.north east);
+\draw [line, dotted, redstyle] (tile2.south west) -- (gpc2.north west);
+\draw [line, dotted, redstyle] (tile2.south east) -- (gpc2.north east);

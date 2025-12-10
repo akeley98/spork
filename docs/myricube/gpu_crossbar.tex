@@ -1,0 +1,8 @@
+\node (crossbar) [basic, redstyle, text width=96mm, anchor=north, yshift=-36mm] at(gpc1.south) {Crossbar};
+\node (tile) [basic, redstyle, text width=96mm, anchor=north, yshift=-6mm] at(crossbar.south) {Tile Coalesce Unit};
+
+\draw [line, redstyle] (gpc0.south) -- ($(gpc0.south) - (0mm, 36mm)$);
+\draw [line, redstyle] (gpc1.south) -- ($(gpc1.south) - (0mm, 36mm)$);
+\draw [line, redstyle] (gpc2.south) -- ($(gpc2.south) - (0mm, 36mm)$);
+\draw [line, redstyle] (crossbar.south) -- (tile.north);
+

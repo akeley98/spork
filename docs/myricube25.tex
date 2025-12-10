@@ -276,60 +276,7 @@ Ex post facto goal: learn Vulkan and convince Nvidia to hire me
 {\large
 \begin{tikzpicture}[node distance=0mm]
 
-\node(for) [text centered, text width=75mm] {For each triangle \myKeyA{in order},\\ for each pixel in the triangle,\\\hphantom{M}\\1 shaded pixel = 1 thread (sorta)};
-
-\node(screen) [basic, text width=60mm, text height=40mm, anchor=west] at(for.east) {};
-\node(controls) [anchor=north east] at(screen.north east) {$-\Box\times$};  % LOL
-\node(dv0) [fill=gray, cheesyvertex, anchor=center, xshift=10mm, yshift=-10mm] at(screen.north west) {};
-\node(dv1) [fill=gray, cheesyvertex, anchor=center, xshift=18mm, yshift=-34mm] at(screen.north west) {};
-\node(dv2) [fill=gray, cheesyvertex, anchor=center, xshift=50mm, yshift=-13mm] at(screen.north west) {};
-\node(dPixel) [fill=black, cheesyvertex, anchor=center, xshift=20mm, yshift=-22mm] at(screen.north west) {};
-\draw [dotted] (dv0) -- (dv1);
-\draw [dotted] (dv0) -- (dv2);
-\draw [dotted] (dv1) -- (dv2);
-
-\node(dColor) [anchor=north east] at(screen.south east) {\textbf{Dest. Color}};
-\node(dDepth) [anchor=north east] at(dColor.south east) {\textbf{Dest. Depth}};
-\node(sColor) [anchor=north east] at(dDepth.south east) {\textbf{Src. Color}};
-\node(sDepth) [anchor=north east] at(sColor.south east) {\textbf{Src. Depth}};
-
-\node(write) [basic, text width=25mm, minimum height=25mm, anchor=west, xshift=45mm] at(dPixel.east) {Write back\\new color,\\new depth};
-\draw [arrow] (write.west) -- (dPixel.east);
-\node(OR) [anchor=west] at(write.east) {\textbf{OR}};
-\node(discard) [basic, text width=25mm, minimum height=25mm, anchor=west] at(OR.east) {\myKeyA{DISCARD}};
-
-\node(sv0) [fill=nRedBoxBg, cheesyvertex, anchor=center, yshift=-75mm] at(dv0.center) {};
-\node(sv1) [fill=nGoldBoxBg, cheesyvertex, anchor=center, yshift=-75mm] at(dv1.center) {};
-\node(sv2) [fill=nGreenBoxBg, cheesyvertex, anchor=center, yshift=-75mm] at(dv2.center) {};
-\node(vs) [anchor=west, xshift=4mm, yshift=2mm] at(sv1.east) {(from vertex shaders)};
-\node(sPixel) [fill=black, cheesyvertex, anchor=center, yshift=-75mm] at(dPixel.center) {};
-\draw [dotted] (sv0) -- (sv1);
-\draw [dotted] (sv0) -- (sv2);
-\draw [dotted] (sv1) -- (sv2);
-
-\node(blending) [basic, anchor=north, yshift=-25mm] at(OR.south) {Blending};
-\draw [arrow] (blending) -- ($(OR)+(0, -9mm)$);
-\node(depthTest) [basic, text width=40mm, anchor=north, yshift=-8mm] at(blending.south) {Depth Test\\\myKeyA{MAY DISCARD}};
-
-\draw [arrow] (dColor.east) to[out=0, in=180] ($(blending.west)+(0, 2mm)$);
-\draw [arrow] (sColor.east) to[out=0, in=180] ($(blending.west)+(0, -2mm)$);
-\draw [arrow] (dDepth.east) to[out=0, in=180] ($(depthTest.west)+(0, 2mm)$);
-\draw [arrow] (sDepth.east) to[out=0, in=180] ($(depthTest.west)+(0, -2mm)$);
-\draw [arrow] (dPixel.south) to[out=270, in=180] (dColor.west);
-\draw [arrow] (dPixel.south) to[out=270, in=180] (dDepth.west);
-
-\node(fragment) [basic, text width=40mm, anchor=east, xshift=-6mm] at($(sColor.west)!0.5!(sDepth.west)$) {Fragment Shader\\\myKeyA{MAY DISCARD}};
-\node(iDepth) [anchor=east, xshift=-66mm] at(sDepth.west) {\textbf{Interpolated Depth}};
-\node(uniforms) [anchor=south, yshift=6mm] at(iDepth.north) {\textbf{Uniforms from CPU}};
-\node(iAttrs) [anchor=north, yshift=-6mm, text width=50mm] at(iDepth.south) {\textbf{Interpolated Output\\Vertex Attributes}};
-
-\draw [arrow] ($(fragment.east)+(0, +4mm)$) to[out=0, in=180] (sColor.west);
-\draw [arrow] ($(fragment.east)+(0, -4mm)$) to[out=0, in=180] (sDepth.west);
-\draw [arrow] (iDepth.east) to[out=0, in=180] ($(fragment.west)+(0, -4mm)$);
-\draw [arrow] (uniforms.east) to[out=0, in=180] ($(fragment.west)+(0, +4mm)$);
-\draw [arrow] (iAttrs.east) to[out=0, in=225] (fragment.south west);
-\draw [arrow] (sPixel.west) to[out=180, in=315] (iDepth.south east);
-\draw [arrow] (sPixel.west) to[out=180, in=315] (iAttrs.south east);
+\input{myricube/fragment_shading.tex}
 
 \end{tikzpicture}
 }
@@ -338,31 +285,493 @@ Ex post facto goal: learn Vulkan and convince Nvidia to hire me
 \newpage
 \myBiggerTitle{Prior Art: Voxels to Triangle Mesh}
 
+\begin{minipage}[t]{0.58\textwidth}\fixminipage
+{\LARGE
+Convert cubes into triangles to draw
+\begin{itemize}
+  \item For each voxel, \myKeyA{which pixels does it cover}?
+\end{itemize}
+
+\vspace{8mm}
+
+Costs time (for translation)
+
+Costs memory, sometimes
+\begin{itemize}
+  \item 1 voxel (color sample)\\$\to$ multiple triangles
+\end{itemize}
+
+\vspace{16mm}
+
+Commonly used algorithm in practice (e.g. for Minecraft)
+
+}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.4\textwidth}\fixminipage
+{\LARGE
+\hphantom{Hello}
+
+\includegraphics[width=\textwidth]{myricube/voxel_triangles.png}
+
+}
+\end{minipage}
+
+
+\newpage
+\myBiggerTitle{Prior Art: Voxels to Triangle Mesh}
+
+\begin{minipage}[t]{0.58\textwidth}\fixminipage
+{\LARGE
+Huge \# of tiny triangles generated
+\begin{itemize}
+  \item Voxels small on-screen at high render distance
+  \item Solutions / compromises exist
+\end{itemize}
+
+Level-of-detail optimization
+\begin{itemize}
+  \item Lower voxel resolution for far-away geometry
+\end{itemize}
+Greedy Meshing
+\begin{itemize}
+  \item Merge triangles across cubes
+\end{itemize}
+Occlusion Culling
+\begin{itemize}
+  \item Skip drawing triangles you \emph{know} are hidden behind something else
+\end{itemize}
+
+}
+
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.4\textwidth}\fixminipage
+{\LARGE
+\hphantom{Hello}
+
+\includegraphics[width=\textwidth]{myricube/voxel_triangles.png}
+
+}
+\end{minipage}
+
 \newpage
 \myBiggerTitle{Prior Art: Raycasting}
+
+\begin{minipage}[t]{0.58\textwidth}\fixminipage
+{\LARGE
+
+For each pixel, \myKeyA{which voxel should be drawn} (if any)?
+
+\vspace{12mm}
+
+Cast ray from camera through each pixel, and shade based on voxel hit
+
+\vspace{12mm}
+
+Draw full-screen triangle
+\begin{itemize}
+  \item Fragment shader does raycasting per-pixel
+  \item ... or just use CUDA (cringe)
+\end{itemize}
+
+}
+
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.4\textwidth}\fixminipage
+{
+\hphantom{Hello}
+
+\includegraphics[width=\textwidth]{myricube/RaysViewportSchema.png}
+
+Image: \web{https://upload.wikimedia.org/wikipedia/commons/b/b2/RaysViewportSchema.png}
+
+}
+\end{minipage}
+
+
+\newpage
+\myBiggerTitle{Prior Art: Raycasting (Acceleration Structure)}
+
+\begin{minipage}[t]{0.64\textwidth}\fixminipage
+{\LARGE
+
+For each pixel, \myKeyA{which voxel should be drawn} (if any)?
+
+\hfill ... answer quickly!!!
+
+\vspace{12mm}
+
+This requires an \emph{acceleration structure}
+\begin{itemize}
+  \item Usually hierarchical, voxels as leaves
+  \item Full of pointers (or indices)
+  \item Think about how to build this in parallel
+  \item Local edits may be hard...
+\end{itemize}
+
+\vspace{12mm}
+
+SOTA algorithms (at least for static data) tend to use raycasting
+
+}
+
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.34\textwidth}\fixminipage
+{
+\hphantom{Hello}
+
+\includegraphics[width=\textwidth]{myricube/NvidiaVoxelTraversal.png}
+
+Image: \webText{Samuli Laine, Tero Karras, ``Efﬁcient Sparse Voxel Octrees – Analysis, Extensions, and Implementation''}{https://upload.wikimedia.org/wikipedia/commons/b/b2/RaysViewportSchema.png}
+
+}
+\end{minipage}
+
 
 \newpage
 \myBiggerTitle{``Research'' Question}
 
+{\LARGE
+
+\myKeyA{Common Theme:} Compile voxel data (3D array) into another more-suitable format
+
+Do work ahead-of-time to zero-in on the relevant data later
+\begin{itemize}
+  \item Occlusion culling: don't draw hidden triangles
+  \item Acceleration structure: each ray traverses subtrees that matter
+\end{itemize}
+
+\vspace{12mm}
+
+Q: can we draw \emph{raw, uncompressed} voxel data fast?
+\begin{itemize}
+  \item Use the \myKeyA{magical powers} of the graphics pipeline to do this
+\end{itemize}
+
+}
+
 \newpage
 \myBiggerTitle{Embarassingly Parallel (but not really)}
 
-\newpage
-\myBiggerTitle{Implicit Sequential Semantics}
+{\LARGE
+
+Vertex shader threads are independent
+
+Fragment shader threads are independent
+\begin{itemize}
+  \item Nice API, Life Good
+\end{itemize}
+
+\vspace{16mm}
+
+... Hardware vendor has to handle load balancing
+\begin{itemize}
+  \item Triangle fragment count is in $[0, 17179869184]$ % 32768**2 * 16
+  \item Triangles can come from anywhere
+\end{itemize}
+
+... Hardware vendor has to implement \myKeyA{sequential semantics}
+\begin{itemize}
+  \item as-if each triangle were drawn \myKeyA{one-by-one}, in order
+\end{itemize}
+
+}
 
 \newpage
-\myBiggerTitle{Workload Balancing}
+\myBiggerTitle{GPU Hardware: Compute Perspective}
+
+{\large
+\begin{tikzpicture}[node distance=0mm]
+
+\input{myricube/gpu_units.tex}
+\input{myricube/gpu_L2_lines.tex}
+
+\node(cta) [text width=50mm, anchor=west, xshift=6mm] at(sm21.east) {CTAs assigned to an SM to execute};
+
+\node(note) [text width=60mm, anchor=north west] at(L1_21.south east) {\textbf{What they tell you:} SMs communicate via L2 or GMEM only};
+
+\draw [arrow] (note.north east) to[out=45, in=0] ($(L2.east) + (0, -8mm)$);
+
+\end{tikzpicture}
+}
+\vfill
+\input{myricube/gpu_crossbar_sources.tex}
+
+\newpage
+\myBiggerTitle{GPU Hardware: Graphics Perspective (Tiling)}
+
+{\large
+\begin{tikzpicture}[node distance=0mm]
+
+\input{myricube/gpu_units.tex}
+\input{myricube/gpu_L2_lines.tex}
+\input{myricube/gpu_screen_tiles.tex}
+
+\node(tileNote) [text width=65mm, anchor=north west] at(screen.south west) {Static assignment of GPCs to screen tiles};
+\node(fragment) [text width=65mm, anchor=north west, yshift=-4mm] at(tileNote.south west) {GPCs execute \myKeyA{fragment shaders} within its tile};
+\node(vertex) [text width=100mm, anchor=north west, yshift=-4mm] at(fragment.south west) {GPCs also execute\\\myKeyA{vertex shaders} (unified shading)\\... resulting triangle could cover any tiles};
+\node(allNote) [text width=65mm, anchor=north west, yshift=-4mm] at(vertex.south west) {All-to-all communication?!};
+
+\node(trianglesNote) [anchor=north, yshift=-20mm] at(L1_10.south) {``Triangles can come from anywhere''};
+
+\end{tikzpicture}
+
+}
+\vfill
+\input{myricube/gpu_crossbar_sources.tex}
+
+\newpage
+\myBiggerTitle{GPU Hardware: Graphics Perspective (Crossbar)}
+
+{\large
+\begin{tikzpicture}[node distance=0mm]
+
+\input{myricube/gpu_units.tex}
+\input{myricube/gpu_L2_lines.tex}
+\input{myricube/gpu_screen_tiles.tex}
+\input{myricube/gpu_crossbar.tex}
+
+\node(note) [anchor=south west, xshift=6mm, yshift=4mm] at(crossbar.north east) {Reality: all GPCs are interconnected};
+\input{myricube/gpu_crossbar_arrows.tex}
+
+\end{tikzpicture}
+
+}
+\vfill
+\input{myricube/gpu_crossbar_sources.tex}
+
+\newpage
+\myBiggerTitle{GPU Hardware: Graphics Perspective (Crossbar)}
+
+{\large
+\begin{tikzpicture}[node distance=0mm]
+
+\input{myricube/gpu_units.tex}
+\input{myricube/gpu_screen_tiles.tex}
+\input{myricube/gpu_crossbar.tex}
+
+\input{myricube/gpu_crossbar_arrows.tex}
+
+\fill [magenta] ($(tile1.north west)+(2mm, -1mm)$) -- ($(tile1.south west)+(4mm, 3mm)$) -- ($(tile2.east)+(-3mm, 0mm)$) -- cycle;
+\fill [magenta] ($(tile1.north west)+(2mm, -61mm)$) -- ($(tile1.south west)+(4mm, -57mm)$) -- ($(tile2.east)+(-3mm, -60mm)$) -- cycle;
+\draw [arrow, magenta] (crossbar.east) -- ($(tile1.south west)+(4mm, -57mm)$);
+\draw [arrow, magenta] ($(tile1.south east)+(0mm, -50mm)$) -- ($(tile1.south east)+(0mm, -6mm)$);
+\draw [arrow, magenta] (tile1.south) -- (gpc1.north);
+\draw [arrow, magenta] (tile2.south) -- (gpc2.north);
+
+\end{tikzpicture}
+
+}
+\vfill
+\input{myricube/gpu_crossbar_sources.tex}
+
+\newpage
+\myBiggerTitle{GPU Hardware: Graphics Perspective (ROPs)}
+
+{\large
+\begin{tikzpicture}[node distance=0mm]
+
+\input{myricube/gpu_units.tex}
+\input{myricube/gpu_L2_lines.tex}
+\input{myricube/gpu_crossbar.tex}
+\input{myricube/gpu_screen_tiles.tex}
+\input{myricube/gpu_rop.tex}
+
+\node (ropNote) [anchor=west, xshift=+6mm] at(L1_21.north east) {\textbf{ROP:} Render Output Unit};
+
+\node (seqNote) [anchor=north west, yshift=-6mm] at(ropNote.south west) {Part of what implements \myKeyA{sequential semantics}};
+
+\node [anchor=north west, yshift=-6mm] at(seqNote.south west) {Depth test, blending, etc. in program order};
+
+\end{tikzpicture}
+
+}
+\vfill
+\input{myricube/gpu_crossbar_sources.tex}
+
+\newpage
+
+\begin{minipage}[t]{0.68\textwidth}\fixminipage
+{\myBiggerTitle{Myricube: Chunks}
+
+\LARGE
+
+Divide world into $16 \times 16 \times 16$ \emph{chunks}
+\begin{itemize}
+  \item Stores raw array of voxels
+\end{itemize}
+
+\vspace{4mm}
+
+Compute AABB (axis-aligned bounding box) of opaque voxels in the chunk
+
+\vspace{4mm}
+
+Draw AABB (12 triangles), \myKeyA{fragment shader} raycasts based on voxels in chunk
+
+\vspace{4mm}
+
+\myKeyA{Discard} if no voxel hit
+
+}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.3\textwidth}\fixminipage
+\hphantom{Hello}
+\includegraphics[width=\linewidth] {myricube/many_chunks_0.jpg}
+
+\includegraphics[width=\linewidth] {myricube/many_chunks_1.jpg}
+\end{minipage}
+
+\newpage
+\includegraphics[width=\linewidth] {myricube/myricube_chunk_flow_0.jpg}
+\newpage
+\includegraphics[width=\linewidth] {myricube/myricube_chunk_flow_1.jpg}
+\newpage
+\includegraphics[width=\linewidth] {myricube/myricube_chunk_flow_2.jpg}
+\newpage
+\includegraphics[width=\linewidth] {myricube/myricube_chunk_flow_3.jpg}
+\newpage
+\includegraphics[width=\linewidth] {myricube/myricube_chunk_flow_0.jpg}
+
+\newpage
+\myBiggerTitle{Demo 1}
+
+{\LARGE
+\hfill(we'll do it live)
+
+}
 
 \newpage
 \myBiggerTitle{Early z-culling}
 
+{\LARGE
+
+Issue: what about chunks that are hidden behind something else?
+\begin{itemize}
+  \item Depth testing ensures front-most chunk ``wins''
+  \item ... but are we wasting time drawing hidden chunks?
+\end{itemize}
+\vspace{8mm}
+Should we do occlusion culling?
+
+}
+
 \newpage
-\myBiggerTitle{Myricube: Chunks}
+\myBiggerTitle{Early z-culling: Hardware}
+
+{\large
+\begin{tikzpicture}[node distance=0mm]
+
+\input{myricube/gpu_units.tex}
+\input{myricube/gpu_L2_lines.tex}
+\input{myricube/gpu_crossbar.tex}
+\input{myricube/gpu_screen_tiles.tex}
+\input{myricube/gpu_rop.tex}
+
+\node [xshift=+3mm, anchor=west, text width=70mm] at(tile.east) {This unit can kill tiles early based on the depth test};
+
+\end{tikzpicture}
+}
+
+\vfill
+\input{myricube/gpu_crossbar_sources.tex}
+
+\newpage
+\myBiggerTitle{Early z-culling: Fragment Shading}
+
+{\large
+\begin{tikzpicture}[node distance=0mm]
+
+\input{myricube/fragment_shading.tex}
+
+\node (note1) [redstyle, anchor=east, text width=60mm, xshift=-2mm] at(screen.south west) {Suppose fragment shader has no side effects, \textbf{passes through} depth};
+\draw [line, redstyle] (iDepth.north) -- (note1);
+\draw [line, redstyle] (sDepth.north) -- (note1);
+\node (note2) [redstyle, anchor=north west, text width=80mm, yshift=-4mm] at(depthInfo.north west) {We can skip tiles of fragment shaders if we know they will fail the depth test anyway.};
+
+\end{tikzpicture}
+}
 
 \newpage
 \myBiggerTitle{Myricube: Reverse Painter's}
 
+{\LARGE
+
+Myricube draws chunks in near-to-far order
+
+Farther chunks \emph{might} be subject to early z-culling
+
+\vspace{6mm}
+
+Why did the triangle mesh approach benefit from occlusion culling?
+
+\begin{itemize}
+  \item Early-z skips fragment shaders, not vertex shaders
+  \item Have to rasterize triangles to know the tiles covered
+  \item We only waste 12 triangles (AABB) when culled
+  \item Other approach wastes thousands/millions of triangles
+\end{itemize}
+
+}
+
 \newpage
 \myBiggerTitle{Myricube: Uploads from Disk}
+
+{\LARGE
+Chunk Storage:
+\begin{itemize}
+  \item On CPU: in mmap'd binary files (3D arrays)
+  \item On GPU: in 3D texture
+  \item Both organized into \myKeyA{chunk groups}, with version number
+\end{itemize}
+\vspace{4mm}
+Background threads listen for CPU/GPU version number mismatches; upon detection, the thread
+\begin{itemize}
+\item Uses DMA engine (Vulkan transfer queue) to copy raw voxels from file to 3D texture (faaast)
+\item Calculates new AABB (faaast)
+\end{itemize}
+\vspace{4mm}
+Supports Linux and Windows (pain)
+
+}
+
+\newpage
+\myBiggerTitle{Myricube: Uploads from Disk}
+
+{\LARGE
+Only copy outdated chunk groups in the camera frustum
+
+Copy-to-GPU finishes asynchronously
+
+Not finished in time?
+\begin{itemize}
+  \item Draw outdated GPU 3D texture, or skip chunks
+\end{itemize}
+
+\vfill
+
+\includegraphics[width=0.333\linewidth]{myricube/myricraft_loading_1.jpg}
+\includegraphics[width=0.333\linewidth]{myricube/myricraft_loading_2.jpg}
+\includegraphics[width=0.333\linewidth]{myricube/myricraft_loading_3.jpg}
+
+}
+
+\newpage
+\myBiggerTitle{Demo 2}
+
+{\LARGE
+\hfill(we'll do it live)
+
+}
+
+\newpage
+\myBiggerTitle{Questions?} \hfill Planet model by my friend, Marlon Trifunovic
+
+\includegraphics[width=0.495\linewidth]{myricube/marlo_planet_chunks.jpg}
+\includegraphics[width=0.495\linewidth]{myricube/marlo_planet.jpg}
 
 \end{document}
