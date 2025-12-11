@@ -554,13 +554,8 @@ Fragment shader threads are independent
 \input{myricube/gpu_crossbar.tex}
 
 \input{myricube/gpu_crossbar_arrows.tex}
-
-\fill [magenta] ($(tile1.north west)+(2mm, -1mm)$) -- ($(tile1.south west)+(4mm, 3mm)$) -- ($(tile2.east)+(-3mm, 0mm)$) -- cycle;
-\fill [magenta] ($(tile1.north west)+(2mm, -61mm)$) -- ($(tile1.south west)+(4mm, -57mm)$) -- ($(tile2.east)+(-3mm, -60mm)$) -- cycle;
-\draw [arrow, magenta] (crossbar.east) -- ($(tile1.south west)+(4mm, -57mm)$);
-\draw [arrow, magenta] ($(tile1.south east)+(0mm, -50mm)$) -- ($(tile1.south east)+(0mm, -6mm)$);
-\draw [arrow, magenta] (tile1.south) -- (gpc1.north);
-\draw [arrow, magenta] (tile2.south) -- (gpc2.north);
+\input{myricube/gpu_crossbar_triangle.tex}
+\input{myricube/gpu_gpc_triangle.tex}
 
 \end{tikzpicture}
 
@@ -671,6 +666,7 @@ Should we do occlusion culling?
 \input{myricube/gpu_crossbar.tex}
 \input{myricube/gpu_screen_tiles.tex}
 \input{myricube/gpu_rop.tex}
+\input{myricube/gpu_crossbar_triangle.tex}
 
 \node [xshift=+3mm, anchor=west, text width=70mm] at(tile.east) {This unit can kill tiles early based on the depth test};
 
@@ -735,7 +731,7 @@ Chunk Storage:
 Background threads listen for CPU/GPU version number mismatches; upon detection, the thread
 \begin{itemize}
 \item Uses the DMA engine (Vulkan transfer queue) to copy raw voxels from file to 3D texture (faaast)
-\item Calculates the new AABB (faaast)
+\item Calculates the new AABBs (faaast)
 \end{itemize}
 \vspace{4mm}
 Supports Linux and Windows (pain)
