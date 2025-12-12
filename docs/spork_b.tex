@@ -1,6 +1,9 @@
 % exocc b_samples.py && python3 code_to_tex.py b_samples.py b_samples && xelatex spork_b.tex </dev/null
 \input{whitepaper_common.tex}
 
+\tikzstyle{arrow} = [thick,->,>=stealth]
+\tikzstyle{line} = [thick]
+
 \tikzstyle{redstyle} = [draw=redBoxFg, fill=redBoxBg, text=redBoxFg]
 \tikzstyle{yellowstyle} = [draw=yellowBoxFg, fill=yellowBoxBg, text=yellowBoxFg]
 \tikzstyle{greenstyle} = [draw=greenBoxFg, fill=greenBoxBg, text=greenBoxFg]
@@ -12,38 +15,14 @@
 \tikzstyle{nBluestyle} = [draw=nBlueBoxFg, fill=nBlueBoxBg, text=nBlueBoxFg]
 \tikzstyle{nPurplestyle} = [draw=nPurpleBoxFg, fill=nPurpleBoxBg, text=nPurpleBoxFg]
 
-\tikzstyle{CollTypeExampleStyle} = [rectangle, draw=black, text centered, text width=20mm]
+\tikzstyle{CollTypeExampleStyle} = [rectangle, draw=black, text centered, text width=23mm]
 
 \begin{document}
 
-% Kernel launch \& loops:
-% CudaDeviceFunction defines clusterDim & blockDim
-% Loops: seq, cuda_task, cuda_threads (loop mode)
-% nest of cuda_tasks loops in CudaDeviceFunction. Inner-most body is device task; one instance of the body is assigned to one cluster.
-% Within the device task, each instance of a stmt is executed by a set of threads within the cluster (thread collective)
-% cuda_threads(0, c_{hi}, unit=...) loop subdivides its executing thread collective into c_{hi}-many disjoint thread collectives, guided by the unit parameter.
-% Uniform execution encoded in language.
-%
-% Collective Types
-% cuda_threads loop takes a collective unit from which a collective type \delta is unpacked (section link).
-% Collective type encodes number and arrangement of threads (e.g. warp, CTA, CTA pair).
-% In typical case, the thread collectives assigned to iteration is described by \delta (section link).
-% Local thread index, thread collective need not be contiguous range of local thread indices.
-% Lexicographical ordering wrt domain.
-% Box and so on.
-%
-% Distributed Memory
-% Thread pitch is crucial concept.
-% Thread pitch of iterator.
-% Distributed memory; shard mapped to thread collectives described by \delta
-% Thread pitch tuple, describes residency.
-%
-% Synchronization
-% Read|Write -> Fence|Arrive
-% Read|Write -> Await, when trailing bar
-% Fence|Await -> Read
-% Fence|Await -> Write
-% Arrive -> Await
+% TODO diagram for collective tiling
+% deriveCollTiling
+% Instructions, use deriveCollTiling for memory
+% out-of-order non-convergent abstract machine optimization
 
 \myTitle{Exo-GPU (Spork) Guide}
 
@@ -249,15 +228,16 @@ If we have no $\top$ box coordinates, this is specifying that the thread collect
 
 \begin{figure}[h!]
 \sffamily
+\hspace{-12mm}
 \begin{tikzpicture}[node distance=0mm]
 \node(t000a) [CollTypeExampleStyle] {(0, 0)\\0 $ \in \mu$\\0, 0, 0, 0};
 \node(t000b) [CollTypeExampleStyle, right=of t000a, xshift=6mm] {(0, 127)\\127 $ \in \mu$\\0, 0, 0, 127};
 \draw [dotted] (t000a) -- (t000b);
-\node(t001a) [CollTypeExampleStyle, right=of t000b, xshift=2mm, yshift=-3mm] {(0, 128)\\128 $ \in \mu$\\0, 0, 1, 0};
+\node(t001a) [CollTypeExampleStyle, right=of t000b, xshift=2mm, yshift=-3mm] {(0, 128)\\128 $ \in \mu$\\\blueBox{0}, 0, 1, 0};
 \node(t001b) [CollTypeExampleStyle, right=of t001a, xshift=6mm] {(0, 255)\\255 $ \in \mu$\\0, 0, 1, 127};
 \draw [dotted] (t001a) -- (t001b);
-\node(t002a) [CollTypeExampleStyle, right=of t001b, xshift=2mm, yshift=-3mm] {(0, 256)\\256 $ \in \mu$\\0, 0, 2, 0};
-\node(t002b) [CollTypeExampleStyle, right=of t002a, xshift=6mm] {(0, 383)\\383 $ \in \mu$\\0, 0, 2, 127};
+\node(t002a) [CollTypeExampleStyle, right=of t001b, xshift=2mm, yshift=-3mm] {(0, 256)\\256 $ \in \mu$\\0, 0, \violetBox{2}, \redBox{0}};
+\node(t002b) [CollTypeExampleStyle, right=of t002a, xshift=6mm] {(0, 383)\\383 $ \in \mu$\\0, 0, \violetBox{2}, \redBox{127}};
 \draw [dotted] (t002a) -- (t002b);
 \node(t010a) [CollTypeExampleStyle, below=of t000a, yshift=-2mm] {(1, 0)\\384 $ \in \mu$\\0, 1, 0, 0};
 \node(t010b) [CollTypeExampleStyle, right=of t010a, xshift=6mm] {(1, 127)\\511 $ \in \mu$\\0, 1, 0, 127};
@@ -269,16 +249,16 @@ If we have no $\top$ box coordinates, this is specifying that the thread collect
 \node(t012b) [CollTypeExampleStyle, right=of t012a, xshift=6mm] {(1, 383)\\767 $ \in \mu$\\0, 1, 2, 127};
 \draw [dotted] (t012a) -- (t012b);
 
-\node(t100a) [CollTypeExampleStyle, below=of t010a, yshift=-4mm, xshift=-4mm] {(2, 0)\\768 $ \in \mu$\\1, 0, 0, 0};
+\node(t100a) [CollTypeExampleStyle, below=of t010a, yshift=-4mm, xshift=-4mm] {(2, 0)\\768 $ \in \mu$\\\blueBox{1}, \yellowBox{0}, 0, 0};
 \node(t100b) [CollTypeExampleStyle, right=of t100a, xshift=6mm] {(2, 127)\\895 $ \in \mu$\\1, 0, 0, 127};
 \draw [dotted] (t100a) -- (t100b);
-\node(t101a) [CollTypeExampleStyle, right=of t100b, xshift=2mm, yshift=-3mm] {(2, 128)\\896 $ \in \mu$\\1, 0, 1, 0};
+\node(t101a) [CollTypeExampleStyle, right=of t100b, xshift=2mm, yshift=-3mm] {(2, 128)\\896 $ \in \mu$\\\blueBox{1}, 0, 1, 0};
 \node(t101b) [CollTypeExampleStyle, right=of t101a, xshift=6mm] {(2, 255)\\1023 $ \in \mu$\\1, 0, 1, 127};
 \draw [dotted] (t101a) -- (t101b);
 \node(t102a) [greenstyle, CollTypeExampleStyle, right=of t101b, xshift=2mm, yshift=-3mm] {(2, 256)\\1024 $ \in \mu$\\1, 0, 2, 0};
 \node(t102b) [greenstyle, CollTypeExampleStyle, right=of t102a, xshift=6mm] {(2, 383)\\1151 $ \in \mu$\\1, 0, 2, 127};
 \draw [dotted] (t102a) -- (t102b);
-\node(t110a) [CollTypeExampleStyle, below=of t100a, yshift=-2mm] {(3, 0)\\1152 $ \in \mu$\\1, 1, 0, 0};
+\node(t110a) [CollTypeExampleStyle, below=of t100a, yshift=-2mm] {(3, 0)\\1152 $ \in \mu$\\\blueBox{1}, \yellowBox{1}, 0, 0};
 \node(t110b) [CollTypeExampleStyle, right=of t110a, xshift=6mm] {(3, 127)\\1279 $ \in \mu$\\1, 1, 0, 127};
 \draw [dotted] (t110a) -- (t110b);
 \node(t111a) [CollTypeExampleStyle, right=of t110b, xshift=2mm, yshift=-3mm] {(3, 128)\\1280 $ \in \mu$\\1, 1, 1, 0};
@@ -291,26 +271,26 @@ If we have no $\top$ box coordinates, this is specifying that the thread collect
 \node(t200a) [CollTypeExampleStyle, below=of t110a, yshift=-4mm, xshift=-4mm] {(4, 0)\\1536 $ \in \mu$\\2, 0, 0, 0};
 \node(t200b) [CollTypeExampleStyle, right=of t200a, xshift=6mm] {(4, 127)\\1663 $ \in \mu$\\2, 0, 0, 127};
 \draw [dotted] (t200a) -- (t200b);
-\node(t201a) [CollTypeExampleStyle, right=of t200b, xshift=2mm, yshift=-3mm] {(4, 128)\\1664 $ \in \mu$\\2, 0, 1, 0};
+\node(t201a) [CollTypeExampleStyle, right=of t200b, xshift=2mm, yshift=-3mm] {(4, 128)\\1664 $ \in \mu$\\\blueBox{2}, \yellowBox{0}, 1, 0};
 \node(t201b) [CollTypeExampleStyle, right=of t201a, xshift=6mm] {(4, 255)\\1791 $ \in \mu$\\2, 0, 1, 127};
 \draw [dotted] (t201a) -- (t201b);
-\node(t202a) [CollTypeExampleStyle, right=of t201b, xshift=2mm, yshift=-3mm] {(4, 256)\\1792 $ \in \mu$\\2, 0, 2, 0};
-\node(t202b) [CollTypeExampleStyle, right=of t202a, xshift=6mm] {(4, 383)\\1919 $ \in \mu$\\2, 0, 2, 127};
+\node(t202a) [CollTypeExampleStyle, right=of t201b, xshift=2mm, yshift=-3mm] {(4, 256)\\1792 $ \in \mu$\\2, 0, 2, \redBox{0}};
+\node(t202b) [CollTypeExampleStyle, right=of t202a, xshift=6mm] {(4, 383)\\1919 $ \in \mu$\\2, 0, 2, \redBox{127}};
 \draw [dotted] (t202a) -- (t202b);
-\node(t210a) [CollTypeExampleStyle, below=of t200a, yshift=-2mm] {(5, 0)\\1920 $ \in \mu$\\2, 1, 0, 0};
+\node(t210a) [CollTypeExampleStyle, below=of t200a, yshift=-2mm] {(5, 0)\\1920 $ \in \mu$\\2, 1, \violetBox{0}, 0};
 \node(t210b) [CollTypeExampleStyle, right=of t210a, xshift=6mm] {(5, 127)\\2047 $ \in \mu$\\2, 1, 0, 127};
 \draw [dotted] (t210a) -- (t210b);
-\node(t211a) [CollTypeExampleStyle, right=of t210b, xshift=2mm, yshift=-3mm] {(5, 128)\\2048 $ \in \mu$\\2, 1, 1, 0};
+\node(t211a) [CollTypeExampleStyle, right=of t210b, xshift=2mm, yshift=-3mm] {(5, 128)\\2048 $ \in \mu$\\2, \yellowBox{1}, \violetBox{1}, 0};
 \node(t211b) [CollTypeExampleStyle, right=of t211a, xshift=6mm] {(5, 255)\\2175 $ \in \mu$\\2, 1, 1, 127};
 \draw [dotted] (t211a) -- (t211b);
-\node(t212a) [CollTypeExampleStyle, right=of t211b, xshift=2mm, yshift=-3mm] {(5, 256)\\2176 $ \in \mu$\\2, 1, 2, 0};
+\node(t212a) [CollTypeExampleStyle, right=of t211b, xshift=2mm, yshift=-3mm] {(5, 256)\\2176 $ \in \mu$\\2, 1, \violetBox{2}, 0};
 \node(t212b) [CollTypeExampleStyle, right=of t212a, xshift=6mm] {(5, 383)\\2303 $ \in \mu$\\2, 1, 2, 127};
 \draw [dotted] (t212a) -- (t212b);
 
 \node(t300a) [CollTypeExampleStyle, below=of t210a, yshift=-4mm, xshift=-4mm] {(6, 0)\\2304 $ \in \mu$\\3, 0, 0, 0};
 \node(t300b) [CollTypeExampleStyle, right=of t300a, xshift=6mm] {(6, 127)\\2431 $ \in \mu$\\3, 0, 0, 127};
 \draw [dotted] (t300a) -- (t300b);
-\node(t301a) [CollTypeExampleStyle, right=of t300b, xshift=2mm, yshift=-3mm] {(6, 128)\\2432 $ \in \mu$\\3, 0, 1, 0};
+\node(t301a) [CollTypeExampleStyle, right=of t300b, xshift=2mm, yshift=-3mm] {(6, 128)\\2432 $ \in \mu$\\\blueBox{3}, 0, 1, 0};
 \node(t301b) [CollTypeExampleStyle, right=of t301a, xshift=6mm] {(6, 255)\\2559 $ \in \mu$\\3, 0, 1, 127};
 \draw [dotted] (t301a) -- (t301b);
 \node(t302a) [CollTypeExampleStyle, right=of t301b, xshift=2mm, yshift=-3mm] {(6, 256)\\2560 $ \in \mu$\\3, 0, 2, 0};
@@ -325,6 +305,46 @@ If we have no $\top$ box coordinates, this is specifying that the thread collect
 \node(t312a) [CollTypeExampleStyle, right=of t311b, xshift=2mm, yshift=-3mm] {(7, 256)\\2944 $ \in \mu$\\3, 1, 2, 0};
 \node(t312b) [CollTypeExampleStyle, right=of t312a, xshift=6mm] {(7, 383)\\3071 $ \in \mu$\\3, 1, 2, 127};
 \draw [dotted] (t312a) -- (t312b);
+
+\draw[line, bluestyle] (t100a.north west) -- ($(t100a.north west) - (14mm, 0mm)$);
+\draw[line, bluestyle] (t110a.north west) -- ($(t110a.north west) - (14mm, 0mm)$);
+\draw[line, bluestyle] ($(t110a.north west) - (14mm, 0mm)$) -- ($(t100a.north west) - (14mm, 0mm)$);
+\node(dim0) [anchor=south west] at($(t100a.north west) - (14mm, 0mm)$) {\blueBox{dim 0: $[1, 1]_\mathbb{N}, \delta.B_0=1$}};
+
+\draw[line, yellowstyle] (t100a.south west) -- ($(t100a.south west) - (12mm, 0mm)$);
+\draw[line, yellowstyle] (t110a.south west) -- ($(t110a.south west) - (12mm, 0mm)$);
+\draw[line, yellowstyle] ($(t110a.south west) - (12mm, 0mm)$) -- ($(t100a.south west) - (12mm, 0mm)$);
+\node(dim1) [anchor=north west] at($(t110a.south west) - (12mm, 0mm)$) {\yellowBox{dim 1: $[0, 1]_\mathbb{N}, \delta.B_1=2$}};
+
+\draw[line, violetstyle] (t002a.north west) -- ($(t002a.north west) + (0mm, 15mm)$);
+\draw[line, violetstyle] (t002b.north west) -- ($(t002b.north west) + (0mm, 15mm)$);
+\draw[line, violetstyle] ($(t002a.north west) + (0mm, 15mm)$) -- ($(t002b.north west) + (0mm, 15mm)$);
+\node(dim2) [anchor=south] at($(t002a.north west)!0.5!(t002b.north west)+(0mm, 15mm)$) {\violetBox{dim 2: $[2, 2]_\mathbb{N}, \delta.B_2=1$}};
+
+\draw[line, redstyle] (t002a.north east) -- ($(t002a.north east) + (0mm, 4mm)$);
+\draw[line, redstyle] (t002b.north east) -- ($(t002b.north east) + (0mm, 4mm)$);
+\draw[line, redstyle] ($(t002a.north east) + (0mm, 4mm)$) -- ($(t002b.north east) + (0mm, 4mm)$);
+\node(dim3) [anchor=south east] at($(t002b.north east)+(0mm, 4mm)$) {\redBox{dim 3: $[0, 127]_\mathbb{N}, \delta.B_3=128$}};
+
+\draw[line, bluestyle] (t001a.north west) -- ($(t001a.north west) - (3mm, 0mm)$);
+\draw[line, bluestyle] (t311a.south west) -- ($(t311a.south west) - (3mm, 0mm)$);
+\draw[line, bluestyle] ($(t001a.north west) - (3mm, 0mm)$) -- ($(t311a.south west) - (3mm, 0mm)$);
+\node(D0) [anchor=center] at($(t001a.north west)!0.5!(t311a.south west) - (3mm, 0mm)$) {\blueBox{$\delta.D_0=4$}};
+
+\draw[line, yellowstyle] (t201a.north east) -- ($(t201a.north east)+(4mm, 0mm)$);
+\draw[line, yellowstyle] (t211a.south east) -- ($(t211a.south east)+(4mm, 0mm)$);
+\draw[line, yellowstyle] ($(t201a.north east)+(4mm, 0mm)$) -- ($(t211a.south east)+(4mm, 0mm)$);
+\node(D1) [anchor=center] at($(t201a.north east)!0.5!(t211a.south east)+(4mm, 0mm)$) {\yellowBox{$\delta.D_1=2$}};
+
+\draw[line, violetstyle] (t210a.south west) -- ($(t210a.south west)-(0mm, 2mm)$);
+\draw[line, violetstyle] (t212b.south east) -- ($(t212b.south east)-(0mm, 2mm)$);
+\draw[line, violetstyle] ($(t210a.south west)-(0mm, 2mm)$) -- ($(t212b.south east)-(0mm, 2mm)$);
+\node(D2) [anchor=center] at($(t210a.south west)!0.6!(t212b.south east)-(0mm, 2mm)$) {\violetBox{$\delta.D_2=3$}};
+
+\draw[line, redstyle] (t202a.south west) -- ($(t202a.south west) + (2mm, -3.5mm)$);
+\draw[line, redstyle] (t202b.south east) -- ($(t202b.south east) + (-2mm, -3.5mm)$);
+\draw[line, redstyle] ($(t202a.south west) + (2mm, -3.5mm)$) -- ($(t202b.south east) + (-2mm, -3.5mm)$);
+\node(D3) [anchor=center] at($(t202a.south west)!0.5!(t202b.south east) + (0mm, -3.5mm)$) {\redBox{$\delta.D_3=128$}};
 
 \node(legend) [rectangle, draw=black, text centered, text width=5cm, above=of t000a, xshift=40mm, yshift=2mm] {(cluster\_ctarank, threadIdx.x)\\linear thread index $\in \mu$\\coordinates};
 \end{tikzpicture}
@@ -510,6 +530,9 @@ The distributed dimensions are always to the left of non-distributed dimensions.
 During codegen, Exo-GPU erases indicies and array extents corresponding to distributed dimensions.
 The codegen functions for memory and instructions only see indices and extents corresponding to non-distributed dimensions.
 
+\subsection{Collective Indexing Pairs}
+\label{sec:CollIndexingPairs}
+
 Distributed memory analysis for a variable is based on the collective tiling $\omega_0^\text{alloc}$ (Section~\ref{sec:CollTiling}) of the variable allocation statement, and the set of \myKeyA{collective indexing pairs} $\Omega \times \mathsf{Expr}^*$ collected from all statements and expressions that index the variable:
 \begin{itemize}
   \item For read expressions ``$x[e^*]$'' not in the context of an instruction call, the collective indexing pair is $(\omega, e^*)$, where $\omega$ is the collective tiling of the statement containing the read expression.
@@ -598,6 +621,13 @@ For each subdivided dimension $i$, we must have $\omega.B_i = 1$.
 \section{Synchronization}
 \label{sec:Synchronization}
 
+% Split Barrier Basic Requirements
+
+% Solitary Split Barrier Requirement
+
+% Guarding Split Barrier requirement
+
+% Multicast Convergence Split Barrier Requirement
 
 \FloatBarrier
 \newpage
@@ -631,6 +661,13 @@ If no box coordinate is $\top$, then if $\delta$ describes two thread collective
 Group of \lighttt{clusterDim}-many CTAs (def~\ref{sec:gCta}) that execute concurrently on the same GPC, and can synchronize with cluster sync, or using mbarriers.
 When \lighttt{clusterDim = 1} (which is the case by default for Exo-GPU), then CTA and cluster are synonymous.
 The PTX variable \lighttt{cluster\_ctarank} is the 0-based index of the CTA in the cluster.
+
+\subsection{Collective Indexing Pair}
+\label{sec:gCollIndexingPair}
+
+Object of type $\Omega \times \mathsf{Expr}^*$, where $\Omega$ is a collective tiling (def~\ref{sec:gCollTiling}) and $\mathsf{Expr}^*$ is a tuple of array index expressions.
+Used for distributed memory analysis (Section~\ref{sec:DistributedMemory}) of a variable.
+Collective indexing pairs are collected from all statements and expressions that index said variable.
 
 \subsection{Collective Tiling}
 \label{sec:gCollTiling}
