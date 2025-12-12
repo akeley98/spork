@@ -134,7 +134,7 @@ for c1 in (1, 0):
         file=f
     )
     print(
-        r"\node[anchor=center] at($%s + (%fmm, 0mm)$) {\violetBox{\texttt{n\_cta = %i}}};"
+        r"\node[anchor=center] at($%s + (%fmm, 0mm)$) {\violetBox{\texttt{n\_cta=%i}}};"
         % (middle, tick, c1),
         file=f
     )
