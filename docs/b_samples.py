@@ -117,7 +117,7 @@ def overview_sync_example(num_tasks: size):
 @proc
 def coll_tiling_example(num_tasks: size):
     # TeX: begin for_CollTiling_figure[0]
-    with CudaDeviceFunction(clusterDim=8, warp_config=[
+    with CudaDeviceFunction(clusterDim=8, warp_config=[  # blockDim = $384$ = $32\times(1+3+8)$
             CudaWarpConfig("producer", 1, setmaxnreg_dec=40),
             CudaWarpConfig("unused", 3, setmaxnreg_dec=40),
             # TeX: color line *

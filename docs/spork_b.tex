@@ -535,14 +535,14 @@ where we note that
 
 \node(keyText) [anchor=south west, yshift=60mm, xshift=-5mm] at(cta1.north west) {\textbf{KEY:}};
 \node(keyThread) [CollTilingExampleStyle, anchor=west] at(keyText.east) {tid\\$c_0$\\$c_1$\\$c_2$};
-\node(keyTid) [anchor=west, text width=40mm] at(keyThread.east) {where ``tid'' is the local thread index given by toLocal($\omega.D, (c_0, c_1, c_2)$) (def~\ref{sec:gToLocal}).};
-\node(keyCta) [anchor=north west, yellowstyle, yshift=-2mm] at(keyThread.south west) {\texttt{cluster\_ctarank}$\rightarrow$};
+\node(keyTid) [anchor=west, text width=40mm] at(keyThread.east) {where ``tid'' is the local thread index given by toLocal($\omega.D, (c_0, c_1, c_2)$) (def~\ref{sec:gLocalThreadIndex},~def~\ref{sec:gToLocal}).};
+\node(keyCta) [anchor=north west, yellowstyle, yshift=-2mm] at(keyThread.south west) {\texttt{cluster\_ctarank} (def~\ref{sec:gCluster})$\rightarrow$};
 
-\node(ops_2_2_value) [anchor=south east, bluestyle, text width=80mm, yshift=+35mm] at(t_0_0_383.north east)  {$\textit{offset}=0$, $\textit{box}=1$, $\textit{tileCount}=128, \textit{iter}=\texttt{t}$};
-\node(ops_2_1_value) [anchor=south east, bluestyle, text width=80mm, yshift=+1mm] at(ops_2_2_value.north east)  {$\textit{offset}=0$, $\textit{box}=128$, $\textit{tileCount}=2, \textit{iter}=\texttt{wg}$};
-\node(ops_2_0_value) [anchor=south east, bluestyle, text width=80mm, yshift=+1mm] at(ops_2_1_value.north east)  {$\textit{offset}=128$, $\textit{box}=256$, $\textit{tileCount}=1$,\\$\textit{iter}=\texttt{CudaWarps\_consumer\_None\_None}$};
-\node(ops_1_0_value) [anchor=south east, violetstyle, text width=80mm, yshift=+1mm] at(ops_2_0_value.north east) {$\textit{offset}=0$, $\textit{box}=1$, $\textit{tileCount}=2$, $\textit{iter}=\texttt{n\_cta}$};
-\node(ops_0_0_value) [anchor=south east, greenstyle, text width=80mm, yshift=+1mm] at(ops_1_0_value.north east) {$\textit{offset}=0$, $\textit{box}=1$, $\textit{tileCount}=4$, $\textit{iter}=\texttt{m\_cta}$};
+\node(ops_2_2_value) [anchor=south east, bluestyle, text width=80mm, yshift=+35mm] at(t_0_0_383.north east)  {\rmfamily $\textit{offset}=0$, $\textit{box}=1$, $\textit{tileCount}=128, \textit{iter}=\texttt{t}$};
+\node(ops_2_1_value) [anchor=south east, bluestyle, text width=80mm, yshift=+1mm] at(ops_2_2_value.north east)  {\rmfamily $\textit{offset}=0$, $\textit{box}=128$, $\textit{tileCount}=2, \textit{iter}=\texttt{wg}$};
+\node(ops_2_0_value) [anchor=south east, bluestyle, text width=80mm, yshift=+1mm] at(ops_2_1_value.north east)  {\rmfamily $\textit{offset}=128$, $\textit{box}=256$, $\textit{tileCount}=1$,\\$\textit{iter}=\texttt{CudaWarps\_consumer\_None\_None}$};
+\node(ops_1_0_value) [anchor=south east, violetstyle, text width=80mm, yshift=+1mm] at(ops_2_0_value.north east) {\rmfamily $\textit{offset}=0$, $\textit{box}=1$, $\textit{tileCount}=2$, $\textit{iter}=\texttt{n\_cta}$};
+\node(ops_0_0_value) [anchor=south east, greenstyle, text width=80mm, yshift=+1mm] at(ops_1_0_value.north east) {\rmfamily $\textit{offset}=0$, $\textit{box}=1$, $\textit{tileCount}=4$, $\textit{iter}=\texttt{m\_cta}$};
 
 \node(ops_2_2_label) [anchor=east] at(ops_2_2_value.west) {\rmfamily $\omega_2.\textit{ops}_2$};
 \node(ops_2_1_label) [anchor=east] at(ops_2_1_value.west) {\rmfamily $\omega_2.\textit{ops}_1$};
