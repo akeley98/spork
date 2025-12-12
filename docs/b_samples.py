@@ -111,3 +111,40 @@ def overview_sync_example(num_tasks: size):
                 Await(mbar[cta], cuda_in_order, ~0)
                 # Synchronization chapter explains ~0 (n).
                 # TeX: end OverviewSyncExample[0]
+
+
+# TeX: version for_CollTiling_figure 1
+@proc
+def coll_tiling_example(num_tasks: size):
+    # TeX: begin for_CollTiling_figure[0]
+    with CudaDeviceFunction(clusterDim=8, warp_config=[
+            CudaWarpConfig("producer", 1, setmaxnreg_dec=40),
+            CudaWarpConfig("unused", 3, setmaxnreg_dec=40),
+            # TeX: color line *
+            #               rrrrrrrr
+            CudaWarpConfig("consumer", 8, setmaxnreg_inc=232), # prefix = 4 warps (128 threads)
+    ]):
+        for task_id in cuda_tasks(0, num_tasks):
+            # TeX: color line *
+            #   vvvvv                            vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+            for n_cta in cuda_threads(0, 2, unit=4 * cuda_cta_in_cluster_strided(2)):
+                # n_cta=0 implies CTA 0, 2, 4, 6 used
+                # n_cta=1 implies CTA 1, 3, 5, 7 used
+                # TeX: color line *
+                #   ggggg                            ggggggggggggggggggg
+                for m_cta in cuda_threads(0, 4, unit=cuda_cta_in_cluster):
+                    # TeX: color line *
+                    #                    rrrrrrrr            bbbbbbbbbbbbbbbbbbbbbbbbbbbb
+                    with CudaWarps(name="consumer"):  # iter=CudaWarps_consumer_None_None
+                        # TeX: color line *
+                        #   bb                            bbbbbbbbbbbbbb
+                        for wg in cuda_threads(0, 2, unit=cuda_warpgroup):
+                            # TeX: color line *
+                            #   b                              bbbbbbbbbbb
+                            for t in cuda_threads(0, 128, unit=cuda_thread):
+                                # Illustrating collective tiling $\omega: \Omega$ annotating this body statement:
+                                # TeX: color line *
+                                #   .
+                                for s in seq(0, 6):
+                                    # TeX: end for_CollTiling_figure[0]
+                                    pass

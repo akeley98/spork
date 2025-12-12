@@ -16,6 +16,7 @@
 \tikzstyle{nPurplestyle} = [draw=nPurpleBoxFg, fill=nPurpleBoxBg, text=nPurpleBoxFg]
 
 \tikzstyle{CollTypeExampleStyle} = [rectangle, draw=black, text centered, text width=23mm]
+\tikzstyle{CollTilingExampleStyle} = [rectangle, draw=black, text centered, text width=12.5mm]
 
 \begin{document}
 
@@ -32,7 +33,7 @@
 
 Launching kernels, distributing work to clusters with \lighttt{cuda\_tasks} loops, \lighttt{CudaWarps} blocks.
 
-\myChapterLink{sec:CollTypes}{Collective Units \& Collective Types}
+\myChapterLink{sec:CollType}{Collective Units \& Collective Types}
 
 Modeling subdivisions of threads in the cluster, e.g. threads, warps, warpgroups, CTAs, CTA pairs.
 
@@ -69,7 +70,7 @@ Within the device task, each statement instance (def~\ref{sec:gStatementInstance
 
 A \lighttt{cuda\_threads(0, $c_\text{hi}$, unit=\_)} loop may appear anywhere inside a device task.
 This statement divides its executing thread collective into $c_\text{hi}$-many disjoint subsets (possibly with some inactive threads left over), and assigns one to execute each iteration of the loop.
-The \lighttt{unit} parameter is a \myKeyA{collective unit} (def~\ref{sec:gCollUnit}), from which a \myKeyA{collective type} $\delta$ is unpacked (Section~\ref{sec:CollTypes}).
+The \lighttt{unit} parameter is a \myKeyA{collective unit} (def~\ref{sec:gCollUnit}), from which a \myKeyA{collective type} $\delta$ is unpacked (Section~\ref{sec:CollType}).
 The collective type describes a number and arrangement of threads (e.g. single thread, warp, CTA, CTA pair).
 In the common case, the thread collectives assigned to each iteration are described by this unpacked $\delta$.
 
@@ -83,7 +84,7 @@ Based on this static analysis, we define a \myKeyA{collective tiling} (Section~\
 \subsection{Distributed Memory Overview}
 
 Each \lighttt{cuda\_threads} loop iterator indirectly defines a \myKeyA{thread pitch} (def~\ref{sec:gThreadPitch}).
-This is the difference, in linear thread indices, between thread collectives assigned to consecutive loop iterations.
+This is the difference, in local thread indices (def~\ref{sec:gLocalThreadIndex}), between thread collectives assigned to consecutive loop iterations.
 Distributed memory is deduced from the indexing pattern of an array, and attempts to map shards of the array into thread collectives described by the collective type specified by the memory type.
 This flexibility allows memory to be sharded at different levels of the CUDA thread hierarchy (e.g. per-CTA shared memory shards, per-thread register shards).
 The deduction assigns a thread pitch to each distributed dimension; elements that are adjacent on a dimension are resident in thread collectives whose local thread indices differ by that dimension's thread pitch.
@@ -195,7 +196,7 @@ Within the device task, a \lighttt{with CudaWarps(name=<str>)} statement may be 
 \FloatBarrier
 \newpage
 \section{Collective Units \& Collective Types}
-\label{sec:CollTypes}
+\label{sec:CollType}
 
 We use collective types $\delta$ to describe a quantity and arrangement of threads within a cluster, such as ``single thread'', ``warp'', ``CTA'', ``one warp from a pair of CTAs''.
 These are unpacked from a collective unit $\tau_u$ defined in the frontend language (def~\ref{sec:gCollUnit}).
@@ -255,8 +256,8 @@ If we have no $\top$ box coordinates, this is specifying that the thread collect
 \node(t101a) [CollTypeExampleStyle, right=of t100b, xshift=2mm, yshift=-3mm] {(2, 128)\\896 $ \notin \mu$\\\blueBox{1}, 0, 1, 0};
 \node(t101b) [CollTypeExampleStyle, right=of t101a, xshift=6mm] {(2, 255)\\1023 $ \notin \mu$\\1, 0, 1, 127};
 \draw [dotted] (t101a) -- (t101b);
-\node(t102a) [greenstyle, CollTypeExampleStyle, right=of t101b, xshift=2mm, yshift=-3mm] {(2, 256)\\1024 $ \in \mu$\\1, 0, 2, 0};
-\node(t102b) [greenstyle, CollTypeExampleStyle, right=of t102a, xshift=6mm] {(2, 383)\\1151 $ \in \mu$\\1, 0, 2, 127};
+\node(t102a) [CollTypeExampleStyle, greenstyle, right=of t101b, xshift=2mm, yshift=-3mm] {(2, 256)\\1024 $ \in \mu$\\1, 0, 2, 0};
+\node(t102b) [CollTypeExampleStyle, greenstyle, right=of t102a, xshift=6mm] {(2, 383)\\1151 $ \in \mu$\\1, 0, 2, 127};
 \draw [dotted] (t102a) -- (t102b);
 \node(t110a) [CollTypeExampleStyle, below=of t100a, yshift=-2mm] {(3, 0)\\1152 $ \notin \mu$\\\blueBox{1}, \yellowBox{1}, 0, 0};
 \node(t110b) [CollTypeExampleStyle, right=of t110a, xshift=6mm] {(3, 127)\\1279 $ \notin \mu$\\1, 1, 0, 127};
@@ -264,8 +265,8 @@ If we have no $\top$ box coordinates, this is specifying that the thread collect
 \node(t111a) [CollTypeExampleStyle, right=of t110b, xshift=2mm, yshift=-3mm] {(3, 128)\\1280 $ \notin \mu$\\1, 1, 1, 0};
 \node(t111b) [CollTypeExampleStyle, right=of t111a, xshift=6mm] {(3, 255)\\1407 $ \notin \mu$\\1, 1, 1, 127};
 \draw [dotted] (t111a) -- (t111b);
-\node(t112a) [greenstyle, CollTypeExampleStyle, right=of t111b, xshift=2mm, yshift=-3mm] {(3, 256)\\1408 $ \in \mu$\\1, 1, 2, 0};
-\node(t112b) [greenstyle, CollTypeExampleStyle, right=of t112a, xshift=6mm] {(3, 383)\\1535 $ \in \mu$\\1, 1, 2, 127};
+\node(t112a) [CollTypeExampleStyle, greenstyle, right=of t111b, xshift=2mm, yshift=-3mm] {(3, 256)\\1408 $ \in \mu$\\1, 1, 2, 0};
+\node(t112b) [CollTypeExampleStyle, greenstyle, right=of t112a, xshift=6mm] {(3, 383)\\1535 $ \in \mu$\\1, 1, 2, 127};
 \draw [dotted] (t112a) -- (t112b);
 
 \node(t200a) [CollTypeExampleStyle, below=of t110a, yshift=-4mm, xshift=-4mm] {(4, 0)\\1536 $ \notin \mu$\\2, 0, 0, 0};
@@ -338,9 +339,9 @@ If we have no $\top$ box coordinates, this is specifying that the thread collect
 \draw[thick, <->, redstyle] ($(t202a.south west) + (2mm, -1.3mm)$) -- ($(t202b.south east) + (-2mm, -1.3mm)$);
 \node(D3) [anchor=center] at($(t202a.south west)!0.5!(t202b.south east) + (0mm, -1.3mm)$) {\redBox{$\delta.D_3=128$}};
 
-\node(legend) [rectangle, draw=black, text centered, text width=5cm, above=of t000a, xshift=40mm, yshift=2mm] {(cluster\_ctarank, threadIdx.x)\\linear thread index $\in \mu$\\coordinates};
+\node(legend) [rectangle, draw=black, text centered, text width=5cm, above=of t000a, xshift=40mm, yshift=2mm] {(cluster\_ctarank, threadIdx.x)\\local thread index $\in \mu$\\coordinates};
 \end{tikzpicture}
-\caption{Example of a thread collective being described by the collective type $\delta$ with $\delta.B = (1, 2, 1, 128)$ and $\delta.D = (4, 2, 3, 128)$, which is a collective type in aligned form (def~\ref{sec:gAlignedForm}). \lighttt{clusterDim = 8} and \lighttt{blockDim = 384}. $\mu = \mathsf{toLocal}(\delta.D, [1, 1]_\mathbb{N} \times [0, 1]_\mathbb{N} \times [2, 2]_\mathbb{N} \times [0, 127]_\mathbb{N})$ (def~\ref{sec:gToLocal}). This is one warpgroup per CTA of a CTA pair.}
+\caption{Example of a thread collective being described by the collective type $\delta$ with $\delta.B = (1, 2, 1, 128)$ and $\delta.D = (4, 2, 3, 128)$, which is a collective type in aligned form (def~\ref{sec:gAlignedForm}). \lighttt{clusterDim = 8} and \lighttt{blockDim = 384}. $\mu = \{ \mathsf{toLocal}(\delta.D, c) \mid c \in [1, 1]_\mathbb{N} \times [0, 1]_\mathbb{N} \times [2, 2]_\mathbb{N} \times [0, 127]_\mathbb{N}\}$ (def~\ref{sec:gToLocal}). This is one warpgroup per CTA of a CTA pair.}
 \label{fig:CollTypeExample}
 \end{figure}
 
@@ -384,7 +385,7 @@ The statement's collective tiling may be converted to
   \item a per-\lighttt{cuda\_threads} iterator \myKeyA{thread pitch}: $\mathbb{N}$ (def~\ref{sec:gThreadPitch}).
   \item a per-\lighttt{cuda\_threads} iterator \myKeyA{tiled dimension index}: $\mathbb{N}_\bot$.
 \end{itemize}
-The domain and box of a collective tiling $\omega$ are that of its output collective type, and for brevity, we denote it as $\omega.D$ and $\omega.B$ respectively.
+The \myKeyA{domain} and \myKeyA{box} of a collective tiling $\omega$ are that of its output collective type, and for brevity, we denote it as $\omega.D$ and $\omega.B$ respectively.
 
 \subsection{Collective Tiling State}
 \label{sec:CollTilingState}
@@ -508,6 +509,56 @@ All other cases are nested cases, which have \lighttt{true\_lo} and \lighttt{tru
 
 The \lighttt{with CudaWarps} statement defines the collective tiling $\omega'$ of its child statements in a similar manner as \lighttt{for \_ in cuda\_threads(0, true\_hi, unit=cuda\_warp)}, except that the threads that would have executed iterations \lighttt{true\_lo} through \lighttt{true\_hi - 1} instead cooperate to execute the statement body.
 The \lighttt{with CudaWarps} statement defines a dummy iterator variable $y$ and adds a new collective dimension operator to $\omega'$ for $y$ (except in case of a trivial tiling).
+
+\subsection{Collective Tiling Figure}
+\label{sec:CollTilingFigure}
+
+We will illustrate the collective tiling that annotates the inner-most statement of the following example proc.
+The illustration is on a separate page.
+
+\filbreak
+\input{b_samples/for_CollTiling_figure.0.tex}
+
+where we note that
+\begin{itemize}
+  \item The \texttt{\violetBox{n\_cta}} loop has a collective unit (def~\ref{sec:gCollUnit}) of \lighttt{4 * cuda\_cta\_in\_cluster\_strided(2)}, indicating that each iteration is executed cooperatively by a thread collective comprising 4 CTAs, with \lighttt{cluster\_ctarank} of the CTAs in the thread collective increasing by 2's.
+  \item All \lighttt{unit} parameters are documented (def~\ref{sec:gCollUnit}).
+  \item The \lighttt{CudaWarps} statement has the effect of deactivating the 0th warpgroup (def~\ref{sec:gWarpgroup}) of a CTA.
+    The Exo-GPU compiler generates a hidden \lighttt{CudaWarps\_consumer\_None\_None} variable associated with this statement.
+\end{itemize}
+
+\filbreak
+{
+\sffamily
+\begin{tikzpicture}[node distance=0mm]
+\input{b_CollTiling_autogen.tex}
+
+\node(keyText) [anchor=south west, yshift=60mm, xshift=-5mm] at(cta1.north west) {\textbf{KEY:}};
+\node(keyThread) [CollTilingExampleStyle, anchor=west] at(keyText.east) {tid\\$c_0$\\$c_1$\\$c_2$};
+\node(keyTid) [anchor=west, text width=40mm] at(keyThread.east) {where ``tid'' is the local thread index given by toLocal($\omega.D, (c_0, c_1, c_2)$) (def~\ref{sec:gToLocal}).};
+\node(keyCta) [anchor=north west, yellowstyle, yshift=-2mm] at(keyThread.south west) {\texttt{cluster\_ctarank}$\rightarrow$};
+
+\node(ops_2_2_value) [anchor=south east, bluestyle, text width=80mm, yshift=+35mm] at(t_0_0_383.north east)  {$\textit{offset}=0$, $\textit{box}=1$, $\textit{tileCount}=128, \textit{iter}=\texttt{t}$};
+\node(ops_2_1_value) [anchor=south east, bluestyle, text width=80mm, yshift=+1mm] at(ops_2_2_value.north east)  {$\textit{offset}=0$, $\textit{box}=128$, $\textit{tileCount}=2, \textit{iter}=\texttt{wg}$};
+\node(ops_2_0_value) [anchor=south east, bluestyle, text width=80mm, yshift=+1mm] at(ops_2_1_value.north east)  {$\textit{offset}=128$, $\textit{box}=256$, $\textit{tileCount}=1$,\\$\textit{iter}=\texttt{CudaWarps\_consumer\_None\_None}$};
+\node(ops_1_0_value) [anchor=south east, violetstyle, text width=80mm, yshift=+1mm] at(ops_2_0_value.north east) {$\textit{offset}=0$, $\textit{box}=1$, $\textit{tileCount}=2$, $\textit{iter}=\texttt{n\_cta}$};
+\node(ops_0_0_value) [anchor=south east, greenstyle, text width=80mm, yshift=+1mm] at(ops_1_0_value.north east) {$\textit{offset}=0$, $\textit{box}=1$, $\textit{tileCount}=4$, $\textit{iter}=\texttt{m\_cta}$};
+
+\node(ops_2_2_label) [anchor=east] at(ops_2_2_value.west) {\rmfamily $\omega_2.\textit{ops}_2$};
+\node(ops_2_1_label) [anchor=east] at(ops_2_1_value.west) {\rmfamily $\omega_2.\textit{ops}_1$};
+\node(ops_2_0_label) [anchor=east] at(ops_2_0_value.west) {\rmfamily $\omega_2.\textit{ops}_0$};
+\node(ops_1_0_label) [anchor=east] at(ops_1_0_value.west) {\rmfamily $\omega_1.\textit{ops}_0$};
+\node(ops_0_0_label) [anchor=east] at(ops_0_0_value.west) {\rmfamily $\omega_0.\textit{ops}_0$};
+
+\node(dim2) [anchor=north west, xshift=-50mm] at(ops_2_0_value.north west) {\textbf{Dim 2:} $\omega_2.n = 384$};
+\node(dim1) [anchor=north west, xshift=-50mm] at(ops_1_0_value.north west) {\textbf{Dim 1:} $\omega_1.n = 2$};
+\node(dim0) [anchor=north west, xshift=-50mm] at(ops_0_0_value.north west) {\textbf{Dim 0:} $\omega_0.n = 4$};
+\node(CollTiling) [draw=black, anchor=east, text width=20mm] at(dim1.west) {CollTiling\\$\omega: \Omega$ state};
+
+\node(domain) [anchor=north east, yshift=-2mm, text width=50mm] at(dim2.south east) {The domain $\omega.D = (4, 2, 384)$ is given by ($\omega_0.n$, $\omega_1.n$, $\omega_2.n$) (def~\ref{sec:gDomain}).};
+
+\end{tikzpicture}
+}
 
 \FloatBarrier
 \newpage
@@ -671,7 +722,7 @@ This describes via the function $\textsf{collMap}: \Omega \to \Sigma_c \to \math
 \subsection{Collective Type (Scope)}
 \label{sec:gCollType}
 
-Description of a certain number and arrangement of threads in a cluster, e.g. thread, warp, CTA (Section~\ref{sec:CollTypes}).
+Description of a certain number and arrangement of threads in a cluster, e.g. thread, warp, CTA (Section~\ref{sec:CollType}).
 A collective type $\delta$ has a certain dimensionality $M$, and consists of
 \begin{itemize}
   \item domain, $\delta.D: \mathbb{N}_{\ge2}^M$ (coordinates are natural numbers at least 2).
@@ -802,7 +853,7 @@ The body of the inner-most \lighttt{cuda\_tasks} loop is a device task (see~\ref
 \subsection{Domain}
 \label{sec:gDomain}
 
-Attribute $\delta.D$ of a collective type $\delta$ and attribute $\omega.D$ of a collective tiling $\omega$.
+Attribute $\delta.D$ of a collective type $\delta$ (Section~\ref{sec:CollType}) and attribute $\omega.D$ (Section~\ref{sec:CollTiling}) of a collective tiling $\omega$.
 Both are of type $\mathbb{N}_{\ge2}^M$ for some dimension $M: \mathbb{N}$.
 This describes the arrangement of threads within a cluster into an $M$-dimensional grid via the \textsf{toLocal} function (def~\ref{sec:gToLocal}).
 
