@@ -39,15 +39,19 @@ Modeling subdivisions of threads in the cluster, e.g. threads, warps, warpgroups
 
 \myChapterLink{sec:CollTiling}{Collective Tiling}
 
-Distributing work to threads-in-cluster with \lighttt{cuda\_threads} loops.
+Distributing work to threads-in-cluster with \lighttt{cuda\_threads} loops and \lighttt{CudaWarps} blocks.
 
 \myChapterLink{sec:DistributedMemory}{Distributed Memory}
 
 Sharding tensor and barrier allocations onto different groups of threads.
 
-\myChapterLink{sec:Synchronization}{Synchronization}
+\myChapterLink{sec:SyncUsage}{Synchronization Usage}
 
 \lighttt{Fence}, \lighttt{Arrive}, \lighttt{Await}, home barrier, guarding, async instructions, timelines.
+
+\myChapterLink{sec:SyncSemantics} {Synchronization Semantics}
+
+Abstract machine semantics, how to read sync-check (\lighttt{camspork}) errors.
 
 \myChapterLink{sec:Instructions}{Instructions}
 
@@ -79,7 +83,7 @@ When the thread collectives that execute instances of a statement are described 
 The underlying static analysis for this is based on \myKeyA{local thread indices} (def~\ref{sec:gLocalThreadIndex}), which number the threads within a cluster lexicographically based on CTA index, then thread index.
 The threads within a thread collective need not have a contiguous range of local thread indices (e.g., ``all even numbered CTAs in a cluster'' is a valid thread collective).
 
-Based on this static analysis, we define a \myKeyA{collective tiling} (Section~\ref{sec:CollTiling}) and thread mapping function annotating each CUDA-scope statement, we define \myKeyA{distributed memory} (Section~\ref{sec:DistributedMemory}), which maps shards of an array onto different thread collectives for storage, and we define correct synchronization (Section~\ref{sec:Synchronization}), which we currently can check for a selection of concrete problem sizes.
+Based on this static analysis, we define a \myKeyA{collective tiling} (Section~\ref{sec:CollTiling}) and thread mapping function annotating each CUDA-scope statement, we define \myKeyA{distributed memory} (Section~\ref{sec:DistributedMemory}), which maps shards of an array onto different thread collectives for storage, and we define correct synchronization (Section~\ref{sec:SyncSemantics}), which we currently can check for a selection of concrete problem sizes.
 
 \subsection{Distributed Memory Overview}
 
@@ -128,11 +132,11 @@ The semantics of an Exo program (which defines the numerical outputs) continue t
 In particular, the semantics of parallel loops are identical to sequential loops, and async instruction calls are interpreted as if they were non-async instructions.
 We want to convince ourselves that the generated parallel CUDA program generates the outputs that sequential semantics specify it will output.
 
-Although this is not the formulation formally used by the abstract machine used for synchronization checking (Section~\ref{sec:Synchronization}), it's useful to reason about correctness in terms of dependency edges between statement instances.
+Although this is not the formulation formally used by the abstract machine used for synchronization checking (Section~\ref{sec:SyncSemantics}), it's useful to reason about correctness in terms of dependency edges between statement instances.
 Take a sequential trace of an Exo-GPU program, decomposed into reads and writes to array elements, and instances of \lighttt{Fence}, \lighttt{Arrive}, \lighttt{Await}.
 For each pair of reads/writes to the same array element (other than two reads) to be safe, there must be a path from the earlier read/write to the later read/write via dependency edges.
 Given the statement to the left of the $\to$ appears earlier in the sequential trace than the statement to the right, and there is a thread in common to their executing thread collectives, we have the following dependency edges.
-Italicized values are defined in Section~\ref{sec:Synchronization}.
+Italicized values are defined in Section~\ref{sec:SyncUsage}.
 
 \begin{itemize}
   \item \texttt{Read|Write $\to$ Read|Write}\\when the prior memory access is not \emph{out-of-order}, and the prior memory access uses a qualitative timeline that is in the \emph{extended qualitative timeline set} of the subsequent memory access.
@@ -661,22 +665,78 @@ For each subdivided dimension $i$, we must have $\omega.B_i = 1$.
 
 \FloatBarrier
 \newpage
-\section{Synchronization}
-\label{sec:Synchronization}
+\section{Synchronization Usage}
+\label{sec:SyncUsage}
 
-% Split Barrier Basic Requirements
+\subsection{Fundamentals}
+\label{sec:SyncUsageFundamentals}
 
-% Solitary Split Barrier Requirement
+\subsection{Intended Usage Patterns -- Access Before Synchronization}
+\label{sec:AccessBeforeSync}
 
-% Guarding Split Barrier requirement
+\subsection{Intended Usage Patterns -- Access After Synchronization}
+\label{sec:AccessAfterSync}
 
-% Multicast Convergence Split Barrier Requirement
+\subsection{Intended Usage Patterns -- Arrive-Await Pairing}
+\label{sec:ArriveAwaitPairing}
+
+\subsection{Intended Usage Patterns -- Multiple Memory Accesses}
+\label{sec:MultipleMemoryAccesses}
+
+\subsection{Cluster Sync Usage}
+\label{sec:ClusterSyncUsage}
+
+\subsection{Commit Group Usage}
+\label{sec:CommitGroupUsage}
+
+\subsection{Mbarrier Usage}
+\label{sec:MbarrierUsage}
+
+\subsection{Barrier Multicast}
+\label{sec:BarrierMulticast}
+
+\subsection{Barrier Guarding Requirement}
+\label{sec:BarrierGuarding}
+
+\subsection{Solitary Barrier Requirement}
+\label{sec:SolitaryBarrier}
+
+
+\FloatBarrier
+\newpage
+\section{Synchronization Semantics}
+\label{sec:SyncSemantics}
+
+\subsection{Synchronization Environment}
+
+\subsection{VisRecord State}
+
+\subsection{VisRecord Creation}
+
+\subsection{VisRecord Augment}
+
+\subsection{VisRecord Synchronizes-with (Witness)}
+
+\subsection{Fence Semantics}
+
+\subsection{Arrive Semantics}
+
+\subsection{Await Semantics}
+
+\subsection{Sync-check Error Messages}
 
 \FloatBarrier
 \newpage
 \section{Instructions}
 \label{sec:Instructions}
 
+\subsection{Instr Class}
+
+\subsection{Instruction Timeline (InstrTL)}
+
+\subsection{Instruction Distributed Memory}
+
+\subsection{Instruction Trailing Barrier Expression}
 
 \FloatBarrier
 \newpage
@@ -966,17 +1026,17 @@ $\tau_s$ & cpu & strm & cuda1 & cuda2 & Sm80 & tmaS & tmaG & wgA & wgD & wgS & w
 \texttt{empty\_sync\_tl} &  &  &  &  &  &  &  &  &  &  &  & \\
 \texttt{cpu\_in\_order} & full &  &  &  &  &  &  &  &  &  &  & \\
 \texttt{cuda\_stream\_sync} &  & full & full & full & full & full & full & full & full & full &  & full\\
-\texttt{cuda\_in\_order} &  & temp. & full & full & temp. & temp. & temp. & temp. & temp. & temp. & temp. & temp.\\
-\texttt{cuda\_temporal} &  & temp. & temp. & temp. & temp. & temp. & temp. & temp. & temp. & temp. & temp. & temp.\\
+\texttt{cuda\_in\_order} &  &  & full & full &  &  &  &  &  &  & temp. & temp.\\
+\texttt{cuda\_temporal} &  &  & temp. & temp. &  &  &  &  &  &  & temp. & temp.\\
 \texttt{Sm80\_cp\_async} &  &  &  &  & full &  &  &  &  &  &  & \\
-\texttt{Sm80\_generic} &  & temp. & full & full & full & temp. & temp. & temp. & temp. & temp. & temp. & temp.\\
+\texttt{Sm80\_generic} &  &  & full & full & full &  &  &  &  &  & temp. & temp.\\
 \texttt{tma\_to\_smem\_async} &  &  &  &  &  & full &  &  &  &  &  & \\
 \texttt{tma\_to\_gmem\_async} &  &  &  &  &  &  & full &  &  &  &  & \\
 \texttt{wgmma\_async\_smem} &  &  &  &  &  &  &  &  &  & full &  & \\
 \texttt{wgmma\_fence\_1} &  &  & full &  &  &  &  & full & full &  &  & \\
 \texttt{wgmma\_fence\_2} &  &  &  &  &  &  &  & full & full &  &  & \\
 \texttt{wgmma\_async} &  &  &  &  &  &  &  & full & full & full &  & \\
-\texttt{cuda\_generic\_and\_async\_proxy} &  & temp. & full & full & temp. & temp. & temp. & temp. & temp. & temp. & temp. & full\\
+\texttt{cuda\_generic\_and\_async\_proxy} &  &  & full & full &  &  &  &  &  &  & temp. & full\\
 \hline
 \end{tabular}
 }
