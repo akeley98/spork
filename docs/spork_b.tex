@@ -139,7 +139,7 @@ Italicized values are defined in Section~\ref{sec:Synchronization}.
   \item \texttt{Read|Mutate $\to$ Fence($\tau_s^\text{pre}$, \_)|Arrive($\tau_s^\text{pre}$) >}\texttt{> \_}\\when the qualitative timeline of the memory access is in the \textit{full timeline set} of $\tau_s^\text{pre}$.
   \item \texttt{Fence(\_, $\tau_s^\text{post}$)|Await(\_, $\tau_s^\text{post}$, \_) $\to$ Read}\\when the qualitative timeline of the read is in the \textit{full timeline set} of $\tau_s^\text{post}$.
   \item \texttt{Fence(\_, $\tau_s^\text{post}$)|Await(\_, $\tau_s^\text{post}$, \_) $\to$ Write}\\when the qualitative timeline of the read is in the \textit{temporal timeline set} of $\tau_s^\text{post}$.
-  \item \texttt{Fence(\_, $\tau_s^\text{post}$)|Await(\_, $\tau_s^\text{post}$, \_) $\to$ Fence($\tau_s^\text{pre}$, \_)|Arrive($\tau_s^\text{pre}$) >}\texttt{> \_}\\when there is a qualitative timeline in common to the \textit{full timeline sets} of $\tau_s^\text{pre}$ and $\tau_s^\text{post}$, and $\tau_s^\text{post}$ is transitive.
+  \item \texttt{Fence(\_, $\tau_s^\text{post}$)|Await(\_, $\tau_s^\text{post}$, \_) $\to$ Fence($\tau_s^\text{pre}$, \_)|Arrive($\tau_s^\text{pre}$) >}\texttt{> \_}\\when there is a qualitative timeline in common to the \textit{full timeline sets} of $\tau_s^\text{pre}$ and $\tau_s^\text{post}$.
 \end{itemize}
 
 Finally, we have special handling for atomics, there are dependency edges from instances of \lighttt{Arrive(\_) >}\lighttt{> $b$} and \lighttt{Await($b$, \_, \_)} defined by arrive/await pairing, and dependency edges from reads/writes to \lighttt{Await} instances directly for instructions that take a barrier directly (currently, only TMA-to-SMEM instructions).
@@ -952,36 +952,36 @@ A \emph{statement} is a syntactic construct, while a \emph{statement instance} i
 \subsection{Sync Timeline (SyncTL)}
 \label{sec:gSyncTL}
 
-Parameter for synchronization statements (\lighttt{Fence}, \lighttt{Arrive}, \lighttt{Await}), which are defined as a composition of a \myKeyA{full timeline set} (set of \textsf{QualTL}), \myKeyA{temporal timeline set} (set of \textsf{QualTL}), and \myKeyA{transitivity flag} (bool).
+Parameter for synchronization statements (\lighttt{Fence}, \lighttt{Arrive}, \lighttt{Await}), which are defined as a composition of a \myKeyA{full timeline set} (set of \textsf{QualTL}) and a \myKeyA{temporal timeline set} (set of \textsf{QualTL}).
 
-We list the sync timelines in the following table, where ``temp.'' in a qualitative timeline's column indicates membership of the qualitative timeline in the sync timeline's temporal timeline set, ``full.'' indicates membership in the temporal timeline set and full timeline set, and ``(transitive)'' indicates the sync timeline has its transitivity flag set to true.
+We list the sync timelines in the following table, where ``temp.'' in a qualitative timeline's column indicates membership of the qualitative timeline in the sync timeline's temporal timeline set, and ``full'' indicates membership in the temporal timeline set and full timeline set.
 
 {
 \setlength{\tabcolsep}{2pt}
 \small
-\begin{tabular}{|r|l l|l l|l l l| l l l l|}
+\begin{tabular}{|r|l l|l l|l l l| l l l l|l|}
 \hline
-$\tau_s$ & cpu & strm & cuda1 & cuda2 & Sm80 & tmaS & tmaG & wgA & wgD & wgS & wg0 \\
+$\tau_s$ & cpu & strm & cuda1 & cuda2 & Sm80 & tmaS & tmaG & wgA & wgD & wgS & wg0 & async \\
 \hline
-\texttt{empty\_sync\_tl} &  &  &  &  &  &  &  &  &  &  & \\
-\texttt{cpu\_in\_order} (transitive) & full &  &  &  &  &  &  &  &  &  & \\
-\texttt{cuda\_stream\_sync} (transitive) &  & full & full & full & full & full & full & full & full & full & \\
-\texttt{cuda\_in\_order} (transitive) &  & temp. & full & full & temp. & temp. & temp. & temp. & temp. & temp. & temp.\\
-\texttt{cuda\_temporal} &  & temp. & temp. & temp. & temp. & temp. & temp. & temp. & temp. & temp. & temp.\\
-\texttt{Sm80\_cp\_async} &  &  &  &  & full &  &  &  &  &  & \\
-\texttt{Sm80\_generic} &  & temp. & full & full & full & temp. & temp. & temp. & temp. & temp. & temp.\\
-\texttt{tma\_to\_smem\_async} &  &  &  &  &  & full &  &  &  &  & \\
-\texttt{tma\_to\_gmem\_async} &  &  &  &  &  &  & full &  &  &  & \\
-\texttt{wgmma\_async\_smem} &  &  &  &  &  &  &  &  &  & full & \\
-\texttt{wgmma\_fence\_1} &  &  & full &  &  &  &  & full & full &  & \\
-\texttt{wgmma\_fence\_2} &  &  &  &  &  &  &  & full & full &  & \\
-\texttt{wgmma\_async} &  &  &  &  &  &  &  & full & full & full & \\
-\texttt{cuda\_async\_proxy} &  &  &  &  &  & full & full &  &  & full & \\
-\texttt{cuda\_async\_proxy\_wgmma} &  &  &  &  &  & full & full & full & full & full & \\
-\texttt{cuda\_generic\_and\_async\_proxy} &  & temp. & full & full & full & full & full & temp. & temp. & full & temp.\\
+\texttt{empty\_sync\_tl} &  &  &  &  &  &  &  &  &  &  &  & \\
+\texttt{cpu\_in\_order} & full &  &  &  &  &  &  &  &  &  &  & \\
+\texttt{cuda\_stream\_sync} &  & full & full & full & full & full & full & full & full & full &  & full\\
+\texttt{cuda\_in\_order} &  & temp. & full & full & temp. & temp. & temp. & temp. & temp. & temp. & temp. & temp.\\
+\texttt{cuda\_temporal} &  & temp. & temp. & temp. & temp. & temp. & temp. & temp. & temp. & temp. & temp. & temp.\\
+\texttt{Sm80\_cp\_async} &  &  &  &  & full &  &  &  &  &  &  & \\
+\texttt{Sm80\_generic} &  & temp. & full & full & full & temp. & temp. & temp. & temp. & temp. & temp. & temp.\\
+\texttt{tma\_to\_smem\_async} &  &  &  &  &  & full &  &  &  &  &  & \\
+\texttt{tma\_to\_gmem\_async} &  &  &  &  &  &  & full &  &  &  &  & \\
+\texttt{wgmma\_async\_smem} &  &  &  &  &  &  &  &  &  & full &  & \\
+\texttt{wgmma\_fence\_1} &  &  & full &  &  &  &  & full & full &  &  & \\
+\texttt{wgmma\_fence\_2} &  &  &  &  &  &  &  & full & full &  &  & \\
+\texttt{wgmma\_async} &  &  &  &  &  &  &  & full & full & full &  & \\
+\texttt{cuda\_generic\_and\_async\_proxy} &  & temp. & full & full & temp. & temp. & temp. & temp. & temp. & temp. & temp. & full\\
 \hline
 \end{tabular}
 }
+
+\textsf{QualTL} key:
 
 \input{spork_b_QualTL.tex}
 
