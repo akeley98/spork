@@ -786,26 +786,27 @@ Each visibility record $r$ is a pair of type $\mathcal{P}(\mathsf{TlSig}) \times
 \begin{itemize}
   \item The \myKeyA{visibility set} (def~\ref{sec:gVisSet}), denoted $r.s$, which is a set of timeline signatures $\mathsf{TlSig} \Coloneqq \mathbb{G} \times \mathsf{QualTL} \times \mathsf{VF}$; these being a global thread ID (def~\ref{sec:gGlobalThreadID}), a qualitative timeline (def~\ref{sec:gQualTL}), and a \myKeyA{visibility flag} (def~\ref{sec:gVisFlag}), which is one of $\mathsf{VF_{atom}}$ (atomic-only), $\mathsf{VF_{temp}}$ (temporal), $\mathsf{VF_{full}}$, or $\mathsf{VF_{issue}}$.
   The visibility set is conditionally augmented (Section~\ref{sec:Augment}) with more timeline signatures as a result of \lighttt{Fence} and \lighttt{Await} statements.
-  \item The f \myKeyA{pending await} set (def~\ref{sec:gPendingAwait}), denoted $r.p$, which are tuples of type $\mathbb{B} \times \mathbb{Z}^* \times \mathbb{Z}$, this being a combination of an indexed barrier variable (def~\ref{sec:gMathbbB}) and an arrive-count.
+  \item The \myKeyA{pending await} set (def~\ref{sec:gPendingAwait}), denoted $r.p$, which are tuples of type $\mathbb{B} \times \mathbb{Z}^* \times \mathbb{Z}$, this being a combination of an indexed barrier variable (def~\ref{sec:gMathbbB}) and an arrive-count.
   These mediate the interaction between paired \lighttt{Arrive} statement instances (Section~\ref{sec:ArriveSemantics}) and \lighttt{Await} statement instances (Section~\ref{sec:AwaitSemantics}).
 \end{itemize}
 
-This is a different formulation than the PLDI paper; see the reference section for more information.
+This is a different formulation than the PLDI paper; see the reference section (def~\ref{sec:gVisSet}, def~\ref{sec:gPendingAwait}) for more information.
 
 The sync-check error messages format a visibility record's visibility set and pending await set separately.
 An integer is used to represent the task ID, counting up starting from 0 for each device task instance (def~\ref{sec:gDeviceTask}) in each CUDA device function launch.
 
-The visibility set is encoded as the union of zero or more ``timeline signature intervals'', formatted as the lines \\
+The visibility set is encoded as the union of zero or more ``timeline signature intervals'', each formatted as the lines \\
 ``\texttt{threads: [task\_index = $\iota_0$ [$c_0^*$],}\\
 \texttt{task\_index = $\iota_1$ [$c_1^*$]], inclusive, formatted w/ domain [$D$]}''\\
 followed by lines of the form\\
-\texttt{$q_0$ -> $\mathsf{vf}_0^*$}\\
-\texttt{$q_1$ -> $\mathsf{vf}_1^*$}\\
-...\\
+``\texttt{$q_0$ -> $\mathsf{vf}_0^*$}\\
+\hphantom{``}\texttt{$q_1$ -> $\mathsf{vf}_1^*$}\\
+...''\\
 where each $q_i$ is a qualitative timeline (def~\ref{sec:gQualTL}) and each $\mathsf{vf}_i^*$ is a set of visibility flags (def~\ref{sec:gVisFlag}).
 The timeline signature interval is the set of all $((\iota, n), q, \mathsf{vf})$ such that
 \begin{itemize}
   \item $(\iota_0, \mathsf{toLocal}(D, c_0^*)) \le (\iota, n) \le (\iota_1, \mathsf{toLocal}(D, c_1^*))$, sorted lexicographically (def~\ref{sec:gToLocal}), and
+  \item $0 \le n < \prod_m D_m$, and,
   \item $q = q_i$ for some $q_i$, with $\mathsf{vf} \in \mathsf{vf}_i^*$
 \end{itemize}
 Each pending await $(z, n^*, a)$ in the pending await set is formatted as \\
@@ -847,7 +848,7 @@ Define $\mathsf{NewVisRecord}(g^*)$ as having a visibility set that is the union
 \end{itemize}
 and a pending await set that is based off the arrive count (Section~\ref{sec:SyncEnv}) of each referenced barrier array element:
 \begin{equation*}
-    \{ (z, n^*, \rho(z, n^*).b.a) \mid \text{ for each $z[n^*]$ referenced in the trailing barrier expression} \}
+    \{ (z, n^*, \rho(z, n^*).b.a) \mid \text{ for each $z[n^*]$ referenced (def~\ref{sec:gBarrierExpr}) in the trailing barrier expression} \}
 \end{equation*}
 
 If the access is convergent (Section~\ref{sec:InstrConvergentAccess}), $r^*$ contains a single visibility record:
@@ -970,7 +971,7 @@ Define $\lambda_\mathrm{Await}: \mathsf{VisRecord} \to \mathsf{VisRecord}$ as
 The new synchronization environment $\rho''$ is defined from $\rho$ (Section~\ref{sec:SyncEnv}) by
 \begin{align*}
   & \rho' = \mathsf{lift}(\rho, \lambda_\mathrm{Await}) & \text{(Section~\ref{sec:Lifting})} \\
-  & \rho'' = \rho'[z \to n^* \to (r.r, r.m, r.b.a, w')] & \text{(def~\ref{sec:gUpdateNotation})}
+  & \rho'' = \rho'[z \to n^* \to (r.r, r.m, r.b.a, w')] \text{ with } r = \rho'(z, n^*) & \text{(def~\ref{sec:gUpdateNotation})}
 \end{align*}
 
 \mainKey{Implementation Note:} camspork removes old pending awaits to avoid infinite state growth.
@@ -1351,8 +1352,9 @@ The home barrier expression is an expression constructed to reference this home 
 The home barrier expression is $z[e'_0, ..., e'_{M-1}]$.
 
 Examples
+
 \begin{tabular}{l l}
-Arrive statement & Home barrier expression \\
+\textbf{Arrive statement} & \textbf{Home barrier expression} \\
 \texttt{Arrive(...) >> $z$[$y_1, y_2$]} & $z$[$y_1, y_2$] \\
 \texttt{Arrive(...) >> $z$[$y_1$, :]} & Missing point expression for rightmost dimension \\
 \texttt{Arrive(...) >> $z$[$y_1$, :] >> $z$[$y_1$, $y_2$]} & $z$[$y_1, y_2$] \\
@@ -1637,7 +1639,7 @@ For this definition to work as expected, the product of the domain coordinates $
 
 $\rho[a_0 \to b_0, a_1 \to b_1, ...]$ means the function $\rho$ with outputs for $a_0, a_1,...$ modified:
 \begin{equation*}
-    \rho(x) = \begin{cases}
+    \rho[...](x) = \begin{cases}
         b_0 & \text{if } x = a_0 \\
         b_1 & \text{if } x = a_1 \\
         ... & ... \\
@@ -1663,7 +1665,7 @@ These are part of a timeline signature (def~\ref{sec:gTlSig}).
 \subsection{Visibility Record (VisRecord)}
 \label{sec:gVisRecord}
 
-Defined in abstract machine semantics (Section~\ref{sec:SyncEnv}).
+Defined in abstract machine semantics (Section~\ref{sec:VisRecordState}).
 Pair of type $\mathcal{P}(\mathsf{TlSig}) \times \mathcal{P}(\mathbb{P})$, i.e.
 \begin{itemize}
   \item visibility set, which is a set of timeline signatures (def~\ref{sec:gTlSig})
