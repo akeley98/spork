@@ -55,6 +55,8 @@ Abstract machine semantics, how to read sync-check (\lighttt{camspork}) errors.
 
 \myChapterLink{sec:Instr}{Instructions}
 
+Instruction classes, timelines, atomic instructions, special window e.g., \lighttt{CUtensorMap}.
+
 \myChapterLink{sec:Glossary}{Glossary \& Reference}
 
 \section{Overview}
@@ -712,7 +714,7 @@ The program is synchronized correctly if no error condition is reached.
 In the current implementation (with camspork), this can only be done for a given concrete problem size specified by \lighttt{exo.proc.sync\_check}.
 
 Both existing Exo value semantics and new abstract machine semantics are defined sequentially.
-The primary difference is that in the value semantics, a data array element holds a numerical value, while in abstract machine semantics, each data array element encodes the history of reads and mutates performed to it, with each access encoded as a visibility record (Section~\ref{sec:VisRecordState}).
+The primary difference is that in the value semantics, a data array element holds a numerical value, while in abstract machine semantics, each data array element encodes the history of reads and mutates performed to it, with each access encoded as a \myKeyA{visibility record} (Section~\ref{sec:VisRecordState}).
 Specifically, the state of an interpreted abstract machine program consists of
 \begin{itemize}
   \item A synchronization environment $\rho$ (rho), Section~\ref{sec:SyncEnv}.
@@ -720,8 +722,8 @@ Specifically, the state of an interpreted abstract machine program consists of
   \item A control environment $\sigma: \Sigma$ (sigma), with $\Sigma \Coloneqq \mathbb{Y} \to \mathbb{Z}$ (def~\ref{sec:gControlEnv}).
 \end{itemize}
 
-When a non-sync-exempt (def~\ref{sec:gSyncExempt}) array element is read or mutated, a new visibility record (\textsf{VisRecord}) gets added to the synchronization environment for that element (Section~\ref{sec:VisRecordCreation}).
-Each interpreted \lighttt{Fence} (Section~\ref{sec:FenceSemantics}), \lighttt{Arrive} (Section~\ref{sec:ArriveSemantics}), and \lighttt{Await} statement (Section~\ref{sec:AwaitSemantics}) conditionally modifies all visibility records in the \emph{entire environment}, via lifting (Section~\ref{sec:Lifting}) and augment (Section~\ref{sec:VisRecordAugment}).
+When a \myKeyA{non-sync-exempt} (def~\ref{sec:gSyncExempt}) array element is read or mutated, a new visibility record (\textsf{VisRecord}) gets added to the synchronization environment for that element (Section~\ref{sec:VisRecordCreation}).
+Each interpreted \lighttt{Fence} (Section~\ref{sec:FenceSemantics}), \lighttt{Arrive} (Section~\ref{sec:ArriveSemantics}), and \lighttt{Await} statement (Section~\ref{sec:AwaitSemantics}) conditionally modifies all visibility records in the \emph{entire environment}, via lifting (Section~\ref{sec:Lifting}) and augment (Section~\ref{sec:Augment}).
 \lighttt{Arrive} and \lighttt{Await} statements may also modify the arrive and await count.
 Finally, the abstract machine specified correctness checks for each read to (Section~\ref{sec:ChecksOnRead}), mutate of (Section~\ref{sec:ChecksOnMutate}), or free of (Section~\ref{sec:ChecksOnFree}) an array element; these checks are a function of the synchronization environment state for said array element.
 
@@ -746,9 +748,9 @@ The thread mapping function for a given statement $s$ is denoted, in the PLDI su
   In the context of the abstract machine, a set of $\mathbb{G}$ is a \myKeyA{thread collective} (def~\ref{sec:gThreadCollective}).
 \end{itemize}
 
-For each CPU scope statement (def~\ref{sec:gCpuScope}), the thread mapping function always gives $\mathbb{G}$.
+For each \myKeyA{CPU scope} statement (def~\ref{sec:gCpuScope}), the thread mapping function always gives $\mathbb{G}$.
 
-For each CUDA scope statement (def~\ref{sec:gCudaScope}), the thread mapping function is
+For each \myKeyA{CUDA scope} statement (def~\ref{sec:gCudaScope}), the thread mapping function is
 \begin{equation*}
     g_{s^\#}(\sigma, \iota) = \{ (\iota, n) \mid n \in \textsf{collMap}(\omega_s, \sigma) \}
 \end{equation*}
@@ -769,7 +771,7 @@ which maps an index into a data variable $x: \mathbb{X}$ (def~\ref{sec:gMathbbX}
 \begin{itemize}
   \item set of read visibility records, accessed with $.r$
   \item set of mutate visibility records, accessed with $.m$
-  \item pair of arrive count and await count, accessed with $.b$
+  \item pair of arrive count and await count, accessed together as $.b$ and separately as $.b.a$ and $.b.w$ respectively.
 \end{itemize}
 
 % Referenced in glossary for barrier env
@@ -778,17 +780,100 @@ which maps an index into a data variable $x: \mathbb{X}$ (def~\ref{sec:gMathbbX}
 \subsection{VisRecord State}
 \label{sec:VisRecordState}
 
+Each visibility record $r$ is a pair of type $\mathcal{P}(\mathsf{TlSig}) \times \mathcal{P}(\mathbb{P})$, with the two elements being
+\begin{itemize}
+  \item The \myKeyA{visibility set} (def~\ref{sec:gVisSet}), denoted $r.s$, which is a set of timeline signatures $\mathsf{TlSig} \Coloneqq \mathbb{G} \times \mathsf{QualTL} \times \mathsf{VF}$; these being a global thread ID (def~\ref{sec:gGlobalThreadID}), a qualitative timeline (def~\ref{sec:gQualTL}), and a \myKeyA{visibility flag} (def~\ref{sec:gVisFlag}), which is one of $\mathsf{VF_{atom}}$ (atomic-only), $\mathsf{VF_{temp}}$ (temporal), $\mathsf{VF_{full}}$, or $\mathsf{VF_{issue}}$.
+  The visibility set is conditionally augmented (Section~\ref{sec:Augment}) with more timeline signatures as a result of \lighttt{Fence} and \lighttt{Await} statements.
+  \item The set of \myKeyA{pending awaits} (def~\ref{sec:gPendingAwait}), denoted $r.p$, which are tuples of type $\mathbb{B} \times \mathbb{Z}^* \times \mathbb{Z}$, this being a combination of an indexed barrier variable (def~\ref{sec:gMathbbB}) and an arrive-count.
+  These mediate the interaction between paired \lighttt{Arrive} statement instances (Section~\ref{sec:ArriveSemantics}) and \lighttt{Await} statement instances (Section~\ref{sec:AwaitSemantics}).
+\end{itemize}
+
+This is a different formulation than the PLDI paper; see the reference section for more information.
+
 \subsection{VisRecord Creation}
 \label{sec:VisRecordCreation}
+
+Each read, mutate, \lighttt{Arrive}, or \lighttt{Await} statement that references an array element $x[n^*]$ or $z[n^*]$ in non-sync-exempt (def~\ref{sec:gSyncExempt}) memory causes a new set of visibility records $r^*$ (to be defined) to be associated with $\rho(x, n^*)$ or $\rho(z, n^*)$.
+For brevity we will omit the $z$ case in the following description.
+
+A read, \lighttt{Arrive}, or \lighttt{Await} access to an array element $x[n^*]$ causes $r^*$ to be added to the read visibility records set for that array element, i.e. $\rho$ is updated (def~\ref{sec:gUpdateNotation}) as
+\begin{equation*}
+    \rho[x \to n^* \to (\rho(x, n^*).r \cup r^*, \rho(x, n^*).m, \rho(x, n^*).b)]
+\end{equation*}
+This is done subsequent to the to-be-defined checks in Section~\ref{sec:ChecksOnRead}.
+
+A mutate access to an array element $x[n^*]$ causes the read visibility records set to be cleared, the mutate visibility records set to be cleared if the access is not atomic (Section~\ref{sec:AtomicInstr}), then $r^*$ is added to the mutate visibility records set, i.e. $\rho$ is updated as
+\begin{align*}
+    & \rho[x \to n^* \to (\{\}, r^*, \rho(x, n^*).b)] & \text{if not atomic} \\
+    & \rho[x \to n^* \to (\{\}, r^* \cup \rho(x, n^*).m, \rho(x, n^*).b)] & \text{if atomic}
+\end{align*}
+This is done subsequent to the to-be-defined checks in Section~\ref{sec:ChecksOnMutate}.
+
+The new visibility records $r^*$ are initialized based on
+\begin{itemize}
+  \item the thread collective $g_{s^\#}(\iota, \sigma)$ (Section~\ref{sec:SyncSemanticsThreadMapping})
+  \item the convergence of the memory access (Section~\ref{sec:InstrConvergentAccess})
+  \item the out-of-order flag (TODO)
+  \item the initial qualitative timeline $q$ (Section~\ref{sec:InstrTL}) of the access.
+  \item the set of barrier array elements referenced by the trailing barrier expression (Section~\ref{sec:InstrTrailingBarrierExpr}); this is empty for non-instr accesses or instrs without a trailing barrier expression.
+\end{itemize}
+
+Define $\mathsf{NewVisRecord}(g^*)$ as having a visibility set that is the union of
+\begin{itemize}
+    \item $g^* \times \{ q \} \times \{ \mathsf{VF_{issue}} \}$
+    \item $g^* \times \{ q \} \times \{ \mathsf{VF_{atom}}, \mathsf{VF_{temp}}, \mathsf{VF_{full}} \}$, only added if the access is \emph{not} out-of-order (TODO)
+    \item $\mathbb{G} \times \{ q_a \} \times \{ \mathsf{VF_{atom}} \}$, only added if the access defines an atomic qualitative timeline $q_a$ (Section~\ref{sec:AtomicInstr}).
+\end{itemize}
+and a pending await set that is based off the arrive count (Section~\ref{sec:SyncEnv}) of each referenced barrier array element:
+\begin{equation*}
+    \{ (z, n^*, \rho(z, n^*).b.a) \mid \text{ for each $z[n^*]$ referenced in the trailing barrier expression} \}
+\end{equation*}
+
+If the access is convergent (Section~\ref{sec:InstrConvergentAccess}), $r^*$ contains a single visibility record:
+\begin{equation*}
+    r^* = \{ \mathsf{NewVisRecord}(g_{s^\#}(\iota, \sigma)) \}
+\end{equation*}
+Otherwise, $r^*$ contains one visibility record for each active thread
+\begin{equation*}
+    r^* = \{ \mathsf{NewVisRecord}(\{g\}) \mid g \in g_{s^\#}(\iota, \sigma)) \}
+\end{equation*}
+Although for performance reasons, if the non-convergent access is out-of-order, the set of threads may be expanded during sync-check due to non-convergent out-of-order abstract machine optimization (def~\ref{sec:gOooOpt}).
+
+Note that for single-threaded accesses, the convergence makes no difference to the result (setting aside said optimization).
 
 \subsection{Lifting}
 \label{sec:Lifting}
 
-\subsection{VisRecord Augment}
-\label{sec:VisRecordAugment}
+The semantics for synchronization statements entail mapping over each visibility record (Section~\ref{sec:VisRecordState}) in the entire synchronization environment (Section~\ref{sec:SyncEnv}).
+This is done by applying the function $\mathsf{lift}$ to the synchronization environment, which takes $\lambda: \mathsf{VisRecord} \to \mathsf{VisRecord}$.
+$\rho' = \mathsf{lift}(\rho, \lambda)$ is defined by
+\begin{equation*}
+    \rho'(x, n^*) = \{ \lambda(r) \mid r \in \rho(x, n^*).r \}, \{ \lambda(r) \mid r \in \rho(x, n^*).m \}, \rho(x, n^*).b
+\end{equation*}
 
 \subsection{VisRecord Synchronizes-with (Witness)}
-\label{sec:VisRecordWitness}
+\label{sec:Witness}
+
+Given a first synchronization timeline $\tau_s^\mathrm{pre}$ (def~\ref{sec:gSyncTL}) and a thread collective $g^*$ mapped (Section~\ref{sec:SyncSemanticsThreadMapping}) to execute a certain \lighttt{Fence} or \lighttt{Arrive} statement instance, the statement instance ``witnesses'', or ``synchronizes-with'' a visibility record (Section~\ref{sec:VisRecordState}) when its visibility set contains a timeline signature (def~\ref{sec:gTlSig}) of the form $(g, q, \mathsf{VF_{issue}})$ with $g \in g^*$ and $q \in \tau_s^\mathrm{pre}.\mathrm{full}$.
+
+The witness function $\mathcal{W}: \mathcal{P}(\mathbb{G}) \to \mathcal{P}(\mathsf{QualTL}) \to \mathsf{VisRecord} \to \mathsf{Bool}$ is defined as
+\begin{equation*}
+  \mathcal{W}(g^*, \tau_s^\mathrm{pre}.\mathrm{full}, r) = \exists (g, q, v) \text{ such that } g \in g^* \land q \in \tau_s^\mathrm{pre}.\mathrm{full} \land v \in \{ \mathsf{VF_{issue}}, \mathsf{VF_{full}} \}
+\end{equation*}
+The transitivity flag from the PLDI submission is removed. TODO is $\mathsf{VF_{full}}$ needed here?
+
+\subsection{VisRecord Augment}
+\label{sec:Augment}
+
+Given a second synchronization timeline $\tau_s^\mathrm{post}$ (def~\ref{sec:gSyncTL}) and a thread collective $g^*$ mapped (Section~\ref{sec:SyncSemanticsThreadMapping}) to execute a certain \lighttt{Fence} or \lighttt{Await} statement instance, the statement instance ``augments'' a visibility record $r$ (Section~\ref{sec:VisRecordState}) by adding the following sets of timeline signatures (def~\ref{sec:gTlSig}) to the visibility set $r.s$:
+\begin{align*}
+    & \mathcal{A}_\mathrm{full} \Coloneqq g^* \times \tau_s^\mathrm{post}.\mathrm{full} \times \{ \mathsf{VF_{atom}}, \mathsf{VF_{temp}}, \mathsf{VF_{full}}, \mathsf{VF_{issue}} \} \\
+    & \mathcal{A}_\mathrm{temp} \Coloneqq g^* \times \tau_s^\mathrm{post}.\mathrm{temp} \times \{ \mathsf{VF_{temp}} \}
+\end{align*}
+The augment function $\mathcal{A}: \mathsf{VisRecord} \to \mathcal{P}(\mathbb{G}) \to \mathcal{P}(\mathsf{QualTL}) \to \mathcal{P}(\mathsf{QualTL}) \to \mathsf{VisRecord}$ is defined based on the above as follows:
+\begin{equation*}
+    \mathcal{A}(r, g^*, \tau_s^\mathrm{post}.\mathrm{full}, \tau_s^\mathrm{post}.\mathrm{temp}) = (r.v \cup \mathcal{A}_\mathrm{full} \cup \mathcal{A}_\mathrm{temp}, r.p)
+\end{equation*}
 
 \subsection{Fence Semantics}
 \label{sec:FenceSemantics}
@@ -799,7 +884,7 @@ which maps an index into a data variable $x: \mathbb{X}$ (def~\ref{sec:gMathbbX}
 \subsection{Await Semantics}
 \label{sec:AwaitSemantics}
 
-\subsection{Checks on Read}
+\subsection{Checks on Read, Arrive, Await}
 \label{sec:ChecksOnRead}
 
 \subsection{Checks on Mutate}
@@ -825,11 +910,17 @@ which maps an index into a data variable $x: \mathbb{X}$ (def~\ref{sec:gMathbbX}
 \subsection{Instruction Convergent Access}
 \label{sec:InstrConvergentAccess}
 
+\subsection{Atomic Instructions}
+\label{sec:AtomicInstr}
+
 \subsection{Instruction Distributed Memory}
 \label{sec:InstrDistributedMemory}
 
 \subsection{Instruction Trailing Barrier Expression}
-\label{sec:InstrTrailingBarrierExpression}
+\label{sec:InstrTrailingBarrierExpr}
+
+\subsection{Special Window}
+\label{sec:SpecialWindow}
 
 \FloatBarrier
 \newpage
@@ -837,6 +928,11 @@ which maps an index into a data variable $x: \mathbb{X}$ (def~\ref{sec:gMathbbX}
 \label{sec:Glossary}
 
 % >A
+
+\subsection{$\mathcal{A}$ (Augment Function)}
+
+Abstract machine helper function defined in Section~\ref{sec:Augment}.
+Used to modify the set of visibility records (Section~\ref{sec:VisRecordState}) modified by an interpreted \lighttt{Fence} statement (Section~\ref{sec:FenceSemantics}) or \lighttt{Await} statement (Section~\ref{sec:AwaitSemantics}).
 
 \subsection{Agnostic (Collective Type)}
 \label{sec:gAgnostic}
@@ -862,6 +958,11 @@ Somewhat confusingly, we conventionally use $z$ to mean an element of $\mathbb{B
 
 This is an implementation detail of camspork, and ``officially'', this is part of the synchronization environment.
 See Section~\ref{sec:SyncEnv}.
+
+\subsection{Barrier Expression}
+\label{sec:gBarrierExpr}
+
+TODO
 
 % >C
 
@@ -1169,7 +1270,7 @@ Given $z: \mathbb{B}$ (def~\ref{sec:gMathbbB}), $i^* : \mathbb{Z}^*$, and $p'$ i
 \subsection{Power Set ($\mathcal{P}$ / mathcal-P)}
 \label{sec:gPowerSet}
 
-$a \in \mathcal{P}(A)$ means that $a$ is of type ``set of $A$''.
+$a^* \in \mathcal{P}(A)$ or $a^*: \mathcal{P}(A)$ means that $a^*$ is of type ``set of $A$''.
 
 % >Q
 
@@ -1200,6 +1301,11 @@ Note ``visibility function'' is not a term used in the PLDI submission; this is 
 
 $\Sigma$ denotes the set of all control environments (def~\ref{sec:gControlEnv}) and $\sigma$ is an element of that set.
 Note, historically sometimes $\Sigma_c$ or $\sigma_c$ are used.
+
+\subsection{Square Brackets}
+\label{sec:gSquareBrackets}
+
+May denote indexing an array, or function update notation (def~\ref{sec:gUpdateNotation}).
 
 \subsection{Statement Instance}
 \label{sec:gStatementInstance}
@@ -1245,8 +1351,9 @@ Scheduling functions:
 \label{sec:gSyncTL}
 
 Parameter for synchronization statements (\lighttt{Fence}, \lighttt{Arrive}, \lighttt{Await}), which are defined as a composition of a \myKeyA{full timeline set} (set of \textsf{QualTL}, def~\ref{sec:gQualTL}) and a \myKeyA{temporal timeline set} (set of \textsf{QualTL}).
+For a given $\tau_s$, these are denoted as $\tau_s.\mathrm{full}$ and $\tau_s.\mathrm{temp}$ respectively.
 
-We list the sync timelines in the following table, where ``temp.'' in a qualitative timeline's column indicates membership of the qualitative timeline in the sync timeline's temporal timeline set, and ``full'' indicates membership in the temporal timeline set and full timeline set.
+We list the sync timelines $\tau_s$ in the following table, where ``temp.'' in a qualitative timeline's column indicates membership of the qualitative timeline in $\tau_s.\mathrm{temp}$, and ``full'' indicates membership in \emph{both} $\tau_s.\mathrm{full}$ and $\tau_s.\mathrm{temp}$. The PLDI submission also had ``transitive'', which is gone now.
 
 {
 \setlength{\tabcolsep}{2pt}
@@ -1276,6 +1383,15 @@ $\tau_s$ & cpu & strm & cuda1 & cuda2 & Sm80 & tmaS & tmaG & wgA & wgD & wgS & w
 \textsf{QualTL} key:
 
 \input{spork_b/QualTL.tex}
+
+% NB note alphabetical sorting
+%           |
+% Synchronization
+% Synchronizes
+\subsection{Synchronizes-with}
+\label{sec:gSynchronizesWith}
+
+camspork's name for the witness function (Section~\ref{sec:Witness}).
 
 % >T
 \subsection{Thread Collective}
@@ -1341,6 +1457,20 @@ i.e. the coordinates $[0, D_0-1]_\mathbb{N} \times ... \times [0, D_{M-1}-1]_\ma
 For this definition to work as expected, the product of the domain coordinates $D_0 \times ... \times D_{M-1}$ must be equal to the number of threads in the cluster (\lighttt{clusterDim.x * blockDim.x}).
 
 % >U
+
+\subsection{Update Notation}
+\label{sec:gUpdateNotation}
+
+$\rho[a_0 \to b_0, a_1 \to b_1, ...]$ means the function $\rho$ with outputs for $a_0, a_1,...$ modified:
+\begin{equation*}
+    \rho(x) = \begin{cases}
+        b_0 & \text{if } x = a_0 \\
+        b_1 & \text{if } x = a_1 \\
+        ... & ... \\
+        \rho(x) & \text{if no other case}
+    \end{cases}
+\end{equation*}
+
 % >V
 
 \subsection{Visibility Flag ($\mathsf{VF}$)}
@@ -1368,6 +1498,8 @@ Pair of type $\mathcal{P}(\mathsf{TlSig}) \times \mathcal{P}(\mathbb{P})$, i.e.
 
 \subsection{Visibility Set}
 \label{sec:gVisSet}
+
+Note, the PLDI submission incorrectly uses ``visibility set'' to mean ``visibility record'' sometimes.
 
 Set of timeline signatures (def~\ref{sec:gTlSig}).
 This differs from the PLDI submission nomenclature.
@@ -1405,6 +1537,11 @@ The CUDA device function is compiled separately for each warp variable, with cod
 
 128 CUDA threads with consecutive \lighttt{threadIdx.x} values, aligned so that the lowest index is a multiple of 128.
 (Note, this is simplified from the real CUDA definition, which takes into account the y and z dimensions that Exo-GPU does not parallelize on).
+
+\subsection{$\mathcal{W}$ (Witness Function)}
+
+Abstract machine helper function defined in Section~\ref{sec:Witness}.
+Used to filter the set of visibility records (Section~\ref{sec:VisRecordState}) modified by an interpreted \lighttt{Fence} statement (Section~\ref{sec:FenceSemantics}) or \lighttt{Arrive} statement (Section~\ref{sec:ArriveSemantics}).
 
 % >X
 
