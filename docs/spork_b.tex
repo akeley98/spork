@@ -20,7 +20,6 @@
 
 \begin{document}
 
-% TODO diagram for collective tiling
 % deriveCollTiling
 % Instructions, use deriveCollTiling for memory
 % out-of-order non-convergent abstract machine optimization
@@ -53,7 +52,7 @@ Sharding tensor and barrier allocations onto different groups of threads.
 
 Abstract machine semantics, how to read sync-check (\lighttt{camspork}) errors.
 
-\myChapterLink{sec:Instr}{Instructions}
+\myChapterLink{sec:Instr}{Instructions \& Timelines}
 
 Instruction classes, timelines, atomic instructions, special window e.g., \lighttt{CUtensorMap}.
 
@@ -734,7 +733,7 @@ For this informal documentation, we will skip the translation step and summarize
 \subsection{Control Environment}
 \label{sec:ControlEnv}
 
-Function $\mathbb{Y} \to \mathbb{Z}$, mapping control variable names (def~\ref{sec:gMathbbY}) to integer values.
+Function $\sigma: \mathbb{Y} \to \mathbb{Z}$, mapping control variable names (def~\ref{sec:gMathbbY}) to integer values.
 This is common to both Exo value semantics, and Exo-GPU abstract machine semantics.
 
 \subsection{Thread Mapping}
@@ -1040,7 +1039,7 @@ For such variables, upon free, we perform the same checks as for a non-atomic wr
 
 \FloatBarrier
 \newpage
-\section{Instructions}
+\section{Instructions \& Timelines}
 \label{sec:Instr}
 
 \subsection{Instr Class}
@@ -1245,7 +1244,7 @@ The unpacked collective type is always $\delta.D = (128,), \delta.B = (\top,)$.
 \subsection{Control Environment}
 \label{sec:gControlEnv}
 
-Function $\mathbb{Y} \to \mathbb{Z}$, mapping control variable names (def~\ref{sec:gMathbbY}) to integer values.
+Function $\sigma: \mathbb{Y} \to \mathbb{Z}$, mapping control variable names (def~\ref{sec:gMathbbY}) to integer values.
 This is common to both Exo value semantics, and Exo-GPU abstract machine semantics.
 
 \subsection{CPU Scope}
