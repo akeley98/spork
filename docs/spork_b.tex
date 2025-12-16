@@ -858,7 +858,7 @@ Given a first synchronization timeline $\tau_s^\mathrm{pre}$ (def~\ref{sec:gSync
 
 The witness function $\mathcal{W}: \mathcal{P}(\mathbb{G}) \to \mathcal{P}(\mathsf{QualTL}) \to \mathsf{VisRecord} \to \mathsf{Bool}$ is defined as
 \begin{equation*}
-  \mathcal{W}(g^*, \tau_s^\mathrm{pre}.\mathrm{full}, r) = \exists (g, q, v) \text{ such that } g \in g^* \land q \in \tau_s^\mathrm{pre}.\mathrm{full} \land v \in \{ \mathsf{VF_{issue}}, \mathsf{VF_{full}} \}
+  \mathcal{W}(g^*, \tau_s^\mathrm{pre}.\mathrm{full}, r) = \exists (g, q, v) \in r.s \text{ such that } g \in g^* \land q \in \tau_s^\mathrm{pre}.\mathrm{full} \land v \in \{ \mathsf{VF_{issue}}, \mathsf{VF_{full}} \}
 \end{equation*}
 The transitivity flag from the PLDI submission is removed. TODO is $\mathsf{VF_{full}}$ needed here?
 
