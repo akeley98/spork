@@ -119,12 +119,12 @@ We use this syntax:
 \hphantom{spacing}
 \texttt{Fence($\tau_s^\mathrm{pre}, \tau_s^\mathrm{post}$)}
 \hfill
-\texttt{Arrive($\tau_s^\mathrm{pre}$) >}\texttt{> $z$}
+\texttt{Arrive($\tau_s^\mathrm{pre}$) >}\texttt{> $e$}
 \hfill
-\texttt{Await($z, \tau_s^\mathrm{post}, n$)}
+\texttt{Await($e, \tau_s^\mathrm{post}, n$)}
 \hphantom{spacing}
 
-where $\tau_s^\mathrm{pre}$ and $\tau_s^\mathrm{post}$ are \myKeyA{sync timelines} (\textsf{SyncTL}, \ref{sec:gSyncTL}), which filter the set of qualitative timelines of memory accesses that are synchronized, and $z$ and $n$ are a barrier variable read and an integer, which together control pairing of executed \lighttt{Arrive} and \lighttt{Await} instances.
+where $\tau_s^\mathrm{pre}$ and $\tau_s^\mathrm{post}$ are \myKeyA{sync timelines} (\textsf{SyncTL}, \ref{sec:gSyncTL}), which filter the set of qualitative timelines of memory accesses that are synchronized, and $e$ and $n$ are a barrier expression (def~\ref{sec:gBarrierExpr}) and an integer, which together control pairing of executed \lighttt{Arrive} and \lighttt{Await} instances.
 
 The barrier variable itself is allocated with the syntax ``\texttt{<name>: barrier[$n^*$] @ $\pi_z$}'', where $n^*$ defines the array size of the barrier variable and $\pi_z$ defines the completion mechanism (\lighttt{CudaMbarrier}, \lighttt{CudaCommitGroup}, or \lighttt{CudaClusterSync}).
 The array is subject to distributed memory analysis.
@@ -697,6 +697,8 @@ For each subdivided dimension $i$, we must have $\omega.B_i = 1$.
 \subsection{Barrier Multicast}
 \label{sec:BarrierMulticast}
 
+% TODO thread pitch multiple of blockDim, multicast convergence
+
 \subsection{Barrier Guarding Requirement}
 \label{sec:BarrierGuarding}
 
@@ -711,7 +713,7 @@ For each subdivided dimension $i$, we must have $\omega.B_i = 1$.
 
 The synchronization semantics are defined by translating the Exo-GPU program into an abstract machine program, and interpreting the abstract machine program with respect to abstract machine semantics.
 The program is synchronized correctly if no error condition is reached.
-In the current implementation (with camspork), this can only be done for a given concrete problem size specified by \lighttt{exo.proc.sync\_check}.
+In the current implementation (with camspork), this can only be done for a given concrete problem size specified by \lighttt{exo.Procedure.sync\_check}.
 
 Both existing Exo value semantics and new abstract machine semantics are defined sequentially.
 The primary difference is that in the value semantics, a data array element holds a numerical value, while in abstract machine semantics, each data array element encodes the history of reads and mutates performed to it, with each access encoded as a \myKeyA{visibility record} (Section~\ref{sec:VisRecordState}).
@@ -784,11 +786,30 @@ Each visibility record $r$ is a pair of type $\mathcal{P}(\mathsf{TlSig}) \times
 \begin{itemize}
   \item The \myKeyA{visibility set} (def~\ref{sec:gVisSet}), denoted $r.s$, which is a set of timeline signatures $\mathsf{TlSig} \Coloneqq \mathbb{G} \times \mathsf{QualTL} \times \mathsf{VF}$; these being a global thread ID (def~\ref{sec:gGlobalThreadID}), a qualitative timeline (def~\ref{sec:gQualTL}), and a \myKeyA{visibility flag} (def~\ref{sec:gVisFlag}), which is one of $\mathsf{VF_{atom}}$ (atomic-only), $\mathsf{VF_{temp}}$ (temporal), $\mathsf{VF_{full}}$, or $\mathsf{VF_{issue}}$.
   The visibility set is conditionally augmented (Section~\ref{sec:Augment}) with more timeline signatures as a result of \lighttt{Fence} and \lighttt{Await} statements.
-  \item The set of \myKeyA{pending awaits} (def~\ref{sec:gPendingAwait}), denoted $r.p$, which are tuples of type $\mathbb{B} \times \mathbb{Z}^* \times \mathbb{Z}$, this being a combination of an indexed barrier variable (def~\ref{sec:gMathbbB}) and an arrive-count.
+  \item The f \myKeyA{pending await} set (def~\ref{sec:gPendingAwait}), denoted $r.p$, which are tuples of type $\mathbb{B} \times \mathbb{Z}^* \times \mathbb{Z}$, this being a combination of an indexed barrier variable (def~\ref{sec:gMathbbB}) and an arrive-count.
   These mediate the interaction between paired \lighttt{Arrive} statement instances (Section~\ref{sec:ArriveSemantics}) and \lighttt{Await} statement instances (Section~\ref{sec:AwaitSemantics}).
 \end{itemize}
 
 This is a different formulation than the PLDI paper; see the reference section for more information.
+
+The sync-check error messages format a visibility record's visibility set and pending await set separately.
+An integer is used to represent the task ID, counting up starting from 0 for each device task instance (def~\ref{sec:gDeviceTask}) in each CUDA device function launch.
+
+The visibility set is encoded as the union of zero or more ``timeline signature intervals'', formatted as the lines \\
+``\texttt{threads: [task\_index = $\iota_0$ [$c_0^*$],}\\
+\texttt{task\_index = $\iota_1$ [$c_1^*$]], inclusive, formatted w/ domain [$D$]}''\\
+followed by lines of the form\\
+\texttt{$q_0$ -> $\mathsf{vf}_0^*$}\\
+\texttt{$q_1$ -> $\mathsf{vf}_1^*$}\\
+...\\
+where each $q_i$ is a qualitative timeline (def~\ref{sec:gQualTL}) and each $\mathsf{vf}_i^*$ is a set of visibility flags (def~\ref{sec:gVisFlag}).
+The timeline signature interval is the set of all $((\iota, n), q, \mathsf{vf})$ such that
+\begin{itemize}
+  \item $(\iota_0, \mathsf{toLocal}(D, c_0^*)) \le (\iota, n) \le (\iota_1, \mathsf{toLocal}(D, c_1^*))$, sorted lexicographically (def~\ref{sec:gToLocal}), and
+  \item $q = q_i$ for some $q_i$, with $\mathsf{vf} \in \mathsf{vf}_i^*$
+\end{itemize}
+Each pending await $(z, n^*, a)$ in the pending await set is formatted as \\
+``\texttt{pending await: $z$[$n^*$] arrive\_count=$a$}''.
 
 \subsection{VisRecord Creation}
 \label{sec:VisRecordCreation}
@@ -833,11 +854,11 @@ If the access is convergent (Section~\ref{sec:InstrConvergentAccess}), $r^*$ con
 \begin{equation*}
     r^* = \{ \mathsf{NewVisRecord}(g_{s^\#}(\iota, \sigma)) \}
 \end{equation*}
-Otherwise, $r^*$ contains one visibility record for each active thread
+Otherwise, $r^*$ contains one visibility record for each thread involved in the statement instance:
 \begin{equation*}
-    r^* = \{ \mathsf{NewVisRecord}(\{g\}) \mid g \in g_{s^\#}(\iota, \sigma)) \}
+    r^* = \{ \mathsf{NewVisRecord}(\{g\}) \mid g \in g_{s^\#}(\iota, \sigma) \}
 \end{equation*}
-Although for performance reasons, if the non-convergent access is out-of-order, the set of threads may be expanded during sync-check due to non-convergent out-of-order abstract machine optimization (def~\ref{sec:gOooOpt}).
+However, for performance reasons, if the non-convergent access is out-of-order, the set of threads may be expanded during sync-check due to non-convergent out-of-order abstract machine optimization (def~\ref{sec:gOooOpt}).
 
 Note that for single-threaded accesses, the convergence makes no difference to the result (setting aside said optimization).
 
@@ -854,7 +875,7 @@ $\rho' = \mathsf{lift}(\rho, \lambda)$ is defined by
 \subsection{VisRecord Synchronizes-with (Witness)}
 \label{sec:Witness}
 
-Given a first synchronization timeline $\tau_s^\mathrm{pre}$ (def~\ref{sec:gSyncTL}) and a thread collective $g^*$ mapped (Section~\ref{sec:SyncSemanticsThreadMapping}) to execute a certain \lighttt{Fence} or \lighttt{Arrive} statement instance, the statement instance ``witnesses'', or ``synchronizes-with'' a visibility record (Section~\ref{sec:VisRecordState}) when its visibility set contains a timeline signature (def~\ref{sec:gTlSig}) of the form $(g, q, \mathsf{VF_{issue}})$ with $g \in g^*$ and $q \in \tau_s^\mathrm{pre}.\mathrm{full}$.
+Given a first synchronization timeline $\tau_s^\mathrm{pre}$ (def~\ref{sec:gSyncTL}) and a thread collective $g^*$ mapped to execute (Section~\ref{sec:SyncSemanticsThreadMapping}) a certain \lighttt{Fence} or \lighttt{Arrive} statement instance, the statement instance ``witnesses'', or ``synchronizes-with'' a visibility record (Section~\ref{sec:VisRecordState}) when its visibility set contains a timeline signature (def~\ref{sec:gTlSig}) of the form $(g, q, \mathsf{VF_{issue}})$ with $g \in g^*$ and $q \in \tau_s^\mathrm{pre}.\mathrm{full}$.
 
 The witness function $\mathcal{W}: \mathcal{P}(\mathbb{G}) \to \mathcal{P}(\mathsf{QualTL}) \to \mathsf{VisRecord} \to \mathsf{Bool}$ is defined as
 \begin{equation*}
@@ -865,36 +886,156 @@ The transitivity flag from the PLDI submission is removed. TODO is $\mathsf{VF_{
 \subsection{VisRecord Augment}
 \label{sec:Augment}
 
-Given a second synchronization timeline $\tau_s^\mathrm{post}$ (def~\ref{sec:gSyncTL}) and a thread collective $g^*$ mapped (Section~\ref{sec:SyncSemanticsThreadMapping}) to execute a certain \lighttt{Fence} or \lighttt{Await} statement instance, the statement instance ``augments'' a visibility record $r$ (Section~\ref{sec:VisRecordState}) by adding the following sets of timeline signatures (def~\ref{sec:gTlSig}) to the visibility set $r.s$:
+Given a second synchronization timeline $\tau_s^\mathrm{post}$ (def~\ref{sec:gSyncTL}) and a thread collective $g^*$ mapped to execute (Section~\ref{sec:SyncSemanticsThreadMapping}) a certain \lighttt{Fence} or \lighttt{Await} statement instance, the statement instance ``augments'' a visibility record $r$ (Section~\ref{sec:VisRecordState}) by adding the following sets of timeline signatures (def~\ref{sec:gTlSig}) to the visibility set $r.s$:
 \begin{align*}
     & \mathcal{A}_\mathrm{full} \Coloneqq g^* \times \tau_s^\mathrm{post}.\mathrm{full} \times \{ \mathsf{VF_{atom}}, \mathsf{VF_{temp}}, \mathsf{VF_{full}}, \mathsf{VF_{issue}} \} \\
     & \mathcal{A}_\mathrm{temp} \Coloneqq g^* \times \tau_s^\mathrm{post}.\mathrm{temp} \times \{ \mathsf{VF_{temp}} \}
 \end{align*}
 The augment function $\mathcal{A}: \mathsf{VisRecord} \to \mathcal{P}(\mathbb{G}) \to \mathcal{P}(\mathsf{QualTL}) \to \mathcal{P}(\mathsf{QualTL}) \to \mathsf{VisRecord}$ is defined based on the above as follows:
 \begin{equation*}
-    \mathcal{A}(r, g^*, \tau_s^\mathrm{post}.\mathrm{full}, \tau_s^\mathrm{post}.\mathrm{temp}) = (r.v \cup \mathcal{A}_\mathrm{full} \cup \mathcal{A}_\mathrm{temp}, r.p)
+    \mathcal{A}(r, g^*, \tau_s^\mathrm{post}.\mathrm{full}, \tau_s^\mathrm{post}.\mathrm{temp}) = (r.s\cup \mathcal{A}_\mathrm{full} \cup \mathcal{A}_\mathrm{temp}, r.p)
 \end{equation*}
 
 \subsection{Fence Semantics}
 \label{sec:FenceSemantics}
 
+A \lighttt{Fence} statement augments (Section~\ref{sec:Augment}) all visibility records (Section~\ref{sec:VisRecordState}) that it witnesses (Section~\ref{sec:Witness}).
+Specifically, for a given statement \texttt{Fence($\tau_s^\mathrm{pre}, \tau_s^\mathrm{post}$)}, with $g^* = g_{s^\#}(\iota, \sigma)$ assigned to execute it (Section~\ref{sec:SyncSemanticsThreadMapping}), define $\lambda_\mathrm{Fence}: \mathsf{VisRecord} \to \mathsf{VisRecord}$ as
+\begin{equation*}
+    \lambda_\mathrm{Fence}(r) = \begin{cases}
+        \mathcal{A}(r, g^*, \tau_s^\mathrm{post}.\mathrm{full}, \tau_s^\mathrm{post}.\mathrm{temp}) & \text{ if } \mathcal{W}(g^*, \tau_s^\mathrm{pre}.\mathrm{full}, r) \\
+        r & \text{ otherwise }
+    \end{cases}
+\end{equation*}
+The new synchronization environment is $\mathsf{lift}(\rho, \lambda_\mathrm{Fence})$ (Section~\ref{sec:Lifting}).
+
 \subsection{Arrive Semantics}
 \label{sec:ArriveSemantics}
+
+A \lighttt{Arrive} statement adds pending await(s) (def~\ref{sec:gPendingAwait}) to all visibility records (Section~\ref{sec:VisRecordState}) that it witnesses (Section~\ref{sec:Witness}), and increments the arrive count of a barrier array element.
+
+For a given statement \texttt{Arrive($\tau_s^\mathrm{post}$) >> $e^*$}, with
+\begin{itemize}
+  \item $g^* = g_{s^\#}(\iota, \sigma)$ assigned to execute it (Section~\ref{sec:SyncSemanticsThreadMapping})
+  \item $z[n_h^*]$ being the home barrier of $e^*$ (def~\ref{sec:gHomeBarrier})
+  \item $a$ being the arrive count of the home barrier (i.e. $\rho(z, n_h^*).b.a$)
+\end{itemize}
+define $\lambda_\mathrm{Arrive}: \mathsf{VisRecord} \to \mathsf{VisRecord}$ as
+\begin{equation*}
+    \lambda_\mathrm{Arrive}(r) = \begin{cases}
+        (r.s, r.p \cup \{ (z, n^*, a) \text{ for each $z[n^*]$ referenced by any barrier expr.} \})
+        & \text{ if } \mathcal{W}(g^*, \tau_s^\mathrm{pre}.\mathrm{full}, r) \\
+        r & \text{ otherwise }
+    \end{cases}
+\end{equation*}
+The new synchronization environment $\rho''$ is defined from $\rho$ (Section~\ref{sec:SyncEnv}) by
+\begin{align*}
+  & \rho' = \mathsf{lift}(\rho, \lambda_\mathrm{Arrive}) & \text{(Section~\ref{sec:Lifting})} \\
+  & \rho'' = \rho'[z \to n_h^* \to (r.r, r.m, r.b.a + 1, r.b.w)] \text{ with } r = \rho'(z, n_h^*) & \text{(def~\ref{sec:gUpdateNotation})}
+\end{align*}
+The way we use and update only the arrive count of the home barrier (as a stand-in for the state of all barriers) is the reason for the barrier multicast convergence requirement (Section~\ref{sec:BarrierMulticast}).
 
 \subsection{Await Semantics}
 \label{sec:AwaitSemantics}
 
+An \lighttt{Await} statement augments (Section~\ref{sec:Augment}) all visibility records (Section~\ref{sec:VisRecordState}) that contain the needed pending await (def~\ref{sec:gPendingAwait}), and updates the await count of the barrier array element referenced by the statement's barrier expression.
+
+For a given statement \texttt{Await}($e, \tau_s^\mathrm{post}, n$) with
+\begin{itemize}
+  \item $g^* = g_{s^\#}(\iota, \sigma)$ assigned to execute it (Section~\ref{sec:SyncSemanticsThreadMapping})
+  \item $z[n^*]$ being the barrier array element referenced by $e$ (def~\ref{sec:gBarrierExpr})
+  \item $a$ being the arrive count of the referenced barrier array element (i.e. $\rho(z, n^*).b.a$)
+  \item $w$ being the await count of the referenced barrier array element (i.e. $\rho(z, n^*).b.w$)
+\end{itemize}
+the behavior differs based on whether $n \ge 0$ (arrive-indexed case) or $n < 0$ (await-indexed case).
+
+If $n \ge 0$ (arrive-indexed case), then define
+\begin{align*}
+    & a_\mathrm{max} = a - n - 1 \\
+    & w' = \mathrm{max}(w, a_\mathrm{max} + 1)
+\end{align*}
+If $n < 0$ (await-indexed case), then define
+\begin{align*}
+    & \mathrm{lag} = -1 - n \\
+    & a_\mathrm{max} = w - \mathrm{lag} \\
+    & w' = w + 1
+\end{align*}
+Define $\lambda_\mathrm{Await}: \mathsf{VisRecord} \to \mathsf{VisRecord}$ as
+\begin{equation*}
+    \lambda_\mathrm{Await}(r) = \begin{cases}
+        \mathcal{A}(r, g^*, \tau_s^\mathrm{post}.\mathrm{full}, \tau_s^\mathrm{post}.\mathrm{temp}) & \text{ if } \exists (z', n'^*, a') \in r.p \text{ with } z = z' \land n^* = n'^* \land a' \le a_\mathrm{max} \\
+        r & \text{ otherwise }
+    \end{cases}
+\end{equation*}
+The new synchronization environment $\rho''$ is defined from $\rho$ (Section~\ref{sec:SyncEnv}) by
+\begin{align*}
+  & \rho' = \mathsf{lift}(\rho, \lambda_\mathrm{Await}) & \text{(Section~\ref{sec:Lifting})} \\
+  & \rho'' = \rho'[z \to n^* \to (r.r, r.m, r.b.a, w')] & \text{(def~\ref{sec:gUpdateNotation})}
+\end{align*}
+
+\mainKey{Implementation Note:} camspork removes old pending awaits to avoid infinite state growth.
+
+\subsection{Check VisRecord Helper}
+\label{sec:CheckVisRecordHelper}
+
+For the following checks, we define the helper \\
+$\mathsf{CheckVisRecord}: \mathsf{Bool} \to \mathcal{P}(\mathbb{G}) \to \mathcal{P}(\mathsf{QualTL}) \to \mathsf{VisFlag} \to \mathsf{VisRecord} \to \mathsf{Bool}$ as
+\begin{equation*}
+    \mathsf{CheckVisRecord}(t, g^*, q^*, \mathsf{vf}, r) = \begin{cases}
+        \exists g \in g^*, \exists q \in q^*, (g, q, \mathsf{vf}) \in r.s & \text{ if $t$ is true} \\
+        \forall g \in g^*, \exists q \in q^*, (g, q, \mathsf{vf}) \in r.s & \text{ if $t$ is false} \\
+    \end{cases}
+\end{equation*}
+In this context $t$ is the \myKeyA{convergence flag}; note it only changes the qualifier $\forall$ or $\exists$ for $g \in g^*$, which has no effect when $g^*$ consists only of a single global thread ID (def~\ref{sec:gGlobalThreadID}).
+
 \subsection{Checks on Read, Arrive, Await}
 \label{sec:ChecksOnRead}
+
+Read-like accesses only impose requirements on the mutate visibility record set.
+
+For each array element $x[n^*]$ referenced by a read within a statement, an \lighttt{Arrive} statement, or an \lighttt{Await} statement,
+\begin{itemize}
+  \item let $g^* = g_{s^\#}(\iota, \sigma)$ be the thread collective assigned to execute the statement (Section~\ref{sec:SyncSemanticsThreadMapping})
+  \item let $q^*$ be the \myKeyA{extended timeline set} (Section~\ref{sec:InstrTL})
+  \item let $t$ be the convergence flag (Section~\ref{sec:InstrConvergentAccess})
+\end{itemize}
+Require that
+\begin{equation*}
+    \forall r \in \rho(x, n^*).m, \mathsf{CheckVisRecord}(t, g^*, q^*, \mathsf{VF_{full}}, r)
+\end{equation*}
+If the above is not true, the abstract machine enters the error condition.
+Otherwise, this step causes no state changes, but the abstract machine continues on to the changes specified in Section~\ref{sec:VisRecordCreation}.
 
 \subsection{Checks on Mutate}
 \label{sec:ChecksOnMutate}
 
-\subsection{Checks on Free}
+Mutate accesses impose requirements on both the read and mutate visibility record sets.
+
+For each array element $x[n^*]$ that is mutated as part of a write, reduce, or instr call statement,
+\begin{itemize}
+  \item let $g^* = g_{s^\#}(\iota, \sigma)$ be the thread collective assigned to execute the statement (Section~\ref{sec:SyncSemanticsThreadMapping})
+  \item let $q^*$ be the \myKeyA{extended timeline set} (Section~\ref{sec:InstrTL})
+  \item let $t$ be the convergence flag (Section~\ref{sec:InstrConvergentAccess})
+  \item let $\mathsf{vf}: \mathsf{VF}$ (def~\ref{sec:gVisFlag}) be $\mathsf{VF_{temp}}$ if the access is non-atomic write-only, $\mathsf{VF_{full}}$ if the access is non-atomic read-write, and $\mathsf{VF_{atom}}$ if the access is atomic (Section~\ref{sec:AtomicInstr}).
+\end{itemize}
+Require that
+\begin{align*}
+    & \forall r \in \rho(x, n^*).r, \mathsf{CheckVisRecord}(t, g^*, q^*, \mathsf{VF_{temp}}, r) \\
+    & \forall r \in \rho(x, n^*).m, \mathsf{CheckVisRecord}(t, g^*, q^*, \mathsf{vf}, r)
+\end{align*}
+If the above is not true, the abstract machine enters the error condition.
+Otherwise, this step causes no state changes, but the abstract machine continues on to the changes specified in Section~\ref{sec:VisRecordCreation}.
+
+\subsection{Checks on SMEM Free}
 \label{sec:ChecksOnFree}
 
-%% \subsection{Sync-check Error Messages}
-%% \label{sec:SyncCheckErrorMessages}
+Variables stored in shared memory must currently be allocated and freed at \lighttt{cuda\_cluster} scope (def~\ref{sec:gCollUnit}).
+For such variables, upon free, we perform the same checks as for a non-atomic write-only access (Section~\ref{sec:ChecksOnMutate}) with
+\begin{itemize}
+  \item $g^* = g_{s^\#}(\iota, \sigma)$ being the thread collective assigned to execute the free statement (Section~\ref{sec:SyncSemanticsThreadMapping})
+  \item $q^* = \{ \texttt{cuda\_in\_order\_qual} \}$ (def~\ref{sec:gQualTL})
+  \item the convergence flag $t$ being false
+\end{itemize}
 
 \FloatBarrier
 \newpage
@@ -962,7 +1103,14 @@ See Section~\ref{sec:SyncEnv}.
 \subsection{Barrier Expression}
 \label{sec:gBarrierExpr}
 
-TODO
+An expression ``$z[e^*]$'', where $z: \mathbb{B}$ is a barrier variable name and $e^*$ is a tuple of expressions (``$z$'' alone indicates $e^*$ is empty).
+Each expression $e_i$ must either be a plain read of a control variable (def~\ref{sec:gMathbbY}) or an interval expression $0:x_i$, $x_i$ being the extent of the $i^{th}$ dimension of $z$'s array size.
+
+A barrier expression $z[e_0, ..., e_{M-1}]$ references all barrier array elements $z[n_0, ..., n_{M-1}]$ where
+\begin{itemize}
+  \item $n_i = \sigma(e_i)$ (def~\ref{sec:gControlEnv}) for all $e_i$ that are plain reads of a control variable.
+  \item $n_i \in [0, x_i - 1]_\mathbb{N}$ for all $e_i$ that are intervals $0:x_i$.
+\end{itemize}
 
 % >C
 
@@ -1188,6 +1336,30 @@ $\textsf{domainCompletionTypeOnly}: \Delta \times \Delta \to \Delta \times \Delt
 Pair of task ID $\iota: \mathbb{I}$ (Section~\ref{sec:SyncSemanticsThreadMapping}) and local thread index $n \in \mathbb{N}$ (def~\ref{sec:gLocalThreadIndex}).
 
 % >H
+
+\subsection{Home Barrier (Expression)}
+\label{sec:gHomeBarrier}
+
+An \lighttt{Arrive} statement (def~\ref{sec:gSyncStmt}) may take multiple barrier expressions (def~\ref{sec:gBarrierExpr}).
+The intersection of all barrier array elements referenced by the barrier expressions must be a single barrier array element; this is the home barrier.
+The home barrier expression is an expression constructed to reference this home barrier; it is constructed from the barrier expressions $z_0[e_0^*] ... z_{E-1}[e_{E-1}^*]$ attached to an \lighttt{Arrive} statement as follows:
+\begin{itemize}
+  \item All expressions must use the same barrier variable name $z$.
+  \item All tuples $e^*$ must have the same length $M$.
+  \item For each $j \in [0, M-1]_\mathbb{N}$, at least one $e^*$ must have a non-interval (point) as its $j^{th}$ element, and all such tuples must match in their $j^{th}$ element. Call this common expression $e'_j$.
+\end{itemize}
+The home barrier expression is $z[e'_0, ..., e'_{M-1}]$.
+
+Examples
+\begin{tabular}{l l}
+Arrive statement & Home barrier expression \\
+\texttt{Arrive(...) >> $z$[$y_1, y_2$]} & $z$[$y_1, y_2$] \\
+\texttt{Arrive(...) >> $z$[$y_1$, :]} & Missing point expression for rightmost dimension \\
+\texttt{Arrive(...) >> $z$[$y_1$, :] >> $z$[$y_1$, $y_2$]} & $z$[$y_1, y_2$] \\
+\texttt{Arrive(...) >> $z$[$y_1$, :] >> $z$[:, $y_2$]} & $z$[$y_1, y_2$] \\
+\texttt{Arrive(...) >> $z_1$[$y_1$, :] >> $z_2$[:, $y_2$]} & Invalid, mismatched barrier variable names $z$
+\end{tabular}
+
 % >I
 
 \subsection{\textrm{I}ota, mathbb-\textrm{I} ($\iota: \mathbb{I}$)}
@@ -1332,12 +1504,14 @@ One of
 \hphantom{spacing}
 \texttt{Fence($\tau_s^\mathrm{pre}, \tau_s^\mathrm{post}$)}
 \hfill
-\texttt{Arrive($\tau_s^\mathrm{pre}$) >}\texttt{> $z$}
+\texttt{Arrive($\tau_s^\mathrm{pre}$) >}\texttt{> $e$}
 \hfill
-\texttt{Await($z, \tau_s^\mathrm{post}, n$)}
+\texttt{Await($e, \tau_s^\mathrm{post}, n$)}
 \hphantom{spacing}
 
-where $\tau_s^\mathrm{pre}$ and $\tau_s^\mathrm{post}$ are \myKeyA{sync timelines} (\textsf{SyncTL}, def~\ref{sec:gSyncTL}), which filter the set of qualitative timelines (def~\ref{sec:gQualTL}) of memory accesses that are synchronized, and $z$ and $n$ are a barrier variable read and an integer, which together control pairing of executed \lighttt{Arrive} and \lighttt{Await} instances.
+where $\tau_s^\mathrm{pre}$ and $\tau_s^\mathrm{post}$ are \myKeyA{sync timelines} (\textsf{SyncTL}, def~\ref{sec:gSyncTL}), which filter the set of qualitative timelines (def~\ref{sec:gQualTL}) of memory accesses that are synchronized, and $e$ and $n$ are a barrier expression (def~\ref{sec:gBarrierExpr}) and an integer, which together control pairing of executed \lighttt{Arrive} and \lighttt{Await} instances.
+The \lighttt{Arrive} statement may take additional barrier expressions, separated by \texttt{>}\texttt{>}.
+Currently, an \lighttt{Await} statement may take only one barrier expression, and it must reference only a single barrier array element, i.e. it must be its own home barrier expression (def~\ref{sec:gHomeBarrier}).
 
 Scheduling functions:
 \begin{itemize}
