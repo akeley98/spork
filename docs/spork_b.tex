@@ -71,7 +71,7 @@ The statements within are at \myKeyA{CUDA scope} and are converted to CUDA C++ c
 We generalize loops in Exo to sequential and parallel for loops, distinguished by their \myKeyA{loop mode} (def~\ref{sec:gLoopMode}).
 The body of the \lighttt{CudaDeviceFunction} block must contain only a single statement: a nest of one or more \lighttt{cuda\_tasks} loops.
 The body of the inner-most \lighttt{cuda\_tasks} loop is a \myKeyA{device task}; one instance of the device task is assigned to one CUDA cluster for execution (see example~\ref{sec:gCudaDeviceFunction}).
-Within the device task, each statement instance (def~\ref{sec:gStatementInstance}) is executed by a set of threads within the cluster; this is a \myKeyA{thread collective}.
+Within the device task, each statement instance (def~\ref{sec:gStmtInstance}) is executed by a set of threads within the cluster; this is a \myKeyA{thread collective}.
 
 A \lighttt{cuda\_threads(0, $c_\text{hi}$, unit=\_)} loop may appear anywhere inside a device task.
 This statement divides its executing thread collective into $c_\text{hi}$-many disjoint subsets (possibly with some inactive threads left over), and assigns one to execute each iteration of the loop.
@@ -669,29 +669,88 @@ For each subdivided dimension $i$, we must have $\omega.B_i = 1$.
 \section{Synchronization Usage}
 \label{sec:SyncUsage}
 
-\subsection{Fundamentals}
-\label{sec:SyncUsageFundamentals}
+We view each statement instance (def~\ref{sec:gStmtInstance}) as issuing reads or mutates to a set of array elements; the reads and mutates are executed by a thread collective (def~\ref{sec:gThreadCollective}) with a certain \myKeyA{initial qualitative timeline} (Section~\ref{sec:InstrTL}), which varies based on the issued instruction.
+The purpose of the qualitative timeline is to model that the read or mutate is only synchronized by a subset of possible synchronization statements.
+These synchronization statements (def~\ref{sec:gSyncStmt}) are parameterized with a \myKeyA{first synchronization timeline} $\tau_s^\mathrm{pre}$ and/or a \myKeyA{second synchronization timeline} $\tau_s^\mathrm{post}$, like so:
+
+\hphantom{spacing}
+\texttt{Fence($\tau_s^\mathrm{pre}, \tau_s^\mathrm{post}$)}
+\hfill
+\texttt{Arrive($\tau_s^\mathrm{pre}$) >}\texttt{> $e$}
+\hfill
+\texttt{Await($e, \tau_s^\mathrm{post}, n$)}
+\hphantom{spacing}
+
+where $e$ is a barrier expression (def~\ref{sec:gBarrierExpr}) and $n$ is an integer, which controls \lighttt{Arrive}/\lighttt{Await} pairing (Section~\ref{sec:ArriveAwaitPairing}).
+
+The synchronization timeline (def~\ref{sec:gSyncTL}) contains a \myKeyA{full timeline set} and \myKeyA{temporal timeline set} (both sets of \textsf{QualTL}), which filter (by qualitative timeline) the reads and mutates that the synchronization statement interacts with.
+
+For the purposes of reasoning about correct synchronization, each executed read or mutate has additional attributes
+\begin{itemize}
+  \item extended qualitative timelines (set of \textsf{QualTL}), Section~\ref{sec:InstrTL}
+  \item an atomic qualitative timeline, if the access is atomic, Section~\ref{sec:AtomicInstr}
+  \item convergence flag, Section~\ref{sec:InstrConvergentAccess}.
+  \item out-of-order flag, TODO
+\end{itemize}
+If the convergence flag is true, then the thread collective for each read and mutate executed by the statement instance is the thread collective assigned to the statement instance itself.
+Otherwise (i.e. the access is non-convergent), we view each read and mutate as being done by one thread only, repeated for each thread in the thread collective (Section~\ref{sec:VisRecordCreation}).
+This models the uncertainty in there being no way to ascribe responsibility for that access to a particular thread, rather than that the access is literally repeated in the underlying hardware.
+
+In Exo-GPU, the user's job is to insert sufficient synchronization so that \myKeyA{sequential-parallel equivalence} is upheld, that is, for a given input, the value computed by interpreting the Exo-GPU program with sequential Exo value semantics will be the same as that computed by the parallelized CUDA program.
+The sync-check step (whose ``abstract machine semantics'' are specified in Section~\ref{sec:SyncSemantics}) validates this.
+
+Although this is not how the abstract machine formally works, it's useful to think of Exo-GPU synchronization in terms of dependency edges in a graph formed from a sequential trace of the Exo-GPU program.
+The nodes are executed reads to array elements, executed mutates to array elements, and executed synchronization statement instances (with read/mutate nodes generated from statement instances as described above).
+The following subsections will specify intended usage patterns of Exo-GPU.
+These consist of two nodes appearing in the sequential trace, with dependency edges being formed between nodes involved in an intended usage pattern.
+
+It must be possible to find a connection using dependency edges between one read/mutate to an array element and another read/mutate to that same array element, except when one of the following apply:
+\begin{itemize}
+    \item the accesses are both reads
+    \item the array element is stored in sync-exempt memory (def~\ref{sec:gSyncExempt})
+    \item the accesses are both from the same statement instance (due to non-convergent access)
+\end{itemize}
+While describing the intended usage patterns, we will also specify the rules in Section~\ref{sec:SyncSemantics} that are involved in detecting that pattern for sync-check.
 
 \subsection{Intended Usage Patterns -- Access Before Synchronization}
 \label{sec:AccessBeforeSync}
 
+
+
 \subsection{Intended Usage Patterns -- Access After Synchronization}
 \label{sec:AccessAfterSync}
+
+% cuda_in_order, cuda_generic_and_async_proxy, wgmma_fence_2
 
 \subsection{Intended Usage Patterns -- Arrive-Await Pairing}
 \label{sec:ArriveAwaitPairing}
 
+% arrive-indexed/await-indexed
+
 \subsection{Intended Usage Patterns -- Multiple Memory Accesses}
 \label{sec:MultipleMemoryAccesses}
+
+% atomic, non-ooo
+
+\subsection{Intended Usage Patterns -- Multiple Synchronization Statements (Transitivity)}
+\label{sec:Transitivity}
+
+% reason for async proxy retired thing
 
 \subsection{Cluster Sync Usage}
 \label{sec:ClusterSyncUsage}
 
+% solitary, sync-exempt, barrier variable vs CUDA implicit state
+
 \subsection{Commit Group Usage}
 \label{sec:CommitGroupUsage}
 
+% solitary, sync-exempt, barrier variable vs CUDA implicit state
+
 \subsection{Mbarrier Usage}
 \label{sec:MbarrierUsage}
+
+% solitary
 
 \subsection{Barrier Multicast}
 \label{sec:BarrierMulticast}
@@ -703,7 +762,6 @@ For each subdivided dimension $i$, we must have $\omega.B_i = 1$.
 
 \subsection{Solitary Barrier Requirement}
 \label{sec:SolitaryBarrier}
-
 
 \FloatBarrier
 \newpage
@@ -1026,8 +1084,10 @@ Require that
 If the above is not true, the abstract machine enters the error condition.
 Otherwise, this step causes no state changes, but the abstract machine continues on to the changes specified in Section~\ref{sec:VisRecordCreation}.
 
-\subsection{Checks on SMEM Free}
+\subsection{Checks on Free}
 \label{sec:ChecksOnFree}
+
+When barrier variables are freed, the arrive and await count (Section~\ref{sec:SyncEnv}) must be equal for all elements in the freed barrier array.
 
 Variables stored in shared memory must currently be allocated and freed at \lighttt{cuda\_cluster} scope (def~\ref{sec:gCollUnit}).
 For such variables, upon free, we perform the same checks as for a non-atomic write-only access (Section~\ref{sec:ChecksOnMutate}) with
@@ -1143,7 +1203,7 @@ Collective indexing pairs are collected from all statements and expressions that
 
 A per-statement attribute of statements at CUDA scope (def~\ref{sec:gCudaScope}).
 We denote a collective tiling with $\omega \in \Omega$.
-This describes via the function $\textsf{collMap}: \Omega \to \Sigma_c \to \mathcal{P}(\mathbb{N})$ (Section~\ref{sec:CollTilingState}) a mapping between control variable values and the local thread indices (def~\ref{sec:gLocalThreadIndex}) of the thread collective (def~\ref{sec:gThreadCollective}) assigned to execute an instance of the statement (def~\ref{sec:gStatementInstance}).
+This describes via the function $\textsf{collMap}: \Omega \to \Sigma_c \to \mathcal{P}(\mathbb{N})$ (Section~\ref{sec:CollTilingState}) a mapping between control variable values and the local thread indices (def~\ref{sec:gLocalThreadIndex}) of the thread collective (def~\ref{sec:gThreadCollective}) assigned to execute an instance of the statement (def~\ref{sec:gStmtInstance}).
 
 \subsection{Collective Type (Scope)}
 \label{sec:gCollType}
@@ -1481,7 +1541,7 @@ Note, historically sometimes $\Sigma_c$ or $\sigma_c$ are used.
 May denote indexing an array, or function update notation (def~\ref{sec:gUpdateNotation}).
 
 \subsection{Statement Instance}
-\label{sec:gStatementInstance}
+\label{sec:gStmtInstance}
 
 A \emph{statement} is a syntactic construct, while a \emph{statement instance} is a single interpretation/``execution'' of a statement. For example, ``\lighttt{for i in seq(0, 10): $s_1$; $s_2$}'' is a loop containing two statements: $s_1$ and $s_2$, and when the loop is executed, 20 statement instances are created (10 instances of $s_1$ and 10 instances of $s_2$).
 
@@ -1572,7 +1632,7 @@ camspork's name for the witness function (Section~\ref{sec:Witness}).
 \subsection{Thread Collective}
 \label{sec:gThreadCollective}
 
-Set of threads assigned to execute one statement instance (def~\ref{sec:gStatementInstance}).
+Set of threads assigned to execute one statement instance (def~\ref{sec:gStmtInstance}).
 On the CUDA device, the threads in the thread collective are uniquely identified by its cluster index (which is not statically analyzed) and its local thread index (def~\ref{sec:gLocalThreadIndex}), which is analyzed by collective analysis (Section~\ref{sec:CollTiling}).
 In the context of the abstract machine, the cluster index is replaced with a task index, since the mapping between tasks and clusters is a hardware-dependent detail we abstract over.
 Specifically, a thread collective in this context is a set of global thread IDs (def~\ref{sec:gGlobalThreadID}).
