@@ -585,7 +585,7 @@ Distributed memory analysis for a variable is based on the collective tiling $\o
 \begin{itemize}
   \item For read expressions ``$x[e^*]$'' not in the context of an instruction call, the collective indexing pair is $(\omega, e^*)$, where $\omega$ is the collective tiling of the statement containing the read expression.
   \item For write statements ``$x[e^*] \texttt{= \_}$'' and reduce statements ``$x[e^*] \texttt{+= \_}$'', the collective indexing pair is $(\omega, e^*)$, where $\omega$ is the collective tiling of the statement.
-  \item TODO sync statement
+  \item For sync statements, the collective indexing pair is $(\omega, e^*)$, where $\omega$ is the collective tiling of the statement and $e^*$ is extracted from the home barrier expression $z[e^*]$ (def~\ref{sec:gHomeBarrier}).
   \item TODO describe instructions.
 \end{itemize}
 
@@ -683,7 +683,7 @@ These synchronization statements (def~\ref{sec:gSyncStmt}) are parameterized wit
 
 where $e$ is a barrier expression (def~\ref{sec:gBarrierExpr}) and $n$ is an integer, which controls \lighttt{Arrive}/\lighttt{Await} pairing (Section~\ref{sec:ArriveAwaitPairing}).
 
-The synchronization timeline (def~\ref{sec:gSyncTL}) contains a \myKeyA{full timeline set} and \myKeyA{temporal timeline set} (both sets of \textsf{QualTL}), which filter (by qualitative timeline) the reads and mutates that the synchronization statement interacts with.
+The synchronization timeline (def~\ref{sec:gSyncTL}) contains a \myKeyA{full timeline set} $\tau_s.\mathrm{full}$ and \myKeyA{temporal timeline set} $\tau_s.\mathrm{temp}$ (both sets of \textsf{QualTL}), which filter (by qualitative timeline) the reads and mutates that the synchronization statement interacts with.
 
 For the purposes of reasoning about correct synchronization, each executed read or mutate has additional attributes
 \begin{itemize}
@@ -710,32 +710,131 @@ It must be possible to find a connection using dependency edges between one read
     \item the array element is stored in sync-exempt memory (def~\ref{sec:gSyncExempt})
     \item the accesses are both from the same statement instance (due to non-convergent access)
 \end{itemize}
-While describing the intended usage patterns, we will also specify the rules in Section~\ref{sec:SyncSemantics} that are involved in detecting that pattern for sync-check.
+While describing the intended usage patterns, we will also jump ahead and specify the rules in Section~\ref{sec:SyncSemantics} that are involved in detecting that pattern for sync-check.
+This information is not required for understanding this section.
 
 \subsection{Intended Usage Patterns -- Access Before Synchronization}
 \label{sec:AccessBeforeSync}
 
+\begin{equation*}
+    \texttt{Read|Mutate} \to \texttt{Arrive(}\tau_s^\mathrm{pre}\texttt{)... | Fence(}\tau_s^\mathrm{pre},\texttt{...)}
+\end{equation*}
 
+A dependency edge forms between a read or mutate followed by an \lighttt{Arrive} or \lighttt{Fence} statement instance, where the initial qualitative timeline $q$ of the read or mutate is a member of $\tau_s^\mathrm{pre}.\mathrm{full}$, and there is a thread in common executing the two.
+The synchronization timeline $\tau_s^\mathrm{pre}$ (def~\ref{sec:gSyncTL}) and barrier mechanism to use varies depending on the instruction issuing the read or mutate:
+\begin{itemize}
+  \item For non-async cuda instructions, use \lighttt{cuda\_in\_order} and a \lighttt{Fence} (Section~\ref{sec:FenceUsage}) or mbarrier (Section~\ref{sec:MbarrierUsage}).
+  \item For sm\_80 non-bulk \lighttt{cp.async} instructions (Ampere), use \lighttt{Sm80\_cp\_async} and a commit group (Section~\ref{sec:CommitGroupUsage}) or mbarrier (Section~\ref{sec:MbarrierUsage}).
+  \item For TMA instructions copying into SMEM, use mbarriers (Section~\ref{sec:MbarrierUsage}).
+  \item For wgmma instructions and TMA instructions copying out of SMEM, use commit groups (Section~\ref{sec:CommitGroupUsage}).
+\end{itemize}
+This pattern is implemented by storing a new \textsf{VisRecord} (Section~\ref{sec:VisRecordCreation}) containing a timeline signature with one of the executing threads, the initial qualitative timeline $q$, and visibility flag $\mathsf{VF_{issue}}$, which the \lighttt{Arrive} or \lighttt{Fence} will witness (Section~\ref{sec:Witness}).
 
 \subsection{Intended Usage Patterns -- Access After Synchronization}
 \label{sec:AccessAfterSync}
 
-% cuda_in_order, cuda_generic_and_async_proxy, wgmma_fence_2
+\begin{equation*}
+    \texttt{Await(..., $\tau_s^\mathrm{post}$, ...)|Fence(..., $\tau_s^\mathrm{post}$)} \to \texttt{Read|Mutate}
+\end{equation*}
 
-\subsection{Intended Usage Patterns -- Arrive-Await Pairing}
+A dependency edge forms between an \lighttt{Await} or \lighttt{Fence} statement instance and a subsequent read or mutate when there is a thread in common executing the two, and either of
+\begin{itemize}
+  \item The access is a read, or a read-write mutate, and there is a qualitative timeline $q$ in common between $\tau_s^\mathrm{post}.\mathrm{full}$ and the extended qualitative timelines (Section~\ref{sec:InstrTL}) of the read or mutate.
+  \item The access is a write-only mutate, and there is a qualitative timeline $q$ in common between $\tau_s^\mathrm{post}.\mathrm{temp}$ and the extended qualitative timelines (Section~\ref{sec:InstrTL}) of the mutate.
+  This is ``temporal-only'' synchronization, which may elide proxy fences.
+  \item The ``access'' is as a result of freeing shared memory (Section~\ref{sec:ChecksOnFree}).
+  This is needed to safely alias future allocations onto the freed physical SMEM, whose effects we overapproximate as a non-convergent write-only mutate by each thread in the cluster.
+\end{itemize}
+
+The sychronization timeline $\tau_s^\mathrm{post}$ (def~\ref{sec:gSyncTL}) to use varies depending on the instruction issuing the read or mutate:
+\begin{itemize}
+  \item \lighttt{cuda\_in\_order} if the following reads and mutates are only issued by generic proxy instructions: non-async CUDA instructions and sm\_80 non-bulk \lighttt{cp.async}.
+  These instructions include \lighttt{cuda\_in\_order\_ram\_qual} (def~\ref{sec:gQualTL}) in their extended timeline set for non-register parameters.
+  \item \lighttt{cuda\_generic\_and\_async\_proxy} if any async proxy instructions are involved (TMA, wgmma, tcgen05); these instructions include \lighttt{cuda\_async\_proxy\_retired} (def~\ref{sec:gQualTL}) in their extended timeline set for non-register parameters.
+  \item \lighttt{cuda\_temporal} may also be used if only temporal-only synchronization is required.
+\end{itemize}
+As a special case, \lighttt{Fence(wgmma\_fence\_1, wgmma\_fence\_2)} at \lighttt{cuda\_warpgroup}-scope (def~\ref{sec:gCollUnit}) should be used before any accesses to wgmma registers, even if no prior access occurs (this is \emph{not} enforced by sync-check, but will result in a ptxas warning and suboptimal CUDA code if violated).
+
+With $(\iota, n)$ denoting a thread in common, and with
+\begin{itemize}
+    \item $\mathsf{vf} = \mathsf{VF_{temp}}$ (def~\ref{sec:gVisFlag}) and $q$ denoting a qualitative timeline in common to $\tau_s^\mathrm{post}.\mathrm{temp}$ and the extended timeline set, in the case of temporal-only synchronization.
+    \item $\mathsf{vf} = \mathsf{VF_{full}}$ for non-atomic acceses or $\mathsf{vf} = \mathsf{VF_{atom}}$ for atomics, and $q$ denoting a qualitative timeline in common to $\tau_s^\mathrm{post}.\mathrm{full}$ and the extended timeline set, in the other case.
+\end{itemize}
+this pattern is implemented in sync-check by the augment step (Section~\ref{sec:Augment}) adding the timeline signature $((\iota, n), q, \mathsf{vf})$ to visibility records, which satisfy the checking requirements for the subsequent read (Section~\ref{sec:ChecksOnRead}) or mutate (Section~\ref{sec:ChecksOnMutate}).
+
+
+\subsection{Intended Usage Patterns -- Arrive-Await Pairing, Trailing Barrier Expr}
 \label{sec:ArriveAwaitPairing}
 
-% arrive-indexed/await-indexed
+\begin{gather*}
+    \texttt{Arrive(...) >> $e_a$} \to \texttt{Await(..., $e_w$, $n$)} \\
+    \texttt{Read|Mutate >}\texttt{> } e_t \to \texttt{Await(..., $e_w$, $n$)}
+\end{gather*}
+
+Each barrier array element contains its own arrive count and await count, both initially 0 (Section~\ref{sec:SyncEnv}).
+The \lighttt{Arrive} statement may reference multiple barrier array elements (say, $B$-many), using multiple barrier expressions (def~\ref{sec:gBarrierExpr}) separated by \texttt{>}\texttt{>}.
+Each ``batch'' of $B$-many instances of such an \lighttt{Arrive} statement (issued with $B$-many different thread collectives) results in incrementing the arrive count of each referenced barrier array element by 1.
+This includes the common case where $B=1$.
+
+The \lighttt{Await} statement must contain only a single barrier expression $e_w$, and it must reference only one barrier array element.
+The behavior of the \lighttt{Await} changes based on $n$.
+
+If $n \ge 0$, then this is the ``arrive-indexed'' case.
+With $a$ being the arrive count of the referenced barrier array element, the eligible batches are the first $(a-n)$-many batches of \lighttt{Arrive} statement instances that reference the same barrier array element.
+There are dependency edges from the eligible batches to the await.
+
+If $n = \texttt{\textasciitilde lag}$ with \texttt{\textasciitilde} being the 2's complement and $\texttt{lag} \ge 0$, then this is the ``await-indexed'' case.
+With $w$ being the await count of the referenced barrier, the eligible batches are the first $(w - \texttt{lag} + 1)$-many batches of \lighttt{Arrive} statement instances that reference the same barrier array element.
+There are dependency edges from the eligible batches to the await.
+Afterwards, the await count of the referenced barrier is incremented by 1.
+
+In both cases, additional dependency edges are formed from reads and mutates executed by a statement instance with a trailing barrier expression $e_t$, when $e_t$ and $e_w$ reference the same barrier array element, and the read or mutate appears in the trace prior to at least one eligible batch of \lighttt{Arrive} statement instances.
+
+This pattern is implemented in sync-check through the shared pending await state between \lighttt{Arrive} (Section~\ref{sec:ArriveSemantics}) and \lighttt{Await} (Section~\ref{sec:AwaitSemantics}), and the initial pending awaits added for reads/mutates that include a trailing barrier expression (Section~\ref{sec:VisRecordCreation}).
+The to-be-described convergence requirements for multiple barriers (Section~\ref{sec:BarrierMulticast}) are required to ensure batches of arrives execute as intended.
+
 
 \subsection{Intended Usage Patterns -- Multiple Memory Accesses}
 \label{sec:MultipleMemoryAccesses}
+
+\begin{equation*}
+    \texttt{Read|Mutate} \to \texttt{Read|Mutate}
+\end{equation*}
+
+A thread may read/mutate an array element and then read/mutate that element again without intervening synchronization when the first access is not out-of-order and the initial timeline signature of the first access is included in the extended timeline signature set of the second access.
+This pattern is implemented in sync-check through the timeline signature (def~\ref{sec:gTlSig}) with $\mathsf{VF_{full}}$ (def~\ref{sec:gVisFlag}) being added upon interpreting a non-out-of-order read or mutate (Section~\ref{sec:VisRecordCreation}).
+
+Two atomic mutates may also access the same array element concurrently as long as their atomic qualitative timeline (Section~\ref{sec:InstrTL}) is the same.
+Sequential-parallel equivalence is only possible in this case since Exo atomics don't return the updated value.
+This pattern is implemented in sync-check through the timeline signature with $\mathsf{VF_{atom}}$ that is added upon the first atomic access (Section~\ref{sec:VisRecordCreation}) and used to pass the check in the second atomic access (Section~\ref{sec:ChecksOnMutate}).
 
 % atomic, non-ooo
 
 \subsection{Intended Usage Patterns -- Multiple Synchronization Statements (Transitivity)}
 \label{sec:Transitivity}
 
+\begin{equation*}
+    \texttt{Await(..., $\tau_s^\mathrm{post}$, ...)|Fence(..., $\tau_s^\mathrm{post}$)} \to
+    \texttt{Fence($\tau_s^\mathrm{pre}$, ...)|Arrive($\tau_s^\mathrm{pre}$)...}
+\end{equation*}
+
+A dependency edge forms between an \lighttt{Await} or \lighttt{Fence} statement instance and a subsequent \lighttt{Arrive} or \lighttt{Fence} statement instance when the thread collectives executing the two statement instances have a thread in common, and there exists a qualitative timeline $q$ in the intersection of the first statement instance's $\tau_s^\mathrm{post}$ and the second statement instance's $\tau_s^\mathrm{pre}$ (def~\ref{sec:gSyncTL}).
+
+With $(\iota, n)$ denoting a thread in common, and with $q$ as described above, this pattern is implemented in sync-check through the timeline signature $((\iota, n), q, \mathsf{VF_{issue}})$ that is added by the augment (Section~\ref{sec:Augment}) for the first statement instance and detected by the witness (Section~\ref{sec:Witness}) of the second statement instance.
+
 % reason for async proxy retired thing
+
+\subsection{Fence Usage}
+\label{sec:FenceUsage}
+
+Besides the special case \lighttt{Fence(wgmma\_fence\_1, wgmma\_fence\_2)}, which must be at \lighttt{cuda\_warpgroup}-scope (def~\ref{sec:gCollUnit}) and must appear before other usages of wgmma registers, all \lighttt{Fence} statements must be of the form \lighttt{Fence($\tau_s^\mathrm{pre}$, $\tau_s^\mathrm{post}$)} with
+\begin{itemize}
+    \item the statement appearing at \lighttt{cuda\_thread}, \lighttt{cuda\_warp}, \lighttt{cuda\_cta\_in\_cluster}, or \lighttt{cuda\_cluster} scope (def~\ref{sec:gCollUnit}).
+    \item $\tau_s^\mathrm{pre}$ being \lighttt{Sm80\_generic}, or another synchronization timeline whose timeline sets are subsets of the respective timeline sets of \lighttt{Sm80\_generic} (def~\ref{sec:gSyncTL}).
+    \item $\tau_s^\mathrm{post}$ being \lighttt{cuda\_generic\_and\_async\_proxy}, or another synchronization timeline whose timeline sets are subsets of the respective timeline sets of \lighttt{cuda\_generic\_and\_async\_proxy} (def~\ref{sec:gSyncTL}).
+\end{itemize}
+
+If the \lighttt{Fence} statement appears at \lighttt{cuda\_cluster}-scope but not at \lighttt{cuda\_cta\_in\_cluster}-scope, then it is subject to the solitary barrier requirement (Section~\ref{sec:SolitaryBarrier}).
 
 \subsection{Cluster Sync Usage}
 \label{sec:ClusterSyncUsage}
@@ -750,18 +849,30 @@ While describing the intended usage patterns, we will also specify the rules in 
 \subsection{Mbarrier Usage}
 \label{sec:MbarrierUsage}
 
-% solitary
+% multicast, guarding, ...
 
 \subsection{Barrier Multicast}
 \label{sec:BarrierMulticast}
 
 % TODO thread pitch multiple of blockDim, multicast convergence
 
+\subsection{Split Barrier Basic Requirements}
+\label{sec:SplitBarrierBasicRequirements}
+
 \subsection{Barrier Guarding Requirement}
 \label{sec:BarrierGuarding}
 
 \subsection{Solitary Barrier Requirement}
 \label{sec:SolitaryBarrier}
+
+There must not be two barrier variables with the same lowered barrier type live in the same scope, if the lowered barrier type of the barrier appears in the following list:
+\begin{itemize}
+  \item \lighttt{cluster\_sync}, all cluster-sync mechanism split barriers (Section~\ref{sec:ClusterSyncUsage}).
+  \item \lighttt{Sm80\_commit\_group}, commit-group mechanism split barriers for sm\_80 non-bulk \lighttt{cp.async} (Section~\ref{sec:CommitGroupUsage}).
+  \item \lighttt{tma\_to\_gmem\_commit\_group}, commit-group mechanism split barriers for TMA copies out of SMEM (Section~\ref{sec:CommitGroupUsage}).
+  \item \lighttt{wgmma\_commit\_group}, commit-group mechanism split barriers for wgmma (Section~\ref{sec:CommitGroupUsage}).
+\end{itemize}
+Additionally, a \lighttt{Fence} statement (Section~\ref{sec:FenceUsage}) at \lighttt{cuda\_cluster} scope, but not at \lighttt{cuda\_cta\_in\_cluster} scope (def~\ref{sec:gCollUnit}), must not appear in a scope with a live barrier variable with \lighttt{cluster\_sync} lowered barrier type.
 
 \FloatBarrier
 \newpage
@@ -833,8 +944,11 @@ which maps an index into a data variable $x: \mathbb{X}$ (def~\ref{sec:gMathbbX}
   \item pair of arrive count and await count, accessed together as $.b$ and separately as $.b.a$ and $.b.w$ respectively.
 \end{itemize}
 
+A newly-allocated variable has all its array elements initialized to an empty read visibility record set, an empty mutate visibility record set, and 0 arrive and await count.
+
 % Referenced in glossary for barrier env
 \mainKey{Implementation Note:} the arrive and await count attributes are separated out into a separate barrier environment in camspork, i.e., the synchronization environment is implemented as $\mathbb{X} \cup \mathbb{B} \to \mathbb{Z}^* \to \mathcal{P}(\mathsf{VisRecord}) \times \mathcal{P}(\mathsf{VisRecord})$ only, and the barrier environment is $\mathbb{B} \to \mathbb{Z}^* \to \mathbb{N}^2$.
+
 
 \subsection{VisRecord State}
 \label{sec:VisRecordState}
@@ -1464,6 +1578,11 @@ Scheduling functions:
   \item \texttt{parallelize\_loop}: use \lighttt{Par()} as the loop mode (legacy).
 \end{itemize}
 
+\subsection{Lowered Barrier Type}
+\label{sec:gLoweredBarrierType}
+
+See Section~\ref{sec:SolitaryBarrier}.
+
 % >M
 % >N
 
@@ -1570,8 +1689,8 @@ One of
 \texttt{Await($e, \tau_s^\mathrm{post}, n$)}
 \hphantom{spacing}
 
-where $\tau_s^\mathrm{pre}$ and $\tau_s^\mathrm{post}$ are \myKeyA{sync timelines} (\textsf{SyncTL}, def~\ref{sec:gSyncTL}), which filter the set of qualitative timelines (def~\ref{sec:gQualTL}) of memory accesses that are synchronized, and $e$ and $n$ are a barrier expression (def~\ref{sec:gBarrierExpr}) and an integer, which together control pairing of executed \lighttt{Arrive} and \lighttt{Await} instances.
-The \lighttt{Arrive} statement may take additional barrier expressions, separated by \texttt{>}\texttt{>}.
+where $\tau_s^\mathrm{pre}$ and $\tau_s^\mathrm{post}$ are \myKeyA{sync timelines} (\textsf{SyncTL}, def~\ref{sec:gSyncTL}), which filter the set of qualitative timelines (def~\ref{sec:gQualTL}) of memory accesses that are synchronized, and $e$ and $n$ are a barrier expression (def~\ref{sec:gBarrierExpr}) and an integer, which together control pairing of executed \lighttt{Arrive} and \lighttt{Await} instances (Section~\ref{sec:ArriveAwaitPairing}).
+The \lighttt{Arrive} statement may take additional barrier expressions, separated by \texttt{>}\texttt{>} (def~\ref{sec:gHomeBarrier}).
 Currently, an \lighttt{Await} statement may take only one barrier expression, and it must reference only a single barrier array element, i.e. it must be its own home barrier expression (def~\ref{sec:gHomeBarrier}).
 
 Scheduling functions:
