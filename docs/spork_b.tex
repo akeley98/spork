@@ -462,7 +462,7 @@ This certifies that statements with collective tiling $\omega_0$ are at $\delta_
 \label{sec:DerivedCollTiling}
 
 The collective tiling of each statement is the same as that of its parent, except that \lighttt{with CudaDeviceFunction}, \lighttt{for cuda\_threads}, and \lighttt{with CudaWarps} assign a new collective tiling for their children.
-The latter two are defined based on the \textsf{deriveCollTiling} function (TODO define); here we just summarize the collective tilings.
+The latter two are defined based on the \textsf{deriveCollTiling} function (def~\ref{sec:gDeriveCollTiling}); here we just summarize the collective tilings.
 
 \subsection{CudaDeviceFunction}
 \label{sec:CollTilingCudaDeviceFunction}
@@ -495,6 +495,11 @@ so that the output collective type of $\omega'$ is the same as that of $\omega$,
 If all other box coordinates of $\omega'$ already match those of $\delta$, then the output collective type of $\omega'$ is $\delta$.
 This is commonly the case, but we designed this to allow for mismatches on dimensions other than $k$ to make it easier to place CTA-in-cluster loops inside thread-in-CTA loops or \lighttt{with CudaWarps} blocks.
 
+The generated collective tiling is more precisely defined by (def~\ref{sec:gDeriveCollTiling})
+\begin{equation*}
+    \mathsf{deriveCollTiling}(\omega_\text{raw}, y, \delta_\text{raw}, 0, c_\text{hi}, c_\text{hi})
+\end{equation*}
+
 \subsection{CudaWarps}
 \label{sec:CollTilingCudaWarps}
 
@@ -514,6 +519,12 @@ All other cases are nested cases, which have \lighttt{true\_lo} and \lighttt{tru
 
 The \lighttt{with CudaWarps} statement defines the collective tiling $\omega'$ of its child statements in a similar manner as \lighttt{for \_ in cuda\_threads(0, true\_hi, unit=cuda\_warp)}, except that the threads that would have executed iterations \lighttt{true\_lo} through \lighttt{true\_hi - 1} instead cooperate to execute the statement body.
 The \lighttt{with CudaWarps} statement defines a dummy iterator variable $y$ and adds a new collective dimension operator to $\omega'$ for $y$ (except in case of a trivial tiling).
+
+The generated collective tiling is more precisely defined by (def~\ref{sec:gDeriveCollTiling})
+\begin{equation*}
+    \mathsf{deriveCollTiling}(\omega_\text{raw}, y, \delta_\text{warp}, \texttt{true\_lo}, \texttt{true\_hi}, 1)
+\end{equation*}
+where $\delta_\text{warp}$ is unpacked from \lighttt{cuda\_warp} with alignment and 1-padding (def~\ref{sec:gCollUnit}).
 
 \subsection{Collective Tiling Figure}
 \label{sec:CollTilingFigure}
@@ -967,7 +978,7 @@ For example,
 There must be a unique \myKeyA{home barrier} (def~\ref{sec:gHomeBarrier}), which is the unique barrier in the intersection of all barrier expressions.
 This is determined from a deduced home barrier expression (in this case, \texttt{z[m, n]}).
 
-In the context of a given \lighttt{Arrive} statement, an iterator (control variable) $y$ is a \myKeyA{multicast iterator} if it appears at some index $n$ of a barrier expression, and another barrier expression has an interval at index $n$.
+In the context of a given \lighttt{Arrive} statement, an iterator (control variable) $y$ is a \myKeyA{multicast iterator} if it appears at some index $j$ of a barrier expression, and another barrier expression has an interval at index $j$.
 For example,
 \begin{equation*}
     \texttt{Arrive(...) >> $z$[m, n] >> $z$[m, :]}
@@ -980,7 +991,7 @@ That is, multicast iterators must correspond to \lighttt{cuda\_threads} loops th
 
 We impose a conservative convergence requirement for multicast iterators.
 This is the only case in Exo-GPU where convergence is enforced other than through scoping.
-Each multicast iterator is defined by some \lighttt{cuda\_threads} loop.
+Each multicast iterator is defined by some \lighttt{cuda\_threads} loop (Section~\ref{sec:CollTilingCudaThreads}).
 For a given \lighttt{Arrive} statement, it must not have any parent \lighttt{if} or \emph{sequential} \lighttt{for} loop statements that are not also parents of each multicast iterator's defining \lighttt{cuda\_threads} loop (Figure~\ref{fig:BadMulticastExample}).
 
 \begin{figure}[t]
@@ -1520,7 +1531,7 @@ For each trailing barrier expression that uses $z_a$, let $c: \mathsf{Bool}^*$ b
 % TODO
 % No non-shared sequential or if/else.
 % trailing barrier expression
-% 
+%
 
 \subsection{Barrier Mechanism}
 \label{sec:gBarrierMechanism}
@@ -1715,6 +1726,35 @@ Statements within a \lighttt{CudaDeviceFunction} block (def~\ref{sec:gCudaDevice
 \label{sec:gDelta}
 
 $\Delta$ denotes the set of all collective types (def~\ref{sec:gCollType}, Section~\ref{sec:CollType}) and $\delta$ is an element of that set.
+
+\subsection{deriveCollTiling}
+\label{sec:gDeriveCollTiling}
+
+The function $\mathsf{deriveCollTiling}: \Omega \to \mathbb{Y} \to \Delta \to \mathbb{N} \to \mathbb{N} \to \mathbb{N} \to \Omega$ is used for computing the collective tilings for \lighttt{cuda\_threads} loops (Section~\ref{sec:CollTilingCudaThreads}), \lighttt{with CudaWarps} (Section~\ref{sec:CollTilingCudaWarps}), and instructions with distributed memory (Section~\ref{sec:InstrDistributedMemory}).
+
+Recall, $\Omega$ denotes collective tilings (Section~\ref{sec:CollTiling}), $\mathbb{Y}$ denotes names of control variables (def~\ref{sec:gMathbbY}), $\Delta$ denotes collective types (Section~\ref{sec:CollType}), and $\delta.B$ and $\omega.B$ denote the box.
+
+$\mathsf{deriveCollTiling}(\omega_\text{raw}, y, \delta_\text{raw}, \texttt{lo}, \texttt{hi}, \texttt{tileCount})$ is defined by
+\begin{itemize}
+  \item Let $\omega, \delta = \mathsf{domainCompletion}(\omega_\text{raw}, \delta_\text{raw})$ (def~\ref{sec:gDomainCompletion}).
+  \item The $k^{th}$ dimension is a \myKeyA{tiled dimension} if $\omega.B_k \ne \delta.B_k$.
+  \item If no tiled dimension exists,
+  \begin{itemize}
+    \item We must have $\texttt{lo} = 0$ and $\texttt{hi} = \texttt{tileCount} = 1$ or the program is ill-formed.
+    \item Return $\omega$.
+  \end{itemize}
+  \item If multiple tiled dimensions exist, the program is ill-formed (``ambiguous tiling'').
+  \item Let $k$ be the index of the unique tiled dimension.
+  \item If $(\texttt{hi})(\delta.B_k) > \omega.B_k$, the program is ill-formed (``asked for too many threads'').
+  \item Append to $\omega_k.\textit{ops}$ (Section~\ref{sec:CollTilingState}) a collective dimension operator with
+  \begin{itemize}
+    \item $\textit{iter} = y$
+    \item $\textit{offset} = (\texttt{lo})(\delta.B_k)$
+    \item $\textit{box} = \delta.B_k$
+    \item $\textit{tileCount} = \texttt{tileCount}$
+  \end{itemize}
+  \item Return $\omega$.
+\end{itemize}
 
 \subsection{Device Task}
 \label{sec:gDeviceTask}
