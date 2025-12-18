@@ -1737,7 +1737,7 @@ Recall, $\Omega$ denotes collective tilings (Section~\ref{sec:CollTiling}), $\ma
 $\mathsf{deriveCollTiling}(\omega_\text{raw}, y, \delta_\text{raw}, \texttt{lo}, \texttt{hi}, \texttt{tileCount})$ is defined by
 \begin{itemize}
   \item Let $\omega, \delta = \mathsf{domainCompletion}(\omega_\text{raw}, \delta_\text{raw})$ (def~\ref{sec:gDomainCompletion}).
-  \item The $k^{th}$ dimension is a \myKeyA{tiled dimension} if $\omega.B_k \ne \delta.B_k$.
+  \item The $k^{th}$ dimension is a \myKeyA{tiled dimension} if $\delta.B_k \notin \{ \top, \omega.B_k, \omega.D_k \}$.
   \item If no tiled dimension exists,
   \begin{itemize}
     \item We must have $\texttt{lo} = 0$ and $\texttt{hi} = \texttt{tileCount} = 1$ or the program is ill-formed.
@@ -2159,6 +2159,11 @@ As a shorthand, we say $\delta.P_k$ or $\omega.P_k$ to mean the $k^{th}$ dimensi
 The thread pitch set of $D$ is $\{P_0, ..., P_{M-1}\}$; note $P_{M-1} = 1$ always.
 
 \mainKey{Collective Tiling/Type:} The thread pitch set of a collective tiling/type is that of its domain.
+
+\subsection{Tiled Dimension}
+\label{sec:gDeriveCollTiling}
+
+See \textsf{deriveCollTiling} (def~\ref{sec:gDeriveCollTiling}).
 
 \subsection{Timeline Signature (TlSig)}
 \label{sec:gTlSig}
