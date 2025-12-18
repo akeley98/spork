@@ -148,3 +148,77 @@ def coll_tiling_example(num_tasks: size):
                                 for s in seq(0, 6):
                                     # TeX: end for_CollTiling_figure[0]
                                     pass
+
+
+if False:
+    @proc
+    def bad_multicast_example():
+        with CudaDeviceFunction(clusterDim=4, blockDim=32):
+            for task_id in cuda_tasks(0, 1):
+                # TeX: version bad_multicast_example 1
+                # TeX: begin bad_multicast_example[0]
+                z: barrier[2, 2] @ CudaMbarrier
+                for m in cuda_threads(0, 2, unit=2 * cuda_cta_in_cluster):
+                    # TeX: color line *
+                    #  ......
+                    if m == 0:  # Valid if statement (m is not multicast)
+                        # TeX: color line *
+                        #   v
+                        for n in cuda_threads(0, 2, unit=cuda_cta_in_cluster):
+                            # TeX: color line *
+                            #  ......
+                            if n == 0:  # Invalid if statement underneath n loop
+                                # TeX: color line *
+                                #                             v          v
+                                Arrive(cuda_in_order) >> z[m, n] >> z[m, :]  # n is multicast
+                                # TeX: end bad_multicast_example[0]
+                                Await(z[m, n], cuda_in_order, ~0)
+    # TeX: version multicast_flags_example 1
+    # TeX: begin multicast_flags_example[0]
+    Arrive(cuda_in_order) >> z[m, n] >> z[m, :]   # (False, False), (False, True)
+    Arrive(cuda_in_order) >> z[:, n] >> z[m, :]   # (True, False), (False, True)
+    Arrive(cuda_in_order) >> z[m, n, k]           # (False, False, False),
+    # TeX: end multicast_flags_example[0]
+
+
+@proc
+def mbarrier_2_cycle(num_tasks: size):
+    with CudaDeviceFunction(warp_config=[  # blockDim = $384$ = $32\times(1+3+8)$
+            CudaWarpConfig("producer", 1, setmaxnreg_dec=40),
+            CudaWarpConfig("unused", 3, setmaxnreg_dec=40),
+            # TeX: color line *
+            #               rrrrrrrr
+            CudaWarpConfig("consumer", 8, setmaxnreg_inc=232), # prefix = 4 warps (128 threads)
+    ]):
+        for task_id in cuda_tasks(0, num_tasks):
+            # TeX: version mbarrier_2_cycle 1
+            # TeX: begin mbarrier_2_cycle[0]
+        # TeX: color line *
+        #   bb                                                          rr
+            z0: barrier @ CudaMbarrier          # Implicitly guarded-by z1
+        # TeX: color line *
+        #   rr          bb                                              bb
+            z1: barrier(z0) @ CudaMbarrier      # Explicitly guarded-by z0
+            with CudaWarps(name="producer"):
+                # TeX: color line *
+                #     rr  .............
+                Await(z1, cuda_in_order, ~4)
+                # ...instr calls with trailing barrier expressions involving z0 may appear here
+                # TeX: color line *
+                #      .............     bb
+                Arrive(cuda_in_order) >> z0
+            with CudaWarps(name="consumer"):
+                # TeX: color line *
+                #     bb  .............
+                Await(z0, cuda_in_order, ~0)
+                # ...instr calls with trailing barrier expressions involving z1 may appear here
+                # TeX: color line *
+                #      .............     rr
+                Arrive(cuda_in_order) >> z1
+            # TeX: end mbarrier_2_cycle[0]
+
+
+"""
+for stmt in dfs_order:
+    if stmt is an Arrive on $z_a$
+"""

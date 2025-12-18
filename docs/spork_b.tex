@@ -46,7 +46,7 @@ Sharding tensor and barrier allocations onto different groups of threads.
 
 \myChapterLink{sec:SyncUsage}{Synchronization Usage}
 
-\lighttt{Fence}, \lighttt{Arrive}, \lighttt{Await}, home barrier, guarding, async instructions, timelines.
+\lighttt{Fence}, \lighttt{Arrive}, \lighttt{Await}, barrier mechanisms, home barrier, guarding, timelines.
 
 \myChapterLink{sec:SyncSemantics} {Synchronization Semantics}
 
@@ -626,15 +626,17 @@ with ``thread pitch'' as defined by $\omega$ (Section~\ref{sec:CollTilingState})
 The number of distributed dimensions $R$ is the number of index expressions $e^*$, which must consist only of permitted index expressions, and all required index expressions must appear exactly once (fail if this is not the case).
 The thread pitch tuple is $(g(e_0), ..., g(e_{R-1}))$ where $g(e)$ gives the thread pitch (as defined by $\omega$) of the iterator indexed by the permitted index expression $e$.
 
+\subsection{Range Requirement}
+\label{sec:DistributedMemoryRange}
+
+The iterator (control variable) used to index a distributed dimension must have range $[0, x_i - 1]_\mathbb{N}$ where $x_i$ is the extent of the array on that dimension.
+
 \subsection{Base Threads Requirement}
 \label{sec:DistributedMemoryBaseThreads}
 
 The thread pitch tuple requirement will diagnose many cases of inconsistent sharding, but will not detect ``offset-only'' mismatches, such as $x[0], x[1], x[2]...$ being accessed by threads 0, 1, 2, ... in one usage and threads 64, 65, 66, ... in another usage (as could occur with warp specialization).
-We further need to enforce that over the lifetime of a barrier array element $z[c^*]$, the same thread collective is used for all \lighttt{Arrive} statements (similarly for all \lighttt{Await} statements).
-
+The base threads requirement addresses this issue.
 We will define the \myKeyA{base offset} and \myKeyA{base box} of a collective tiling separately for data and barrier variables.
-For data variables and non-mbarrier barrier variables, all collective indexing pairs must have equivalent base offsets and base boxes.
-For mbarrier-mechanism barrier variables\footnote{This case is distinguished with \lighttt{different\_arrive\_await\_threads=True}}, all collective indexing pairs taken from \lighttt{Arrive} statements must have equivalent base offsets and base boxes; the same requirement applies separately to all \lighttt{Await} statements.
 
 \mainKey{Barrier:} Given an $M$-dimensional collective tiling $\omega$, the \myKeyA{base offset} is defined by the tuple $(O_0, ..., O_{M-1})$ where $O_i = \sum_{j} \omega_i.\textit{ops}_j.\textit{offset}$ (Section~\ref{sec:CollTilingState}).
 The \myKeyA{base box} is $\omega.B$.
@@ -645,10 +647,16 @@ The $i^{th}$ dimension is a \myKeyA{intact dimension} if $\delta.B_i = \delta.D_
 For intact dimensions $i$, $O_i = 0$ and $\textit{BB}_i = \delta.D_i$.
 For other dimensions, $O_i = \sum_{j} \omega_i.\textit{ops}_j.\textit{offset}$ (Section~\ref{sec:CollTilingState}) and $\textit{BB}_i = \omega.B_i$.
 
-\mainKey{Base Offset Equivalence:} Compute the linear offset of $\omega$ as $\sum_{i} O_i \omega.P_i$, $O$ denoting the base offset derived from $\omega$ and $\omega.P_i$ the dimension thread pitch (def~\ref{sec:gThreadPitch}).
+\mainKey{Base Offset Equivalence:} Compute the linear offset of $\omega$ as $\sum_{i} O_i (\omega.P_i)$, where $O$ denotes the base offset derived from $\omega$, and $\omega.P_i$ denotes the dimension thread pitch (def~\ref{sec:gThreadPitch}).
 Base offset equivalence means that the linear offset computed for two collective tilings are the same.
 
 \mainKey{Base Box Equivalence:} Given collective tilings $\omega_1$ and $\omega_2$ with base boxes $\textit{BB}_1$ and $\textit{BB}_2$ respectively, the two collective tilings have equivalent base boxes when $\delta_1 = \delta_2$ given $(\delta_1, \delta_2) = \mathsf{domainCompletionTypeOnly}((\omega_1.D, \textit{BB}_1), (\omega_2.D, \textit{BB}_2))$ (def~\ref{sec:gDomainCompletionTypeOnly}).
+
+\mainKey{Barrier Requirements:} The base threads requirement is met for two collective indexing pairs when their two collective tilings satisfy base offset equivalence and base box equivalence.
+The specific pairs that must satisfy this requirement varies depending on the barrier mechanism (def~\ref{sec:gBarrierMechanism}).
+
+\mainKey{Data Requirements:} Any two collective indexing pairs for a given data variable must have their two collective tilings satisfy base offset equivalence and base box equivalence.
+
 
 \subsection{Box Size Requirements}
 \label{sec:DistributedMemoryBoxSize}
@@ -771,7 +779,7 @@ this pattern is implemented in sync-check by the augment step (Section~\ref{sec:
     \texttt{Read|Mutate >}\texttt{> } e_t \to \texttt{Await(..., $e_w$, $n$)}
 \end{gather*}
 
-Each barrier array element contains its own arrive count and await count, both initially 0 (Section~\ref{sec:SyncEnv}).
+In the Exo-GPU abstraction, each barrier array element contains its own arrive count and await count, both initially 0 (Section~\ref{sec:SyncEnv}).
 The \lighttt{Arrive} statement may reference multiple barrier array elements (say, $B$-many), using multiple barrier expressions (def~\ref{sec:gBarrierExpr}) separated by \texttt{>}\texttt{>}.
 Each ``batch'' of $B$-many instances of such an \lighttt{Arrive} statement (issued with $B$-many different thread collectives) results in incrementing the arrive count of each referenced barrier array element by 1.
 This includes the common case where $B=1$.
@@ -793,6 +801,12 @@ In both cases, additional dependency edges are formed from reads and mutates exe
 This pattern is implemented in sync-check through the shared pending await state between \lighttt{Arrive} (Section~\ref{sec:ArriveSemantics}) and \lighttt{Await} (Section~\ref{sec:AwaitSemantics}), and the initial pending awaits added for reads/mutates that include a trailing barrier expression (Section~\ref{sec:VisRecordCreation}).
 The to-be-described convergence requirements for multiple barriers (Section~\ref{sec:BarrierMulticast}) are required to ensure batches of arrives execute as intended.
 
+Scheduling Functions:
+\begin{itemize}
+  \item \texttt{insert\_arrive}
+  \item \texttt{insert\_await}
+  \item \texttt{set\_trailing\_barrier\_expr}
+\end{itemize}
 
 \subsection{Intended Usage Patterns -- Multiple Memory Accesses}
 \label{sec:MultipleMemoryAccesses}
@@ -827,40 +841,199 @@ With $(\iota, n)$ denoting a thread in common, and with $q$ as described above, 
 \subsection{Fence Usage}
 \label{sec:FenceUsage}
 
+\texttt{Fence($\tau_s^\mathrm{pre}$, $\tau_s^\mathrm{post}$)}
+
+\texttt{insert\_fence(..., $\tau_s^\mathrm{pre}$, $\tau_s^\mathrm{pre}$)}
+
 Besides the special case \lighttt{Fence(wgmma\_fence\_1, wgmma\_fence\_2)}, which must be at \lighttt{cuda\_warpgroup}-scope (def~\ref{sec:gCollUnit}) and must appear before other usages of wgmma registers, all \lighttt{Fence} statements must be of the form \lighttt{Fence($\tau_s^\mathrm{pre}$, $\tau_s^\mathrm{post}$)} with
 \begin{itemize}
     \item the statement appearing at \lighttt{cuda\_thread}, \lighttt{cuda\_warp}, \lighttt{cuda\_cta\_in\_cluster}, or \lighttt{cuda\_cluster} scope (def~\ref{sec:gCollUnit}).
     \item $\tau_s^\mathrm{pre}$ being \lighttt{Sm80\_generic}, or another synchronization timeline whose timeline sets are subsets of the respective timeline sets of \lighttt{Sm80\_generic} (def~\ref{sec:gSyncTL}).
     \item $\tau_s^\mathrm{post}$ being \lighttt{cuda\_generic\_and\_async\_proxy}, or another synchronization timeline whose timeline sets are subsets of the respective timeline sets of \lighttt{cuda\_generic\_and\_async\_proxy} (def~\ref{sec:gSyncTL}).
 \end{itemize}
+These non-wgmma \lighttt{Fence} configurations are referred to as \myKeyA{garden-variety fences}.
+% Referenced in glossary entry gGardenVarietyFence.
 
 If the \lighttt{Fence} statement appears at \lighttt{cuda\_cluster}-scope but not at \lighttt{cuda\_cta\_in\_cluster}-scope, then it is subject to the solitary barrier requirement (Section~\ref{sec:SolitaryBarrier}).
 
 \subsection{Cluster Sync Usage}
 \label{sec:ClusterSyncUsage}
 
+A barrier variable $z$ with cluster sync barrier mechanism may be declared with
+
+\texttt{$z$: barrier @ CudaClusterSync}
+
+\texttt{insert\_barrier\_alloc(..., $z$, None, [], CudaClusterSync)}
+
+The valid synchronization timelines (def~\ref{sec:gSyncTL}) for the \lighttt{Arrive} and \lighttt{Await} using the cluster sync barrier mechanism are the same as for garden-variety fences (Section~\ref{sec:FenceUsage}).
+
+\mainKey{Statically-checked Requirements:}
+\begin{itemize}
+  \item Split barrier basic requirements (Section~\ref{sec:SplitBarrierBasic})
+  \item Barrier guarding requirement (Section~\ref{sec:BarrierGuarding}) with only the arrive-first configuration allowed
+  \item Solitary barrier requirement (Section~\ref{sec:SolitaryBarrier})
+  \item Barrier expressions (def~\ref{sec:gBarrierExpr}) must use only point indices, not intervals.
+  \item \lighttt{Await} must have $n=0$.
+  \item \lighttt{Arrive} and \lighttt{Await} must be at \lighttt{cuda\_cluster}-scope (def~\ref{sec:gCollUnit}).
+  \item The \lighttt{Arrive} and \lighttt{Await} statements for a given barrier array element must be executed by the same \myKeyA{thread collective} (def~\ref{sec:gThreadCollective}).
+    This is enforced by requiring base thread equality (Section~\ref{sec:DistributedMemoryBaseThreads}) between collective indexing pairs collected both from \lighttt{Arrive} and \lighttt{Await} statements for $z$.
+\end{itemize}
+
 % solitary, sync-exempt, barrier variable vs CUDA implicit state
 
 \subsection{Commit Group Usage}
 \label{sec:CommitGroupUsage}
+
+A barrier variable $z$ with commit group barrier mechanism may be declared with
+
+\texttt{$z$: barrier[$e^*$] @ CudaCommitGroup}
+
+\texttt{insert\_barrier\_alloc(..., $z$, None, [$e^*$], CudaCommitGroup)}
+
+where the array size $e^*$ is subject to distributed memory analysis (Section~\ref{sec:DistributedMemory}).
+In CUDA, the commit group is implicit state local to a thread, warp, or warpgroup; however in Exo-GPU we explicitly shard this barrier state onto the implicit thread state with distributed memory analysis.
+This motivates the solitary barrier requirement (Section~\ref{sec:SolitaryBarrier}).
+
+The synchronization timelines (def~\ref{sec:gSyncTL}) $\tau_s^\mathrm{pre}$ for the \lighttt{Arrive} and $\tau_s^\mathrm{post}$ for the \lighttt{Await} must match one of the rows in this table, which also defines the expected collective unit $\tau_u$ (def~\ref{sec:gCollUnit}).
+
+\begin{tabular}{|r|r|r|}
+$\tau_s^\mathrm{pre}$ & $\tau_s^\mathrm{post}$ & $\tau_u$ \\
+\texttt{Sm80\_cp\_async} & \texttt{cuda\_in\_order} & \texttt{cuda\_thread} \\
+\texttt{tma\_to\_gmem\_async} & \texttt{cuda\_generic\_or\_async\_proxy} & \texttt{cuda\_warp} \\
+\texttt{wgmma\_async} & \texttt{cuda\_generic\_or\_async\_proxy} & \texttt{cuda\_warpgroup}
+\end{tabular}
+
+\mainKey{Statically-checked Requirements:}
+\begin{itemize}
+  \item Split barrier basic requirements (Section~\ref{sec:SplitBarrierBasic})
+  \item Solitary barrier requirement (Section~\ref{sec:SolitaryBarrier})
+  \item Barrier expressions (def~\ref{sec:gBarrierExpr}) must use only point indices, not intervals.
+  \item \lighttt{Await} must have $n \ge 0$, i.e. this is an arrive-indexed barrier (Section~\ref{sec:ArriveAwaitPairing}, Section~\ref{sec:AwaitSemantics}).
+  \item \lighttt{Arrive} and \lighttt{Await} must be at $\tau_u$-scope as defined in the above table (def~\ref{sec:gCollUnit}).
+  \item The \lighttt{Arrive} and \lighttt{Await} statements for a given barrier array element must be executed by the same \myKeyA{thread collective} (def~\ref{sec:gThreadCollective}).
+    This is enforced by requiring base thread equality (Section~\ref{sec:DistributedMemoryBaseThreads}) between collective indexing pairs collected both from \lighttt{Arrive} and \lighttt{Await} statements for $z$.
+\end{itemize}
 
 % solitary, sync-exempt, barrier variable vs CUDA implicit state
 
 \subsection{Mbarrier Usage}
 \label{sec:MbarrierUsage}
 
-% multicast, guarding, ...
+A barrier variable $z_a$ with mbarrier barrier mechanism may be declared with
+
+\texttt{$z_a$: barrier[$e^*$] @ CudaMbarrier}
+
+\texttt{insert\_barrier\_alloc(..., $z_a$, None, [$e^*$], CudaMbarrier)}
+
+\texttt{$z_a$: barrier($z_g$) [$e^*$] @ CudaMbarrier}
+
+\texttt{insert\_barrier\_alloc(..., $z_a$, $z_g$, [$e^*$], CudaMbarrier)}
+
+where the array size $e^*$ is subject to distributed memory analysis (Section~\ref{sec:DistributedMemory}), and the $z_g$, variable if present, means that $z_a$ is explicitly guarded-by $z_g$ (def~\ref{sec:gGuardedBy}).
+This is used in the barrier guarding requirement (Section~\ref{sec:BarrierGuarding}); in short, \lighttt{Arrive} statements using $z_a$ must be matched with \lighttt{Await} statements using $z_g$.
+
+Each barrier array element is implemented as a \emph{ring buffer} of CUDA mbarrier objects (def~\ref{sec:gMbarrierRingBuffer}), resident in a single CTA.
+You cannot implement ring buffering explicitly in Exo-GPU (the indexing pattern required will not pass distributed memory analysis), which is an intentional break from Exo's imperative programming style in order to simplify sync-check.
+
+The first synchronization timeline (def~\ref{sec:gSyncTL}) $\tau_s^\mathrm{pre}$ for the \lighttt{Arrive} should be \lighttt{cuda\_in\_order}, \lighttt{Sm80\_cp\_async}, or \lighttt{cuda\_temporal}.
+The second synchronization timeline $\tau_s^\mathrm{post}$ for the \lighttt{Await} should be \lighttt{cuda\_in\_order}, \lighttt{cuda\_generic\_or\_async\_proxy}, or \lighttt{cuda\_temporal}.
+(Avoid using \lighttt{cuda\_generic\_or\_async\_proxy} unless required; in particular guarding against write-after-read (WAR) hazards for a producer warp using TMA requires only \lighttt{cuda\_temporal} for the producer warp's \lighttt{Await}).
+
+\mainKey{Statically-checked Requirements:}
+\begin{itemize}
+  \item Split barrier basic requirements (Section~\ref{sec:SplitBarrierBasic}).
+  \item Barrier guarding requirement, either arrive-first or await-first (Section~\ref{sec:BarrierGuarding}).
+  \item Barrier expressions (def~\ref{sec:gBarrierExpr}) must meet the barrier multicast requirements (Section~\ref{sec:BarrierMulticast}).
+  \item Each \lighttt{Await} for a given variable $z_a$ must have the same $n$ value, and $n < 0$, i.e. this is an await-indexed barrier (Section~\ref{sec:ArriveAwaitPairing}, Section~\ref{sec:AwaitSemantics}).
+  \item Distributed memory analysis (Section~\ref{sec:DistributedMemory}) must be able to map each barrier array element into only a single CTA (TODO, explain how?).
+  \item Each \lighttt{Arrive} for a given barrier array element must be executed by the same \myKeyA{thread collective} (def~\ref{sec:gThreadCollective}).
+    This is enforced by requiring base thread equality (Section~\ref{sec:DistributedMemoryBaseThreads}) between collective indexing pairs collected both from all \lighttt{Arrive} statements for $z_a$.
+  \item The above requirement applies separately for all \lighttt{Await} statements for $z_a$.
+  \item The deduced ring buffer size must be positive (def~\ref{sec:gMbarrierRingBuffer}).
+\end{itemize}
+
+% multicast, guarding, hidden ring buffer & why ...
 
 \subsection{Barrier Multicast}
 \label{sec:BarrierMulticast}
 
-% TODO thread pitch multiple of blockDim, multicast convergence
+% thread pitch multiple of blockDim, multicast convergence, home barrier expr
+
+The \lighttt{Arrive} statement may contain multiple barrier expressions (Section~\ref{sec:gBarrierExpr}), some containing intervals instead of points.
+For example,
+\begin{equation*}
+    \texttt{Arrive(...) >> $z$[m, :] >> $z$[:, n]}
+\end{equation*}
+There must be a unique \myKeyA{home barrier} (def~\ref{sec:gHomeBarrier}), which is the unique barrier in the intersection of all barrier expressions.
+This is determined from a deduced home barrier expression (in this case, \texttt{z[m, n]}).
+
+In the context of a given \lighttt{Arrive} statement, an iterator (control variable) $y$ is a \myKeyA{multicast iterator} if it appears at some index $n$ of a barrier expression, and another barrier expression has an interval at index $n$.
+For example,
+\begin{equation*}
+    \texttt{Arrive(...) >> $z$[m, n] >> $z$[m, :]}
+\end{equation*}
+has only \texttt{n} being a multicast iterator.
+
+Currently only \lighttt{CudaMbarrier}-mechanism split barriers (Section~\ref{sec:MbarrierUsage}) support multicasting.
+Each multicast iterator must have a thread pitch (def~\ref{sec:gThreadPitch}) that is a multiple of \lighttt{blockDim} (Section~\ref{sec:CudaDeviceFunction}).
+That is, multicast iterators must correspond to \lighttt{cuda\_threads} loops that iterate in the CTA-in-cluster dimension (Section~\ref{sec:CollTiling}).
+
+We impose a conservative convergence requirement for multicast iterators.
+This is the only case in Exo-GPU where convergence is enforced other than through scoping.
+Each multicast iterator is defined by some \lighttt{cuda\_threads} loop.
+For a given \lighttt{Arrive} statement, it must not have any parent \lighttt{if} or \emph{sequential} \lighttt{for} loop statements that are not also parents of each multicast iterator's defining \lighttt{cuda\_threads} loop (Figure~\ref{fig:BadMulticastExample}).
+
+\begin{figure}[t]
+\codehrule
+\input{b_samples/bad_multicast_example.0.tex}
+\caption{Multicast Convergence Requirement Violation}
+\label{fig:BadMulticastExample}
+\codehrule
+\end{figure}
 
 \subsection{Split Barrier Basic Requirements}
-\label{sec:SplitBarrierBasicRequirements}
+\label{sec:SplitBarrierBasic}
+
+For a given barrier variable $z$,
+\begin{itemize}
+  \item At least one \lighttt{Arrive} using $z$ must exist, each using the same $\tau_s^\mathrm{pre}$ (def~\ref{sec:gSyncTL}).
+  \item At least one \lighttt{Await} using $z$ must exist, each using the same $\tau_s^\mathrm{post}$ (def~\ref{sec:gSyncTL}).
+  \item \lighttt{Arrive} statements must have a valid home barrier expression (def~\ref{sec:gHomeBarrier}).
+  \item \lighttt{Await} statements must have only a single barrier expression (def~\ref{sec:gBarrierExpr}) with all indices being points.
+  \item Two different barrier variables must not be guarded-by the same barrier variable (def~\ref{sec:gGuardedBy}).
+  \item The multicasts (def~\ref{sec:gMulticasts}) of all \lighttt{Arrive} statements using $z$ must be the same.
+\end{itemize}
 
 \subsection{Barrier Guarding Requirement}
 \label{sec:BarrierGuarding}
+
+This section applies only to barrier mechanisms that list it as a requirement.
+
+Each barrier variable is guarded-by some other barrier variable:
+\begin{itemize}
+    \item Declare a barrier variable $z$ with no other barrier variable being explicitly-guarded-by $z$ (def~\ref{sec:gBarrierVariable}) to have $z$ be guarded by itself.
+    \item Declare a barrier variable $z_0$ with no explictly-guarded-by variable, and declare $z_1$ to be explicitly guarded-by $z_0$, and no other barrier variable being explicitly guarded-by $z_1$ to have $z_0$ and $z_1$ guard each other.
+    \item See the reference for ``guarded-by'' (def~\ref{sec:gGuardedBy}) for other use cases.
+\end{itemize}
+For each barrier variable $z_a$ subject to the barrier guarding requirement, the Exo-GPU program must pass some static analysis, specified in the reference (def~\ref{sec:gBarrierGuardingRequirement}),  that guarantees that each thread alternates between executing instances of
+\begin{itemize}
+    \item \lighttt{Arrive} statements involving $z_a$ (if this is the first stmt in the cycle, it's \myKeyA{arrive-first} usage)
+    \item \lighttt{Await} statements involving $z_g$ (if this is the first stmt in the cycle, it's \myKeyA{await-first} usage)
+\end{itemize}
+as occurs in Figure~\ref{fig:mbarrier_2_cycle}.
+
+\begin{figure}[t]
+\codehrule
+\input{b_samples/mbarrier_2_cycle.0.tex}
+\caption{Correct barrier guarding for a barrier guard cycle of length 2 (def~\ref{sec:gBarrierGuardCycle}).}
+\label{fig:mbarrier_2_cycle}
+\codehrule
+\end{figure}
+
+If any instruction calls have trailing barrier expressions (def~\ref{sec:gTrailingBarrierExpr}) that use $z_a$, these calls must occur after the \lighttt{Await} and before the \lighttt{Arrive} in the above cycle.
+Furthermore, the barrier array elements referenced by the trailing barrier expression must be a non-strict subset of the barrier array elements referenced in the \lighttt{Arrive}.
+
+The await-first usage must be used for any barrier variable that is not guarded-by itself.
 
 \subsection{Solitary Barrier Requirement}
 \label{sec:SolitaryBarrier}
@@ -1265,8 +1438,8 @@ If no box coordinate is $\top$, then if $\delta$ describes two thread collective
 \subsection{$\mathbb{B}$ (mathbb-B)}
 \label{sec:gMathbbB}
 
-$\mathbb{B}$ denotes the set of barrier variable names.
-Somewhat confusingly, we conventionally use $z$ to mean an element of $\mathbb{B}$, i.e. $z$ is the name of a barrier variable (def~\ref{sec:gZ}).
+$\mathbb{B}$ denotes the set of barrier variable names (def~\ref{sec:gBarrierVariable}).
+Somewhat confusingly, we conventionally use $z$ to mean an element of $\mathbb{B}$, i.e. $z$ is the name of a barrier variable (def~\ref{sec:gBarrierVariable}).
 
 \subsection{Barrier Environment}
 \label{sec:gBarrierEnv}
@@ -1278,13 +1451,100 @@ See Section~\ref{sec:SyncEnv}.
 \label{sec:gBarrierExpr}
 
 An expression ``$z[e^*]$'', where $z: \mathbb{B}$ is a barrier variable name and $e^*$ is a tuple of expressions (``$z$'' alone indicates $e^*$ is empty).
-Each expression $e_i$ must either be a plain read of a control variable (def~\ref{sec:gMathbbY}) or an interval expression $0:x_i$, $x_i$ being the extent of the $i^{th}$ dimension of $z$'s array size.
+Each expression $e_i$ must either be a point expression consisting of a plain read of a control variable (def~\ref{sec:gMathbbY}) or an interval expression $0:x_i$, $x_i$ being the extent of the $i^{th}$ dimension of $z$'s array size.
 
 A barrier expression $z[e_0, ..., e_{M-1}]$ references all barrier array elements $z[n_0, ..., n_{M-1}]$ where
 \begin{itemize}
-  \item $n_i = \sigma(e_i)$ (def~\ref{sec:gControlEnv}) for all $e_i$ that are plain reads of a control variable.
+  \item $n_i = \sigma(e_i)$ (def~\ref{sec:gControlEnv}) for all $e_i$ that are point expressions.
   \item $n_i \in [0, x_i - 1]_\mathbb{N}$ for all $e_i$ that are intervals $0:x_i$.
 \end{itemize}
+
+\subsection{Barrier Guard Cycle}
+\label{sec:gBarrierGuardCycle}
+
+The barrier guard cycle for a given barrier name $z$ is the set of barrier names in $\{ \textsf{guardedBy}^n(z)\mid n = 1, 2, 3... \}$ (def~\ref{sec:gGuardedBy}).
+
+\subsection{Barrier Guarding Requirement}
+\label{sec:gBarrierGuardingRequirement}
+
+Here we give a more complete description of the static analysis for the barrier guarding requirement (Section~\ref{sec:BarrierGuarding}).
+Let $z_a$ be a barrier variable subject to the barrier guarding requirement, and let it be guarded-by $z_g$ (def~\ref{sec:gGuardedBy}).
+
+\mainKey{Requirement 1/3:} The program must pass this pseudocode in Figure~\ref{fig:BarrierGuardingPseudocode} without reaching an assert.
+
+\begin{figure}[t]
+\codehrule
+\blacktt{expect\_arrive = arrive\_first~}\codecomment{\# True in the arrive-first usage, false otherwise.}\\
+\blacktt{stmt\_pair = []}\\
+\blacktt{for stmt in dfs\_order:} \\
+\blacktt{~~if stmt is an Arrive using $z_a$:}\\
+\blacktt{~~~~\textbf{assert} expect\_arrive}\\
+\blacktt{~~~~expect\_arrive = False}\\
+\blacktt{~~~~stmt\_pair += [stmt]}\\
+\blacktt{~~elif stmt has a trailing barrier expression using $z_a$:}\\
+\blacktt{~~~~\textbf{assert} expect\_arrive}\\
+\blacktt{~~elif stmt is an Await using $z_g$:}\\
+\blacktt{~~~~\textbf{assert} not expect\_arrive}\\
+\blacktt{~~~~expect\_arrive = True}\\
+\blacktt{~~~~stmt\_pair += [stmt]}\\
+\blacktt{~~if len(stmt\_pair) == 2:}\\
+\blacktt{~~~~s1, s2 = stmt\_pair}\\
+\blacktt{~~~~stmt\_pair = []}\\
+\blacktt{~~~~}\codecomment{\# If one stmt is guarded by an if that the other isn't, we can't guarantee alternation.}\\
+\blacktt{~~~~}\codecomment{\# Traverse from leaf-to-root of the AST to assert the following.}\\
+\blacktt{~~~~\textbf{assert} s1 is in the body of an if statement iff s2 is}\\
+\blacktt{~~~~\textbf{assert} s1 is in the orelse of an if statement iff s2 is}\\
+\blacktt{~~~~\textbf{assert} s1 is in the body of a \emph{sequential} for loop iff s2 is}\\
+\codecomment{\# End DFS}\\
+\blacktt{\textbf{assert} len(stmt\_pair) == 0 }\codecomment{\# Unpaired Arrive/Await?}\\
+
+\caption{Pseudocode for barrier guarding requirement}
+\label{fig:BarrierGuardingPseudocode}
+\codehrule
+\end{figure}
+
+\mainKey{Requirement 2/3:} Each collective indexing pair (Section~\ref{sec:CollIndexingPairs}) collected from \lighttt{Await} statements for $z_g$ must pass the base threads requirement (Section~\ref{sec:DistributedMemoryBaseThreads}) with each collective index expression collected from \lighttt{Arrive} statements for $z_a$.
+This ensures the set of threads executing the matched \lighttt{Await} and \lighttt{Arrive} statements are the same.
+TODO not really, we need to check the thread pitch.
+
+\mainKey{Requirement 3/3:} This enforces the requirement that trailing barrier expressions don't reference any barrier array element not referenced in the \lighttt{Arrive} statement:
+
+Let $m: (\mathsf{Bool}^*)^*$ be the multicasts (def~\ref{sec:gMulticasts}) of the \lighttt{Arrive} statement for $z_a$.
+
+For each trailing barrier expression that uses $z_a$, let $c: \mathsf{Bool}^*$ be its multicast flags, and require there exists some $m_i: \mathsf{Bool}^*$ in $m$ such that
+\begin{itemize}
+  \item $c$ and $m_i$ have the same length (say, $M$).
+  \item $m_{i,j}$ or not $c_j$ for all $j = 0, 1, ..., M-1$.
+\end{itemize}
+
+% TODO
+% No non-shared sequential or if/else.
+% trailing barrier expression
+% 
+
+\subsection{Barrier Mechanism}
+\label{sec:gBarrierMechanism}
+
+Concept similar to \lighttt{Memory} for barrier variables (def~\ref{sec:gBarrierVariable}).
+Currently, one of
+\begin{itemize}
+  \item \texttt{CudaClusterSync} (Section~\ref{sec:ClusterSyncUsage})
+  \item \texttt{CudaCommitGroup} (Section~\ref{sec:CommitGroupUsage})
+  \item \texttt{CudaMbarrier} (Section~\ref{sec:MbarrierUsage})
+\end{itemize}
+
+\subsection{Barrier Variable}
+\label{sec:gBarrierVariable}
+
+A barrier variable is declared with one of
+\begin{itemize}
+  \item Frontend syntax ``$z_a$: \texttt{barrier[$e^*$] @ }$\tau_b$'' where $z_a$ is the variable name, $e^*$ are the extents of the barrier array, and $\tau_b$ is a barrier mechanism (def~\ref{sec:gBarrierMechanism})
+  \item Frontend syntax ``$z_a$: \texttt{barrier($z_g$)[$e^*$] @ }$\tau_b$'' where the declared barrier is \myKeyA{explicitly guarded by} the barrier named $z_g$, and all others are as above
+  \item Scheduling operator \texttt{insert\_barrier\_alloc}
+\end{itemize}
+If $e^*$ is empty, the square brackets shall be omitted.
+
+In semantics, we denote a barrier variable name with $z: \mathbb{B}$.
 
 % >C
 
@@ -1504,19 +1764,45 @@ $\textsf{domainCompletionTypeOnly}: \Delta \times \Delta \to \Delta \times \Delt
 % >F
 % >G
 
+\subsection{Garden-variety Fence}
+\label{sec:gGardenVarietyFence}
+
+See ``Fence Usage'' (Section~\ref{sec:FenceUsage}).
+
 \subsection{Global Thread ID ($\mathbb{G}$, mathbb-G)}
 \label{sec:gGlobalThreadID}
 
 Pair of task ID $\iota: \mathbb{I}$ (Section~\ref{sec:SyncSemanticsThreadMapping}) and local thread index $n \in \mathbb{N}$ (def~\ref{sec:gLocalThreadIndex}).
+
+\subsection{Guarded-by}
+\label{sec:gGuardedBy}
+
+A barrier variable declaration for $z_a$ may or may not include an explicit-guarded-by barrier name $z_g$ (def~\ref{sec:gBarrierVariable}).
+Two barrier variables must not share the same explicit-guarded-by barrier name.
+If $z_a$ was declared with an explicit-guarded-by barrier name $z_g$, then $z_a$ is guarded-by $z_g$.
+Otherwise, $z_a$ is guarded-by the barrier found by the following lookup process:
+
+Let $\textsf{explicitGuards}: \mathbb{B} \to \mathbb{B}$ be the function
+\begin{equation*}
+  \textsf{explicitGuards}(z_g') = \begin{cases}
+    z_a' & \text{ if $z_a'$ has explicit-guarded-by barrier name $z_g'$ (def~\ref{sec:gBarrierVariable})} \\
+    z_g' & \text{ otherwise }
+  \end{cases}
+\end{equation*}
+$z_a$ is guarded-by the fixed point of $\textsf{explicitGuards}^n(z_a), n = 1, 2, 3...$.
+
+We use $\textsf{guardedBy}: \mathbb{B} \to \mathbb{B}$, which maps a barrier name $b$ to the name of the barrier that $b$ is guarded by.
+
+See also ``Barrier Guard Cycle'' (def~\ref{sec:gBarrierGuardCycle}).
 
 % >H
 
 \subsection{Home Barrier (Expression)}
 \label{sec:gHomeBarrier}
 
-An \lighttt{Arrive} statement (def~\ref{sec:gSyncStmt}) may take multiple barrier expressions (def~\ref{sec:gBarrierExpr}).
-The intersection of all barrier array elements referenced by the barrier expressions must be a single barrier array element; this is the home barrier.
-The home barrier expression is an expression constructed to reference this home barrier; it is constructed from the barrier expressions $z_0[e_0^*] ... z_{E-1}[e_{E-1}^*]$ attached to an \lighttt{Arrive} statement as follows:
+Each barrier expression (def~\ref{sec:gBarrierExpr}), when interpreted, references a certain set of barrier array elements.
+The intersection of these sets for all barrier expressions in a synchronization statement (def~\ref{sec:gSyncStmt}) must be a single barrier array element; this is the home barrier.
+The \myKeyA{home barrier expression} is an expression constructed to reference this home barrier; it is constructed from the barrier expressions $z_0[e_0^*] ... z_{E-1}[e_{E-1}^*]$ attached to an \lighttt{Arrive} statement as follows:
 \begin{itemize}
   \item All expressions must use the same barrier variable name $z$.
   \item All tuples $e^*$ must have the same length $M$.
@@ -1584,6 +1870,42 @@ Scheduling functions:
 See Section~\ref{sec:SolitaryBarrier}.
 
 % >M
+
+\subsection{Mbarrier Ring Buffer}
+\label{sec:gMbarrierRingBuffer}
+
+Each barrier array element with \lighttt{CudaMbarrier} barrier mechanism (Section~\ref{sec:MbarrierUsage}) is lowered as a ring buffer of CUDA mbarrier objects.
+The depth of this ring buffer depends on the number of barriers on the barrier guard cycle (def~\ref{sec:gBarrierGuardCycle}) for the barrier variable being lowered.
+
+Each barrier variable $z$ has a unique value $n(z)$ used as its $n$ parameter for \lighttt{Await}.
+Let $\texttt{lag}(z) = -1 - n(z)$.
+Let $C$ be the barrier guard cycle for $z$.
+The ring buffer depth is
+\begin{equation*}
+  \begin{cases}
+    1 + \texttt{lag}(z) & \text{ if $C$ is of size 1 } \\
+    \sum_{z' \in C} \texttt{lag}(z') & \text{ otherwise }
+  \end{cases}
+\end{equation*}
+If the calculated depth is non-positive, the compilation fails.
+
+\subsection{Multicast Flags}
+\label{sec:gMulticastFlags}
+
+See ``Multicasts'' (def~\ref{sec:gMulticasts}).
+
+\subsection{Multicasts}
+\label{sec:gMulticasts}
+
+Each barrier expression (def~\ref{sec:gBarrierExpr}) has its own \myKeyA{multicast flags}.
+This is a tuple of boolean values $t_i$ where $t_i$ is true if the $i^{th}$ index is an interval, and false if the $i^{th}$ index is a point.
+
+The multicasts of an \lighttt{Arrive} statement (Section~\ref{sec:BarrierMulticast}) is a tuple-of-tuple-of-booleans, consisting of each barrier expression's multicast flags.
+For example,
+
+\input{b_samples/multicast_flags_example.0.tex}
+
+
 % >N
 
 \subsection{$\mathbb{N}$ (mathbb-N)}
@@ -1633,6 +1955,11 @@ Additional description on each memory access, beyond the IDs of the thread(s) pe
 A synchronization timeline (SyncTL, def~\ref{sec:gSyncTL}) groups together qualitative timelines.
 
 \input{spork_b/QualTL.tex}
+
+\subsection{Queue Barrier}
+\label{sec:gQueueBarrier}
+
+Old name for a barrier array element.
 
 % >R
 \subsection{$\mathbb{R}$ (mathbb-R)}
@@ -1695,7 +2022,7 @@ Currently, an \lighttt{Await} statement may take only one barrier expression, an
 
 Scheduling functions:
 \begin{itemize}
-  \item \texttt{insert\_barrier\_alloc}: insert allocation of a barrier variable
+  \item \texttt{insert\_barrier\_alloc}: insert allocation of a barrier variable (def~\ref{sec:gBarrierVariable})
   \item \texttt{insert\_fence}
   \item \texttt{insert\_arrive}
   \item \texttt{insert\_await}
@@ -1810,6 +2137,18 @@ We define the mapping $\mathsf{toLocal}: \mathbb{N}^M \to \mathbb{N}^M \to \math
 i.e. the coordinates $[0, D_0-1]_\mathbb{N} \times ... \times [0, D_{M-1}-1]_\mathbb{N}$ get mapped to local thread indices (def~\ref{sec:gLocalThreadIndex}) in lexicographical order.
 For this definition to work as expected, the product of the domain coordinates $D_0 \times ... \times D_{M-1}$ must be equal to the number of threads in the cluster (\lighttt{clusterDim.x * blockDim.x}).
 
+\subsection{Trailing Barrier Expression}
+\label{sec:gTrailingBarrierExpr}
+
+Syntax ``\texttt{>}\texttt{> }$e$'' added after the closing \texttt{)} of an instruction call, with $e$ being a single barrier expression (def~\ref{sec:gBarrierExpr}).
+This allows direct usage of \lighttt{Await} (Section~\ref{sec:ArriveAwaitPairing}) to wait for the instruction to retire, which is treated as a special case in sync-check (Section~\ref{sec:VisRecordCreation}, Section~\ref{sec:AwaitSemantics}).
+
+The trailing barrier expression for an instruction is separate from its formal parameters.
+The \lighttt{replace} function does \textbf{not} require a correct trailing barrier expression.
+Use the scheduling function \lighttt{set\_trailing\_barrier\_expr} after the \lighttt{replace}.
+
+Note, the home barrier expression (def~\ref{sec:gHomeBarrier}) concept does \textbf{not} apply to the trailing barrier expression.
+
 % >U
 
 \subsection{Update Notation}
@@ -1917,7 +2256,7 @@ Set of control variable names: names of index and size variables (either functio
 \subsection{$z: \mathbb{B}$}
 \label{sec:gZ}
 
-Somewhat confusingly, we conventionally use $z$ to mean an element of $\mathbb{B}$, i.e. $z$ is the name of a barrier variable (def~\ref{sec:gMathbbB}).
+Somewhat confusingly, we conventionally use $z$ to mean an element of $\mathbb{B}$, i.e. $z$ is the name of a barrier variable (def~\ref{sec:gBarrierVariable}).
 
 \subsection{$\mathbb{Z}$ (mathbb-z)}
 \label{sec:gMathbbZ}
