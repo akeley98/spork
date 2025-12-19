@@ -54,7 +54,7 @@ Abstract machine semantics, how to read sync-check (\lighttt{camspork}) errors.
 
 \myChapterLink{sec:Instr}{Instructions \& Timelines}
 
-Instruction templates (classes), timelines, atomic instructions, special window e.g., \lighttt{CUtensorMap}.
+Instruction templates, timelines, atomic instructions, TMA, special window (\lighttt{CUtensorMap}).
 
 \myChapterLink{sec:Glossary}{Glossary \& Reference}
 
@@ -1599,7 +1599,7 @@ The instruction template parameters (def~\ref{sec:gInstrTemplateParameter}) are
   \item \texttt{ncta}, for multicast TMA instructions
   \item \texttt{cta\_stride}, for multicast TMA instructions
 \end{itemize}
-The multicast versions of TMA instructions involve \lighttt{ncta}-many CTAs, with the sequence of involved CTAs' \lighttt{cluster\_ctarank} values incrementing by \lighttt{cta\_stride}.
+The multicast versions of TMA instructions involve \lighttt{ncta}-many CTAs, with the sequence of involved CTAs' \lighttt{cluster\_ctarank} values (def~\ref{sec:gCluster}) incrementing by \lighttt{cta\_stride}.
 They cooperate to copy a tile from GMEM into each involved CTA's SMEM, as if by the pseudocode in Figure~\ref{fig:multicast_pseudocode}.
 
 If an instruction variant without swizzling is used, then \lighttt{swizzle} must be 0.
@@ -1931,6 +1931,29 @@ The above example may be scheduled using
 Statements within a \lighttt{CudaDeviceFunction} block (def~\ref{sec:gCudaDeviceFunction}) are at CUDA scope\\
 (\lighttt{exo.spork.timelines.cuda\_basic\_device: exo.spork.timelines.DeviceScope}).
 
+\subsection{\texttt{cuda\_tasks} Loop}
+\label{sec:gCudaTasksLoop}
+
+Loop with loop mode \lighttt{CudaTasks} (def~\ref{sec:gLoopMode}).
+When executed, these define device task instances (def~\ref{sec:gDeviceTask}), as well as new task IDs in abstract machine semantics (Section~\ref{sec:SyncSemanticsThreadMapping}).
+Each device task instance is assigned uniquely to a cluster on the device (def~\ref{sec:gCluster}) for execution.
+The mapping between device task instances and clusters is deliberately not part of the language specification (TODO Luca may change this, add a user-selected ``strategy'' for this).
+See Section~\ref{sec:CudaDeviceFunction}.
+
+\subsection{\texttt{cuda\_threads} Loop}
+\label{sec:gCudaThreadsLoop}
+
+Loop with loop mode \lighttt{CudaThreads} (def~\ref{sec:gLoopMode}).
+Such loops subdivide their executing thread collective (def~\ref{sec:gThreadCollective}) into subsets, each assigned to execute an ``iteration'' of the loop in parallel.
+See Section~\ref{sec:CollTilingCudaThreads}.
+
+\subsection{\texttt{CudaWarps} Block}
+\label{sec:gCudaWarpsBlock}
+
+Warp specialization statement of the form ``\lighttt{with CudaWarps(...): $s$}'', which restricts instances of the child statement $s$ to execute using only a certain subset of warps.
+These warps may be identified by a warp variable (def~\ref{sec:gWarpVariable}).
+See Section~\ref{sec:CollTilingCudaWarps}.
+
 % >D
 
 \subsection{Delta ($\delta: \Delta$)}
@@ -2123,12 +2146,14 @@ Note, not to be confused with linear thread IDs (tid) in camspork, which also en
 
 Each Exo loop has an included loop mode object, which is one of these Python objects:
 \begin{itemize}
-  \item \lighttt{Seq(pragma\_unroll: Optional[int])}: sequential loop.
+  \item \lighttt{Seq(pragma\_unroll: Optional[int])}: sequential loop (def~\ref{sec:gSeqLoop}).
   \item \lighttt{Par()}: OpenMP parallel-for.
   \item \lighttt{CudaTasks()}: distribute iterations (device tasks,~\ref{sec:gDeviceTask}) to CUDA clusters; defines new task IDs in abstract machine semantics (Section~\ref{sec:SyncSemanticsThreadMapping}).
+    See Section~\ref{sec:CudaDeviceFunction}.
   \item \lighttt{CudaThreads(unit: CollUnit)}: distribute iterations to thread collectives within a cluster.
+    See Section~\ref{sec:CollTilingCudaThreads}.
 \end{itemize}
-This does not affect the sequential semantics of the loop.
+This does not affect the sequential value semantics of the loop.
 
 The respective frontend syntax is
 
@@ -2258,6 +2283,13 @@ Used in the PLDI submission to mean $\mathsf{VisRecord}$ (def~\ref{sec:gVisRecor
 
 Used in the PLDI submission to mean the set of all visibility functions, which corresponds to visibility sets (def~\ref{sec:gVisSet}) in Exo-GPU as it is currently formulated.
 Note ``visibility function'' is not a term used in the PLDI submission; this is retroactive terminology for this deprecated concept.
+
+\subsection{Sequential (\texttt{seq}) Loop}
+\label{sec:gSeqLoop}
+
+Loop with loop mode \lighttt{Seq} (def~\ref{sec:gLoopMode}).
+Each thread of the thread collective (def~\ref{sec:gThreadCollective}) executes each iteration of the loop sequentially.
+There is no convergence or coherence guaranteed between threads cooperating to execute the loop.
 
 \subsection{Sigma ($\sigma: \Sigma$)}
 \label{sec:gSigma}
@@ -2422,6 +2454,12 @@ Abstract machine concept (Section~\ref{sec:SyncSemantics}).
 Triple $(g, q, v)$ of type $\mathbb{G} \times \mathsf{QualTL} \times \mathsf{VF}$, i.e. a global thread id $g$ (def~\ref{sec:gGlobalThreadID}), qualitative timeline $q$ (def~\ref{sec:gQualTL}), and visibility flag $v$ (def~\ref{sec:gVisFlag}).
 These are composed by visibility records (def~\ref{sec:gVisRecord}).
 
+\subsection{TMA}
+\label{sec:gTma}
+
+Tensor Memory Accelerator, a.k.a. \lighttt{cp.async.bulk}.
+See Section~\ref{sec:Tma}.
+
 \subsection{toLocal}
 \label{sec:gToLocal}
 
@@ -2474,6 +2512,12 @@ One of
 \end{itemize}
 These are part of a timeline signature (def~\ref{sec:gTlSig}).
 
+\subsection{Visibility Level}
+\label{sec:gVisLevel}
+
+Removed concept from the PLDI 2025 submission's semantics.
+See ``visibility set'' (def~\ref{sec:gVisSet}).
+
 \subsection{Visibility Record (VisRecord)}
 \label{sec:gVisRecord}
 
@@ -2525,6 +2569,13 @@ The CUDA device function is compiled separately for each warp variable, with cod
 
 128 CUDA threads with consecutive \lighttt{threadIdx.x} values, aligned so that the lowest index is a multiple of 128.
 (Note, this is simplified from the real CUDA definition, which takes into account the y and z dimensions that Exo-GPU does not parallelize on).
+
+\subsection{wgmma Fence}
+\label{sec:gWgmmaFence}
+
+Fence of the form \texttt{Fence(wgmma\_fence\_1, wgmma\_fence\_2)} at \lighttt{cuda\_warpgroup}-scope (def~\ref{sec:gCollUnit}).
+A thread must execute this before any usage of registers in \lighttt{wgmma} instructions.
+See also ``Fence Usage'' (Section~\ref{sec:FenceUsage}).
 
 \subsection{$\mathcal{W}$ (Witness Function)}
 
