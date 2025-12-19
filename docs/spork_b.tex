@@ -1335,8 +1335,8 @@ The new synchronization environment $\rho''$ is defined from $\rho$ (Section~\re
 \subsection{Check VisRecord Helper}
 \label{sec:CheckVisRecordHelper}
 
-For the following checks, we define the helper \\
-$\mathsf{CheckVisRecord}: \mathsf{Bool} \to \mathcal{P}(\mathbb{G}) \to \mathcal{P}(\mathsf{QualTL}) \to \mathsf{VisFlag} \to \mathsf{VisRecord} \to \mathsf{Bool}$ as
+For the following checks, we use this to check the visibility set (def~\ref{sec:gVisSet}) of a visibility record: \\
+$\mathsf{CheckVisRecord}: \mathsf{Bool} \to \mathcal{P}(\mathbb{G}) \to \mathcal{P}(\mathsf{QualTL}) \to \mathsf{VisFlag} \to \mathsf{VisRecord} \to \mathsf{Bool}$
 \begin{equation*}
     \mathsf{CheckVisRecord}(t, g^*, q^*, \mathsf{vf}, r) = \begin{cases}
         \exists g \in g^*, \exists q \in q^*, (g, q, \mathsf{vf}) \in r.s & \text{ if $t$ is true} \\
