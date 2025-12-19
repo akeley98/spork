@@ -1681,11 +1681,6 @@ For each trailing barrier expression that uses $z_a$, let $c: \mathsf{Bool}^*$ b
   \item $m_{i,j}$ or not $c_j$ for all $j = 0, 1, ..., M-1$.
 \end{itemize}
 
-% TODO
-% No non-shared sequential or if/else.
-% trailing barrier expression
-%
-
 \subsection{Barrier Mechanism}
 \label{sec:gBarrierMechanism}
 
@@ -1905,7 +1900,7 @@ $\mathsf{deriveCollTiling}(\omega_\text{raw}, y, \delta_\text{raw}, \texttt{lo},
   \begin{itemize}
     \item $\textit{iter} = y$
     \item $\textit{offset} = (\texttt{lo})(\delta.B_k)$
-    \item $\textit{box} = \delta.B_k$  % TODO fix
+    \item $\textit{box} = \frac{\texttt{hi} - \texttt{lo}}{\texttt{tileCount}} (\delta.B_k)$
     \item $\textit{tileCount} = \texttt{tileCount}$
   \end{itemize}
   \item Return $\omega$.
