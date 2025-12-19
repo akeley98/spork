@@ -218,7 +218,64 @@ def mbarrier_2_cycle(num_tasks: size):
             # TeX: end mbarrier_2_cycle[0]
 
 
-"""
-for stmt in dfs_order:
-    if stmt is an Arrive on $z_a$
-"""
+if False:
+  # TeX: version multicast_pseudocode 1
+  # TeX: begin multicast_pseudocode[0]
+  for cta in cuda_threads(0, ncta, unit=cuda_cta_in_cluster):
+    for i0 in seq(0, size0):
+      for i1 in seq(0, size1):
+        # ...
+        # TeX: color line *
+        #                 ..                 ..
+        smem[cta, i0, i1, i2] = gmem[i0, i1, i2]
+  # TeX: end multicast_pseudocode[0]
+
+  # TeX: version multicast_tma_excerpt 1
+  # TeX: begin multicast_tma_excerpt[0]
+  # Defined outside @proc (i.e. this is executed Python code)
+  # divided by ncta_M because ncta=ncta_M below.
+  smem_box_B = (1, smem_N // ncta_M, 1, smem_K)
+  smem_K = 32
+  # Defined inside @proc (i.e. this is parsed Exo code) at CPU scope
+  # TeX: color line *
+  #                                         yyy
+  B_tensorMap = B[:,:,:,:] @ Sm90_tensorMap(128, *smem_box_B)
+  # Defined inside @proc at CUDA scope
+  # TeX: color line *
+  #            gggggg  vvvvvv        rrrrrr  bbbbbb                      yyy
+  B_smem : f32[ncta_M, ncta_N, RING, smem_N, smem_K] @ Sm90_SmemSwizzled(128)
+  # length-2 barrier guard cycle {raw, war} (def $\ref{sec:gBarrierGuardCycle}$)
+  raw : barrier[ncta_M, ncta_N] @ CudaMbarrier
+  war : barrier(raw)[ncta_M, ncta_N] @ CudaMbarrier
+  # TeX: color line *
+  #                   ..........
+  with CudaWarps(name="producer"):  # Not shown: referenced warp variable (Section $\ref{sec:gWarpVariable}$) is 1 warp
+    for cta_m in cuda_threads(0, ncta_M, unit=ncta_N * cuda_cta_in_cluster):
+      for cta_n in cuda_threads(0, ncta_N, unit=cuda_cta_in_cluster):
+        Await(war[cta_m,cta_n], cuda_temporal, ~(RING-1))
+    # ...
+    for cta_n in cuda_threads(0, ncta_N,
+    # TeX: color line *
+    #        gggggg                               vvvvvv
+        unit=ncta_M * cuda_cta_in_cluster_strided(ncta_N)
+    ):
+      # TeX: color line *
+      #                                                                           yyyyyyyyyyy
+      # Rightmost extent is smem_K=32, times 4 bytes per element (f32) $\implies$ swizzle=128
+      Sm90_multicast_copy_tensor_to_smem_swizzled_2f32(
+        # TeX: color line *
+        #      g                     r b                       gggggg  rrrrrr  bbbbbb
+        B_smem[:,cta_n,iter_k % RING,:,:],  # Window extents:  ncta_M, smem_N, smem_K
+        B_tensorMap[                                     # smem_box coordinates required:
+          batch,                                                            # 1 (point expr)
+          (ncta_N*task_n+cta_n) * smem_N: (ncta_N*task_n+cta_n+1) * smem_N, # smem_N // ncta_M
+          task_k,                                                           # 1 (point expr)
+          iter_k * smem_K: iter_k * smem_K + smem_K],                       # smem_K
+        # TeX: color line *
+        #    gggggg             vvvvvv        rrrrrr        bbbbbb
+        ncta=ncta_M, cta_stride=ncta_N, size0=smem_N, size1=smem_K, smem_box=smem_box_B
+      ) >> raw[:,cta_n]
+      for cta_m in cuda_threads(0, ncta_M, unit=cuda_cta_in_cluster):
+        # Await/TMA/Arrive structure satisfies guarding requirement (Section $\ref{sec:BarrierGuarding}$)
+        Arrive(cuda_temporal) >> raw[cta_m,:] >> raw[:,cta_n]
+    # TeX: end multicast_tma_excerpt[0]
