@@ -1436,7 +1436,8 @@ where \texttt{a} and \texttt{b} are not template parameters, and \texttt{c} is.
 \label{sec:InstrBehavior}
 
 The \lighttt{behavior} function is much the same as Exo before.
-It defines the behavior of the instruction in sequential semantics.
+This informs the Exo compiler of the sequential value semantics of the instruction.
+If you implement an instruction, it's your job to faithfully implement those semantics in the instruction template's \lighttt{codegen} function (Section~\ref{sec:InstrCodegen}).
 
 When an instruction template generates an instruction, it substitutes concrete values for all template parameters (def~\ref{sec:gInstrTemplateParameter}) in the \lighttt{behavior}.
 The parameter count of the generated function is only equal to the number of non-template parameters.
@@ -1570,14 +1571,6 @@ During distributed memory analysis for a given variable $x$ or $z$, a window exp
 \subsection{TMA Usage}
 \label{sec:Tma}
 
-\begin{figure}[b!]
-\codehrule
-\input{b_samples/multicast_pseudocode.0.tex}
-\caption{Multicast TMA pseudocode}
-\label{fig:multicast_pseudocode}
-\codehrule
-\end{figure}
-
 Note, the library of Exo-GPU CUDA instructions is highly incomplete.
 This section gives the guidelines for the expected interface of added TMA instructions.
 
@@ -1624,6 +1617,14 @@ Second, the window expression $x_w[e^*]$ passed as the actual GMEM parameter mus
 
 See Figure~\ref{fig:multicast_tma_excerpt} for example correct usage of a TMA instruction.
 
+\begin{figure}[b!]
+\codehrule
+\input{b_samples/multicast_pseudocode.0.tex}
+\caption{Multicast TMA pseudocode}
+\label{fig:multicast_pseudocode}
+\codehrule
+\end{figure}
+
 \begin{figure}[t!]
 \codehrule
 \input{b_samples/multicast_tma_excerpt.0.tex}
@@ -1632,8 +1633,80 @@ See Figure~\ref{fig:multicast_tma_excerpt} for example correct usage of a TMA in
 \codehrule
 \end{figure}
 
+\newpage
 \subsection{Instruction Codegen}
 \label{sec:InstrCodegen}
+
+For the most part, codegen is documented through the comments in relevant Python functions and classes.
+Here we will only provide a top-level overview of these components.
+
+The \lighttt{codegen} function gets called to compile each instruction call statement.
+It returns a list of lines of C/C++ code (strings with no indentation expected), and takes parameters
+\begin{itemize}
+    \item \texttt{self: exo.core.instr\_class.InstrInfo} (Section~\ref{sec:InstrTemplate})
+    \item \texttt{args: exo.core.instr\_class.InstrArgs}
+\end{itemize}
+with each attribute \texttt{args.$x$} being one of the following:
+\begin{itemize}
+  \item If $x$ names a template parameter (def~\ref{sec:gInstrTemplateParameter}), then \lighttt{args.$x$} is the literal Python object passed as that parameter.
+  \item If $x$ names a scalar, non-template parameter, then \lighttt{args.$x$} is an object of type \lighttt{exo.core.instr\_class.InstrNonWindowArg} that encodes the actual parameter passed as $x$.
+  For most use cases, just pass this to \lighttt{str(...)}.
+  \item If $x$ names a tensor/window, non-template parameter, then \lighttt{args.$x$} is an object of type \lighttt{exo.core.instr\_class.InstrWindowArg} that encodes the actual parameter passed as $x$.
+  This case is more interesting to discuss.
+\end{itemize}
+Each tensor or window is internally modelled as a collection of ``window features''\\
+(\lighttt{exo.core.c\_window.WindowFeatures}).
+A simplified list of window features includes:
+\begin{itemize}
+  \item a data pointer $d$ (not necessarily literally a pointer, e.g. this could name a register variable)
+  \item per-non-distributed-dimension offsets $O$
+  \item per-non-distributed-dimension interval sizes $Z$
+  \item optionally, per-non-distributed-dimension strides.
+    These may not be defined for \lighttt{Memory} types where this is meaningless, such as register tiles.
+\end{itemize}
+where distributed memory analysis (Section~\ref{sec:DistributedMemory}) was used to exclude distributed dimensions.
+Internally, the dimensions are further split into ``array'' and ``packed'' dimensions,\footnote{See \texttt{exo.core.memory.Memory.packed\_tensor\_shape}} which maybe is an overly-clever feature that should be removed.
+
+These features encode a window expression $d[e^*]$ where
+\begin{itemize}
+  \item $e_i$ is the point expression $O_i$ if $Z_i$ is \lighttt{None}
+  \item $e_i$ is the interval expression $O_i$\texttt{:}$(O_i + Z_i)$ otherwise
+\end{itemize}
+Each window expression and each window statement (Section~\ref{sec:Tma}) causes a new collection of window features to be generated with modified offsets or interval sizes, in the manner of \lighttt{exo.core.LoopIR.chain\_window\_idx}.
+
+If its \lighttt{MemWin} type supports it, an \lighttt{exo.core.instr\_class.InstrWindowArg} object may be
+\begin{itemize}
+  \item \myKeyA{Encoded} into a struct.
+  This is the default action when the object is converted to a string.
+  Also, a modified window may be encoded with the indexing expression \lighttt{args.$x$.[lo:hi, \codecomment{...}]}.
+  Most window structs include the data pointer, but some don't, instead requiring the data pointer to be passed separately.
+  This is defined by the underlying \lighttt{exo.core.c\_window.WindowEncoder} object.
+  The \lighttt{args.$x$.to\_arg\_strs} function handles this distinction gracefully.
+
+  \item \myKeyA{Indexed} to give a C/C++ expression evaluating to a reference or a pointer to an array element, using \lighttt{index} or \lighttt{index\_ptr} respectively.
+  The positional arguments to this function give the coordinates of the referenced array element relative to the base of the window.
+  This can also take keyword arguments, which are passed to the underlying \lighttt{exo.core.c\_window.WindowIndexer} object.
+\end{itemize}
+The \lighttt{lo}, \lighttt{hi}, and \lighttt{index} coordinate values must have type \lighttt{int} or \lighttt{exo.core.cir.CIR\_Wrapper}.
+The latter type is used for almost all window features, and can be created from a string of C++ code with the \lighttt{args.exo\_wrap\_cir} function.
+The resulting object can be used with arithmetic operators (e.g. \texttt{*}) to construct more complex C++ expressions with correct parenthesization.
+
+Most \lighttt{codegen} functions generate PTX code that's wrapped as CUDA C++ inline assembly.
+You are strongly advised to use \lighttt{exo.spork.excut.simple\_ptx\_c\_lines} or \lighttt{exo.spork.excut.InlinePtxGen} to do this (both also available in \lighttt{exo.platforms.cuda}).
+The former wraps PTX assembly with no arguments, and the latter
+\begin{itemize}
+  \item is initialized with a PTX string that includes placeholders of the form \lighttt{\#$n$\#}, $n$ an integer.
+  \item accepts arguments with the \lighttt{add\_arg} method to substitute in place of a placeholder.
+    If multiple args substitute the same placeholder, they are concatenated in order, so typically a single placeholder \lighttt{\#0\#} is all you need.
+  \item gets converted to CUDA C++ lines with the \lighttt{as\_c\_lines} method.
+\end{itemize}
+Contrary to my own recommendation, a lot of old code doesn't use this system.
+Currently \lighttt{exo.spork.cuda\_sync\_state} seems to be the most compliant file.
+
+This may seem like massive overengineering, but it's not.
+You have \emph{no idea} how much suffering you are avoiding since this PTX generator already exists.
+Another reason for this thing is that the PTX generator automatically adds hooks into excut (Executed Exo CUDA Tests), which is a testing system that logs all PTX instructions executed and compares the actual trace with an expected reference trace.
+This is a whole other Pandora's Box which we will \emph{not} get into right now, so I think it's best I finally conclude this document here.
 
 \FloatBarrier
 \newpage
