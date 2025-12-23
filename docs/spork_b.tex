@@ -747,7 +747,7 @@ This information is not required for understanding this section.
 \label{sec:AccessBeforeSync}
 
 \begin{equation*}
-    \texttt{Read|Mutate} \to \texttt{Arrive(}\tau_s^\mathrm{pre}\texttt{)... | Fence(}\tau_s^\mathrm{pre},\texttt{...)}
+    \texttt{Read|Mutate} \to \texttt{Arrive(}\tau_s^\mathrm{pre}\texttt{)\codecomment{...} | Fence(}\tau_s^\mathrm{pre},\codecomment{...}\texttt{)}
 \end{equation*}
 
 A dependency edge forms between a read or mutate followed by an \lighttt{Arrive} or \lighttt{Fence} statement instance, where the initial qualitative timeline $q$ of the read or mutate is a member of $\tau_s^\mathrm{pre}.\mathrm{full}$, and there is a thread in common executing the two.
@@ -764,7 +764,7 @@ This pattern is implemented by storing a new \textsf{VisRecord} (Section~\ref{se
 \label{sec:AccessAfterSync}
 
 \begin{equation*}
-    \texttt{Await(..., $\tau_s^\mathrm{post}$, ...)|Fence(..., $\tau_s^\mathrm{post}$)} \to \texttt{Read|Mutate}
+    \texttt{Await(\codecomment{...}, $\tau_s^\mathrm{post}$, \codecomment{...})|Fence(\codecomment{...}, $\tau_s^\mathrm{post}$)} \to \texttt{Read|Mutate}
 \end{equation*}
 
 A dependency edge forms between an \lighttt{Await} or \lighttt{Fence} statement instance and a subsequent read or mutate when there is a thread in common executing the two, and either of
@@ -797,8 +797,8 @@ this pattern is implemented in sync-check by the augment step (Section~\ref{sec:
 \label{sec:ArriveAwaitPairing}
 
 \begin{gather*}
-    \texttt{Arrive(...) >> $e_a$} \to \texttt{Await(..., $e_w$, $n$)} \\
-    \texttt{Read|Mutate >}\texttt{> } e_t \to \texttt{Await(..., $e_w$, $n$)}
+    \texttt{Arrive(\codecomment{...}) >> $e_a$} \to \texttt{Await(\codecomment{...}, $e_w$, $n$)} \\
+    \texttt{Read|Mutate >}\texttt{> } e_t \to \texttt{Await(\codecomment{...}, $e_w$, $n$)}
 \end{gather*}
 
 In the Exo-GPU abstraction, each barrier array element contains its own arrive count and await count, both initially 0 (Section~\ref{sec:SyncEnv}).
@@ -825,9 +825,9 @@ The to-be-described convergence requirements for multiple barriers (Section~\ref
 
 Scheduling Functions:
 \begin{itemize}
-  \item \texttt{insert\_arrive}
-  \item \texttt{insert\_await}
-  \item \texttt{set\_trailing\_barrier\_expr}
+  \item \texttt{insert\_arrive(\codecomment{...}, $\tau_s^\mathrm{pre}$, $e^*$)}
+  \item \texttt{insert\_await(\codecomment{...}, $e$, $\tau_s^\mathrm{post}$)}
+  \item \texttt{set\_trailing\_barrier\_expr(\codecomment{...}, $e$)}
 \end{itemize}
 
 \subsection{Intended Usage Patterns -- Multiple Memory Accesses}
@@ -850,8 +850,8 @@ This pattern is implemented in sync-check through the timeline signature with $\
 \label{sec:Transitivity}
 
 \begin{equation*}
-    \texttt{Await(..., $\tau_s^\mathrm{post}$, ...)|Fence(..., $\tau_s^\mathrm{post}$)} \to
-    \texttt{Fence($\tau_s^\mathrm{pre}$, ...)|Arrive($\tau_s^\mathrm{pre}$)...}
+    \texttt{Await(\codecomment{...}, $\tau_s^\mathrm{post}$, \codecomment{...})|Fence(\codecomment{...}, $\tau_s^\mathrm{post}$)} \to
+    \texttt{Fence($\tau_s^\mathrm{pre}$, \codecomment{...})|Arrive($\tau_s^\mathrm{pre}$)\codecomment{...}}
 \end{equation*}
 
 A dependency edge forms between an \lighttt{Await} or \lighttt{Fence} statement instance and a subsequent \lighttt{Arrive} or \lighttt{Fence} statement instance when the thread collectives executing the two statement instances have a thread in common, and there exists a qualitative timeline $q$ in the intersection of the first statement instance's $\tau_s^\mathrm{post}$ and the second statement instance's $\tau_s^\mathrm{pre}$ (def~\ref{sec:gSyncTL}).
@@ -865,7 +865,7 @@ With $(\iota, n)$ denoting a thread in common, and with $q$ as described above, 
 
 \texttt{Fence($\tau_s^\mathrm{pre}$, $\tau_s^\mathrm{post}$)}
 
-\texttt{insert\_fence(..., $\tau_s^\mathrm{pre}$, $\tau_s^\mathrm{pre}$)}
+\texttt{insert\_fence(\codecomment{...}, $\tau_s^\mathrm{pre}$, $\tau_s^\mathrm{post}$)}
 
 Besides the special case \lighttt{Fence(wgmma\_fence\_1, wgmma\_fence\_2)}, which must be at \lighttt{cuda\_warpgroup}-scope (def~\ref{sec:gCollUnit}) and must appear before other usages of wgmma registers, all \lighttt{Fence} statements must be of the form \lighttt{Fence($\tau_s^\mathrm{pre}$, $\tau_s^\mathrm{post}$)} with
 \begin{itemize}
@@ -885,7 +885,7 @@ A barrier variable $z$ with cluster sync barrier mechanism may be declared with
 
 \texttt{$z$: barrier @ CudaClusterSync}
 
-\texttt{insert\_barrier\_alloc(..., $z$, None, [], CudaClusterSync)}
+\texttt{insert\_barrier\_alloc(\codecomment{...}, $z$, None, [], CudaClusterSync)}
 
 The valid synchronization timelines (def~\ref{sec:gSyncTL}) for the \lighttt{Arrive} and \lighttt{Await} using the cluster sync barrier mechanism are the same as for garden-variety fences (Section~\ref{sec:FenceUsage}).
 
@@ -910,7 +910,7 @@ A barrier variable $z$ with commit group barrier mechanism may be declared with
 
 \texttt{$z$: barrier[$e^*$] @ CudaCommitGroup}
 
-\texttt{insert\_barrier\_alloc(..., $z$, None, [$e^*$], CudaCommitGroup)}
+\texttt{insert\_barrier\_alloc(\codecomment{...}, $z$, None, [$e^*$], CudaCommitGroup)}
 
 where the array size $e^*$ is subject to distributed memory analysis (Section~\ref{sec:DistributedMemory}).
 In CUDA, the commit group is implicit state local to a thread, warp, or warpgroup; however in Exo-GPU we explicitly shard this barrier state onto the implicit thread state with distributed memory analysis.
@@ -945,11 +945,11 @@ A barrier variable $z_a$ with mbarrier barrier mechanism may be declared with
 
 \texttt{$z_a$: barrier[$e^*$] @ CudaMbarrier}
 
-\texttt{insert\_barrier\_alloc(..., $z_a$, None, [$e^*$], CudaMbarrier)}
+\texttt{insert\_barrier\_alloc(\codecomment{...}, $z_a$, None, [$e^*$], CudaMbarrier)}
 
 \texttt{$z_a$: barrier($z_g$) [$e^*$] @ CudaMbarrier}
 
-\texttt{insert\_barrier\_alloc(..., $z_a$, $z_g$, [$e^*$], CudaMbarrier)}
+\texttt{insert\_barrier\_alloc(\codecomment{...}, $z_a$, $z_g$, [$e^*$], CudaMbarrier)}
 
 where the array size $e^*$ is subject to distributed memory analysis (Section~\ref{sec:DistributedMemory}), and the $z_g$, variable if present, means that $z_a$ is explicitly guarded-by $z_g$ (def~\ref{sec:gGuardedBy}).
 This is used in the barrier guarding requirement (Section~\ref{sec:BarrierGuarding}); in short, \lighttt{Arrive} statements using $z_a$ must be matched with \lighttt{Await} statements using $z_g$.
@@ -985,7 +985,7 @@ For TMA-to-SMEM instructions, use a trailing barrier expression for the instruct
 The \lighttt{Arrive} statement may contain multiple barrier expressions (Section~\ref{sec:gBarrierExpr}), some containing intervals instead of points.
 For example,
 \begin{equation*}
-    \texttt{Arrive(...) >> $z$[m, :] >> $z$[:, n]}
+    \texttt{Arrive(\codecomment{...}) >> $z$[m, :] >> $z$[:, n]}
 \end{equation*}
 There must be a unique \myKeyA{home barrier} (def~\ref{sec:gHomeBarrier}), which is the unique barrier in the intersection of all barrier expressions.
 This is determined from a deduced home barrier expression (in this case, \texttt{z[m, n]}).
@@ -993,7 +993,7 @@ This is determined from a deduced home barrier expression (in this case, \texttt
 In the context of a given \lighttt{Arrive} statement, an iterator (control variable) $y$ is a \myKeyA{multicast iterator} if it appears at some index $j$ of a barrier expression, and another barrier expression has an interval at index $j$.
 For example,
 \begin{equation*}
-    \texttt{Arrive(...) >> $z$[m, n] >> $z$[m, :]}
+    \texttt{Arrive(\codecomment{...}) >> $z$[m, n] >> $z$[m, :]}
 \end{equation*}
 has only \texttt{n} being a multicast iterator.
 
@@ -2464,9 +2464,9 @@ Currently, an \lighttt{Await} statement may take only one barrier expression, an
 Scheduling functions:
 \begin{itemize}
   \item \texttt{insert\_barrier\_alloc}: insert allocation of a barrier variable (def~\ref{sec:gBarrierVariable})
-  \item \texttt{insert\_fence}
-  \item \texttt{insert\_arrive}
-  \item \texttt{insert\_await}
+  \item \texttt{insert\_fence(\codecomment{...}, $\tau_s^\mathrm{pre}$, $\tau_s^\mathrm{post}$)}
+  \item \texttt{insert\_arrive(\codecomment{...}, $\tau_s^\mathrm{pre}$, $e^*$)}
+  \item \texttt{insert\_await(\codecomment{...}, $e$, $\tau_s^\mathrm{post}$)}
 \end{itemize}
 
 \subsection{Synchronization Timeline (SyncTL)}
