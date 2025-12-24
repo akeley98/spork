@@ -951,7 +951,7 @@ A barrier variable $z_a$ with mbarrier barrier mechanism may be declared with
 
 \texttt{insert\_barrier\_alloc(\codecomment{...}, $z_a$, $z_g$, [$e^*$], CudaMbarrier)}
 
-where the array size $e^*$ is subject to distributed memory analysis (Section~\ref{sec:DistributedMemory}), and the $z_g$, variable if present, means that $z_a$ is explicitly guarded-by $z_g$ (def~\ref{sec:gGuardedBy}).
+where the array size $e^*$ is subject to distributed memory analysis (Section~\ref{sec:DistributedMemory}), and the $z_g$ variable, if present, means that $z_a$ is explicitly guarded-by $z_g$ (def~\ref{sec:gGuardedBy}).
 This is used in the barrier guarding requirement (Section~\ref{sec:BarrierGuarding}); in short, \lighttt{Arrive} statements using $z_a$ must be matched with \lighttt{Await} statements using $z_g$.
 
 Each barrier array element is implemented as a \emph{ring buffer} of CUDA mbarrier objects (def~\ref{sec:gMbarrierRingBuffer}), resident in a single CTA.
