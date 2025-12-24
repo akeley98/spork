@@ -397,8 +397,8 @@ The statement's collective tiling may be converted to
 \end{itemize}
 The \myKeyA{domain} and \myKeyA{box} of a collective tiling $\omega$ are that of its output collective type, and for brevity, we denote it as $\omega.D$ and $\omega.B$ respectively.
 
-\subsection{Collective Tiling State}
-\label{sec:CollTilingState}
+\subsection{Collective Dimension Descriptor}
+\label{sec:CollDimDescriptor}
 
 A collective tiling $\omega: \Omega$ (of some dimensionality $M$) is an $M$-tuple of \myKeyA{collective dimension descriptors} $(\omega_0 ... \omega_{M-1})$.
 Each descriptor $\omega_i$ consists of
@@ -413,6 +413,10 @@ where $\mathcal{O}$ is $\mathbb{Y} \times \mathbb{N}^3$, with each attribute den
   \item $\omega_i.\textit{ops}_j.\textit{box}: \mathbb{N}$
   \item $\omega_i.\textit{ops}_j.\textit{tileCount}: \mathbb{N}$
 \end{itemize}
+
+\subsection{Collective Tiling Derived State}
+\label{sec:CollTilingDerivedState}
+
 The \myKeyA{output collective type} of $\omega$ is a collective type $\delta = (\omega.D, \omega.B)$ defined by
 \begin{itemize}
   \item $\omega.D_i = \omega_i.n$
@@ -616,7 +620,7 @@ All collective indexing pairs must lead to the same deduced tuple.
 
 We will soon define what a \myKeyA{required iterator} is separately for data and barriers.
 A \myKeyA{required index expression} is a plain read of a required iterator.
-A \myKeyA{permitted index expression} is a plain read of a required iterator, or of a \lighttt{cuda\_threads} iterator with 0 thread pitch, as defined by $\omega_0$ (Section~\ref{sec:CollTilingState}).
+A \myKeyA{permitted index expression} is a plain read of a required iterator, or of a \lighttt{cuda\_threads} iterator with 0 thread pitch, as defined by $\omega_0$ (Section~\ref{sec:CollTilingDerivedState}).
 
 \mainKey{Data:} A collective index pair $(\omega_0, e^*)$ is first updated with domain completion (def~\ref{sec:gDomainCompletion}) so that the memory type's collective type has the same domain as the collective tiling.
 Let $(\omega, \delta) = \mathsf{domainCompletion}(\omega_0, \delta_0)$.
@@ -629,7 +633,7 @@ An iterator is a \myKeyA{required iterator} if all these conditions apply:
   \item its tiled dimension index is that of a subdivided dimension
   \item its thread pitch is not 0
 \end{itemize}
-with ``tiled dimension index'' and ``thread pitch'' as defined by $\omega$ (Section~\ref{sec:CollTilingState}).
+with ``tiled dimension index'' and ``thread pitch'' as defined by $\omega$ (Section~\ref{sec:CollTilingDerivedState}).
 The number of distributed dimensions $R$ is the lowest possible value $R$ such that $e_0, ..., e_{R-1}$ consists only of permitted index expressions and all required index expressions appear exactly once (fail if this is not possible).
 The thread pitch tuple is $(g(e_0), ..., g(e_{R-1}))$ where $g(e)$ gives the thread pitch (as defined by $\omega$) of the iterator indexed by the permitted index expression $e$.
 
@@ -641,7 +645,7 @@ An iterator is a \myKeyA{required iterator} if all these conditions apply:
   \item does not appear in $\omega_0^\text{alloc}$
   \item its thread pitch is not 0
 \end{itemize}
-with ``thread pitch'' as defined by $\omega$ (Section~\ref{sec:CollTilingState}).
+with ``thread pitch'' as defined by $\omega$ (Section~\ref{sec:CollTilingDerivedState}).
 The number of distributed dimensions $R$ is the number of index expressions $e^*$, which must consist only of permitted index expressions, and all required index expressions must appear exactly once (fail if this is not the case).
 The thread pitch tuple is $(g(e_0), ..., g(e_{R-1}))$ where $g(e)$ gives the thread pitch (as defined by $\omega$) of the iterator indexed by the permitted index expression $e$.
 
@@ -657,7 +661,7 @@ The thread pitch tuple requirement will diagnose many cases of inconsistent shar
 The base threads requirement addresses this issue.
 We will define the \myKeyA{base offset} and \myKeyA{base box} of a collective tiling separately for data and barrier variables.
 
-\mainKey{Barrier:} Given an $M$-dimensional collective tiling $\omega$, the \myKeyA{base offset} is defined by the tuple $(O_0, ..., O_{M-1})$ where $O_i = \sum_{j} \omega_i.\textit{ops}_j.\textit{offset}$ (Section~\ref{sec:CollTilingState}).
+\mainKey{Barrier:} Given an $M$-dimensional collective tiling $\omega$, the \myKeyA{base offset} is defined by the tuple $(O_0, ..., O_{M-1})$ where $O_i = \sum_{j} \omega_i.\textit{ops}_j.\textit{offset}$ (Section~\ref{sec:CollDimDescriptor}).
 The \myKeyA{base box} is $\omega.B$.
 
 \mainKey{Data:} Given a collective tiling $\omega_0$ and the collective type $\delta_0$ unpacked from the native unit (def~\ref{sec:gNativeUnit}), let $(\omega, \delta) = \mathsf{domainCompletion}(\omega_0, \delta_0)$.
@@ -667,7 +671,7 @@ For intact dimensions\footnote{The motivation of this is to fill in intact dimen
 For example, a collective type for a CTA may have domain (4, 384) and box (1, 384), so dimension 0 is subdivided and dimension 1 is intact.
 The defaulting on dimension 1 ensures the base threads requirement allows different thread collectives within the same CTA to access an SMEM shard, while still ensuring incompatibilities on dimension 0 (different CTAs in the cluster) are diagnosed.}
 $i$, $O_i = 0$ and $\textit{BB}_i = \delta.D_i$.
-For other dimensions, $O_i = \sum_{j} \omega_i.\textit{ops}_j.\textit{offset}$ (Section~\ref{sec:CollTilingState}) and $\textit{BB}_i = \omega.B_i$.
+For other dimensions, $O_i = \sum_{j} \omega_i.\textit{ops}_j.\textit{offset}$ (Section~\ref{sec:CollDimDescriptor}) and $\textit{BB}_i = \omega.B_i$.
 
 \mainKey{Base Offset Equivalence:} Compute the linear offset of $\omega$ as $\sum_{i} O_i (\omega.P_i)$, where $O$ denotes the base offset derived from $\omega$, and $\omega.P_i$ denotes the dimension thread pitch (def~\ref{sec:gThreadPitch}).
 Base offset equivalence means that the linear offset computed for two collective tilings are the same.
@@ -1120,7 +1124,7 @@ For each \myKeyA{CUDA scope} statement (def~\ref{sec:gCudaScope}), the thread ma
 \begin{equation*}
     g_{s^\#}(\sigma, \iota) = \{ (\iota, n) \mid n \in \textsf{collMap}(\omega_s, \sigma) \}
 \end{equation*}
-where $\omega_s$ is the collective tiling (Section~\ref{sec:CollTiling}) that collective analysis (def~\ref{sec:gCollAnalysis}) annotated the statement $s$ with, and $\mathsf{collMap}$ is as defined in Section~\ref{sec:CollTilingState}.
+where $\omega_s$ is the collective tiling (Section~\ref{sec:CollTiling}) that collective analysis (def~\ref{sec:gCollAnalysis}) annotated the statement $s$ with, and $\mathsf{collMap}$ is as defined in Section~\ref{sec:CollTilingDerivedState}.
 
 \mainKey{Implementation Note:} This is not at all how camspork works (i.e. we don't actually materialize the thread mapping function).
 For the real implementation, we still encode the loop mode (def~\ref{sec:gLoopMode}) for each loop and store the current thread collective as a thread cuboid (def~\ref{sec:gThreadCuboid}), which is modified by parallel loops.
@@ -1869,6 +1873,12 @@ The PTX variable \lighttt{cluster\_ctarank} is the 0-based index of the CTA in t
 
 Compilation step that assigns collective tilings (Section~\ref{sec:CollTiling}) to each CUDA-scope statement (def~\ref{sec:gCudaScope}) and performs distributed memory analysis (Section~\ref{sec:DistributedMemory}).
 
+\subsection{Collective Dimension Descriptor}
+\label{sec:gCollDimDescriptor}
+
+Stores the collective tiling state (def~\ref{sec:gCollTiling}) for a single dimension.
+See Section~\ref{sec:CollDimDescriptor}.
+
 \subsection{Collective Indexing Pair}
 \label{sec:gCollIndexingPair}
 
@@ -1881,7 +1891,7 @@ Collective indexing pairs are collected from all statements and expressions that
 
 A per-statement attribute of statements at CUDA scope (def~\ref{sec:gCudaScope}).
 We denote a collective tiling with $\omega \in \Omega$.
-This describes via the function $\textsf{collMap}: \Omega \to \Sigma \to \mathcal{P}(\mathbb{N})$ (Section~\ref{sec:CollTilingState}) a mapping between control variable values and the local thread indices (def~\ref{sec:gLocalThreadIndex}) of the thread collective (def~\ref{sec:gThreadCollective}) assigned to execute an instance of the statement (def~\ref{sec:gStmtInstance}).
+This describes via the function $\textsf{collMap}: \Omega \to \Sigma \to \mathcal{P}(\mathbb{N})$ (Section~\ref{sec:CollTilingDerivedState}) a mapping between control variable values and the local thread indices (def~\ref{sec:gLocalThreadIndex}) of the thread collective (def~\ref{sec:gThreadCollective}) assigned to execute an instance of the statement (def~\ref{sec:gStmtInstance}).
 
 \subsection{Collective Type (Scope)}
 \label{sec:gCollType}
@@ -2064,7 +2074,7 @@ $\mathsf{deriveCollTiling}(\omega_\text{raw}, y, \delta_\text{raw}, \texttt{lo},
   \item If multiple tiled dimensions exist, the program is ill-formed (``ambiguous tiling'').
   \item Let $k$ be the index of the unique tiled dimension.
   \item If $(\texttt{hi})(\delta.B_k) > \omega.B_k$, the program is ill-formed (``asked for too many threads'').
-  \item Append to $\omega_k.\textit{ops}$ (Section~\ref{sec:CollTilingState}) a collective dimension operator with
+  \item Append to $\omega_k.\textit{ops}$ (Section~\ref{sec:CollDimDescriptor}) a collective dimension operator with
   \begin{itemize}
     \item $\textit{iter} = y$
     \item $\textit{offset} = (\texttt{lo})(\delta.B_k)$
