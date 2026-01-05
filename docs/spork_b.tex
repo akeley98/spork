@@ -1038,7 +1038,7 @@ This section applies only to barrier mechanisms that list it as a requirement.
 
 Each barrier variable is guarded-by some other barrier variable:
 \begin{itemize}
-    \item Declare a barrier variable $z$ with no other barrier variable being explicitly-guarded-by $z$ (def~\ref{sec:gBarrierVariable}) to have $z$ be guarded by itself.
+    \item Declare a barrier variable $z$ with no explictly-guarded-by variable, and with no other barrier variable being explicitly-guarded-by $z$ (def~\ref{sec:gBarrierVariable}) to have $z$ be guarded by itself.
     \item Declare a barrier variable $z_0$ with no explictly-guarded-by variable, and declare $z_1$ to be explicitly guarded-by $z_0$, and no other barrier variable being explicitly guarded-by $z_1$ to have $z_0$ and $z_1$ guard each other.
     \item See the reference for ``guarded-by'' (def~\ref{sec:gGuardedBy}) for other use cases.
 \end{itemize}
