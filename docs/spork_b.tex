@@ -164,9 +164,9 @@ The output values of an Exo-GPU program are defined by \myKeyA{sequential semant
 \input{spork_b/seq_items.tex}
 \end{itemize}
 Rewrite operations guarantee functional equivalence under sequential semantics.
-The user schedules the procedure by issuing a series of rewrite operations $R_1 ... R_{N-1}$ to create transformed procedures $p_2 ... p_N$.
-Key to checking functional equivalence between the simple initial procedure ($p_1$) and the generated CUDA program is our notion of \myKeyA{sequential-parallel equivalence}.
-The \emph{final} procedure $p_N$, interpreted with sequential semantics, must be functionally equivalent to \emph{itself} interpreted as a parallelized CUDA program.
+The user starts by defining a simple initial procedure $p_1$, then schedules the procedure by issuing a series of rewrite operations $R_1 ... R_{N-1}$ to create transformed procedures $p_2 ... p_N$.
+Key to checking functional equivalence between $p_1$ and the generated CUDA program is our notion of \myKeyA{sequential-parallel equivalence}:
+the \emph{final} procedure $p_N$, interpreted with sequential semantics, must be functionally equivalent to \emph{itself} interpreted as a parallelized CUDA program.
 This equivalence is not implemented by the compiler;
 instead, the user (or scheduling library) should insert synchronization, then run sync-check (Section~\ref{sec:SyncSemantics}) to check that this correctly upholds sequential-parallel equivalence.
 We currently only implement sync-check for given concrete problem sizes.
@@ -185,7 +185,7 @@ Behavior: & $\textsf{seq}\qc{p_1}$ & $\equiv$ & $\textsf{seq}\qc{p_2}$ & ... & $
 This design allows us to continue to use Exo's scheduling libraries unmodified.
 New Exo-GPU rewrite operations that introduce parallelism and asynchrony don't require any checking during scheduling.
 An additional benefit of this design is that Exo-GPU delivers value even if the user prefers to handwrite the full program, rather than use the scheduling rewrites.
-In this case, we still have a guarantee that the final program, interpreted under sequential semantics, will be functionally equivalent to the generated CUDA program (at least for the set of problem sizes given to sync check).
+In this case, we still have a guarantee that the handwritten program, interpreted under sequential semantics, will be functionally equivalent to the generated CUDA program (at least for the set of problem sizes given to sync check).
 
 Key to this checking is that each statement in CUDA scope (def~\ref{sec:gCudaScope}) is annotated with a \myKeyA{collective tiling} (Section~\ref{sec:CollTiling}), which statically encodes which threads within the CUDA cluster (def~\ref{sec:gCluster}) are used for what work (Figure~\ref{fig:OverviewCollTiling}).
 Deducing this is part of the \myKeyA{collective analysis} (def~\ref{sec:gCollAnalysis}) compilation step, which only applies to the final scheduled proc.
