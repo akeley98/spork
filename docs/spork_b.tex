@@ -212,7 +212,7 @@ Note, the \lighttt{cuda\_tasks} loops (def~\ref{sec:gCudaTasksLoop}), which dist
 \end{figure}
 
 In CUDA C++, register allocations are implicitly duplicated per-thread, and SMEM allocations are implicitly duplicated per-CTA.
-This design would not be appropriate for Exo-GPU as it would undermine sequential-parallel equivalence (Figure~\ref{sec:why_dist}).
+This design would not be appropriate for Exo-GPU as it would undermine sequential-parallel equivalence (Figure~\ref{fig:why_dist}).
 In Exo-GPU, the size of each allocated tensor is whatever its \emph{logical} size should be.
 Distributed memory is deduced from the indexing pattern of an array, and attempts to map shards of the array into thread collectives described by the collective type specified by the memory type of the tensor.
 This parameterization allows memory to be sharded at different levels of the CUDA thread hierarchy (e.g. per-CTA shared memory shards, per-thread register shards).
