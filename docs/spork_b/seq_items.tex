@@ -1,0 +1,4 @@
+\item All loops, regardless of loop mode (def~\ref{sec:gLoopMode}), have sequential step semantics (with \textsc{LoopStep}/\textsc{LoopDone} rules).
+\item Synchronization statements (Section~\ref{sec:SyncUsage}) are no-ops.
+\item \lighttt{with CudaDeviceFunction} (Section~\ref{sec:CudaDeviceFunction}) and \lighttt{with CudaWarps} (Section~\ref{sec:CollTilingCudaWarps}) are like \lighttt{if True}.
+\item The sequential semantics of instructions are a function only of its behavior (Section~\ref{sec:InstrBehavior}), not its memory access information (Section~\ref{sec:InstrMemoryAccess}).

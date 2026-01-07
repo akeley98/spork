@@ -18,6 +18,8 @@
 \tikzstyle{CollTypeExampleStyle} = [rectangle, draw=black, text centered, text width=23mm]
 \tikzstyle{CollTilingExampleStyle} = [rectangle, draw=black, text centered, text width=12.5mm]
 
+\newcommand{\qc}[1]{\left\llbracket#1\right\rrbracket}
+
 \begin{document}
 
 % deriveCollTiling
@@ -57,6 +59,7 @@ Abstract machine semantics, how to read sync-check (\lighttt{camspork}) errors.
 Instruction templates, timelines, atomic instructions, TMA, special window (\lighttt{CUtensorMap}).
 
 \myChapterLink{sec:Glossary}{Glossary \& Reference}
+
 
 \section{Overview}
 \label{sec:Overview}
@@ -351,7 +354,10 @@ If we have no $\top$ box coordinates, this is specifying that the thread collect
 
 \node(legend) [rectangle, draw=black, text centered, text width=5cm, above=of t000a, xshift=40mm, yshift=2mm] {(cluster\_ctarank, threadIdx.x)\\local thread index $\in \mu$\\coordinates};
 \end{tikzpicture}
-\caption{Example of a thread collective being described by the collective type $\delta$ with $\delta.B = (1, 2, 1, 128)$ and $\delta.D = (4, 2, 3, 128)$, which is a collective type in aligned form (def~\ref{sec:gAlignedForm}). \lighttt{clusterDim = 8} and \lighttt{blockDim = 384}. $\mu = \{ \mathsf{toLocal}(\delta.D, c) \mid c \in [1, 1]_\mathbb{N} \times [0, 1]_\mathbb{N} \times [2, 2]_\mathbb{N} \times [0, 127]_\mathbb{N}\}$ (def~\ref{sec:gToLocal}). This is one warpgroup per CTA of a CTA pair.}
+\caption{Example of a thread collective being described by the collective type $\delta$ with $\delta.B = (1, 2, 1, 128)$ and $\delta.D = (4, 2, 3, 128)$, which is a collective type in aligned form (def~\ref{sec:gAlignedForm}).
+The domain implies an organization of the threads in the cluster into a 4D $4 \times 2 \times 3 \times 128$ space (which is tough to illustrate).
+\lighttt{clusterDim = 8} and \lighttt{blockDim = 384}. $\mu = \{ \mathsf{toLocal}(\delta.D, c) \mid c \in [1, 1]_\mathbb{N} \times [0, 1]_\mathbb{N} \times [2, 2]_\mathbb{N} \times [0, 127]_\mathbb{N}\}$ (def~\ref{sec:gToLocal}).
+This is one warpgroup per CTA of a CTA pair.}
 \label{fig:CollTypeExample}
 \end{figure}
 
@@ -2416,6 +2422,16 @@ Loop with loop mode \lighttt{Seq} (def~\ref{sec:gLoopMode}).
 Each thread of the thread collective (def~\ref{sec:gThreadCollective}) executes each iteration of the loop sequentially.
 There is no convergence or coherence guaranteed between threads cooperating to execute the loop.
 
+\subsection{Sequential-parallel Equivalence}
+\label{sec:gSeqParEquivalence}
+
+The output of an Exo-GPU procedure is defined by interpreting it with sequential semantics, where
+\begin{itemize}
+\input{spork_b/seq_items.tex}
+\end{itemize}
+The procedure satisfies sequential-parallel equivalence when the CPU/CUDA code generated from it (parallelized as specified by the collective tilings (Section~\ref{sec:CollTiling}) and async instructions (Section~\ref{sec:Instr}) used) is functionally equivalent to the Exo-GPU procedure.
+This is verified by sync-check (def~\ref{sec:gSyncCheck}), which is based on abstract machine semantics (Section~\ref{sec:SyncSemantics}), although we have no proof that these semantics truly capture the requirements of the underlying CUDA platform.
+
 \subsection{Sigma ($\sigma: \Sigma$)}
 \label{sec:gSigma}
 
@@ -2441,6 +2457,13 @@ A \emph{statement} is a syntactic construct, while a \emph{statement instance} i
 \label{sec:gSubdividedDimension}
 
 See ``Distributed Memory'' (Section~\ref{sec:DistributedMemory}).
+
+\subsection{Sync Check}
+\label{sec:gSyncCheck}
+
+Checks that a program does not reach an error condition under abstract machine semantics (Section~\ref{sec:SyncSemantics}).
+This is intended to ensure sequential-parallel equivalence (def~\ref{sec:gSeqParEquivalence}), although we don't prove this at all.
+Use the \lighttt{exo.Procedure.sync\_check} function with the problem size given as keyword arguments, e.g. \lighttt{my\_gemm.sync\_check(M=512, N=256, K=384)}.
 
 \subsection{Sync-Exempt}
 \label{sec:gSyncExempt}
@@ -2529,7 +2552,7 @@ camspork's name for the witness function (Section~\ref{sec:Witness}).
 \subsection{Thread Collective}
 \label{sec:gThreadCollective}
 
-Set of threads assigned to execute one statement instance (def~\ref{sec:gStmtInstance}) or to allocate one shard of a variable (Section~\ref{sec:DistributedMemory}).
+Set of threads within a single CUDA cluster (def~\ref{sec:gCluster}) assigned to execute one statement instance (def~\ref{sec:gStmtInstance}) or to allocate one shard of a variable (Section~\ref{sec:DistributedMemory}).
 On the CUDA device, the threads in the thread collective are uniquely identified by its cluster index (which is not statically analyzed) and its local thread index (def~\ref{sec:gLocalThreadIndex}), which is analyzed by collective analysis (Section~\ref{sec:CollTiling}).
 In the context of the abstract machine, the cluster index is replaced with a task index, since the mapping between tasks and clusters is a hardware-dependent detail we abstract over.
 Specifically, a thread collective in this context is a set of global thread IDs (def~\ref{sec:gGlobalThreadID}).
@@ -2737,5 +2760,144 @@ Somewhat confusingly, we conventionally use $z$ to mean an element of $\mathbb{B
 \label{sec:gMathbbZ}
 
 Set of all integers.
+
+\newpage
+\section{New Overview}
+
+This document assumes knowledge of CPU-only Exo.
+We only describe the GPU extensions.
+
+Exo-GPU aims to provide an imperative programming language that is close-to-the-metal (providing a similar level of control as handwritten CUDA) while providing a higher degree of safety and algorithmic clarity than traditional SIMT-style programming.
+We provide an imperative object language that supports
+\begin{itemize}
+  \item explicit calls to PTX instructions (Section~\ref{sec:Instr}), including the explicitly-asynchronous TMA (Section~\ref{sec:Tma}) and wgmma tensor core instructions
+  \item a library of verified rewrite rules (e.g. loop fissioning, tiling, instruction substitution)
+  \item source-level synchronization checking (Section~\ref{sec:SyncSemantics})
+\end{itemize}
+This allows programmers to generate optimized CUDA kernels by specifying a simple sequential program (e.g. a triple for loop for GEMM), then applying a series of rewrite rules that optimize the dataflow, introduce parallelism, and offload work to accelerators.
+The rewrite and synchronization checks ensure functional equivalence of the original program and the optimized CUDA program.
+
+\subsection{Parallelism Overview}
+
+CUDA C++ follows a SIMT programming model, where each statement instance (def~\ref{sec:gStmtInstance}) is viewed as being executed by a single thread.
+This places responsibility for correct parallelism entirely on the programmer.
+The SIMT viewpoint breaks down somewhat for instructions such as wgmma that require uniform execution within a certain grouping of threads.
+Languages such as Triton and cuTile reduce programmer responsibility by providing a programming model where statement instances are executed by a larger grouping of threads (e.g. a CTA, def~\ref{sec:gCta}).
+The compiler is tasked with mapping this work to device parallelism not exposed by the abstraction.
+
+Exo-GPU follows neither approach.
+Each statement instance is executed by a \myKeyA{thread collective} (def~\ref{sec:gThreadCollective}), which is a set of threads within a single CUDA cluster (def~\ref{sec:gCluster}).
+We do not impose a language-wide fixed size for a thread collective; it could, for example, be a single thread, a warp (def~\ref{sec:gWarp}), a CTA, a cluster, or more complicated user-defined cases.
+
+A \lighttt{for $y$ in cuda\_threads(0, $c_\text{hi}$, unit=$\tau_u$)} loop subdivides the executing thread collective into $c_\text{hi}$-many disjoint thread collectives, each assigned to execute a different ``iteration'' of the parallel-for loop.
+The $\tau_u$ is a \myKeyA{collective unit} (def~\ref{sec:gCollUnit}), from which a \myKeyA{collective type} $\delta$ (Section~\ref{sec:CollType}) is unpacked.
+The collective type describes a number and arrangement of threads (e.g. single thread, warp, CTA, CTA pair).
+In the common case, the thread collectives assigned to each iteration are described by this unpacked $\delta$.
+These loops do \emph{not} imply implicit synchronization or ``fork-join'' semantics.
+In this sense, the Exo-GPU design is more similar in spirit to SIMT programming in that no implicit synchronization is inserted by the compiler.
+
+This design encodes uniform execution as a mostly-syntactic property of the language.
+When the thread collectives that execute instances of a statement are described by a collective type $\delta$, the compiler deduces that the statement is at $\delta$-scope (e.g. warp-scope, CTA-scope, as in the top of Figure~\ref{fig:OverviewThreads}).
+The underlying static analysis for this is based on \myKeyA{local thread indices} (def~\ref{sec:gLocalThreadIndex}), which number the threads within a cluster lexicographically based on CTA index, then thread index.
+The threads within a thread collective need not have a contiguous range of local thread indices (e.g., ``all even numbered CTAs in a cluster'' is a valid thread collective).
+
+All Exo code continues to be CPU code by default (we say that such code is at \myKeyA{CPU-scope}).
+To move code to the GPU, wrap it inside a \lighttt{with CudaDeviceFunction} block (Section~\ref{sec:CudaDeviceFunction}); this defines the \lighttt{clusterDim} (number of CTAs per cluster, def~\ref{sec:gCluster}) and \lighttt{blockDim} (number of threads per CTA, def~\ref{sec:gCta}), and may also define \myKeyA{warp variables} (def~\ref{sec:gWarpVariable}) giving names to subcollections of warps (def~\ref{sec:gWarp}) for the purposes of warp specialization.
+The statements within are at \myKeyA{CUDA scope} and are converted to CUDA C++ code.
+
+The body of the \lighttt{CudaDeviceFunction} block must contain only a single statement: a nest of one or more \lighttt{cuda\_tasks} loops.
+The body of the inner-most \lighttt{cuda\_tasks} loop is a \myKeyA{device task}; one instance of the device task is assigned to one CUDA cluster for execution (see example~\ref{sec:gCudaDeviceFunction}).
+Within the device task, the previously-described \lighttt{cuda\_threads} loops may be used to subdivide work into the threads of the cluster.
+
+\subsection{Instructions Overview}
+
+An instruction in Exo-GPU specifies its behavior/semantics (which is required for instruction-substitution rewrite rules to check for correctness, Section~\ref{sec:InstrBehavior}), a collective unit $\tau_u$ from which a collective type $\delta$ is unpacked (Section~\ref{sec:InstrCollUnit}), and memory access information for each formal parameter (Section~\ref{sec:InstrMemoryAccess}).
+Calls to the instruction must appear at $\delta$-scope (Section~\ref{sec:CollTilingCollTypeMatching}).
+The per-formal-parameter information includes \myKeyA{qualitative timeline} information (def~\ref{sec:gQualTL}; this distinguishes the effects of non-asynchronous instructions and various categories of explicitly asynchronous instructions), atomicity information, implied thread convergence guarantees, and whether the effects are explicitly out-of-order.
+This information is required for synchronization checking (Section~\ref{sec:SyncSemantics}).
+
+\subsection{Synchronization Overview}
+
+Exo-GPU introduces synchronization statements: \lighttt{Fence}, \lighttt{Arrive}, and \lighttt{Await}, as well as the ability to allocate barrier variables, which control pairing between \lighttt{Arrive} and \lighttt{Await} statements.
+Like other Exo statements, threads execute synchronization statements in program order.
+
+We view each memory access (read or write) as being performed by a certain thread collective and \myKeyA{qualitative timeline} (\textsf{QualTL}, def~\ref{sec:gQualTL}).
+We need this latter attribute to be able to reason about async instructions; the qualitative timeline of a memory access varies depending on what instruction performs the access (Section~\ref{sec:Instr}).
+
+A \lighttt{Fence} statement instance synchronizes the threads within the thread collective that executes it, e.g. a \lighttt{Fence} at warp-scope corresponds to a \lighttt{\_\_syncwarp}-like construct, and a \lighttt{Fence} at CTA-scope corresponds to a \lighttt{\_\_syncthreads}-like construct (Figure~\ref{fig:OverviewSyncExample}).
+``Paired'' instances of an \lighttt{Arrive} and an \lighttt{Await} statement implement a split-barrier construct.
+We use this syntax:
+
+\hphantom{spacing}
+\texttt{Fence($\tau_s^\mathrm{pre}, \tau_s^\mathrm{post}$)}
+\hfill
+\texttt{Arrive($\tau_s^\mathrm{pre}$) >}\texttt{> $e$}
+\hfill
+\texttt{Await($e, \tau_s^\mathrm{post}, n$)}
+\hphantom{spacing}
+
+where $\tau_s^\mathrm{pre}$ and $\tau_s^\mathrm{post}$ are \myKeyA{sync timelines} (\textsf{SyncTL}, def~\ref{sec:gSyncTL}), which are compositions of qualitative timelines, and $e$ and $n$ are a barrier expression (def~\ref{sec:gBarrierExpr}) and an integer, which together control pairing of executed \lighttt{Arrive} and \lighttt{Await} instances.
+
+A \lighttt{Fence($\tau_s^\mathrm{pre}, \tau_s^\mathrm{post}$)} statement instance synchronizes prior memory accesses executed by the executing thread collective (filtered by the qualitative timelines in $\tau_s^\text{pre}$, Section~\ref{sec:AccessBeforeSync}) with subsequent memory accesses executed by the executing thread collective (filtered by the qualitative timelines in $\tau_s^\text{post}$, Section~\ref{sec:AccessAfterSync}).
+Paired instances of \lighttt{Arrive} and \lighttt{Await} (Section~\ref{sec:ArriveAwaitPairing}) do the same, for memory accesses prior to the \lighttt{Arrive} and memory accesses subsequent to the \lighttt{Await}.
+
+\subsection{Sequential-Parallel Equivalence Overview}
+
+The output values of an Exo-GPU program are defined by \myKeyA{sequential semantics}, where
+\begin{itemize}
+\input{spork_b/seq_items.tex}
+\end{itemize}
+Rewrite operations guarantee functional equivalence under sequential semantics.
+The user schedules the procedure by issuing a series of rewrite operations $R_1 ... R_{N-1}$ to create transformed procedures $p_2 ... p_N$.
+Key to checking functional equivalence between the simple initial procedure ($p_1$) and the generated CUDA program is our notion of \myKeyA{sequential-parallel equivalence}.
+The \emph{final} procedure $p_N$, interpreted with sequential semantics, must be functionally equivalent to \emph{itself} interpreted as a parallelized CUDA program.
+Checking sequential-parallel equivalence is the purpose of sync check (Section~\ref{sec:SyncSemantics}), which we currently only implement when given a concrete problem size.
+
+The combination of scheduling rewrites and sequential-parallel equivalence transitively ensures functional equivalence of the initial procedure $p_1$ and the generated CUDA program:
+
+\noindent
+\begin{tabular}{l c c c c c c c c}
+Rewrites: & $p_1$ & $\xrightarrow{R_1}$ & $p_2$ & ... & $\xrightarrow{R_{N-1}}$ & $p_N$ & \footnotesize $\text{(sync check)}$ & $p_N$ \\[2pt]
+Behavior: & $\textsf{seq}\qc{p_1}$ & $\equiv$ & $\textsf{seq}\qc{p_2}$ & ... & $\equiv$ & $\textsf{seq}\qc{p_N}$ & $\equiv$ & $\textsf{par}\qc{p_N}$
+\end{tabular}
+
+\hphantom{xyzzy} where $\textsf{seq}\qc{p}$ means ``$p$ interpreted with sequential semantics''\\
+\hphantom{xyzzy} and $\textsf{par}\qc{p}$ means ``$p$ interpreted as parallelized CUDA.
+
+This design allows us to continue to use Exo's scheduling libraries unmodified.
+New Exo-GPU rewrite operations that introduce parallelism and asynchrony don't require any checking during scheduling.
+An additional benefit of this design is that Exo-GPU delivers value even if the user prefers to handwrite the full program, rather than use the scheduling rewrites.
+In this case, we still have a guarantee that the final program, interpreted under sequential semantics, will be functionally equivalent to the generated CUDA program (at least for the set of problem sizes given to sync check).
+
+Key to this checking is that each statement in CUDA scope (def~\ref{sec:gCudaScope}) is annotated with a \myKeyA{collective tiling} (Section~\ref{sec:CollTiling}), which statically encodes which threads within the CUDA cluster (def~\ref{sec:gCluster}) are used for what work.
+Deducing this is part of the \myKeyA{collective analysis} (def~\ref{sec:gCollAnalysis}) compilation step, which only applies to the final scheduled proc.
+
+Note, the \lighttt{cuda\_tasks} loops (def~\ref{sec:gCudaTasksLoop}), which distribute work to clusters, are not subject to the same level of static analysis due to the nondeterminism inherent in Blackwell cluster launch control and to allow for future non-affine work distribution like Morton swizzling.
+
+\subsection{Distributed Memory Overview}
+
+In CUDA C++, register allocations are implicitly duplicated per-thread, and SMEM allocations are implicitly duplicated per-CTA.
+This design would not be appropriate for Exo-GPU as it would undermine sequential-parallel equivalence. % TODO illustrate problem in figure?
+In Exo-GPU, the size of each allocated tensor is whatever its \emph{logical} size should be.
+Distributed memory is deduced from the indexing pattern of an array, and attempts to map shards of the array into thread collectives described by the collective type specified by the memory type of the tensor.
+This parameterization allows memory to be sharded at different levels of the CUDA thread hierarchy (e.g. per-CTA shared memory shards, per-thread register shards).
+
+The sharding pattern is statically encoded primarily based on the \myKeyA{thread pitch} (def~\ref{sec:gThreadPitch}).
+Each \lighttt{cuda\_threads} loop iterator indirectly defines a thread pitch, which is the difference, in local thread indices (def~\ref{sec:gLocalThreadIndex}), between thread collectives assigned to consecutive loop iterations.
+The deduction assigns a thread pitch to each distributed dimension; elements that are adjacent on a dimension are resident in thread collectives whose local thread indices differ by that dimension's thread pitch.
+We define requirements for distributed memory deduction (Section~\ref{sec:DistributedMemory}); in particular, the index used to index a distributed dimension must be a plain read of an iterator with the same thread pitch as that dimension (Figure~\ref{fig:OverviewThreads}, bottom).
+
+The deduction rules leading to the statically-deduced state are incidental to the programming model we're promulgating.
+A reasonable alternative design could have the user make explicit per-dimension annotations for sharding.
+
+% Parallelism (thread collective)
+% Instruction selection
+%   thread collective
+%   qual-tl, atomicity, convergent, out-of-order
+% Barriers
+%   mem access before
+%   Arrive/Await mem access before & mem access after when "paired"
+% Seq/par equivalence
+% Distributed memory
 
 \end{document}
