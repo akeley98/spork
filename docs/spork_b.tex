@@ -187,7 +187,7 @@ New Exo-GPU rewrite operations that introduce parallelism and asynchrony don't r
 An additional benefit of this design is that Exo-GPU delivers value even if the user prefers to handwrite the full program, rather than use the scheduling rewrites.
 In this case, we still have a guarantee that the final program, interpreted under sequential semantics, will be functionally equivalent to the generated CUDA program (at least for the set of problem sizes given to sync check).
 
-Key to this checking is that each statement in CUDA scope (def~\ref{sec:gCudaScope}) is annotated with a \myKeyA{collective tiling} (Section~\ref{sec:CollTiling}), which statically encodes which threads within the CUDA cluster (def~\ref{sec:gCluster}) are used for what work.
+Key to this checking is that each statement in CUDA scope (def~\ref{sec:gCudaScope}) is annotated with a \myKeyA{collective tiling} (Section~\ref{sec:CollTiling}), which statically encodes which threads within the CUDA cluster (def~\ref{sec:gCluster}) are used for what work (Figure~\ref{fig:OverviewCollTiling}).
 Deducing this is part of the \myKeyA{collective analysis} (def~\ref{sec:gCollAnalysis}) compilation step, which only applies to the final scheduled proc.
 
 Note, the \lighttt{cuda\_tasks} loops (def~\ref{sec:gCudaTasksLoop}), which distribute work to clusters, are not subject to the same level of static analysis due to the nondeterminism inherent in Blackwell cluster launch control and to allow for future non-affine work distribution like Morton swizzling.
