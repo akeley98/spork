@@ -39,9 +39,9 @@ def overview_threads_example(num_tasks: size):
 # TeX: end OverviewThreads[0]
 
 # TeX: version OverviewDistributedMemory 1
-# TeX: begin OverviewDistributedMemory[0]
 @proc
 def overview_distributed_memory_example(num_tasks: size):
+    # TeX: begin OverviewDistributedMemory[0]
     with CudaDeviceFunction(clusterDim=1, blockDim=256):
         for task_id in cuda_tasks(0, num_tasks):
             # TeX: color line *
@@ -132,9 +132,9 @@ if False:
 
 
 # TeX: version OverviewSyncExample 1
-# TeX: begin OverviewSyncExample[0]
 @proc
 def overview_sync_example(num_tasks: size):
+    # TeX: begin OverviewSyncExample[0]
     with CudaDeviceFunction(clusterDim=2, blockDim=384):
         for task_id in cuda_tasks(0, num_tasks):
             # Cluster scope.
@@ -157,6 +157,31 @@ def overview_sync_example(num_tasks: size):
                 Await(mbar[cta], cuda_in_order, ~0)
                 # Section $\ref{sec:ArriveAwaitPairing}$ explains n=~0.
                 # TeX: end OverviewSyncExample[0]
+
+
+# TeX: version OverviewCollTiling 1
+@proc
+def overview_collective_tiling_example(num_tasks: size):
+    # TeX: begin OverviewCollTiling[0]
+    with CudaDeviceFunction(clusterDim=2, blockDim=384):  # 2 CTAs per cluster (def $\ref{sec:gCluster}$)
+        for task_id in cuda_tasks(0, num_tasks):
+            # Cluster scope.
+            # 384 threads per CTA (def $\ref{sec:gCta}$). Local thread indices (def $\ref{sec:gLocalThreadIndex}$) of threads in
+            # CTA 0 of the cluster are $[0, 383]_\mathbb{N}$, CTA 1 are $[384, 765]_\mathbb{N}$.
+            for cta in cuda_threads(0, 2, unit=cuda_cta_in_cluster):
+                # CTA scope.
+                # Local thread indices used to execute are given by $[384\sigma(\texttt{cta})$, $384\sigma(\texttt{cta}) + 383]_\mathbb{N}$
+                # where $\sigma(y)$ gives the value of a variable $y$ from the control environment (def $\ref{sec:gControlEnv}$).
+                # TeX: color line *
+                #     ............................
+                Fence(cuda_in_order, cuda_in_order)  # __syncthreads-equivalent, syncs across 384 threads named above.
+                for w in cuda_threads(0, 12, unit=cuda_warp):
+                    # Warp scope. Local thread indices used to execute are given by
+                    # $[384\sigma(\texttt{cta}) + 32\sigma(\texttt{w})$, $384\sigma(\texttt{cta}) + 32\sigma(\texttt{w}) + 31]_\mathbb{N}$
+                    # TeX: color line *
+                    #     ............................
+                    Fence(cuda_in_order, cuda_in_order)  # __syncwarp-equivalent, syncs across 32 threads named above.
+# TeX: end OverviewCollTiling[0]
 
 
 # TeX: version for_CollTiling_figure 1
