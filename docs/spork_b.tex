@@ -1765,7 +1765,7 @@ If its \lighttt{MemWin} type supports it, an \lighttt{exo.core.instr\_class.Inst
 \begin{itemize}
   \item \myKeyA{Encoded} into a struct.
   This is the default action when the object is converted to a string.
-  Also, a modified window may be encoded with the indexing expression \lighttt{args.$x$.[lo:hi, \codecomment{...}]}.
+  Also, a modified window may be encoded with the indexing expression \lighttt{args.$x$[lo:hi, \codecomment{...}]}.
   Most window structs include the data pointer, but some don't, instead requiring the data pointer to be passed separately.
   This is defined by the underlying \lighttt{exo.core.c\_window.WindowEncoder} object.
   The \lighttt{args.$x$.to\_arg\_strs} function handles this distinction gracefully.
