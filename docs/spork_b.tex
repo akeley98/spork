@@ -100,12 +100,12 @@ We do not impose a language-wide fixed size for a thread collective; it could, f
 A \lighttt{for $y$ in cuda\_threads(0, $c_\text{hi}$, unit=$\tau_u$)} loop subdivides the executing thread collective into $c_\text{hi}$-many disjoint thread collectives, each assigned to execute a different ``iteration'' of the parallel-for loop.
 The $\tau_u$ is a \myKeyA{collective unit} (def~\ref{sec:gCollUnit}), from which a \myKeyA{collective type} $\delta$ (Section~\ref{sec:CollType}) is unpacked.
 The collective type describes a number and arrangement of threads (e.g. single thread, warp, CTA, CTA pair).
-In the common case, the thread collectives assigned to each iteration are described by this unpacked $\delta$.
+In the common case, the thread collectives assigned to each iteration are instances of this unpacked $\delta$ (Section~\ref{sec:CollTypeThreadCollective}).
 These loops do \emph{not} imply implicit synchronization or ``fork-join'' semantics.
 In this sense, the Exo-GPU design is more similar in spirit to SIMT programming in that no implicit synchronization is inserted by the compiler.
 
 This design encodes uniform execution as a mostly-syntactic property of the language.
-When the thread collectives that execute instances of a statement are described by a collective type $\delta$, the compiler deduces that the statement is at $\delta$-scope (e.g. warp-scope, CTA-scope, as in Figure~\ref{fig:OverviewThreads}).
+When the thread collectives that execute instances of a statement are instances of a collective type $\delta$, the compiler deduces that the statement is at $\delta$-scope (e.g. warp-scope, CTA-scope, as in Figure~\ref{fig:OverviewThreads}).
 The underlying static analysis for this is based on \myKeyA{local thread indices} (def~\ref{sec:gLocalThreadIndex}), which number the threads within a cluster lexicographically based on CTA index, then thread index.
 The threads within a thread collective need not have a contiguous range of local thread indices (e.g., ``all even numbered CTAs in a cluster'' is a valid thread collective).
 
@@ -214,7 +214,7 @@ Note, the \lighttt{cuda\_tasks} loops (def~\ref{sec:gCudaTasksLoop}), which dist
 In CUDA C++, register allocations are implicitly duplicated per-thread, and SMEM allocations are implicitly duplicated per-CTA.
 This design would not be appropriate for Exo-GPU as it would undermine sequential-parallel equivalence (Figure~\ref{fig:why_dist}).
 In Exo-GPU, the size of each allocated tensor is whatever its \emph{logical} size should be.
-Distributed memory is deduced from the indexing pattern of an array, and attempts to map shards of the array into thread collectives described by the collective type specified by the memory type of the tensor.
+Distributed memory is deduced from the indexing pattern of an array, and attempts to map shards of the array into thread collectives that are instances of the collective type specified by the memory type of the tensor.
 This parameterization allows memory to be sharded at different levels of the CUDA thread hierarchy (e.g. per-CTA shared memory shards, per-thread register shards).
 
 The sharding pattern is statically encoded primarily based on the \myKeyA{thread pitch} (def~\ref{sec:gThreadPitch}).
@@ -277,7 +277,7 @@ Within the device task, a \lighttt{with CudaWarps(name=<str>)} statement may be 
 \section{Collective Units \& Collective Types}
 \label{sec:CollType}
 
-We use collective types $\delta$ to describe a quantity and arrangement of threads within a cluster, such as ``single thread'', ``warp'', ``CTA'', ``one warp from a pair of CTAs''.
+We use collective types $\delta$ to describe a quantity and arrangement of threads within a cluster (def~\ref{sec:gCluster}), such as ``single thread'', ``warp'', ``CTA'', ``one warp from a pair of CTAs''.
 These are unpacked from a collective unit $\tau_u$ defined in the frontend language (def~\ref{sec:gCollUnit}).
 A collective type consists of two equal-length tuples: a domain and a box.
 The dimension $M$ of the collective type is the length of these tuples.
@@ -298,7 +298,7 @@ The product of the domain coordinates $\delta.D_0 \times ... \times \delta.D_{M-
 \subsection{Collective Types \& Thread Collectives}
 \label{sec:CollTypeThreadCollective}
 
-A thread collective is described by a collective type $\delta$ when all threads are in the same cluster, and, with $\mu: \mathcal{P}(\mathbb{N})$ being the set of local thread indices of the threads, there exist sets $C_0 ... C_{M-1}: \mathcal{P}(\mathbb{N})$ such that
+A thread collective (def~\ref{sec:gThreadCollective}) is an instance of a collective type $\delta$ when all threads are in the same cluster, and, with $\mu: \mathcal{P}(\mathbb{N})$ being the set of local thread indices of the threads, there exist sets $C_0 ... C_{M-1}: \mathcal{P}(\mathbb{N})$ such that
 \begin{itemize}
   \item $C_i \subseteq [0, \delta.D_i - 1]$
   \item $\delta.B_i \ne \top \implies \exists x.\; C_i = [x, x + \delta.B_i - 1]_\mathbb{N}$.
@@ -420,7 +420,7 @@ If we have no $\top$ box coordinates, this is specifying that the thread collect
 
 \node(legend) [rectangle, draw=black, text centered, text width=5cm, above=of t000a, xshift=40mm, yshift=2mm] {(cluster\_ctarank, threadIdx.x)\\local thread index $\in \mu$\\coordinates};
 \end{tikzpicture}
-\caption{Example of a thread collective being described by the collective type $\delta$ with $\delta.B = (1, 2, 1, 128)$ and $\delta.D = (4, 2, 3, 128)$, which is a collective type in aligned form (def~\ref{sec:gAlignedForm}).
+\caption{Example of a \violetBox{thread collective} that is an instance of the collective type $\delta$ with $\delta.B = (1, 2, 1, 128)$ and $\delta.D = (4, 2, 3, 128)$, which is a collective type in aligned form (def~\ref{sec:gAlignedForm}).
 The domain implies an organization of the threads in the cluster into a 4D \redBox{4} $\times$ \yellowBox{2} $\times$ \greenBox{3} $\times$ \blueBox{128} space (which is tough to illustrate).
 \lighttt{clusterDim = 8} and \lighttt{blockDim = 384}. $\mu = \{ \mathsf{toLocal}(\delta.D, c) \mid c \in [1, 1]_\mathbb{N} \times [0, 1]_\mathbb{N} \times [2, 2]_\mathbb{N} \times [0, 127]_\mathbb{N}\}$ (def~\ref{sec:gToLocal}).
 This is one warpgroup per CTA of a CTA pair.}
@@ -461,7 +461,7 @@ The collective tiling describes an arrangement of the threads in the cluster int
 The statement's collective tiling may be converted to
 \begin{itemize}
   \item an \myKeyA{output collective type}.
-    The thread collective assigned to execute an instance of this statement will always be described (Section~\ref{sec:CollTypeThreadCollective}) by this collective type.
+    The thread collective assigned to execute an instance of this statement will always be an instance of this collective type (Section~\ref{sec:CollTypeThreadCollective}).
   \item a \myKeyA{thread mapping function} of type $\Sigma \to \mathcal{P}(\mathbb{N})$; this converts the control environment $\sigma:\Sigma$ (i.e. $\sigma: \mathbb{Y} \to \mathbb{Z}$; the per-control-variable values) to the local thread indices (def~\ref{sec:gLocalThreadIndex}) of the thread collective assigned to execute an instance of this statement.
   NB this is using syntax from the PLDI submission.
   \item a per-\lighttt{cuda\_threads} iterator \myKeyA{thread pitch}: $\mathbb{N}$ (def~\ref{sec:gThreadPitch}).
@@ -665,7 +665,7 @@ where we note that
 Both barrier and data allocations in CUDA scope are subject to distributed memory analysis, although the rules are somewhat different for the two.
 For barrier allocations, all dimensions are distributed.
 For data allocations, the memory type specifies a collective unit (the \myKeyA{native unit}, def~\ref{sec:gNativeUnit}) from which a collective type $\delta_0$ is unpacked with alignment and 1-padding (def~\ref{sec:gCollUnit}); this must not be agnostic (def~\ref{sec:gAgnostic}).
-Exo-GPU then deduces a certain number of distributed dimensions (say, $R$) so that each slice $x[c_0,...,c_{R-1},:,...,:]$ is allocated on a different thread collective described by $\delta_0$ (Section~\ref{sec:CollTypeThreadCollective}).
+Exo-GPU then deduces a certain number of distributed dimensions (say, $R$) so that each slice $x[c_0,...,c_{R-1},:,...,:]$ is allocated on a different thread collective, all of which are instances of $\delta_0$ (Section~\ref{sec:CollTypeThreadCollective}).
 The distributed dimensions are always to the left of non-distributed dimensions.
 During codegen, Exo-GPU erases indicies and array extents corresponding to distributed dimensions.
 The codegen functions for memory and instructions only see indices and extents corresponding to non-distributed dimensions.
@@ -759,7 +759,7 @@ The specific pairs that must satisfy this requirement varies depending on the ba
 \subsection{Box Size Requirements}
 \label{sec:DistributedMemoryBoxSize}
 
-These additional requirements for data allocations only ensure the storage for each shard is truly allocated by a thread collective described by $\delta_0$.
+These additional requirements, which apply to data allocations only, ensure the storage for each shard is truly allocated by a thread collective that is an instance of $\delta_0$ (Section~\ref{sec:CollTypeThreadCollective}).
 
 \mainKey{Alloc Box Requirement:} Let $(\omega^\text{alloc}, \delta) = \mathsf{domainCompletion}(\omega_0^\text{alloc}, \delta_0)$.
 The $i^{th}$ dimension is an \myKeyA{intact dimension} if $\delta.B_i = \delta.D_i$.
@@ -1816,7 +1816,7 @@ A collective type $\delta$ is agnostic if any $\delta.B_i$ is $\top$.
 \label{sec:gAlignedForm}
 
 A collective type $\delta$ is in aligned form when all box coordinates $\delta.B_i$ satisfy $\delta.B_i \in \{\top, 1, \delta.D_i\}$.
-If no box coordinate is $\top$, then if $\delta$ describes two thread collectives, those two thread collectives are either identical or disjoint.
+If no box coordinate is $\top$, then if two thread collectives are both instances of $\delta$, those two thread collectives are either identical or disjoint.
 
 % >B
 
@@ -1975,7 +1975,7 @@ A collective type $\delta$ has a certain dimensionality $M$, and consists of
   \item box, $\delta.B: \mathbb{N}_\top^M$ (coordinates are natural numbers or $\top$).
 \end{itemize}
 As well as implied dimension thread pitch values $\delta.P$ (def~\ref{sec:gThreadPitch}).
-A statement is at $\delta$-scope when it is in CUDA scope (def~\ref{sec:gCudaScope}) and the thread collectives assigned to execute instances of that statement are always described by $\delta$ (Section~\ref{sec:CollTypeThreadCollective}).
+A statement is at $\delta$-scope when it is in CUDA scope (def~\ref{sec:gCudaScope}) and the thread collectives assigned to execute instances of that statement are always instances of $\delta$ (Section~\ref{sec:CollTypeThreadCollective}).
 
 
 \subsection{Collective Unit (Scope)}
@@ -2393,7 +2393,7 @@ $[a, b]_\mathbb{N}$ denotes the set of natural numbers $n$ where $a \le n \le b$
 \label{sec:gNativeUnit}
 
 A per-CUDA-memory collective unit (def~\ref{sec:gCollUnit}) attribute given by the classmethod \lighttt{exo.spork.cuda\_memory.CudaBasicDeviceVisible.native\_unit}.
-Distributed memory analysis physically maps each shard of a variable annotated with this \lighttt{Memory} type onto a thread collective (def~\ref{sec:gThreadCollective}) described by the collective type (Section~\ref{sec:CollTypeThreadCollective}) unpacked from this collective unit.
+Distributed memory analysis physically maps each shard of a variable annotated with this \lighttt{Memory} type onto a thread collective (def~\ref{sec:gThreadCollective}) that is an instance of the collective type (Section~\ref{sec:CollTypeThreadCollective}) unpacked from this collective unit.
 
 % >O
 \subsection{Omega ($\omega: \Omega$)}
