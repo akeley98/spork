@@ -36,18 +36,62 @@ def overview_threads_example(num_tasks: size):
                       # TeX: color line *
                       # ....
                         pass  # Each thread does something 100 times.
+# TeX: end OverviewThreads[0]
+
+# TeX: version OverviewDistributedMemory 1
+# TeX: begin OverviewDistributedMemory[0]
 @proc
 def overview_distributed_memory_example(num_tasks: size):
     with CudaDeviceFunction(clusterDim=1, blockDim=256):
         for task_id in cuda_tasks(0, num_tasks):
-            tile: f32[8, 32, 8, 8] @ CudaRmem  # Registers must be sharded per-thread.
+            # TeX: color line *
+            #                b  bb
+            tile: f32[8, 32, 8, 16] @ CudaRmem  # Registers must be sharded per-thread.
             for w in cuda_threads(0, 8, unit=cuda_warp):  # Thread pitch = 32
                 for t in cuda_threads(0, 32, unit=cuda_thread):  # Thread pitch = 1
                     for y in seq(0, 8):
-                        for x in seq(0, 8):
+                        for x in seq(0, 16):
                             # Deduction: tile[w, t, _, _] is stored on thread $32w + 1t$ of CTA.
+                            # TeX: color line *
+                            #                        b          bb
+                            # Each register holds an 8 $\times$ 16 tile.
                             tile[w, t, y, x] = 0
-# TeX: end OverviewThreads[0]
+# TeX: end OverviewDistributedMemory[0]
+
+if False:
+    # TeX: version why_dist 1
+    # TeX: begin why_dist[0]
+    # TeX: remark! *
+    # Hypothetical (broken) alternative: registers implicitly duplicated per-thread.
+    # TeX: color line *
+    #                                                rrrrrrrrrrrrrrrrrrr
+    x: f32 @ CudaRmem  # implicitly one x per thread (not valid Exo-GPU)
+    for tid in cuda_threads(0, 2, unit=cuda_thread):
+        x = a[tid]  # x = a[0] in thread 0; x = a[1] in thread 1
+    for tid in cuda_threads(0, 2, unit=cuda_thread):
+        # TeX: color line *
+        #             ggggggggggg
+        b[tid] = x  # b[0] = a[0]; b[1] = a[1]
+
+    # TeX: remark! *
+    # Same program interpreted sequentially (gives different result).
+    x: f32 @ CudaRmem  # Shared state for both tid-loop iterations
+    for tid in cuda_threads(0, 2, unit=cuda_thread):
+        x = a[tid]  # x = a[1], overwrites x = a[0]
+    for tid in cuda_threads(0, 2, unit=cuda_thread):
+        # TeX: color line *
+        #             rrrrrrrrrrr
+        b[tid] = x  # b[0] = a[1]; b[1] = a[1]
+
+    # TeX: remark! *
+    # Correct Exo-GPU
+    x[2]: f32 @ CudaRmem  # We explicitly model there are 2 x's, distributed into 2 threads
+    for tid in cuda_threads(0, 2, unit=cuda_thread):
+        x[tid] = a[tid]  # x[0] = a[0]; x[1] = a[1]
+    for tid in cuda_threads(0, 2, unit=cuda_thread):
+        b[tid] = x[tid]  # b[0] = a[0]; b[1] = a[1]
+    # TeX: end why_dist[0]
+
 
 # TeX: version CudaDeviceFunction 1
 @proc
@@ -94,7 +138,10 @@ def overview_sync_example(num_tasks: size):
     with CudaDeviceFunction(clusterDim=2, blockDim=384):
         for task_id in cuda_tasks(0, num_tasks):
             # Cluster scope.
-            mbar: barrier[2] @ CudaMbarrier  # mbarrier variable.
+            # TeX: color line *
+            #                                                                                  .
+            # Distributed memory (Section $\ref{sec:DistributedMemory}$): each element of mbar[.] allocated into its own CTA.
+            mbar: barrier[2] @ CudaMbarrier
             for cta in cuda_threads(0, 2, unit=cuda_cta_in_cluster):
                 # CTA scope.
                 # cuda_in_order is a SyncTL,
@@ -103,13 +150,12 @@ def overview_sync_example(num_tasks: size):
                 for w in cuda_threads(0, 12, unit=cuda_warp):
                     # Warp scope.
                     Fence(cuda_in_order, cuda_in_order)  # __syncwarp-equivalent
-                # Distributed memory: each element of mbar[...] allocated into its own CTA.
                 # Example of Arrive/Await using mbarrier mechanism
-                # (because mbar was annotated with @CudaMbarrier).
+                # (because mbar was annotated with @CudaMbarrier, Section $\ref{sec:MbarrierUsage}$).
                 Arrive(cuda_in_order) >> mbar[cta]
                 # ...
                 Await(mbar[cta], cuda_in_order, ~0)
-                # Synchronization chapter explains ~0 (n).
+                # Section $\ref{sec:ArriveAwaitPairing}$ explains n=~0.
                 # TeX: end OverviewSyncExample[0]
 
 
