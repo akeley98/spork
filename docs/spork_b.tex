@@ -2812,17 +2812,17 @@ Within the device task, the previously-described \lighttt{cuda\_threads} loops m
 \subsection{Instructions Overview}
 
 An instruction in Exo-GPU specifies its behavior/semantics (which is required for instruction-substitution rewrite rules to check for correctness, Section~\ref{sec:InstrBehavior}), a collective unit $\tau_u$ from which a collective type $\delta$ is unpacked (Section~\ref{sec:InstrCollUnit}), and memory access information for each formal parameter (Section~\ref{sec:InstrMemoryAccess}).
-Calls to the instruction must appear at $\delta$-scope (Section~\ref{sec:CollTilingCollTypeMatching}).
+Calls to the instruction must appear at $\delta$-scope (Section~\ref{sec:CollTilingCollTypeMatching}), e.g. wgmma instructions must appear at \lighttt{cuda\_warpgroup}-scope (def~\ref{sec:gCollUnit}).
 The per-formal-parameter information includes \myKeyA{qualitative timeline} information (def~\ref{sec:gQualTL}; this distinguishes the effects of non-asynchronous instructions and various categories of explicitly asynchronous instructions), atomicity information, implied thread convergence guarantees, and whether the effects are explicitly out-of-order.
 This information is required for synchronization checking (Section~\ref{sec:SyncSemantics}).
 
 \subsection{Synchronization Overview}
 
-Exo-GPU introduces synchronization statements: \lighttt{Fence}, \lighttt{Arrive}, and \lighttt{Await}, as well as the ability to allocate barrier variables, which control pairing between \lighttt{Arrive} and \lighttt{Await} statements.
+Exo-GPU introduces synchronization statements: \lighttt{Fence}, \lighttt{Arrive}, and \lighttt{Await}, as well as the ability to allocate \lighttt{barrier}-type variables (def~\ref{sec:gBarrierVariable}), which control \lighttt{Arrive} and \lighttt{Await} pairing.
 Like other Exo statements, threads execute synchronization statements in program order.
 
 We view each memory access (read or write) as being performed by a certain thread collective and \myKeyA{qualitative timeline} (\textsf{QualTL}, def~\ref{sec:gQualTL}).
-We need this latter attribute to be able to reason about async instructions; the qualitative timeline of a memory access varies depending on what instruction performs the access (Section~\ref{sec:Instr}).
+We need this latter attribute to be able to reason about async instructions; the qualitative timeline of a memory access varies depending on what instruction performs the access (Section~\ref{sec:InstrMemoryAccess}).
 
 A \lighttt{Fence} statement instance synchronizes the threads within the thread collective that executes it, e.g. a \lighttt{Fence} at warp-scope corresponds to a \lighttt{\_\_syncwarp}-like construct, and a \lighttt{Fence} at CTA-scope corresponds to a \lighttt{\_\_syncthreads}-like construct (Figure~\ref{fig:OverviewSyncExample}).
 ``Paired'' instances of an \lighttt{Arrive} and an \lighttt{Await} statement implement a split-barrier construct.
@@ -2851,7 +2851,9 @@ Rewrite operations guarantee functional equivalence under sequential semantics.
 The user schedules the procedure by issuing a series of rewrite operations $R_1 ... R_{N-1}$ to create transformed procedures $p_2 ... p_N$.
 Key to checking functional equivalence between the simple initial procedure ($p_1$) and the generated CUDA program is our notion of \myKeyA{sequential-parallel equivalence}.
 The \emph{final} procedure $p_N$, interpreted with sequential semantics, must be functionally equivalent to \emph{itself} interpreted as a parallelized CUDA program.
-Checking sequential-parallel equivalence is the purpose of sync check (Section~\ref{sec:SyncSemantics}), which we currently only implement when given a concrete problem size.
+This equivalence is not implemented by the compiler;
+instead, the user (or scheduling library) should insert synchronization, then run sync-check (Section~\ref{sec:SyncSemantics}) to check that this correctly upholds sequential-parallel equivalence.
+We currently only implement sync-check for given concrete problem sizes.
 
 The combination of scheduling rewrites and sequential-parallel equivalence transitively ensures functional equivalence of the initial procedure $p_1$ and the generated CUDA program:
 
@@ -2862,7 +2864,7 @@ Behavior: & $\textsf{seq}\qc{p_1}$ & $\equiv$ & $\textsf{seq}\qc{p_2}$ & ... & $
 \end{tabular}
 
 \hphantom{xyzzy} where $\textsf{seq}\qc{p}$ means ``$p$ interpreted with sequential semantics''\\
-\hphantom{xyzzy} and $\textsf{par}\qc{p}$ means ``$p$ interpreted as parallelized CUDA.
+\hphantom{xyzzy} and $\textsf{par}\qc{p}$ means ``$p$ interpreted as parallelized CUDA''.
 
 This design allows us to continue to use Exo's scheduling libraries unmodified.
 New Exo-GPU rewrite operations that introduce parallelism and asynchrony don't require any checking during scheduling.
