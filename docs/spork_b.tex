@@ -793,7 +793,7 @@ The synchronization timeline (def~\ref{sec:gSyncTL}) contains a \myKeyA{full tim
 For the purposes of reasoning about correct synchronization, each executed read or mutate has additional attributes
 \begin{itemize}
   \item extended qualitative timelines (set of \textsf{QualTL}), Section~\ref{sec:InstrTL}
-  \item the atomic qualitative timeline, whis is non-empty if the access is atomic, Section~\ref{sec:AtomicInstr}
+  \item atomic qualitative timelines (set of \textsf{QualTL}), non-empty for atomic accesses, Section~\ref{sec:AtomicInstr}
   \item convergence flag, Section~\ref{sec:InstrConvergentAccess}.
   \item out-of-order flag, Section~\ref{sec:InstrOOO}.
 \end{itemize}
@@ -801,7 +801,7 @@ If the convergence flag is true, then the thread collective for each read and mu
 Otherwise (i.e. the access is non-convergent), we view each read and mutate as being done by one thread only, repeated for each thread in the thread collective (Section~\ref{sec:VisRecordCreation}).
 This models the uncertainty in there being no way to ascribe responsibility for that access to a particular thread, rather than that the access is literally repeated in the underlying hardware.
 
-In Exo-GPU, the user's job is to insert sufficient synchronization so that \myKeyA{sequential-parallel equivalence} is upheld, that is, for a given input, the value computed by interpreting the Exo-GPU program with sequential Exo value semantics will be the same as that computed by the parallelized CUDA program.
+In Exo-GPU, the user's job is to insert sufficient synchronization so that \myKeyA{sequential-parallel equivalence} is upheld (def~\ref{sec:gSeqParEquivalence}), that is, for a given input, the value computed by interpreting the Exo-GPU program with sequential Exo value semantics will be the same as that computed by the parallelized CUDA program.
 The sync-check step (whose ``abstract machine semantics'' are specified in Section~\ref{sec:SyncSemantics}) validates this.
 
 Although this is not how the abstract machine formally works, it's useful to think of Exo-GPU synchronization in terms of dependency edges in a graph formed from a sequential trace of the Exo-GPU program.
@@ -815,7 +815,7 @@ It must be possible to find a connection using dependency edges between one read
     \item the array element is stored in sync-exempt memory (def~\ref{sec:gSyncExempt})
     \item the accesses are both from the same statement instance (due to non-convergent access)
 \end{itemize}
-While describing the intended usage patterns, we will also jump ahead and specify the rules in Section~\ref{sec:SyncSemantics} that are involved in detecting that pattern for sync-check.
+While describing the intended usage patterns, we will also jump ahead and reference the rules in Section~\ref{sec:SyncSemantics} that are involved in detecting that pattern for sync-check.
 This information is not required for understanding this section.
 
 \subsection{Intended Usage Patterns -- Access Before Synchronization}
@@ -825,15 +825,16 @@ This information is not required for understanding this section.
     \texttt{Read|Mutate} \to \texttt{Arrive(}\tau_s^\mathrm{pre}\texttt{)\codecomment{...} | Fence(}\tau_s^\mathrm{pre},\codecomment{...}\texttt{)}
 \end{equation*}
 
-A dependency edge forms between a read or mutate followed by an \lighttt{Arrive} or \lighttt{Fence} statement instance, where the initial qualitative timeline $q$ of the read or mutate is a member of $\tau_s^\mathrm{pre}.\mathrm{full}$, and there is a thread in common executing the two.
-The synchronization timeline $\tau_s^\mathrm{pre}$ (def~\ref{sec:gSyncTL}) and barrier mechanism to use varies depending on the instruction issuing the read or mutate:
+A dependency edge forms between a read or mutate followed by an \lighttt{Arrive} or \lighttt{Fence} statement instance when the initial qualitative timeline $q$ of the read or mutate is a member of $\tau_s^\mathrm{pre}.\mathrm{full}$, and there is a thread in common executing the two.
+The synchronization timeline $\tau_s^\mathrm{pre}$ (def~\ref{sec:gSyncTL}) and barrier mechanism (def~\ref{sec:gBarrierMechanism}) to use varies depending on the instruction issuing the read or mutate:
 \begin{itemize}
   \item For non-async cuda instructions, use \lighttt{cuda\_in\_order} and a \lighttt{Fence} (Section~\ref{sec:FenceUsage}) or mbarrier (Section~\ref{sec:MbarrierUsage}).
   \item For sm\_80 non-bulk \lighttt{cp.async} instructions (Ampere), use \lighttt{Sm80\_cp\_async} and a commit group (Section~\ref{sec:CommitGroupUsage}) or mbarrier (Section~\ref{sec:MbarrierUsage}).
   \item For TMA instructions copying into SMEM, use mbarriers (Section~\ref{sec:MbarrierUsage}).
   \item For wgmma instructions and TMA instructions copying out of SMEM, use commit groups (Section~\ref{sec:CommitGroupUsage}).
 \end{itemize}
-This pattern is implemented by storing a new \textsf{VisRecord} (Section~\ref{sec:VisRecordCreation}) containing a timeline signature with one of the executing threads, the initial qualitative timeline $q$, and visibility flag $\mathsf{VF_{issue}}$, which the \lighttt{Arrive} or \lighttt{Fence} will witness (Section~\ref{sec:Witness}).
+This pattern is implemented by storing a new \textsf{VisRecord} (Section~\ref{sec:VisRecordCreation}) containing a timeline signature with one of the executing threads, the initial qualitative timeline $q$, and visibility flag $\mathsf{VF_{issue}}$.
+The later \lighttt{Arrive} or \lighttt{Fence} will witness (Section~\ref{sec:Witness}) this timeline signature.
 
 \subsection{Intended Usage Patterns -- Access After Synchronization}
 \label{sec:AccessAfterSync}
@@ -842,7 +843,7 @@ This pattern is implemented by storing a new \textsf{VisRecord} (Section~\ref{se
     \texttt{Await(\codecomment{...}, $\tau_s^\mathrm{post}$, \codecomment{...})|Fence(\codecomment{...}, $\tau_s^\mathrm{post}$)} \to \texttt{Read|Mutate}
 \end{equation*}
 
-A dependency edge forms between an \lighttt{Await} or \lighttt{Fence} statement instance and a subsequent read or mutate when there is a thread in common executing the two, and either of
+A dependency edge forms between an \lighttt{Await} or \lighttt{Fence} statement instance and a subsequent read or mutate when there is a thread in common executing the two, and any of
 \begin{itemize}
   \item The access is a read, or a read-write mutate (Section~\ref{sec:InstrMemoryAccess}), and there is a qualitative timeline $q$ in common between $\tau_s^\mathrm{post}.\mathrm{full}$ and the extended qualitative timelines (Section~\ref{sec:InstrTL}) of the read or mutate.
   \item The access is a write-only mutate (Section~\ref{sec:InstrMemoryAccess}), and there is a qualitative timeline $q$ in common between $\tau_s^\mathrm{post}.\mathrm{temp}$ and the extended qualitative timelines (Section~\ref{sec:InstrTL}) of the mutate.
@@ -913,11 +914,11 @@ Scheduling Functions:
 \end{equation*}
 
 A thread may read/mutate an array element and then read/mutate that element again without intervening synchronization when the first access is not out-of-order and the initial timeline signature of the first access is included in the extended timeline signature set of the second access.
-This pattern is implemented in sync-check through the timeline signature (def~\ref{sec:gTlSig}) with $\mathsf{VF_{full}}$ (def~\ref{sec:gVisFlag}) being added upon interpreting a non-out-of-order read or mutate (Section~\ref{sec:VisRecordCreation}).
+This pattern is implemented in sync-check through a timeline signature (def~\ref{sec:gTlSig}) with $\mathsf{VF_{full}}$ (def~\ref{sec:gVisFlag}) being added upon interpreting a non-out-of-order read or mutate (Section~\ref{sec:VisRecordCreation}).
 
 Two atomic mutates may also access the same array element concurrently as long as their atomic qualitative timeline sets (Section~\ref{sec:InstrTL}) intersect.
-Sequential-parallel equivalence is only possible in this case since Exo atomics don't return the updated value.
-This pattern is implemented in sync-check through the timeline signature with $\mathsf{VF_{atom}}$ that is added upon the first atomic access (Section~\ref{sec:VisRecordCreation}) and used to pass the check in the second atomic access (Section~\ref{sec:ChecksOnMutate}).
+Sequential-parallel equivalence (def~\ref{sec:gSeqParEquivalence}) is only possible in this case since Exo atomics don't return the updated value.
+This pattern is implemented in sync-check through a timeline signature with $\mathsf{VF_{atom}}$ that is added upon the first atomic access (Section~\ref{sec:VisRecordCreation}) and used to pass the check in the second atomic access (Section~\ref{sec:ChecksOnMutate}).
 
 % atomic, non-ooo
 
