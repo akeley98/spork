@@ -667,7 +667,8 @@ For barrier allocations, all dimensions are distributed.
 For data allocations, the memory type specifies a collective unit (the \myKeyA{native unit}, def~\ref{sec:gNativeUnit}) from which a collective type $\delta_0$ is unpacked with alignment and 1-padding (def~\ref{sec:gCollUnit}); this must not be agnostic (def~\ref{sec:gAgnostic}).
 Exo-GPU then deduces a certain number of distributed dimensions (say, $R$) so that each slice $x[c_0,...,c_{R-1},:,...,:]$ is allocated on a different thread collective, all of which are instances of $\delta_0$ (Section~\ref{sec:CollTypeThreadCollective}).
 The distributed dimensions are always to the left of non-distributed dimensions.
-During codegen, Exo-GPU erases indicies and array extents corresponding to distributed dimensions.
+
+During codegen (Section~\ref{sec:InstrCodegen}), Exo-GPU erases indicies and array extents corresponding to distributed dimensions.
 The codegen functions for memory and instructions only see indices and extents corresponding to non-distributed dimensions.
 
 Distributed memory analysis runs independently for each data variable and barrier variable, with the following rules.
@@ -694,7 +695,7 @@ We will soon define what a \myKeyA{required iterator} is separately for data and
 A \myKeyA{required index expression} is a plain read of a required iterator.
 A \myKeyA{permitted index expression} is a plain read of a required iterator, or of a \lighttt{cuda\_threads} iterator with 0 thread pitch, as defined by $\omega_0$ (Section~\ref{sec:CollTilingDerivedState}).
 
-\mainKey{Data:} A collective index pair $(\omega_0, e^*)$ is first updated with domain completion (def~\ref{sec:gDomainCompletion}) so that the memory type's collective type has the same domain as the collective tiling.
+\mainKey{Data:} A collective index pair $(\omega_0, e^*)$ is first updated with domain completion (def~\ref{sec:gDomainCompletion}) so that the memory type's collective type ($\delta_0$) has the same domain as the collective tiling.
 Let $(\omega, \delta) = \mathsf{domainCompletion}(\omega_0, \delta_0)$.
 
 Dimension $i$ is a \myKeyA{subdivided dimension} if $\delta.B_i = 1$.
@@ -702,11 +703,10 @@ An iterator is a \myKeyA{required iterator} if all these conditions apply:
 \begin{itemize}
   \item appears in $\omega$
   \item does not appear in $\omega_0^\text{alloc}$
-  \item its tiled dimension index is that of a subdivided dimension
-  \item its thread pitch is not 0
+  \item its tiled dimension index is that of a subdivided dimension (as defined by $\omega$, Section~\ref{sec:CollTilingDerivedState})
+  \item its thread pitch is not 0 (as defined by $\omega$, Section~\ref{sec:CollTilingDerivedState})
 \end{itemize}
-with ``tiled dimension index'' and ``thread pitch'' as defined by $\omega$ (Section~\ref{sec:CollTilingDerivedState}).
-The number of distributed dimensions $R$ is the lowest possible value $R$ such that $e_0, ..., e_{R-1}$ consists only of permitted index expressions and all required index expressions appear exactly once (fail if this is not possible).
+The number of distributed dimensions $R$ is the lowest possible value $R$ such that $e_0, ..., e_{R-1}$ consists only of permitted index expressions, and all required index expressions appear exactly once (fail if this is not possible).
 The thread pitch tuple is $(g(e_0), ..., g(e_{R-1}))$ where $g(e)$ gives the thread pitch (as defined by $\omega$) of the iterator indexed by the permitted index expression $e$.
 
 \mainKey{Barrier:} A collective index pair $(\omega_0, e^*)$ is processed without domain completion.
@@ -715,9 +715,8 @@ An iterator is a \myKeyA{required iterator} if all these conditions apply:
 \begin{itemize}
   \item appears in $\omega$
   \item does not appear in $\omega_0^\text{alloc}$
-  \item its thread pitch is not 0
+  \item its thread pitch is not 0 (as defined by $\omega$, Section~\ref{sec:CollTilingDerivedState})
 \end{itemize}
-with ``thread pitch'' as defined by $\omega$ (Section~\ref{sec:CollTilingDerivedState}).
 The number of distributed dimensions $R$ is the number of index expressions $e^*$, which must consist only of permitted index expressions, and all required index expressions must appear exactly once (fail if this is not the case).
 The thread pitch tuple is $(g(e_0), ..., g(e_{R-1}))$ where $g(e)$ gives the thread pitch (as defined by $\omega$) of the iterator indexed by the permitted index expression $e$.
 
