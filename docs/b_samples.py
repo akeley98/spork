@@ -307,11 +307,11 @@ if False:
   # divided by ncta_M because ncta=ncta_M below.
   smem_box_B = (1, smem_N // ncta_M, 1, smem_K)
   smem_K = 32
-  # Defined inside @proc (i.e. this is parsed Exo code) at CPU scope
+  # Defined inside @proc (i.e. this is parsed Exo code) at CPU scope (def $\ref{sec:gCpuScope}$)
   # TeX: color line *
   #                                         yyy
   B_tensorMap = B[:,:,:,:] @ Sm90_tensorMap(128, *smem_box_B)
-  # Defined inside @proc at CUDA scope
+  # Defined inside @proc at CUDA scope (def $\ref{sec:gCudaScope}$)
   # TeX: color line *
   #            gggggg  vvvvvv        rrrrrr  bbbbbb                      yyy
   B_smem : f32[ncta_M, ncta_N, RING, smem_N, smem_K] @ Sm90_SmemSwizzled(128)
@@ -320,7 +320,7 @@ if False:
   war : barrier(raw)[ncta_M, ncta_N] @ CudaMbarrier
   # TeX: color line *
   #                   ..........
-  with CudaWarps(name="producer"):  # Not shown: referenced warp variable (Section $\ref{sec:gWarpVariable}$) is 1 warp
+  with CudaWarps(name="producer"):  # Not shown: referenced warp variable (def $\ref{sec:gWarpVariable}$) is 1 warp
     for cta_m in cuda_threads(0, ncta_M, unit=ncta_N * cuda_cta_in_cluster):
       for cta_n in cuda_threads(0, ncta_N, unit=cuda_cta_in_cluster):
         Await(war[cta_m,cta_n], cuda_temporal, ~(RING-1))

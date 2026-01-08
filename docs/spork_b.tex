@@ -1156,18 +1156,18 @@ The program is synchronized correctly if no error condition is reached.
 In the current implementation (with camspork), this can only be done for a given concrete problem size specified by \lighttt{exo.Procedure.sync\_check}.
 
 Both existing Exo value semantics and new abstract machine semantics are defined sequentially.
-The primary difference is that in the value semantics, a data array element holds a numerical value, while in abstract machine semantics, each data array element encodes the history of reads and mutates performed to it, with each access encoded as a \myKeyA{visibility record} (Section~\ref{sec:VisRecordState}).
+The primary difference is that in the value semantics, a data array element holds a numerical value, while in abstract machine semantics, each data array element encodes a threading-aware history of reads and mutates performed to it, with each access encoded as a \myKeyA{visibility record} (Section~\ref{sec:VisRecordState}).
 Specifically, the state of an interpreted abstract machine program consists of
 \begin{itemize}
-  \item A synchronization environment $\rho$ (rho), Section~\ref{sec:SyncEnv}.
+  \item A synchronization environment $\rho$ (rho), Section~\ref{sec:SyncEnv}
   \item A current task ID $\iota: \mathbb{I}$ (iota), Section~\ref{sec:SyncSemanticsThreadMapping}
-  \item A control environment $\sigma: \Sigma$ (sigma), with $\Sigma \Coloneqq \mathbb{Y} \to \mathbb{Z}$ (def~\ref{sec:gControlEnv}).
+  \item A control environment $\sigma: \Sigma$ (sigma), with $\Sigma \Coloneqq \mathbb{Y} \to \mathbb{Z}$ (def~\ref{sec:gControlEnv})
 \end{itemize}
 
 When a \myKeyA{non-sync-exempt} (def~\ref{sec:gSyncExempt}) array element is read or mutated, a new visibility record (\textsf{VisRecord}) gets added to the synchronization environment for that element (Section~\ref{sec:VisRecordCreation}).
 Each interpreted \lighttt{Fence} (Section~\ref{sec:FenceSemantics}), \lighttt{Arrive} (Section~\ref{sec:ArriveSemantics}), and \lighttt{Await} statement (Section~\ref{sec:AwaitSemantics}) conditionally modifies all visibility records in the \emph{entire environment}, via lifting (Section~\ref{sec:Lifting}) and augment (Section~\ref{sec:Augment}).
 \lighttt{Arrive} and \lighttt{Await} statements may also modify the arrive and await count.
-Finally, the abstract machine specified correctness checks for each read to (Section~\ref{sec:ChecksOnRead}), mutate of (Section~\ref{sec:ChecksOnMutate}), or free of (Section~\ref{sec:ChecksOnFree}) an array element; these checks are a function of the synchronization environment state for said array element.
+Finally, the abstract machine specifies correctness checks for each read to (Section~\ref{sec:ChecksOnRead}), mutate of (Section~\ref{sec:ChecksOnMutate}), or free of (Section~\ref{sec:ChecksOnFree}) an array element; these checks are a function of the synchronization environment state for said array element.
 
 For this informal documentation, we will skip the translation step and summarize the effects of relevant Exo-GPU statements upon the above state directly.
 
@@ -1536,7 +1536,7 @@ Each non-template (def~\ref{sec:gInstrTemplateParameter}), non-control-value (de
 The corresponding actual parameter passed must reference a variable that is annotated with a \lighttt{MemWin} type that is a subclass of the formal parameter's \lighttt{MemWin} type.
 This is only checked at the time the fully-scheduled Exo-GPU proc is lowered, not throughout the scheduling process.
 
-For the purposes of adding \lighttt{VisRecord} instances in the abstract machine (Section~\ref{sec:VisRecordCreation}), when a call to an instruction is interpreted, for each non-template, non-control-value parameter, we take one action from the following list for each array element that is in-bounds of the scalar, tensor, or window expression of the actual parameter.
+For the purposes of adding \textsf{VisRecord} instances in the abstract machine (Section~\ref{sec:VisRecordCreation}), when a call to an instruction is interpreted, for each non-template, non-control-value parameter, we take one action from the following list for each array element that is in-bounds of the scalar, tensor, or window expression of the actual parameter.
 If the access is through a window (including a special window, Section~\ref{sec:Tma}), the array elements accessed are those from the underlying tensor.
 Note that the contents of the \lighttt{behavior} function (Section~\ref{sec:InstrBehavior}) have no impact on the set of array elements read or mutated for the purposes of the abstract machine.
 \begin{itemize}
@@ -1579,7 +1579,7 @@ Ampere tensor cores and TMA instructions (Section~\ref{sec:Tma}) use collective 
 The initial qualitative timeline and the extended qualitative timelines are a function of the \lighttt{Memory} type of the accessed array elements and the instruction timeline (\textsf{InstrTL}) of the instruction performing the reads or mutates.
 This is based on the \lighttt{exo.memory.AllocableMemWin.qual\_tl\_dict} attribute, which is effectively a function of type
 \begin{equation*}
-    \texttt{AllocableMemWin} \to \mathsf{InstrTL} \to \mathsf{QualTL} \times \mathcal{P}(\mathsf{QualTL})\codecomment{~~(initial qual-tl, extended qual-tl set)}
+    \texttt{Type[AllocableMemWin]} \to \mathsf{InstrTL} \to \mathsf{QualTL} \times \mathcal{P}(\mathsf{QualTL})\codecomment{~~(initial qual-tl, extended qual-tl set)}
 \end{equation*}
 Furthermore, the instruction timeline controls
 \begin{itemize}
@@ -1642,7 +1642,7 @@ During distributed memory analysis for a given variable $x$ or $z$, a window exp
   \item Define $\omega_U$ from $\omega_0$ by induction, using \textsf{deriveCollTiling} (def~\ref{sec:gDeriveCollTiling}) in the same manner as for a \lighttt{cuda\_threads} loop (Section~\ref{sec:CollTilingCudaThreads}).
   \begin{align*}
     & \omega_{i+1} = \mathsf{deriveCollTiling}(\omega_i, y_i, \delta_i, 0, c_i, c_i) \\
-    & \text{where } \delta_i \text{ is unpacked from } \tau_u^i \text{(Section~\ref{sec:gCollUnit})}
+    & \text{where } \delta_i \text{ is unpacked from } \tau_u^i \text{ with alignment and 1-padding (def~\ref{sec:gCollUnit})}
   \end{align*}
   \item The collective indexing pair is $(\omega_U, (e'_0, ... ,e'_{E-1}))$ where $e'$ is defined by
   \begin{align*}
@@ -1683,7 +1683,7 @@ The multicast versions of TMA instructions involve \lighttt{ncta}-many CTAs, wit
 They cooperate to copy a tile from GMEM into each involved CTA's SMEM, as if by the pseudocode in Figure~\ref{fig:multicast_pseudocode}.
 
 If an instruction variant without swizzling is used, then \lighttt{swizzle} must be 0.
-Otherwise, \lighttt{swizzle} must be one of 32, 64, or 128, and the product of the copied element size (in bytes) and the highest-index \lighttt{size$*$} template parameter must equal \lighttt{swizzle}.
+Otherwise, \lighttt{swizzle} must be one of 32, 64, or 128; and the product of the copied element size (in bytes) and the highest-index \lighttt{size$*$} template parameter must equal \lighttt{swizzle}.
 
 TMA instructions use one warp per involved CTA as their collective unit (Section~\ref{sec:InstrCollUnit})%
 \footnote{TMA is specified as a per-thread instruction in PTX, but the implementation of TMA in Exo-GPU expands this to a warp instruction, with \lighttt{elect\_one\_sync} used within the instruction implementation.
@@ -1699,7 +1699,7 @@ where ``$1^*$'' means ``any number of 1s'' and \lighttt{ncta=1} for non-multicas
 Second, the window expression $x_w[e^*]$ passed as the actual GMEM parameter must satisfy
 \begin{itemize}
   \item $e^*$ and \lighttt{smem\_box} are the same length
-  \item $e_i = 1$ if $e_i$ is a point expression
+  \item $\lighttt{smem\_box[}i\lighttt{]} = 1$ if $e_i$ is a point expression
 \end{itemize}
 
 See Figure~\ref{fig:multicast_tma_excerpt} for example correct usage of a TMA instruction.
