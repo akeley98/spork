@@ -1,7 +1,7 @@
 #include "cutlass_gemm.h"
 
 #ifndef CUTLASS_ENABLED
-#define CUTLASS_ENABLED 0
+#define CUTLASS_ENABLED 1
 #endif
 
 #include <cassert>
