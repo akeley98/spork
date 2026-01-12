@@ -219,7 +219,7 @@ This parameterization allows memory to be sharded at different levels of the CUD
 
 The sharding pattern is statically encoded primarily based on the \myKeyA{thread pitch} (def~\ref{sec:gThreadPitch}).
 Each \lighttt{cuda\_threads} loop iterator indirectly defines a thread pitch, which is the difference, in local thread indices (def~\ref{sec:gLocalThreadIndex}), between thread collectives assigned to consecutive loop iterations.
-The deduction assigns a thread pitch to each distributed dimension; elements that are adjacent on a dimension are resident in thread collectives whose local thread indices differ by that dimension's thread pitch.
+The deduction assigns a thread pitch to each distributed dimension (def~\ref{sec:gDistributedDimension}); elements that are adjacent on a dimension are resident in thread collectives whose local thread indices differ by that dimension's thread pitch.
 We define requirements for distributed memory deduction (Section~\ref{sec:DistributedMemory}); in particular, the index used to index a distributed dimension must be a plain read of an iterator with the same thread pitch as that dimension (Figure~\ref{fig:OverviewDistributedMemory}).
 
 The deduction rules leading to the statically-deduced state are incidental to the programming model we're promulgating.
@@ -662,10 +662,13 @@ where we note that
 \section{Distributed Memory}
 \label{sec:DistributedMemory}
 
-Both barrier and data allocations in CUDA scope are subject to distributed memory analysis, although the rules are somewhat different for the two.
+Both barrier and data allocations in CUDA scope are subject to distributed memory analysis, which deduces a certain number of distributed dimensions (def~\ref{sec:gDistributedDimension}), and properties of those dimensions.
+All other allocations have 0 distributed dimensions.
+
+The rules are somewhat different for the two cases.
 For barrier allocations, all dimensions are distributed.
 For data allocations, the memory type specifies a collective unit (the \myKeyA{native unit}, def~\ref{sec:gNativeUnit}) from which a collective type $\delta_0$ is unpacked with alignment and 1-padding (def~\ref{sec:gCollUnit}); this must not be agnostic (def~\ref{sec:gAgnostic}).
-Exo-GPU then deduces a certain number of distributed dimensions (say, $R$) so that each slice $x[c_0,...,c_{R-1},:,...,:]$ is allocated on a different thread collective, all of which are instances of $\delta_0$ (Section~\ref{sec:CollTypeThreadCollective}).
+Exo-GPU then deduces a certain number of distributed dimensions (say, $R$) so that each shard (def~\ref{sec:gShard}) $x[c_0,...,c_{R-1},:,...,:]$ is allocated on a different thread collective, all of which are instances of $\delta_0$ (Section~\ref{sec:CollTypeThreadCollective}).
 The distributed dimensions are always to the left of non-distributed dimensions.
 
 During codegen (Section~\ref{sec:InstrCodegen}), Exo-GPU erases indicies and array extents corresponding to distributed dimensions.
@@ -1818,6 +1821,12 @@ A collective type $\delta$ is agnostic if any $\delta.B_i$ is $\top$.
 A collective type $\delta$ is in aligned form when all box coordinates $\delta.B_i$ satisfy $\delta.B_i \in \{\top, 1, \delta.D_i\}$.
 If no box coordinate is $\top$, then if two thread collectives are both instances of $\delta$, those two thread collectives are either identical or disjoint.
 
+\subsection{Atomicity}
+\label{sec:gAtomicity}
+
+Per-parameter property of an instruction (Section~\ref{sec:AtomicInstr}).
+This alters abstract machine semantics for mutates (Section~\ref{sec:VisRecordState}, Section~\ref{sec:ChecksOnMutate}).
+
 % >B
 
 \subsection{$\mathbb{B}$ (mathbb-B)}
@@ -2161,6 +2170,29 @@ $\mathsf{deriveCollTiling}(\omega_\text{raw}, y, \delta_\text{raw}, \texttt{lo},
 
 The body of the inner-most \lighttt{cuda\_tasks} loop is a device task (see~\ref{sec:gCudaDeviceFunction}).
 
+\subsection{Distributed Collective Units}
+\label{sec:gDistributedCollUnits}
+
+Per-instruction parameter list of $N$-many collective units (def~\ref{sec:gCollUnit}).
+This specifies that the first $N$ dimensions of the parameter are distributed dimensions (def~\ref{sec:gDistributedDimension}), while the others are not.
+The interpretation of this is specified in Section~\ref{sec:InstrDistributedMemory}.
+
+\subsection{Distributed Dimension}
+\label{sec:gDistributedDimension}
+
+A dimension of an allocated tensor is \emph{distributed} when adjacent elements on that dimension are physically allocated onto different thread collectives (def~\ref{sec:gThreadCollective}).
+Each distributed dimension has a thread pitch (def~\ref{sec:gThreadPitch}) describing the ``stride'' in local thread indices (def~\ref{sec:gLocalThreadIndex}) between adjacent elements along that dimension.
+
+Specifically, let $x$ name a tensor with $R$-many are distributed dimensions, and let $\mu_0$ be the local thread indices of the thread collective that allocates $x[0, ..., 0]$.
+Let $T_n$ be the thread pitch of the $n^{th}$ dimension.
+The local thread indices of the thread collective that allocates $x[i_0, i_1, ...]$ are
+\begin{equation*}
+    \left \{ \texttt{tid} + \sum_{n=0}^{R} i_n T_n \mid \texttt{tid} \in \mu_0 \right \}
+\end{equation*}
+Note that the indices for non-distributed dimensions have no effect in this equation.
+
+The distributed dimensions are deduced by distributed memory analysis (Section~\ref{sec:DistributedMemory}).
+
 \subsection{Domain}
 \label{sec:gDomain}
 
@@ -2400,7 +2432,7 @@ $[a, b]_\mathbb{N}$ denotes the set of natural numbers $n$ where $a \le n \le b$
 \label{sec:gNativeUnit}
 
 A per-CUDA-memory collective unit (def~\ref{sec:gCollUnit}) attribute given by the classmethod \lighttt{exo.spork.cuda\_memory.CudaBasicDeviceVisible.native\_unit}.
-Distributed memory analysis physically maps each shard of a variable annotated with this \lighttt{Memory} type onto a thread collective (def~\ref{sec:gThreadCollective}) that is an instance of the collective type (Section~\ref{sec:CollTypeThreadCollective}) unpacked from this collective unit.
+Distributed memory analysis physically maps each shard (def~\ref{sec:gShard}) of a variable annotated with this \lighttt{Memory} type onto a thread collective (def~\ref{sec:gThreadCollective}) that is an instance of the collective type (Section~\ref{sec:CollTypeThreadCollective}) unpacked from this collective unit.
 
 % >O
 \subsection{Omega ($\omega: \Omega$)}
@@ -2510,6 +2542,12 @@ This is verified by sync-check (def~\ref{sec:gSyncCheck}), which is based on abs
 
 $\Sigma$ denotes the set of all control environments (def~\ref{sec:gControlEnv}) and $\sigma$ is an element of that set.
 Note, historically sometimes $\Sigma_c$ or $\sigma_c$ are used.
+
+\subsection{Shard}
+\label{sec:gShard}
+
+Suppose there are $R$-many distributed dimensions (def~\ref{sec:gDistributedDimension}) for a certain tensor $x$ (or barrier $z$, skipped for brevity).
+A set of array elements of $x$ are co-located in the same shard if their index tuples all match in the first $R$ dimensions.
 
 \subsection{Spork}
 \label{sec:gSpork}
@@ -2625,7 +2663,7 @@ camspork's name for the witness function (Section~\ref{sec:Witness}).
 \subsection{Thread Collective}
 \label{sec:gThreadCollective}
 
-Set of threads within a single CUDA cluster (def~\ref{sec:gCluster}) assigned to execute one statement instance (def~\ref{sec:gStmtInstance}) or to allocate one shard of a variable (Section~\ref{sec:DistributedMemory}).
+Set of threads within a single CUDA cluster (def~\ref{sec:gCluster}) assigned to execute one statement instance (def~\ref{sec:gStmtInstance}) or to allocate one shard (def~\ref{sec:gShard}) of a variable (Section~\ref{sec:DistributedMemory}).
 On the CUDA device, the threads in the thread collective are uniquely identified by its cluster index (which is not statically analyzed) and its local thread index (def~\ref{sec:gLocalThreadIndex}), which is analyzed by collective analysis (Section~\ref{sec:CollTiling}).
 In the context of the abstract machine, the cluster index is replaced with a task index, since the mapping between tasks and clusters is a hardware-dependent detail we abstract over.
 Specifically, a thread collective in this context is a set of global thread IDs (def~\ref{sec:gGlobalThreadID}).
