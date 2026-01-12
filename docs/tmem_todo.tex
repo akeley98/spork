@@ -1,0 +1,83 @@
+% xelatex tmem_todo.tex </dev/null
+\input{whitepaper_common.tex}
+
+\begin{document}
+
+The primary home for the new TMEM and tcgen05 instructions is \lighttt{exo.platforms.Sm100}, although many changes will have to be made to compiler internals as well.
+
+\section{TMEM Allocator}
+
+\subsection{New Memory Types}
+
+Add new classes for TMEM in \lighttt{exo.platforms.Sm100}.
+These need to inherit from\\
+\lighttt{exo.spork.cuda\_memory.CudaBasicDeviceVisible}; read the requirements there.
+You probably want to add some base class for all the TMEM to derive from (similar to\\ \lighttt{exo.spork.cuda\_memory.CudaBasicSmem}).
+
+Since each 32 lanes of TMEM is private to a warp, I imagine we'll model TMEM as being distributed by warps, with an array dimension of size 4 corresponding to the distributed dimension.
+So the \lighttt{native\_unit} for this is probably \lighttt{cuda\_warp} (or \lighttt{2 * cuda\_warp\_in\_cluster} for CTA-pair versions of the Exo TMEM class).
+
+Set \lighttt{qual\_tl\_dict = cuda\_tmem\_qual\_tl\_dict}.
+
+\subsection{Compiler Changes}
+
+If TMEM is allocated once when the CTA/cluster is started and used across tasks, then the compiler will have to be responsible for allocating and deallocating TMEM (with the \lighttt{MemWin.alloc} and \lighttt{MemWin.free} functions of the TMEM class returning empty strings).
+The code for this could live with the existing SMEM allocator in \lighttt{exo.spork.cuda\_device\_setup\_builder}.
+
+There's currently an \lighttt{exo\_deviceSetup} C++ function generated but no corresponding shutdown function.
+So you will have to modify \lighttt{exo.spork.cuda\_backend} to hack this in.
+
+\section{Synchronization}
+
+Need to implement the special barriers \lighttt{tcgen05.wait::ld} and \lighttt{tcgen05.wait::st}, and the mbarrier completion mechanism used for all other things \lighttt{tcgen05}.
+
+I'm not sure yet what's going on with \lighttt{tcgen05.fence}.
+
+\subsection{Load/Store}
+
+Modify \lighttt{exo.spork.cuda.cuda\_sync\_state.add\_garden\_variety\_or\_cluster\_sync}\\
+to add cases for \lighttt{L1=tcgen05\_st} and \lighttt{L1=tcgen05\_ld}.
+This is similar to the existing special-casing for inserting \lighttt{cp.async.wait\_all}.
+You should have \lighttt{Fence(tcgen05\_st, cuda\_in\_order)} and \lighttt{Fence(tcgen05\_ld, cuda\_in\_order)} working.
+
+\subsection{Mbarriers}
+
+The code for mbarriers is a huge mess.
+There's stub code for you to implement in the \lighttt{generate\_arrive} local function in
+\lighttt{exo.spork.cuda.cuda\_sync\_state.add\_mbarrier}.\\
+The idea is to have \lighttt{Arrive(tcgen05\_commit) >> $z$} and \lighttt{Await($z$, cuda\_in\_order, $n$)} working, with $z$ \lighttt{@ CudaMbarrier}.
+
+\section{Instructions}
+
+Read the instructions section of \lighttt{spork\_b.pdf} and/or look at
+\begin{itemize}
+  \item \lighttt{exo.core.instr\_info}
+  \item \lighttt{exo.core.instr\_class}
+\end{itemize}
+and define your \lighttt{tcgen05} instructions as instruction templates (classes).
+
+Some notes,
+\begin{itemize}
+  \item Although the underlying \lighttt{tcgen05.mma} instructions are issued by a single thread, it may make sense to
+  expand \lighttt{coll\_unit} to a larger one, e.g. \lighttt{cuda\_warpgroup}, that better describes the logical execution pattern.
+    Do the ``select one thread'' in the instruction implementation.
+    TMA in Exo already does this (expanding a single thread to \lighttt{cuda\_warp}).
+    This would allow the per-warp distributed memory logic to still work.
+    Alternatively, maybe what I said about striping TMEM allocations by 4, distributed by \lighttt{cuda\_warp}, isn't a good idea.
+  \item \lighttt{instr\_tl} should be one of the \lighttt{tcgen05\_*\_instr} values already defined.
+\end{itemize}
+
+The start of this project involves a bunch of inter-connected work, none of which will function well in isolation (not to mention the distributed memory stuff, which I've never been able to explain well), so I'm expecting the start of the project to go a bit slow (``high activation energy'').
+But things should go much more smoothly after this.
+
+\section{Cluster Launch Control}
+
+Lower priority issue compared to the previous items.
+Ultimately this task boils down to changing the C++ \lighttt{exo\_TaskGenerator} struct that's generated in \lighttt{exo.spork.cuda\_backend}.
+Once this code gets complicated enough, it'll probably make sense to move this to a separate file (we still have to maintain pre-Blackwell code paths as well so things will get polynomially verbose).
+
+As I understand it, one warp is nominated to handle cluster launch control, with the results broadcast by SMEM to other warps.
+We can add a flag in \lighttt{exo.spork.cuda\_warp\_config.CudaWarpConfig} to specify the selected warp.
+Currently I am not sure how to handle the synchronization issue.
+
+\end{document}
