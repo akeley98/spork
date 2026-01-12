@@ -28,10 +28,11 @@
 
 \hyphenation{WebGL}
 
-%\definecolor{webColor}{RGB}{0, 124, 204}
+% Latex stupidity: need to escape # as \# in URL.
 \definecolor{webColor}{RGB}{0, 108, 174}
 \newcommand{\web}[1]{{\color{webColor} \small \url{#1}}}
 \newcommand{\webText}[2]{{\color{webColor} \href{#2}{#1}}}
+
 \newcommand{\email}[2]{{\small \color{webColor} \textsf{\href{mailto:#1@#2}{#1[at]#2}}}}
 \definecolor{titleColor}{RGB}{0, 0, 0}
 \newcommand{\myTitle}[1]{{ \vspace{2mm} \large \color{titleColor} \hspace{-12mm} \textbf{\textsf{#1}} \vspace{2mm}}}

@@ -39,6 +39,9 @@ docs/guide/
 docs/intro/
 docs/exo_intro.pdf
 docs/tmem_todo.pdf
+docs/f16_gemm
+docs/f16_gemm_samples
+docs/f16_gemm_todo.pdf
 gemm/gemm
 attn
 libattn.so

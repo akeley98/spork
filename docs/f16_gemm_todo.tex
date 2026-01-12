@@ -1,0 +1,124 @@
+% exocc f16_gemm_samples.py && python3 code_to_tex.py f16_gemm_samples.py f16_gemm && xelatex f16_gemm_todo.tex </dev/null
+\input{whitepaper_common.tex}
+
+\begin{document}
+\raggedright
+
+For the f16 gemm testbed, you need to clone the following:
+
+\texttt{git@github.com:akeley98/sporkbench.git} \codecomment{\# or pull latest main}
+
+\texttt{git@github.com:NVIDIA/cutlass.git}
+
+Check out the Exo repo and pull and branch off the \lighttt{akeley98/camspork} branch.
+
+Currently I have a really crappy float16 gemm implemented in sporkbench at \lighttt{examples/f16\_experiment/exocc\_Sm80\_naive\_gemm.py}.\\
+Benchmark it against cublas and cutlass on Ubuchan:
+
+\input{f16_gemm/run_sporkbench.0.tex}
+
+Your task is to implement the \lighttt{cp.async}, \lighttt{ldmatrix}, and \lighttt{mma} (Ampere tensor core) instructions, upgrade the simple gemm using these new instructions, and finally write a new gemm with split barriers that performs similarly to the cutlass gemm.
+
+\section{Cutlass Reference Code}
+
+Sporkbench saved the intermediate PTX files in the bin directory.
+Grep is your best friend for cutting this file down to the useful parts:
+
+\input{f16_gemm/grep.0.tex}
+
+\section{Packed Registers}
+
+As I mentioned, the tensor cores expect 2 f16 values packed inside each 32-bit register.
+The new \lighttt{exo.cuda.CudaRmemPacked32} memory type models this in Exo.
+For your use case, you need to allocate tensors with \lighttt{f16[..., 2]} type, with the last ``2'' modeling the two scalars packed per register.
+
+\section{cp.async}
+
+This should be the easiest instruction to implement.
+Adapt \lighttt{exo.platforms.Sm80.Sm80\_cp\_async\_f32} to be for \lighttt{f16} instead.
+You should recycle the \lighttt{cp\_async\_impl} base class already defined.
+
+This provides a simple example of how instruction templates (classes) are defined in Exo-GPU.
+This instruction uses \lighttt{instr\_tl = Sm80\_cp\_async\_instr}.
+All your other instructions (for Ampere) will use \lighttt{instr\_tl = cuda\_in\_order\_instr}.
+
+You can test it by substituting it in-place of the code in the naïve gemm that fills the shared memory \lighttt{s\_A} and \lighttt{s\_B}.
+Update the first fence to \lighttt{Fence(Sm80\_cp\_async, cuda\_in\_order)}.
+Don't change the second fence (I changed the synchronization rules on you).
+
+\section{ldmatrix}
+
+\web{docs.nvidia.com/cuda/parallel-thread-execution/\#warp-level-matrix-instructions-ldmatrix}
+
+The linked documentation for ldmatrix is real shitty.
+It implicitly assumes that matrices are row major (even though the MMA and wgmma instrs that consume this data \emph{require} column major in many cases).
+Also it just uses the term ``a matrix'' without a clear definition.
+For clarity, I'll use my own terms:
+\begin{itemize}
+  \item L-row: this is 16 aligned bytes of data.
+    If the source matrix is row-major, this is 8 float16 values from a row.
+    Otherwise, this is 8 float16 values from a column.
+    Note, currently Exo has no way to reason about alignment requirements, so you'll have to take it on faith that the SMEM source pointer is 16-byte aligned.
+  \item L-matrix: this is 8 L-rows.
+    If the 8 L-rows are loaded from 8 consecutive rows/columns in memory (for row/column major respectively), then an L-matrix stores an $8 \times 8$ tile of float16 values.
+\end{itemize}
+Each L-row is stored in 1 register each of 4 adjacent threads.
+Each L-matrix is stored in 1 register each of the 32 threads (lanes) in a warp, with lanes $4n, 4n+1, 4n+2, 4n+3$ in the warp holding the $n^{th}$ L-row (0-indexed).
+
+In the \lighttt{codegen} of the function, you have to use \lighttt{InlinePtxGen} to wrap the \lighttt{ldmatrix.sync.aligned.x4.m8n8.shared.b16} instruction.
+This loads 4 L-matrices, each stored with its own register ID.
+The input register of threads $8n, 8n + 1, ..., 8n + 7$ stores the 8 L-row pointers of the $n^{th}$ L-matrix.
+Look at the Cutlass PTX listing from before to see correct usage.
+
+The behavior (I think???) of the instruction is
+
+\input{f16_gemm/ldmatrix_behavior.0.tex}
+
+Note that the dimensions of the \lighttt{rmem} parameter were re-ordered so the distributed dimensions are to the left (Exo-GPU requires this).
+You will need to set the \lighttt{exo.core.instr\_info.AccessInfo.distributed\_coll\_units} and \lighttt{exo.core.instr\_info.InstrInfo.coll\_unit} attributes to configure this distributed memory.
+
+For now we'll implement GEMM using the MMA instruction's native \lighttt{row.col} mode (row-major A, column-major B).
+The Exo params for the gemm are \lighttt{A[M, K], B[N, K]}.
+So you can use \lighttt{ldmatrix} without the transpose (\lighttt{.trans}).
+For the B matrix, when \lighttt{ldmatrix} loads an L-row, it's really a column of 16 bytes (8 float16 values).
+
+\section{MMA}
+
+\web{docs.nvidia.com/cuda/parallel-thread-execution/\#warp-level-matrix-fragment-mma-16816-float}
+
+Like ldmatrix, you will have to again write a warp-convergent instruction.
+This time you will wrap \lighttt{mma.sync.aligned.m16n8k16.row.col.f16.f16.f16.f16}.
+The float16 usage requires \lighttt{f16x2}-typed PTX registers; note the following when writing \lighttt{codegen} for the instruction:
+\begin{itemize}
+  \item When generating the PTX, use \lighttt{constraint="r"}.
+  \item Pass \lighttt{ptx\_data=True} when calling \lighttt{args.$x$.index()}.
+    This generates a C++ array indexing expression that conveys the int that packed the 2 floats together.
+    See \lighttt{exo.platforms.cuda.cuda\_packed\_load\_base} to see what I mean.
+  \item You may want to read the instruction codegen section of \lighttt{spork\_b.pdf}.
+\end{itemize}
+In the linked PTX documentation, you will see that the input A/B (multiplicand) consists of L-matrices.
+On the other hand, if you scroll down to the output C (accumulator) fragment format, you'll see that it's completely different.
+Once you substitute the mma instruction into the gemm, to write out the accumulator (C), you will have to use a mixture of \lighttt{seq} and \lighttt{cuda\_threads} loops to unpack the registers and store to GMEM.
+For Ampere there's no \lighttt{stmatrix} instruction, just do it yourself.
+
+\section{Split Barriers}
+
+Once you get the custom instructions working, you can move on to optimizing the algorithm itself.
+To match the Cutlass GEMM, you will have to use commit group synchronization.
+The state of this commit group is per-thread, i.e., each thread can only use this to wait for its own \lighttt{cp.async} instructions.
+So in Exo-GPU, this will be modelled as distributed memory:
+
+\input{f16_gemm/commit_group.0.tex}
+
+Typically you will follow with a \lighttt{Fence(cuda\_in\_order, cuda\_in\_order)} at CTA-scope (``syncthreads'').
+See \lighttt{exo.tests.cuda.test\_cuda\_sync.mkproc\_cp\_async\_commit\_group} for more example code.
+
+The pseudocode for the cutlass algorithm seems to be
+
+\input{f16_gemm/cutlass_pseudocode.0.tex}
+
+It's up to you to further analyze the cutlass algorithm and fill in the details (in fact I could be mistaken in this outline).
+Another thing needed to match cutlass is to write the C register outputs to SMEM first (``epilogue''), then copy the SMEM to GMEM using vectorized store instructions (\lighttt{st.global.v4.u32}).
+I'm not so sure how important this really is; I leave it up to you whether you want to work on this.
+
+\end{document}
