@@ -14,7 +14,7 @@ These need to inherit from\\
 \lighttt{exo.spork.cuda\_memory.CudaBasicDeviceVisible}; read the requirements there.
 You probably want to add some base class for all the TMEM to derive from (similar to\\ \lighttt{exo.spork.cuda\_memory.CudaBasicSmem}).
 
-Since each 32 lanes of TMEM is private to a warp, I imagine we'll model TMEM as being distributed by warps, with an array dimension of size 4 corresponding to the distributed dimension.
+Since each 32 lanes of TMEM is private to a warp, one possibility is to model TMEM as being distributed by warps, with an array dimension of size 4 corresponding to the distributed dimension.
 So the \lighttt{native\_unit} for this is probably \lighttt{cuda\_warp} (or \lighttt{2 * cuda\_warp\_in\_cluster} for CTA-pair versions of the Exo TMEM class).
 
 Set \lighttt{qual\_tl\_dict = cuda\_tmem\_qual\_tl\_dict}.
@@ -63,7 +63,9 @@ Some notes,
     Do the ``select one thread'' in the instruction implementation.
     TMA in Exo already does this (expanding a single thread to \lighttt{cuda\_warp}).
     This would allow the per-warp distributed memory logic to still work.
+  \item
     Alternatively, maybe what I said about striping TMEM allocations by 4, distributed by \lighttt{cuda\_warp}, isn't a good idea.
+    There could be other ways to model this restriction, such as requiring \lighttt{cuda\_warpgroup} for \lighttt{tcgen05.ld} and \lighttt{tcgen05.st} instructions, which are implemented as 4 separate warps reading only from its accessible lanes of TMEM.
   \item \lighttt{instr\_tl} should be one of the \lighttt{tcgen05\_*\_instr} values already defined.
 \end{itemize}
 
