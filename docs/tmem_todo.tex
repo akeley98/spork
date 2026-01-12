@@ -14,9 +14,10 @@ Add new classes for TMEM in \lighttt{exo.platforms.Sm100}.
 These need to inherit from
 \lighttt{exo.spork.cuda\_memory.CudaBasicDeviceVisible}; read the requirements there.
 You probably want to add some base class for all the TMEM to derive from (similar to \lighttt{exo.spork.cuda\_memory.CudaBasicSmem}).
+We will probably need different types for single-CTA and CTA-pair TMEM (it's fine to focus on just single-CTA for now).
 
 Since each 32 lanes of TMEM is private to a warp, one possibility is to model TMEM as being distributed by warps, with an array dimension of size 4 corresponding to the distributed dimension.
-So the \lighttt{native\_unit} for this is probably \lighttt{cuda\_warp} (or \lighttt{2 * cuda\_warp\_in\_cluster} for CTA-pair versions of the Exo TMEM class).
+% Spoiler: CollUnit((clusterDim, blockDim/128, 4, 32), (cta\_count, blockDim/128, 1, 32), ...)
 
 Set \lighttt{qual\_tl\_dict = cuda\_tmem\_qual\_tl\_dict}.
 
