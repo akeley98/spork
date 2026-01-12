@@ -34,6 +34,7 @@ So you will have to modify \lighttt{exo.spork.cuda\_backend} to hack this in.
 Need to implement the special barriers \lighttt{tcgen05.wait::ld} and \lighttt{tcgen05.wait::st}, and the mbarrier completion mechanism used for all other things \lighttt{tcgen05}.
 
 I'm not sure yet what's going on with \lighttt{tcgen05.fence}.
+I'm hoping you can help me understand this better, so I can think in the background how to modify the abstract machine to model this correctly (unless you would prefer to take this task on yourself).
 
 \subsection{Load/Store}
 
@@ -83,5 +84,6 @@ Once this code gets complicated enough, it'll probably make sense to move this t
 As I understand it, one warp is nominated to handle cluster launch control, with the results broadcast by SMEM to other warps.
 We can add a flag in \lighttt{exo.spork.cuda\_warp\_config.CudaWarpConfig} to specify the selected warp.
 Currently I am not sure how to handle the synchronization issue.
+The cluster index given by cluster launch control is ultimately translated to the iterator values for \lighttt{cuda\_tasks} loops, which currently are completely outside the scope of abstract machine checking (we only model races on data variables, not control).
 
 \end{document}
