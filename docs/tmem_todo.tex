@@ -2,6 +2,7 @@
 \input{whitepaper_common.tex}
 
 \begin{document}
+\raggedright
 
 The primary home for the new TMEM and tcgen05 instructions is \lighttt{exo.platforms.Sm100}, although many changes will have to be made to compiler internals as well.
 
@@ -10,9 +11,9 @@ The primary home for the new TMEM and tcgen05 instructions is \lighttt{exo.platf
 \subsection{New Memory Types}
 
 Add new classes for TMEM in \lighttt{exo.platforms.Sm100}.
-These need to inherit from\\
+These need to inherit from
 \lighttt{exo.spork.cuda\_memory.CudaBasicDeviceVisible}; read the requirements there.
-You probably want to add some base class for all the TMEM to derive from (similar to\\ \lighttt{exo.spork.cuda\_memory.CudaBasicSmem}).
+You probably want to add some base class for all the TMEM to derive from (similar to \lighttt{exo.spork.cuda\_memory.CudaBasicSmem}).
 
 Since each 32 lanes of TMEM is private to a warp, one possibility is to model TMEM as being distributed by warps, with an array dimension of size 4 corresponding to the distributed dimension.
 So the \lighttt{native\_unit} for this is probably \lighttt{cuda\_warp} (or \lighttt{2 * cuda\_warp\_in\_cluster} for CTA-pair versions of the Exo TMEM class).
@@ -35,7 +36,7 @@ I'm not sure yet what's going on with \lighttt{tcgen05.fence}.
 
 \subsection{Load/Store}
 
-Modify \lighttt{exo.spork.cuda.cuda\_sync\_state.add\_garden\_variety\_or\_cluster\_sync}\\
+Modify \lighttt{exo.spork.cuda.cuda\_sync\_state.add\_garden\_variety\_or\_cluster\_sync}
 to add cases for \lighttt{L1=tcgen05\_st} and \lighttt{L1=tcgen05\_ld}.
 This is similar to the existing special-casing for inserting \lighttt{cp.async.wait\_all}.
 You should have \lighttt{Fence(tcgen05\_st, cuda\_in\_order)} and \lighttt{Fence(tcgen05\_ld, cuda\_in\_order)} working.
@@ -44,7 +45,7 @@ You should have \lighttt{Fence(tcgen05\_st, cuda\_in\_order)} and \lighttt{Fence
 
 The code for mbarriers is a huge mess.
 There's stub code for you to implement in the \lighttt{generate\_arrive} local function in
-\lighttt{exo.spork.cuda.cuda\_sync\_state.add\_mbarrier}.\\
+\lighttt{exo.spork.cuda.cuda\_sync\_state.add\_mbarrier}.
 The idea is to have \lighttt{Arrive(tcgen05\_commit) >> $z$} and \lighttt{Await($z$, cuda\_in\_order, $n$)} working, with $z$ \lighttt{@ CudaMbarrier}.
 
 \section{Instructions}
