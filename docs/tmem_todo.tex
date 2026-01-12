@@ -22,6 +22,10 @@ Since each 32 lanes of TMEM is private to a warp, one possibility is to model TM
 
 Set \lighttt{qual\_tl\_dict = cuda\_tmem\_qual\_tl\_dict}.
 
+Since the TMEM pointers are not like the C pointers that Exo has built-in support for, you will have to wrap your memory types with \lighttt{@window\_indexer} to customize the compilation of TMEM pointer expressions (32-bit integers AFAIK).
+I recommend not using the old \lighttt{MemWin.window} callback.
+You can look at \lighttt{exo.spork.cuda\_memory.CudaRmemPacked32} or \lighttt{exo.platforms.Sm90.Sm90\_SmemSwizzled} for example code.
+
 \subsection{Compiler Changes}
 
 If TMEM is allocated once when the CTA/cluster is started and used across tasks, then the compiler will have to be responsible for allocating and deallocating TMEM (with the \lighttt{MemWin.alloc} and \lighttt{MemWin.free} functions of the TMEM class returning empty strings).
