@@ -29,7 +29,7 @@ examples/f16_experiment/bin/sporkbench/sporkbench_cutlass_Sm80_f16_f16.ptx  > gr
 # Note important nvcc flags to generate your own PTX
 # See examples/f16_experiment/bin/sporkbench/build.ninja
 --keep --keep-dir [dir]  # Put assembly files in [dir]
---lineinfo  # Useful debug info [file_id] [row] [col], see .file at the bottom for [file_id]
+-lineinfo  # Useful debug info [file_id] [row] [col], see .file at the bottom for [file_id]
 -arch compute_80  # Enable Ampere features (cutlass will silently not use Tensor Cores w/o this)
 # TeX: end grep[0]
 """
