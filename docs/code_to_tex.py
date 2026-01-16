@@ -1,7 +1,7 @@
 import sys
 import os
 import math
-from typing import Optional, List
+from typing import Optional, List, Tuple
 from dataclasses import dataclass
 
 color_dict = {
@@ -50,6 +50,12 @@ class TexLine:
             if not c.isspace():
                 return i
         return float("inf")
+
+    def gen_plain(self, dedent):
+        if self.raw_text_is_latex:
+            return ""
+        else:
+            return self.raw_text[dedent:]
 
     def gen_tex(self, dedent):
         if self.raw_text_is_latex:
@@ -316,7 +322,7 @@ def file_to_lines_directives(f):
 
     return result
 
-def lines_directives_to_tex(lines_directives, name, version_number):
+def lines_directives_to_tex_and_plain(lines_directives, name, version_number) -> Tuple[str, str]:
     tex_lines = []
     refcnt = 0
     source_color_letters = ""
@@ -380,8 +386,7 @@ def lines_directives_to_tex(lines_directives, name, version_number):
             snippets.append("\n")
         else:
             snippets.append("\\\\\n")
-    return "".join(snippets)
-    return "\n".join(line.gen_tex(dedent) for line in tex_lines)
+    return "".join(snippets), "\n".join(line.gen_plain(dedent) for line in tex_lines)
 
 def main(argv):
     if len(argv) != 3:
@@ -404,11 +409,15 @@ def main(argv):
     # Generate all versions
     for name, version_count in version_count_dict.items():
         for version_number in range(0, version_count):
-            tex = lines_directives_to_tex(parsed_lines, name, version_number)
+            tex, plain = lines_directives_to_tex_and_plain(parsed_lines, name, version_number)
             filename = f"{output_dir_name}/{name}.{version_number}.tex"
             print(f"Generating {filename}...")
             with open(filename, "w") as f:
                 f.write(tex)
+            filename = f"{output_dir_name}/{name}.{version_number}.txt"
+            print(f"Generating {filename}...")
+            with open(filename, "w") as f:
+                f.write(plain)
 
 
 if __name__ == "__main__":
