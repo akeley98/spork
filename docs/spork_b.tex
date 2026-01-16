@@ -78,6 +78,7 @@ This allows programmers to generate optimized CUDA kernels by specifying a simpl
 The rewrite and synchronization checks ensure functional equivalence of the original program and the optimized CUDA program.
 
 \subsection{Parallelism Overview}
+\label{sec:ParallelismOverview}
 
 \begin{figure}[b!]
 \codehrule
@@ -118,6 +119,7 @@ The body of the inner-most \lighttt{cuda\_tasks} loop is a \myKeyA{device task};
 Within the device task, the previously-described \lighttt{cuda\_threads} loops may be used to subdivide work into the threads of the cluster.
 
 \subsection{Instructions Overview}
+\label{sec:InstrOverview}
 
 An instruction in Exo-GPU specifies its behavior/semantics (which is required for instruction-substitution rewrite rules to check for correctness, Section~\ref{sec:InstrBehavior}), a collective unit $\tau_u$ from which a collective type $\delta$ is unpacked (Section~\ref{sec:InstrCollUnit}), and memory access information for each formal parameter (Section~\ref{sec:InstrMemoryAccess}).
 Calls to the instruction must appear at $\delta$-scope (Section~\ref{sec:CollTilingCollTypeMatching}), e.g. wgmma instructions must appear at \lighttt{cuda\_warpgroup}-scope (def~\ref{sec:gCollUnit}).
@@ -125,6 +127,7 @@ The per-formal-parameter information includes \myKeyA{qualitative timeline} info
 This information is required for synchronization checking (Section~\ref{sec:SyncSemantics}).
 
 \subsection{Synchronization Overview}
+\label{sec:SyncOverview}
 
 \begin{figure}[b!]
 \codehrule
@@ -158,6 +161,7 @@ A \lighttt{Fence($\tau_s^\mathrm{pre}, \tau_s^\mathrm{post}$)} statement instanc
 Paired instances of \lighttt{Arrive} and \lighttt{Await} (Section~\ref{sec:ArriveAwaitPairing}) do the same, for memory accesses prior to the \lighttt{Arrive} and memory accesses subsequent to the \lighttt{Await}.
 
 \subsection{Sequential-Parallel Equivalence Overview}
+\label{sec:SeqParEquivalenceOverview}
 
 The output values of an Exo-GPU program are defined by \myKeyA{sequential semantics}, where
 \begin{itemize}
@@ -202,6 +206,7 @@ Note, the \lighttt{cuda\_tasks} loops (def~\ref{sec:gCudaTasksLoop}), which dist
 
 
 \subsection{Distributed Memory Overview}
+\label{sec:DistributedMemoryOverview}
 
 \begin{figure}[b!]
 \codehrule
@@ -1806,6 +1811,7 @@ This is a whole other Pandora's Box which we will \emph{not} get into right now,
 % >A
 
 \subsection{$\mathcal{A}$ (Augment Function)}
+\label{sec:gAugment}
 
 Abstract machine helper function defined in Section~\ref{sec:Augment}.
 Used to modify the set of visibility records (Section~\ref{sec:VisRecordState}) modified by an interpreted \lighttt{Fence} statement (Section~\ref{sec:FenceSemantics}) or \lighttt{Await} statement (Section~\ref{sec:AwaitSemantics}).
@@ -2848,6 +2854,7 @@ A thread must execute this before any usage of registers in \lighttt{wgmma} inst
 See also ``Fence Usage'' (Section~\ref{sec:FenceUsage}).
 
 \subsection{$\mathcal{W}$ (Witness Function)}
+\label{sec:gWitness}
 
 Abstract machine helper function defined in Section~\ref{sec:Witness}.
 Used to filter the set of visibility records (Section~\ref{sec:VisRecordState}) modified by an interpreted \lighttt{Fence} statement (Section~\ref{sec:FenceSemantics}) or \lighttt{Arrive} statement (Section~\ref{sec:ArriveSemantics}).
