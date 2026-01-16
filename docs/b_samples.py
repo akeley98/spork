@@ -226,8 +226,8 @@ if False:
     def bad_multicast_example():
         with CudaDeviceFunction(clusterDim=4, blockDim=32):
             for task_id in cuda_tasks(0, 1):
-                # TeX: version bad_multicast_example 1
-                # TeX: begin bad_multicast_example[0]
+                # TeX: version BadMulticastExample 1
+                # TeX: begin BadMulticastExample[0]
                 z: barrier[2, 2] @ CudaMbarrier
                 for m in cuda_threads(0, 2, unit=2 * cuda_cta_in_cluster):
                     # TeX: color line *
@@ -242,7 +242,7 @@ if False:
                                 # TeX: color line *
                                 #                             v          v
                                 Arrive(cuda_in_order) >> z[m, n] >> z[m, :]  # n is multicast
-                                # TeX: end bad_multicast_example[0]
+                                # TeX: end BadMulticastExample[0]
                                 Await(z[m, n], cuda_in_order, ~0)
     # TeX: version multicast_flags_example 1
     # TeX: begin multicast_flags_example[0]
