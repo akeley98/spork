@@ -1827,11 +1827,21 @@ A collective type $\delta$ is agnostic if any $\delta.B_i$ is $\top$.
 A collective type $\delta$ is in aligned form when all box coordinates $\delta.B_i$ satisfy $\delta.B_i \in \{\top, 1, \delta.D_i\}$.
 If no box coordinate is $\top$, then if two thread collectives are both instances of $\delta$, those two thread collectives are either identical or disjoint.
 
+\subsection{Arrive Statement}
+\label{sec:gArriveStmt}
+
+Split-barrier synchronization statement (def~\ref{sec:gSyncStmt}) paired with \lighttt{Await} (Section~\ref{sec:ArriveAwaitPairing}).
+
 \subsection{Atomicity}
 \label{sec:gAtomicity}
 
 Per-parameter property of an instruction (Section~\ref{sec:AtomicInstr}).
 This alters abstract machine semantics for mutates (Section~\ref{sec:VisRecordCreation}, Section~\ref{sec:ChecksOnMutate}).
+
+\subsection{Await Statement}
+\label{sec:gAwaitStmt}
+
+Split-barrier synchronization statement (def~\ref{sec:gSyncStmt}) paired with \lighttt{Arrive} (Section~\ref{sec:ArriveAwaitPairing}).
 
 % >B
 
@@ -2247,6 +2257,18 @@ This varies depending on the memory type accessed and the instruction used (Sect
 In abstract machine semantics, this controls the checks upon reading (Section~\ref{sec:ChecksOnRead}) or mutating (Section~\ref{sec:ChecksOnMutate}) an array element.
 
 % >F
+\subsection{First Synchronization Timeline}
+\label{sec:gFirstSyncTL}
+
+First synchronization timeline (def~\ref{sec:gSyncTL}) parameter of a \lighttt{Fence} statement, or only synchronization timeline parameter of an \lighttt{Arrive} statement.
+Denoted $\tau_s^\text{pre}$.
+This filters by qualitative timeline (def~\ref{sec:gQualTL}) the memory accesses prior to the synchronization statement (def~\ref{sec:gSyncStmt}) that interact with the synchronization (Section~\ref{sec:AccessBeforeSync}).
+
+\subsection{Fence Statement}
+\label{sec:gFenceStmt}
+
+Standalone synchronization statement (def~\ref{sec:gSyncStmt}); see Section~\ref{sec:FenceUsage}.
+
 % >G
 
 \subsection{Garden-variety Fence}
@@ -2525,6 +2547,13 @@ Used in the PLDI submission to mean $\mathsf{VisRecord}$ (def~\ref{sec:gVisRecor
 
 Used in the PLDI submission to mean the set of all visibility functions, which corresponds to visibility sets (def~\ref{sec:gVisSet}) in Exo-GPU as it is currently formulated.
 Note ``visibility function'' is not a term used in the PLDI submission; this is retroactive terminology for this deprecated concept.
+
+\subsection{Second Synchronization Timeline}
+\label{sec:gSecondSyncTL}
+
+Second synchronization timeline (def~\ref{sec:gSyncTL}) parameter of a \lighttt{Fence} statement, or only synchronization timeline parameter of an \lighttt{Await} statement.
+Denoted $\tau_s^\text{post}$.
+This filters by qualitative timeline (def~\ref{sec:gQualTL}) the memory accesses subsequent to the synchronization statement (def~\ref{sec:gSyncStmt}) that interact with the synchronization (Section~\ref{sec:AccessAfterSync}).
 
 \subsection{Sequential (\texttt{seq}) Loop}
 \label{sec:gSeqLoop}
