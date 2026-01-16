@@ -1,0 +1,12 @@
+\magicSubsection{Fence Semantics}{sec:FenceSemantics}
+
+A \lighttt{Fence} statement augments (Section~\ref{sec:Augment}) all visibility records (Section~\ref{sec:VisRecordState}) that it witnesses (Section~\ref{sec:Witness}).
+Specifically, for a given statement \texttt{Fence($\tau_s^\mathrm{pre}, \tau_s^\mathrm{post}$)}, with $g^* = g_{s^\#}(\iota, \sigma)$ assigned to execute it (Section~\ref{sec:SyncSemanticsThreadMapping}), define $\lambda_\mathrm{Fence}: \mathsf{VisRecord} \to \mathsf{VisRecord}$ as
+\begin{equation*}
+    \lambda_\mathrm{Fence}(r) = \begin{cases}
+        \mathcal{A}(r, g^*, \tau_s^\mathrm{post}.\mathrm{full}, \tau_s^\mathrm{post}.\mathrm{temp}) & \text{ if } \mathcal{W}(g^*, \tau_s^\mathrm{pre}.\mathrm{full}, r) \\
+        r & \text{ otherwise }
+    \end{cases}
+\end{equation*}
+The new synchronization environment is $\mathsf{lift}(\rho, \lambda_\mathrm{Fence})$ (Section~\ref{sec:Lifting}).
+

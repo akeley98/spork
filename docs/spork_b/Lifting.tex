@@ -1,0 +1,9 @@
+\magicSubsection{Lifting}{sec:Lifting}
+
+The semantics for synchronization statements entail mapping over each visibility record (Section~\ref{sec:VisRecordState}) in the entire synchronization environment (Section~\ref{sec:SyncEnv}).
+This is done by applying the function $\mathsf{lift}$ to the synchronization environment, which takes $\lambda: \mathsf{VisRecord} \to \mathsf{VisRecord}$.
+$\rho' = \mathsf{lift}(\rho, \lambda)$ is defined by
+\begin{equation*}
+    \rho'(x, n^*) = \{ \lambda(r) \mid r \in \rho(x, n^*).r \}, \{ \lambda(r) \mid r \in \rho(x, n^*).m \}, \rho(x, n^*).b
+\end{equation*}
+

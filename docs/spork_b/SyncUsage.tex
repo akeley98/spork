@@ -1,0 +1,59 @@
+\magicSection{Synchronization Usage}{sec:SyncUsage}
+
+We view each statement instance (def~\ref{sec:gStmtInstance}) as issuing reads or mutates to a set of array elements; the reads and mutates are executed by a thread collective (def~\ref{sec:gThreadCollective}) with a certain \myKeyA{initial qualitative timeline} (Section~\ref{sec:InstrTL}), which varies based on the issued instruction.
+The purpose of the qualitative timeline is to model that the read or mutate is only synchronized by a subset of possible synchronization statements.
+These synchronization statements (def~\ref{sec:gSyncStmt}) are parameterized with a \myKeyA{first synchronization timeline} $\tau_s^\mathrm{pre}$ and/or a \myKeyA{second synchronization timeline} $\tau_s^\mathrm{post}$, like so:
+
+\hphantom{spacing}
+\texttt{Fence($\tau_s^\mathrm{pre}, \tau_s^\mathrm{post}$)}
+\hfill
+\texttt{Arrive($\tau_s^\mathrm{pre}$) >}\texttt{> $e$}
+\hfill
+\texttt{Await($e, \tau_s^\mathrm{post}, n$)}
+\hphantom{spacing}
+
+where $e$ is a barrier expression (def~\ref{sec:gBarrierExpr}) and $n$ is an integer, which controls \lighttt{Arrive}/\lighttt{Await} pairing (Section~\ref{sec:ArriveAwaitPairing}).
+
+The synchronization timeline (def~\ref{sec:gSyncTL}) contains a \myKeyA{full timeline set} $\tau_s.\mathrm{full}$ and \myKeyA{temporal timeline set} $\tau_s.\mathrm{temp}$ (both sets of \textsf{QualTL}), which filter (by qualitative timeline) the reads and mutates that the synchronization statement interacts with.
+
+For the purposes of reasoning about correct synchronization, each executed read or mutate has additional attributes
+\begin{itemize}
+  \item extended qualitative timelines (set of \textsf{QualTL}), Section~\ref{sec:InstrTL}
+  \item atomic qualitative timelines (set of \textsf{QualTL}), non-empty for atomic accesses, Section~\ref{sec:AtomicInstr}
+  \item convergence flag, Section~\ref{sec:InstrConvergentAccess}.
+  \item out-of-order flag, Section~\ref{sec:InstrOOO}.
+\end{itemize}
+If the convergence flag is true, then the thread collective for each read and mutate executed by the statement instance is the thread collective assigned to the statement instance itself.
+Otherwise (i.e. the access is non-convergent), we view each read and mutate as being done by one thread only, repeated for each thread in the thread collective (Section~\ref{sec:VisRecordCreation}).
+This models the uncertainty in there being no way to ascribe responsibility for that access to a particular thread, rather than that the access is literally repeated in the underlying hardware.
+
+In Exo-GPU, the user's job is to insert sufficient synchronization so that \myKeyA{sequential-parallel equivalence} is upheld (def~\ref{sec:gSeqParEquivalence}), that is, for a given input, the value computed by interpreting the Exo-GPU program with sequential Exo value semantics will be the same as that computed by the parallelized CUDA program.
+The sync-check step (whose ``abstract machine semantics'' are specified in Section~\ref{sec:SyncSemantics}) validates this.
+
+Although this is not how the abstract machine formally works, it's useful to think of Exo-GPU synchronization in terms of dependency edges in a graph formed from a sequential trace of the Exo-GPU program.
+The nodes are executed reads to array elements, executed mutates to array elements, and executed synchronization statement instances (with read/mutate nodes generated from statement instances as described above).
+The following subsections will specify intended usage patterns of Exo-GPU.
+These consist of two nodes appearing in the sequential trace, with dependency edges being formed between nodes involved in an intended usage pattern.
+
+It must be possible to find a connection using dependency edges between one read/mutate to an array element and another read/mutate to that same array element, except when one of the following apply:
+\begin{itemize}
+    \item the accesses are both reads
+    \item the array element is stored in sync-exempt memory (def~\ref{sec:gSyncExempt})
+    \item the accesses are both from the same statement instance (due to non-convergent access)
+\end{itemize}
+While describing the intended usage patterns, we will also jump ahead and reference the rules in Section~\ref{sec:SyncSemantics} that are involved in detecting that pattern for sync-check.
+This information is not required for understanding this section.
+
+\input{spork_b/AccessBeforeSync.tex}
+\input{spork_b/AccessAfterSync.tex}
+\input{spork_b/ArriveAwaitPairing.tex}
+\input{spork_b/MultipleMemoryAccesses.tex}
+\input{spork_b/Transitivity.tex}
+\input{spork_b/FenceUsage.tex}
+\input{spork_b/ClusterSyncUsage.tex}
+\input{spork_b/CommitGroupUsage.tex}
+\input{spork_b/MbarrierUsage.tex}
+\input{spork_b/BarrierMulticast.tex}
+\input{spork_b/SplitBarrierBasic.tex}
+\input{spork_b/BarrierGuarding.tex}
+\input{spork_b/SolitaryBarrier.tex}

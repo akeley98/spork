@@ -1,0 +1,24 @@
+\magicSubsection{Synchronization Statement}{sec:gSyncStmt}
+
+One of
+
+\hphantom{spacing}
+\texttt{Fence($\tau_s^\mathrm{pre}, \tau_s^\mathrm{post}$)}
+\hfill
+\texttt{Arrive($\tau_s^\mathrm{pre}$) >}\texttt{> $e$}
+\hfill
+\texttt{Await($e, \tau_s^\mathrm{post}, n$)}
+\hphantom{spacing}
+
+where $\tau_s^\mathrm{pre}$ and $\tau_s^\mathrm{post}$ are \myKeyA{sync timelines} (\textsf{SyncTL}, def~\ref{sec:gSyncTL}), which filter the set of qualitative timelines (def~\ref{sec:gQualTL}) of memory accesses that are synchronized, and $e$ and $n$ are a barrier expression (def~\ref{sec:gBarrierExpr}) and an integer, which together control pairing of executed \lighttt{Arrive} and \lighttt{Await} instances (Section~\ref{sec:ArriveAwaitPairing}).
+The \lighttt{Arrive} statement may take additional barrier expressions, separated by \texttt{>}\texttt{>} (def~\ref{sec:gHomeBarrier}).
+Currently, an \lighttt{Await} statement may take only one barrier expression, and it must reference only a single barrier array element, i.e. it must be its own home barrier expression (def~\ref{sec:gHomeBarrier}).
+
+Scheduling functions:
+\begin{itemize}
+  \item \texttt{insert\_barrier\_alloc}: insert allocation of a barrier variable (def~\ref{sec:gBarrierVariable})
+  \item \texttt{insert\_fence(\codecomment{...}, $\tau_s^\mathrm{pre}$, $\tau_s^\mathrm{post}$)}
+  \item \texttt{insert\_arrive(\codecomment{...}, $\tau_s^\mathrm{pre}$, $e^*$)}
+  \item \texttt{insert\_await(\codecomment{...}, $e$, $\tau_s^\mathrm{post}$)}
+\end{itemize}
+

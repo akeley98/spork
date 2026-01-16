@@ -1,0 +1,13 @@
+\magicSubsection{Solitary Barrier Requirement}{sec:SolitaryBarrier}
+
+There must not be two barrier variables with the same lowered barrier type live in the same scope, if the lowered barrier type of the barrier appears in the following list:
+\begin{itemize}
+  \item \lighttt{cluster\_sync}, all cluster-sync mechanism split barriers (Section~\ref{sec:ClusterSyncUsage}).
+  \item \lighttt{Sm80\_commit\_group}, commit-group mechanism split barriers for sm\_80 non-bulk \lighttt{cp.async} (Section~\ref{sec:CommitGroupUsage}).
+  \item \lighttt{tma\_to\_gmem\_commit\_group}, commit-group mechanism split barriers for TMA copies out of SMEM (Section~\ref{sec:CommitGroupUsage}).
+  \item \lighttt{wgmma\_commit\_group}, commit-group mechanism split barriers for wgmma (Section~\ref{sec:CommitGroupUsage}).
+\end{itemize}
+Additionally, a \lighttt{Fence} statement (Section~\ref{sec:FenceUsage}) at \lighttt{cuda\_cluster} scope, but not at \lighttt{cuda\_cta\_in\_cluster} scope (def~\ref{sec:gCollUnit}), must not appear in a scope with a live barrier variable with \lighttt{cluster\_sync} lowered barrier type.
+
+\FloatBarrier
+\newpage

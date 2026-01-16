@@ -1,0 +1,6 @@
+\magicSubsection{Native Unit}{sec:gNativeUnit}
+
+A per-CUDA-memory collective unit (def~\ref{sec:gCollUnit}) attribute given by the classmethod \lighttt{exo.spork.cuda\_memory.CudaBasicDeviceVisible.native\_unit}.
+Distributed memory analysis physically maps each shard (def~\ref{sec:gShard}) of a variable annotated with this \lighttt{Memory} type onto a thread collective (def~\ref{sec:gThreadCollective}) that is an instance of the collective type (Section~\ref{sec:CollTypeThreadCollective}) unpacked from this collective unit.
+
+% >O

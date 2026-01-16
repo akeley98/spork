@@ -1,0 +1,15 @@
+\magicSubsection{Box Size Requirements}{sec:DistributedMemoryBoxSize}
+
+These additional requirements, which apply to data allocations only, ensure the storage for each shard is truly allocated by a thread collective that is an instance of $\delta_0$ (Section~\ref{sec:CollTypeThreadCollective}).
+
+\mainKey{Alloc Box Requirement:} Let $(\omega^\text{alloc}, \delta) = \mathsf{domainCompletion}(\omega_0^\text{alloc}, \delta_0)$.
+The $i^{th}$ dimension is an \myKeyA{intact dimension} if $\delta.B_i = \delta.D_i$.
+For each intact dimension $i$, we must have $\omega^\text{alloc}.B_i = \delta.B_i$.
+
+\mainKey{Usage Box Requirement:} For each collective indexing pair $(\omega_0, e^*)$, let $(\omega, \delta) = \mathsf{domainCompletion}(\omega_0, \delta_0)$.
+The $i^{th}$ dimension is a \myKeyA{subdivided dimension} if $\delta.B_i = 1$.
+Given $\delta_0$ is in aligned form (def~\ref{sec:gAlignedForm}) and not agnostic (def~\ref{sec:gAgnostic}), this is mutually exclusive with being an intact dimension.
+For each subdivided dimension $i$, we must have $\omega.B_i = 1$.
+
+\FloatBarrier
+\newpage

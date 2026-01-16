@@ -1,0 +1,17 @@
+\magicSubsection{Fence Usage}{sec:FenceUsage}
+
+\texttt{Fence($\tau_s^\mathrm{pre}$, $\tau_s^\mathrm{post}$)}
+
+\texttt{insert\_fence(\codecomment{...}, $\tau_s^\mathrm{pre}$, $\tau_s^\mathrm{post}$)}
+
+Besides the special case \lighttt{Fence(wgmma\_fence\_1, wgmma\_fence\_2)}, which must be at \lighttt{cuda\_warpgroup}-scope (def~\ref{sec:gCollUnit}) and must appear before other usages of wgmma registers, all \lighttt{Fence} statements must be of the form \lighttt{Fence($\tau_s^\mathrm{pre}$, $\tau_s^\mathrm{post}$)} with
+\begin{itemize}
+    \item the statement appearing at \lighttt{cuda\_thread}, \lighttt{cuda\_warp}, \lighttt{cuda\_cta\_in\_cluster}, or \lighttt{cuda\_cluster} scope (def~\ref{sec:gCollUnit}).
+    \item $\tau_s^\mathrm{pre}$ being \lighttt{Sm80\_generic}, or another synchronization timeline whose timeline sets are subsets of the respective timeline sets of \lighttt{Sm80\_generic} (def~\ref{sec:gSyncTL}).
+    \item $\tau_s^\mathrm{post}$ being \lighttt{cuda\_generic\_and\_async\_proxy}, or another synchronization timeline whose timeline sets are subsets of the respective timeline sets of \lighttt{cuda\_generic\_and\_async\_proxy} (def~\ref{sec:gSyncTL}).
+\end{itemize}
+These non-wgmma \lighttt{Fence} configurations are referred to as \myKeyA{garden-variety fences}.
+% Referenced in glossary entry gGardenVarietyFence.
+
+If the \lighttt{Fence} statement appears at \lighttt{cuda\_cluster}-scope but not at \lighttt{cuda\_cta\_in\_cluster}-scope, then it is subject to the solitary barrier requirement (Section~\ref{sec:SolitaryBarrier}).
+

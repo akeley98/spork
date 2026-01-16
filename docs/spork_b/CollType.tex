@@ -1,0 +1,23 @@
+\magicSection{Collective Units \& Collective Types}{sec:CollType}
+
+We use collective types $\delta$ to describe a quantity and arrangement of threads within a cluster (def~\ref{sec:gCluster}), such as ``single thread'', ``warp'', ``CTA'', ``one warp from a pair of CTAs''.
+These are unpacked from a collective unit $\tau_u$ defined in the frontend language (def~\ref{sec:gCollUnit}).
+A collective type consists of two equal-length tuples: a domain and a box.
+The dimension $M$ of the collective type is the length of these tuples.
+The \myKeyA{domain} ($\delta.D_0...\delta.D_{M-1}$): $\mathbb{N}_{\ge2}^M$ describes an organization of the threads in a cluster into an $M$-dimensional grid.
+The \myKeyA{box} ($\delta.B_0...\delta.B_{M-1}$): $\mathbb{N}_\top^M$ describes the number of threads on each dimension to select (the special value $\top$ indicates ``no requirement'').
+
+We first define a linear ordering of threads in a cluster, then extend to multidimensional coordinates.
+The local thread index of a thread is \lighttt{cluster\_ctarank * blockDim.x + threadIdx.x}
+i.e., the threads in a cluster are numbered in (\lighttt{cluster\_ctarank, threadIdx.x})-lexicographical order (Exo-GPU parallelizes on the x dimension only).
+
+For a given domain, we derive the \myKeyA{dimension thread pitch} $\delta.P_i$:
+\begin{align*}
+    \delta.P_i = \prod_{k=i+1}^{M-1} \delta.D_k
+\end{align*}
+and we define the mapping $\mathsf{toLocal}(D, c)$ (def~\ref{sec:gToLocal}), which converts a domain $D$ and coordinates $c$ to a local thread index; the coordinates $[0, \delta.D_0-1]_\mathbb{N} \times ... \times [0, \delta.D_{M-1}-1]_\mathbb{N}$ get mapped to local thread indices in lexicographical order.
+The product of the domain coordinates $\delta.D_0 \times ... \times \delta.D_{M-1}$ must be equal to the number of threads in the cluster (\lighttt{clusterDim.x * blockDim.x}).
+
+\input{spork_b/CollTypeThreadCollective.tex}
+\input{spork_b/CollTypeReshape.tex}
+\input{spork_b/CollUnit.tex}

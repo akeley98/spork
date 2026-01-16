@@ -1,0 +1,12 @@
+\magicSubsection{Pending Await ($\mathbb{P}$ / mathbb-P)}{sec:gPendingAwait}
+
+Abstract machine concept (Section~\ref{sec:SyncSemantics}).
+Tuple of type $\mathbb{B} \times \mathbb{Z}^* \times \mathbb{Z}$ where the respective tuple elements are
+\begin{itemize}
+  \item Barrier variable name
+  \item Array indices
+  \item Arrive count
+\end{itemize}
+Note the PLDI submission formulates this differently, as a function $p : \mathbb{B} \to \mathbb{Z}^* \to \mathcal{P}(\mathbb{N})$.
+Given $z: \mathbb{B}$ (def~\ref{sec:gMathbbB}), $i^* : \mathbb{Z}^*$, and $p'$ is a set of pending awaits as currently formulated, the correspondence between $p'$ and equivalent $p$ is $(z, i^*, n) \in p' \iff n \in p(z, i^*)$.
+

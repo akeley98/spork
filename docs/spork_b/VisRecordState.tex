@@ -1,0 +1,32 @@
+\magicSubsection{VisRecord State}{sec:VisRecordState}
+
+Each visibility record $r$ is a pair of type $\mathcal{P}(\mathsf{TlSig}) \times \mathcal{P}(\mathbb{P})$, with the two elements being
+\begin{itemize}
+  \item The \myKeyA{visibility set} (def~\ref{sec:gVisSet}), denoted $r.s$, which is a set of timeline signatures $\mathsf{TlSig} \Coloneqq \mathbb{G} \times \mathsf{QualTL} \times \mathsf{VF}$; these being a global thread ID (def~\ref{sec:gGlobalThreadID}), a qualitative timeline (def~\ref{sec:gQualTL}), and a \myKeyA{visibility flag} (def~\ref{sec:gVisFlag}), which is one of $\mathsf{VF_{atom}}$ (atomic-only), $\mathsf{VF_{temp}}$ (temporal), $\mathsf{VF_{full}}$, or $\mathsf{VF_{issue}}$.
+  The visibility set is conditionally augmented (Section~\ref{sec:Augment}) with more timeline signatures as a result of \lighttt{Fence} and \lighttt{Await} statements.
+  \item The \myKeyA{pending await} set (def~\ref{sec:gPendingAwait}), denoted $r.p$, which are tuples of type $\mathbb{B} \times \mathbb{Z}^* \times \mathbb{Z}$, this being a combination of an indexed barrier variable (def~\ref{sec:gMathbbB}) and an arrive-count.
+  These mediate the interaction between paired \lighttt{Arrive} statement instances (Section~\ref{sec:ArriveSemantics}) and \lighttt{Await} statement instances (Section~\ref{sec:AwaitSemantics}).
+\end{itemize}
+
+This is a different formulation than the PLDI paper; see the reference section (def~\ref{sec:gVisSet}, def~\ref{sec:gPendingAwait}) for more information.
+
+The sync-check error messages format a visibility record's visibility set and pending await set separately.
+An integer is used to represent the task ID, counting up starting from 0 for each device task instance (def~\ref{sec:gDeviceTask}) in each CUDA device function launch.
+
+The visibility set is encoded as the union of zero or more ``timeline signature intervals'', each formatted as the lines \\
+``\texttt{threads: [task\_index = $\iota_0$ [$c_0^*$],}\\
+\texttt{task\_index = $\iota_1$ [$c_1^*$]], inclusive, formatted w/ domain [$D$]}''\\
+followed by lines of the form\\
+``\texttt{$q_0$ -> $\mathsf{vf}_0^*$}\\
+\hphantom{``}\texttt{$q_1$ -> $\mathsf{vf}_1^*$}\\
+...''\\
+where each $q_i$ is a qualitative timeline (def~\ref{sec:gQualTL}) and each $\mathsf{vf}_i^*$ is a set of visibility flags (def~\ref{sec:gVisFlag}).
+The timeline signature interval is the set of all $((\iota, n), q, \mathsf{vf})$ such that
+\begin{itemize}
+  \item $(\iota_0, \mathsf{toLocal}(D, c_0^*)) \le (\iota, n) \le (\iota_1, \mathsf{toLocal}(D, c_1^*))$, sorted lexicographically (def~\ref{sec:gToLocal}), and
+  \item $0 \le n < \prod_m D_m$, and,
+  \item $q = q_i$ for some $q_i$, with $\mathsf{vf} \in \mathsf{vf}_i^*$
+\end{itemize}
+Each pending await $(z, n^*, a)$ in the pending await set is formatted as \\
+``\texttt{pending await: $z$[$n^*$] arrive\_count=$a$}''.
+

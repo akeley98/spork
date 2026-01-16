@@ -1,0 +1,6 @@
+\magicSubsection{Thread Mapping Function}{sec:gThreadMappingFunction}
+
+Function of type $\Sigma \to \mathcal{P}(\mathbb{N})$ that annotated CUDA-scope statements (def~\ref{sec:gCudaScope}).
+Given a control environment $\sigma: \Sigma$ (def~\ref{sec:gControlEnv}), it returns the local thread indices (def~\ref{sec:gLocalThreadIndex}) of the threads in the thread collective (def~\ref{sec:gThreadCollective}) used to execute an instance of the annotated statement (def~\ref{sec:gStmtInstance}).
+See Section~\ref{sec:CollTilingDerivedState}.
+

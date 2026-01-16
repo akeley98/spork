@@ -1,0 +1,25 @@
+\magicSubsection{Home Barrier (Expression)}{sec:gHomeBarrier}
+
+Each barrier expression (def~\ref{sec:gBarrierExpr}), when interpreted, references a certain set of barrier array elements.
+The intersection of these sets for all barrier expressions in a synchronization statement (def~\ref{sec:gSyncStmt}) must be a single barrier array element; this is the home barrier.
+The \myKeyA{home barrier expression} is an expression constructed to reference this home barrier; it is constructed from the barrier expressions $z_0[e_0^*] ... z_{E-1}[e_{E-1}^*]$ attached to an \lighttt{Arrive} statement as follows:
+\begin{itemize}
+  \item All expressions must use the same barrier variable name $z$.
+  \item All tuples $e^*$ must have the same length $M$.
+  \item For each $j \in [0, M-1]_\mathbb{N}$, at least one $e^*$ must have a non-interval (point) as its $j^{th}$ element, and all such tuples must match in their $j^{th}$ element. Call this common expression $e'_j$.
+\end{itemize}
+The home barrier expression is $z[e'_0, ..., e'_{M-1}]$.
+
+Examples
+
+\begin{tabular}{l l}
+\textbf{Arrive statement} & \textbf{Home barrier expression} \\
+\texttt{Arrive(...) >> $z$[$y_1, y_2$]} & $z$[$y_1, y_2$] \\
+\texttt{Arrive(...) >> $z$[$y_1$, :]} & Missing point expression for rightmost dimension \\
+\texttt{Arrive(...) >> $z$[$y_1$, :] >> $z$[$y_1$, $y_2$]} & $z$[$y_1, y_2$] \\
+\texttt{Arrive(...) >> $z$[$y_1$, :] >> $z$[:, $y_2$]} & $z$[$y_1, y_2$] \\
+\texttt{Arrive(...) >> $z_1$[$y_1$, :] >> $z_2$[:, $y_2$]} & Invalid, mismatched barrier variable names $z$
+\end{tabular}
+
+% >I
+

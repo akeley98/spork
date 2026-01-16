@@ -1,0 +1,15 @@
+\magicSubsection{Intended Usage Patterns -- Multiple Memory Accesses}{sec:MultipleMemoryAccesses}
+
+\begin{equation*}
+    \texttt{Read|Mutate} \to \texttt{Read|Mutate}
+\end{equation*}
+
+A thread may read/mutate an array element and then read/mutate that element again without intervening synchronization when the first access is not out-of-order and the initial timeline signature of the first access is included in the extended timeline signature set of the second access.
+This pattern is implemented in sync-check through a timeline signature (def~\ref{sec:gTlSig}) with $\mathsf{VF_{full}}$ (def~\ref{sec:gVisFlag}) being added upon interpreting a non-out-of-order read or mutate (Section~\ref{sec:VisRecordCreation}).
+
+Two atomic mutates may also access the same array element concurrently as long as their atomic qualitative timeline sets (Section~\ref{sec:InstrTL}) intersect.
+Sequential-parallel equivalence (def~\ref{sec:gSeqParEquivalence}) is only possible in this case since Exo atomics don't return the updated value.
+This pattern is implemented in sync-check through a timeline signature with $\mathsf{VF_{atom}}$ that is added upon the first atomic access (Section~\ref{sec:VisRecordCreation}) and used to pass the check in the second atomic access (Section~\ref{sec:ChecksOnMutate}).
+
+% atomic, non-ooo
+

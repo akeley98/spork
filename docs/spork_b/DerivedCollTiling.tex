@@ -1,0 +1,5 @@
+\magicSubsection{Derived Collective Tilings}{sec:DerivedCollTiling}
+
+The collective tiling of each statement is the same as that of its parent, except that \lighttt{with CudaDeviceFunction}, \lighttt{for cuda\_threads}, and \lighttt{with CudaWarps} assign a new collective tiling for their children.
+The latter two are defined based on the \textsf{deriveCollTiling} function (def~\ref{sec:gDeriveCollTiling}); here we just summarize the collective tilings.
+

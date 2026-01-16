@@ -1,0 +1,11 @@
+\magicSubsection{Thread Cuboid}{sec:gThreadCuboid}
+
+camspork implementation concept, which takes the place of the thread mapping (Section~\ref{sec:SyncSemanticsThreadMapping}).
+The thread cuboid has a task ID $\iota: \mathbb{I}$, and equal-dimensional integer tuples domain ($D$), box ($B$), and offset ($\textit{Off}$).
+This encodes via the \textsf{toLocal} function (def~\ref{sec:gToLocal}) the thread collective (def~\ref{sec:gThreadCollective}) of global thread IDs
+\begin{equation*}
+  \{ (\iota, \mathsf{toLocal}(D, c) \mid c \in
+      [\textit{Off}_0, \textit{Off}_0 + B_0 - 1]_\mathbb{N} \times ...
+      [\textit{Off}_1, \textit{Off}_1 + B_1 - 1]_\mathbb{N} \times ...  \}
+\end{equation*}
+

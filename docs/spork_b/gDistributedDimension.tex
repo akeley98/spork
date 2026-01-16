@@ -1,0 +1,15 @@
+\magicSubsection{Distributed Dimension}{sec:gDistributedDimension}
+
+A dimension of an allocated tensor is \emph{distributed} when adjacent elements on that dimension are physically allocated onto different thread collectives (def~\ref{sec:gThreadCollective}).
+Each distributed dimension has a thread pitch (def~\ref{sec:gThreadPitch}) describing the ``stride'' in local thread indices (def~\ref{sec:gLocalThreadIndex}) between adjacent elements along that dimension.
+
+Specifically, let $x$ name a tensor with $R$-many are distributed dimensions, and let $\mu_0$ be the local thread indices of the thread collective that allocates $x[0, ..., 0]$.
+Let $T_n$ be the thread pitch of the $n^{th}$ dimension.
+The local thread indices of the thread collective that allocates $x[i_0, i_1, ...]$ are
+\begin{equation*}
+    \left \{ \texttt{tid} + \sum_{n=0}^{R} i_n T_n \mid \texttt{tid} \in \mu_0 \right \}
+\end{equation*}
+Note that the indices for non-distributed dimensions have no effect in this equation.
+
+The distributed dimensions are deduced by distributed memory analysis (Section~\ref{sec:DistributedMemory}).
+

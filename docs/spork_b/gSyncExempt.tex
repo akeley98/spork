@@ -1,0 +1,6 @@
+\magicSubsection{Sync-Exempt}{sec:gSyncExempt}
+
+Certain memory types are sync-exempt, as defined by their Python\\
+\lighttt{AllocableMemWin.sync\_exempt()} function.
+All reads and writes to array elements stored in sync-exempt memory type are no-ops in the abstract machine (Section~\ref{sec:SyncSemantics}), i.e., no hazards will ever be diagnosed for variables stored in sync-exempt memory.
+

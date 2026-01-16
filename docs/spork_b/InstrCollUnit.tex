@@ -1,0 +1,9 @@
+\magicSubsection{Instruction Collective Unit}{sec:InstrCollUnit}
+
+Each non-CPU instruction defines a collective unit $\tau_u$ (\lighttt{InstrInfo.coll\_unit}).
+A call statement using that instruction must appear only at $\tau_u$-scope (def~\ref{sec:gCollUnit}).
+
+Hopper tensor cores (wgmma) use collective unit \lighttt{cuda\_warpgroup}.
+
+Ampere tensor cores and TMA instructions (Section~\ref{sec:Tma}) use collective unit \lighttt{cuda\_warp}.
+

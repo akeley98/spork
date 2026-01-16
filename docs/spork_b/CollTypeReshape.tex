@@ -1,0 +1,12 @@
+\magicSubsection{Collective Type Reshape}{sec:CollTypeReshape}
+
+Reshaping a collective type means to apply a series of dimension split operations to yield a new collective type.
+We split the $k^{th}$ dimension of a collective type by a factor $f \in \mathbb{N}$ by
+\begin{itemize}
+  \item Inserting the coordinate pair $(\delta.D_k / f, f)$ in place of $\delta.D_k$.
+  \item Inserting the coordinate pair $(\delta.B_k / f, f)$ in place of $\delta.B_k$, if $\delta.B_k \ne \top$ and $\delta.B_k \ge f$.
+  \item Inserting the coordinate pair $(1, \delta.B_k)$ in place of $\delta.B_k$, if $\delta.B_k \ne \top$ and $\delta.B_k < f$.
+  \item Inserting the coordinate pair $(\top, \top)$ in place of $\delta.B_k$, if $\delta.B_k = \top$.
+\end{itemize}
+e.g. if $\delta.D = (4, 384)$ and $\delta.B = (1, 128)$, then splitting dimension 1 by $32$ gives $\delta.D = (4, 12, 32)$ and $\delta.B = (1, 4, 32)$.
+

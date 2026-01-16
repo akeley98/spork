@@ -1,0 +1,12 @@
+\magicSubsection{Warp Variable}{sec:gWarpVariable}
+
+The warp variables for a specific CUDA device function are specified by the \lighttt{warp\_config: List[CudaWarpConfig]} parameter of \lighttt{CudaDeviceFunction}.
+This specifies a name and register count for a certain number of warps in the CTA.
+See example~\ref{sec:gCudaDeviceFunction}, Section~\ref{sec:CudaDeviceFunction}.
+
+If \lighttt{blockDim} is given instead of \lighttt{warp\_config}, then there's implicitly a single warp variable with name \lighttt{""}, warp count $\lighttt{blockDim}/32$, and no register count modification.
+
+The ``prefix'' of a warp variable is the sum of the warp counts of the warp variables specified before itself.
+
+The CUDA device function is compiled separately for each warp variable, with code paths for other warp variables statically elimintated.
+

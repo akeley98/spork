@@ -1,0 +1,22 @@
+\magicSubsection{Guarded-by}{sec:gGuardedBy}
+
+A barrier variable declaration for $z_a$ may or may not include an explicit-guarded-by barrier name $z_g$ (def~\ref{sec:gBarrierVariable}).
+Two barrier variables must not share the same explicit-guarded-by barrier name.
+If $z_a$ was declared with an explicit-guarded-by barrier name $z_g$, then $z_a$ is guarded-by $z_g$.
+Otherwise, $z_a$ is guarded-by the barrier found by the following lookup process:
+
+Let $\textsf{explicitlyGuards}: \mathbb{B} \to \mathbb{B}$ be the function
+\begin{equation*}
+  \textsf{explicitlyGuards}(z_g') = \begin{cases}
+    z_a' & \text{ if a $z_a'$ exists with explicit-guarded-by barrier name $z_g'$ (def~\ref{sec:gBarrierVariable})} \\
+    z_g' & \text{ otherwise }
+  \end{cases}
+\end{equation*}
+$z_a$ is guarded-by the fixed point of $\textsf{explicitlyGuards}^n(z_a), n = 1, 2, 3...$.
+
+We use $\textsf{guardedBy}: \mathbb{B} \to \mathbb{B}$, which maps a barrier name $b$ to the name of the barrier that $b$ is guarded by.
+
+See also ``Barrier Guard Cycle'' (def~\ref{sec:gBarrierGuardCycle}).
+
+% >H
+

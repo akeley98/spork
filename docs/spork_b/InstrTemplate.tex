@@ -1,0 +1,25 @@
+\magicSubsection{Instruction Template (Classes)}{sec:InstrTemplate}
+
+The new way to define functions in Exo-GPU is using classes, instead of functions.
+These class-based instructions define ``instruction templates''.
+The call operator of an instruction template returns an Exo-GPU instruction (\lighttt{exo.Procedure}).
+The call takes \myKeyA{instruction template parameter} (def~\ref{sec:gInstrTemplateParameter}) values as keyword arguments only.
+
+An instruction template should\footnote{If you look at the codebase you will see that there's a lot of alternative legacy pathways, hence the ``should'' instead of ``must''.}
+\begin{itemize}
+   \item be a subclass of \lighttt{InstrInfo} (\lighttt{exo.core.instr\_info.InstrInfo}).
+   \item have a \lighttt{behavior} function (Section~\ref{sec:InstrBehavior}), which is \emph{parsed} as Exo code, not executed as Python code.
+   \item have an \lighttt{instance} member function, which is called to generate an Exo-GPU instruction.
+     The first (\lighttt{self}) parameter is an \lighttt{InstrInfo} instance, which must be initialized by this function.
+     The other parameters are \myKeyA{instruction template parameters}.
+   \item initialize the \lighttt{AccessInfo} (\lighttt{exo.core.instr\_info.AccessInfo}) for each non-template (def~\ref{sec:gInstrTemplateParameter}), non-control-value parameter (def~\ref{sec:gMathbbY}).
+   \item have a \lighttt{codegen} member function (Section~\ref{sec:InstrCodegen}).
+\end{itemize}
+Any function may be defined through inheritance.
+
+In the frontend language for Exo-GPU, an instruction template may be ``called'' directly.
+Non-template parameters (as defined by the \lighttt{behavior} function) are passed in order as positional arguments, and template parameters are passed as keyword arguments.
+For example,\\
+\texttt{MyInstrClass(a, b, tparam=c)}\\
+where \texttt{a} and \texttt{b} are not template parameters, and \texttt{c} is.
+

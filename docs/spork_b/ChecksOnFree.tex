@@ -1,0 +1,14 @@
+\magicSubsection{Checks on Free}{sec:ChecksOnFree}
+
+When barrier variables are freed, the arrive and await count (Section~\ref{sec:SyncEnv}) must be equal for all elements in the freed barrier array.
+
+Variables stored in shared memory must currently be allocated and freed at \lighttt{cuda\_cluster} scope (def~\ref{sec:gCollUnit}).
+For such variables, upon free, we perform the same checks as for a non-atomic write-only access (Section~\ref{sec:ChecksOnMutate}) with
+\begin{itemize}
+  \item $g^* = g_{s^\#}(\iota, \sigma)$ being the thread collective assigned to execute the free statement (Section~\ref{sec:SyncSemanticsThreadMapping})
+  \item $q^* = \{ \texttt{cuda\_in\_order\_qual} \}$ (def~\ref{sec:gQualTL})
+  \item the convergence flag $t$ being false
+\end{itemize}
+
+\FloatBarrier
+\newpage

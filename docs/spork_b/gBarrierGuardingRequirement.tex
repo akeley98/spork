@@ -1,0 +1,52 @@
+\magicSubsection{Barrier Guarding Requirement}{sec:gBarrierGuardingRequirement}
+
+Here we give a more complete description of the static analysis for the barrier guarding requirement (Section~\ref{sec:BarrierGuarding}).
+Let $z_a$ be a barrier variable subject to the barrier guarding requirement, and let it be guarded-by $z_g$ (def~\ref{sec:gGuardedBy}).
+
+\mainKey{Requirement 1/3:} The program must pass this pseudocode in Figure~\ref{fig:BarrierGuardingPseudocode} without reaching an assert.
+
+\begin{figure}[t]
+\codehrule
+\blacktt{expect\_arrive = arrive\_first~}\codecomment{\# True in the arrive-first usage, false otherwise.}\\
+\blacktt{stmt\_pair = []}\\
+\blacktt{for stmt in dfs\_order:} \\
+\blacktt{~~if stmt is an Arrive using $z_a$:}\\
+\blacktt{~~~~\textbf{assert} expect\_arrive}\\
+\blacktt{~~~~expect\_arrive = False}\\
+\blacktt{~~~~stmt\_pair += [stmt]}\\
+\blacktt{~~elif stmt has a trailing barrier expression using $z_a$:}\\
+\blacktt{~~~~\textbf{assert} expect\_arrive}\\
+\blacktt{~~elif stmt is an Await using $z_g$:}\\
+\blacktt{~~~~\textbf{assert} not expect\_arrive}\\
+\blacktt{~~~~expect\_arrive = True}\\
+\blacktt{~~~~stmt\_pair += [stmt]}\\
+\blacktt{~~if len(stmt\_pair) == 2:}\\
+\blacktt{~~~~s1, s2 = stmt\_pair}\\
+\blacktt{~~~~stmt\_pair = []}\\
+\blacktt{~~~~}\codecomment{\# If one stmt is guarded by an if that the other isn't, we can't guarantee alternation.}\\
+\blacktt{~~~~}\codecomment{\# Traverse from leaf-to-root of the AST to assert the following.}\\
+\blacktt{~~~~\textbf{assert} s1 is in the body of an if statement iff s2 is}\\
+\blacktt{~~~~\textbf{assert} s1 is in the orelse of an if statement iff s2 is}\\
+\blacktt{~~~~\textbf{assert} s1 is in the body of a \emph{sequential} for loop iff s2 is}\\
+\codecomment{\# End DFS}\\
+\blacktt{\textbf{assert} len(stmt\_pair) == 0 }\codecomment{\# Unpaired Arrive/Await?}\\
+
+\caption{Pseudocode for barrier guarding requirement}
+\label{fig:BarrierGuardingPseudocode}
+\codehrule
+\end{figure}
+
+\mainKey{Requirement 2/3:} Each collective indexing pair (Section~\ref{sec:CollIndexingPairs}) collected from \lighttt{Await} statements for $z_g$ must pass the base threads requirement (Section~\ref{sec:DistributedMemoryBaseThreads}) with each collective index expression collected from \lighttt{Arrive} statements for $z_a$.
+This ensures the set of threads executing the matched \lighttt{Await} and \lighttt{Arrive} statements are the same.
+TODO not really, we need to check the thread pitch.
+
+\mainKey{Requirement 3/3:} This enforces the requirement that trailing barrier expressions don't reference any barrier array element not referenced in the \lighttt{Arrive} statement:
+
+Let $m: (\mathsf{Bool}^*)^*$ be the multicasts (def~\ref{sec:gMulticasts}) of the \lighttt{Arrive} statement for $z_a$.
+
+For each trailing barrier expression that uses $z_a$, let $c: \mathsf{Bool}^*$ be its multicast flags, and require there exists some $m_i: \mathsf{Bool}^*$ in $m$ such that
+\begin{itemize}
+  \item $c$ and $m_i$ have the same length (say, $M$).
+  \item $m_{i,j}$ or not $c_j$ for all $j = 0, 1, ..., M-1$.
+\end{itemize}
+

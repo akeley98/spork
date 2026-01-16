@@ -42,6 +42,8 @@ docs/tmem_todo.pdf
 docs/f16_gemm
 docs/f16_gemm_samples
 docs/f16_gemm_todo.pdf
+docs/spork_b_old.tex
+docs/spork_b_old.pdf
 gemm/gemm
 attn
 libattn.so

@@ -1,0 +1,50 @@
+\magicSubsection{VisRecord Creation}{sec:VisRecordCreation}
+
+Each read, mutate, \lighttt{Arrive}, or \lighttt{Await} statement instance that references an array element $x[n^*]$ or $z[n^*]$ in non-sync-exempt (def~\ref{sec:gSyncExempt}) memory causes a new set of visibility records $r^*$ (to be defined) to be associated with $\rho(x, n^*)$ or $\rho(z, n^*)$.
+For brevity we will omit the $z$ case in the following description.
+
+A read, \lighttt{Arrive}, or \lighttt{Await} access to an array element $x[n^*]$ causes $r^*$ to be added to the read visibility records set for that array element, i.e. $\rho$ is updated (def~\ref{sec:gUpdateNotation}) as
+\begin{equation*}
+    \rho[x \to n^* \to (\rho(x, n^*).r \cup r^*, \rho(x, n^*).m, \rho(x, n^*).b)]
+\end{equation*}
+This is done subsequent to the to-be-defined checks in Section~\ref{sec:ChecksOnRead}.
+
+A mutate access to an array element $x[n^*]$ causes the read visibility records set to be cleared, the mutate visibility records set to be cleared if the access is not atomic (Section~\ref{sec:AtomicInstr}), then $r^*$ is added to the mutate visibility records set, i.e. $\rho$ is updated as
+\begin{align*}
+    & \rho[x \to n^* \to (\{\}, r^*, \rho(x, n^*).b)] & \text{if not atomic} \\
+    & \rho[x \to n^* \to (\{\}, r^* \cup \rho(x, n^*).m, \rho(x, n^*).b)] & \text{if atomic}
+\end{align*}
+This is done subsequent to the to-be-defined checks in Section~\ref{sec:ChecksOnMutate}.
+
+The new visibility records $r^*$ are initialized based on
+\begin{itemize}
+  \item the thread collective $g_{s^\#}(\iota, \sigma)$ (Section~\ref{sec:SyncSemanticsThreadMapping})
+  \item the convergence of the memory access (Section~\ref{sec:InstrConvergentAccess})
+  \item the out-of-order flag (Section~\ref{sec:InstrOOO})
+  \item the initial qualitative timeline $q$ (Section~\ref{sec:InstrTL}) of the access.
+  \item the set of barrier array elements referenced by the trailing barrier expression (Section~\ref{sec:InstrTrailingBarrierExpr}); this is empty for non-instr accesses or instrs without a trailing barrier expression.
+\end{itemize}
+
+Define $\mathsf{NewVisRecord}(g^*)$ as having a visibility set that is the union of
+\begin{itemize}
+    \item $g^* \times \{ q \} \times \{ \mathsf{VF_{issue}} \}$
+    \item $g^* \times \{ q \} \times \{ \mathsf{VF_{atom}}, \mathsf{VF_{temp}}, \mathsf{VF_{full}} \}$, only added if the access is \emph{not} out-of-order (Section~\ref{sec:InstrOOO})
+    \item $\mathbb{G} \times Q_a \times \{ \mathsf{VF_{atom}} \}$, only added if the access defines a nonempty atomic qualitative timeline set $Q_a$ (Section~\ref{sec:AtomicInstr}).
+\end{itemize}
+and a pending await set that is based off the arrive count (Section~\ref{sec:SyncEnv}) of each referenced barrier array element:
+\begin{equation*}
+    \{ (z, n^*, \rho(z, n^*).b.a) \mid \text{ for each $z[n^*]$ referenced (def~\ref{sec:gBarrierExpr}) in the trailing barrier expression} \}
+\end{equation*}
+
+If the access is convergent (Section~\ref{sec:InstrConvergentAccess}), $r^*$ contains a single visibility record:
+\begin{equation*}
+    r^* = \{ \mathsf{NewVisRecord}(g_{s^\#}(\iota, \sigma)) \}
+\end{equation*}
+Otherwise, $r^*$ contains one visibility record for each thread involved in the statement instance:
+\begin{equation*}
+    r^* = \{ \mathsf{NewVisRecord}(\{g\}) \mid g \in g_{s^\#}(\iota, \sigma) \}
+\end{equation*}
+However, for performance reasons, if the non-convergent access is out-of-order, the set of threads may be expanded during sync-check due to non-convergent out-of-order abstract machine optimization (def~\ref{sec:gOooOpt}).
+
+Note that for single-threaded accesses, the convergence makes no difference to the result (setting aside said optimization).
+

@@ -1,0 +1,65 @@
+\magicSubsection{TMA Usage}{sec:Tma}
+
+Note, the library of Exo-GPU CUDA instructions is highly incomplete.
+This section gives the guidelines for the expected interface of added TMA instructions.
+
+Copies from GMEM to SMEM use the \lighttt{CudaMbarrier} barrier mechanism (Section~\ref{sec:MbarrierUsage}) with a trailing barrier expression (Section~\ref{sec:InstrTrailingBarrierExpr}).
+Copies from SMEM to GMEM use the \lighttt{CudaCommitGroup} barrier mechanism (Section~\ref{sec:CommitGroupUsage}).
+
+The actual GMEM parameter must be a window expression that indexes a ``special window'' variable $x_w$ constructed from a GMEM tensor $x_g$ with this window statement:
+\begin{gather*}
+    \blacktt{$x_w$ = $x_g$[\codecomment{...}] @ Sm90\_tensorMap(swizzle, *smem\_box)}
+\end{gather*}
+where the required values of \lighttt{swizzle} and \lighttt{smem\_box} are to be defined.
+TODO, this window statement currently \emph{cannot} be inserted by scheduling operators.
+However, it can be removed with \lighttt{inline\_window(..., "$x_w$ = \_")}.
+
+The instruction template parameters (def~\ref{sec:gInstrTemplateParameter}) are
+\begin{itemize}
+  \item \texttt{size0}, \texttt{size1}, ..., which give the size of the tile being copied
+  \item \texttt{smem\_box}, which must match the \lighttt{smem\_box} parameter of the \lighttt{Sm90\_tensorMap}
+  \item \texttt{ncta}, for multicast TMA instructions
+  \item \texttt{cta\_stride}, for multicast TMA instructions
+\end{itemize}
+The multicast versions of TMA instructions involve \lighttt{ncta}-many CTAs, with the sequence of involved CTAs' \lighttt{cluster\_ctarank} values (def~\ref{sec:gCluster}) incrementing by \lighttt{cta\_stride}.
+They cooperate to copy a tile from GMEM into each involved CTA's SMEM, as if by the pseudocode in Figure~\ref{fig:multicast_pseudocode}.
+
+If an instruction variant without swizzling is used, then \lighttt{swizzle} must be 0.
+Otherwise, \lighttt{swizzle} must be one of 32, 64, or 128; and the product of the copied element size (in bytes) and the highest-index \lighttt{size$*$} template parameter must equal \lighttt{swizzle}.
+
+TMA instructions use one warp per involved CTA as their collective unit (Section~\ref{sec:InstrCollUnit})%
+\footnote{TMA is specified as a per-thread instruction in PTX, but the implementation of TMA in Exo-GPU expands this to a warp instruction, with \lighttt{elect\_one\_sync} used within the instruction implementation.
+This matches the expected usage pattern and underlying hardware reality better: ``TMA programming model is Uniform: all active threads in a warp are executing TMA operation 'with same arguments' '', GTC S62192, ``Advanced Performance Optimization in CUDA'', Igor Terentyev}.\\
+This is \lighttt{ncta * cuda\_warp\_in\_cluster\_strided(cta\_stride)} (def~\ref{sec:gCollUnit}).
+
+The \lighttt{smem\_box} tuple must simultaneously satisfy two constraints.
+First, it must be of the form
+\begin{gather*}
+    \left( 1^*, \frac{\texttt{size0}}{\texttt{ncta}}, 1^*, \texttt{size1}, 1^*, \texttt{size2}, ... 1^* \right)
+\end{gather*}
+where ``$1^*$'' means ``any number of 1s'' and \lighttt{ncta=1} for non-multicast TMA instructions.
+Second, the window expression $x_w[e^*]$ passed as the actual GMEM parameter must satisfy
+\begin{itemize}
+  \item $e^*$ and \lighttt{smem\_box} are the same length
+  \item $\lighttt{smem\_box[}i\lighttt{]} = 1$ if $e_i$ is a point expression
+\end{itemize}
+
+See Figure~\ref{fig:multicast_tma_excerpt} for example correct usage of a TMA instruction.
+
+\begin{figure}[b!]
+\codehrule
+\input{b_samples/multicast_pseudocode.0.tex}
+\caption{Multicast TMA pseudocode}
+\label{fig:multicast_pseudocode}
+\codehrule
+\end{figure}
+
+\begin{figure}[t!]
+\codehrule
+\input{b_samples/multicast_tma_excerpt.0.tex}
+\caption{Exo-GPU sm\_90a (Hopper) GEMM kernel excerpts showing multicast TMA usage}
+\label{fig:multicast_tma_excerpt}
+\codehrule
+\end{figure}
+
+\newpage

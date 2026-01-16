@@ -1,0 +1,35 @@
+\magicSubsection{Thread Pitch Requirement}{sec:DistributedMemoryThreadPitch}
+
+For each collective indexing pair $(\omega_0, e^*)$, we deduce a thread pitch tuple.
+The deduced number of distributed dimensions ($R$) is the length of this tuple.
+All collective indexing pairs must lead to the same deduced tuple.
+
+We will soon define what a \myKeyA{required iterator} is separately for data and barriers.
+A \myKeyA{required index expression} is a plain read of a required iterator.
+A \myKeyA{permitted index expression} is a plain read of a required iterator, or of a \lighttt{cuda\_threads} iterator with 0 thread pitch, as defined by $\omega_0$ (Section~\ref{sec:CollTilingDerivedState}).
+
+\mainKey{Data:} A collective index pair $(\omega_0, e^*)$ is first updated with domain completion (def~\ref{sec:gDomainCompletion}) so that the memory type's collective type ($\delta_0$) has the same domain as the collective tiling.
+Let $(\omega, \delta) = \mathsf{domainCompletion}(\omega_0, \delta_0)$.
+
+Dimension $i$ is a \myKeyA{subdivided dimension} if $\delta.B_i = 1$.
+An iterator is a \myKeyA{required iterator} if all these conditions apply:
+\begin{itemize}
+  \item appears in $\omega$
+  \item does not appear in $\omega_0^\text{alloc}$
+  \item its tiled dimension index is that of a subdivided dimension (as defined by $\omega$, Section~\ref{sec:CollTilingDerivedState})
+  \item its thread pitch is not 0 (as defined by $\omega$, Section~\ref{sec:CollTilingDerivedState})
+\end{itemize}
+The number of distributed dimensions $R$ is the lowest possible value $R$ such that $e_0, ..., e_{R-1}$ consists only of permitted index expressions, and all required index expressions appear exactly once (fail if this is not possible).
+The thread pitch tuple is $(g(e_0), ..., g(e_{R-1}))$ where $g(e)$ gives the thread pitch (as defined by $\omega$) of the iterator indexed by the permitted index expression $e$.
+
+\mainKey{Barrier:} A collective index pair $(\omega_0, e^*)$ is processed without domain completion.
+Let $\omega = \omega_0$.
+An iterator is a \myKeyA{required iterator} if all these conditions apply:
+\begin{itemize}
+  \item appears in $\omega$
+  \item does not appear in $\omega_0^\text{alloc}$
+  \item its thread pitch is not 0 (as defined by $\omega$, Section~\ref{sec:CollTilingDerivedState})
+\end{itemize}
+The number of distributed dimensions $R$ is the number of index expressions $e^*$, which must consist only of permitted index expressions, and all required index expressions must appear exactly once (fail if this is not the case).
+The thread pitch tuple is $(g(e_0), ..., g(e_{R-1}))$ where $g(e)$ gives the thread pitch (as defined by $\omega$) of the iterator indexed by the permitted index expression $e$.
+

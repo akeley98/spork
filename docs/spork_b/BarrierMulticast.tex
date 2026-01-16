@@ -1,0 +1,36 @@
+\magicSubsection{Barrier Multicast}{sec:BarrierMulticast}
+
+% thread pitch multiple of blockDim, multicast convergence, home barrier expr
+
+The \lighttt{Arrive} statement may contain multiple barrier expressions (Section~\ref{sec:gBarrierExpr}), some containing intervals instead of points.
+For example,
+\begin{equation*}
+    \texttt{Arrive(\codecomment{...}) >> $z$[m, :] >> $z$[:, n]}
+\end{equation*}
+There must be a unique \myKeyA{home barrier} (def~\ref{sec:gHomeBarrier}), which is the unique barrier in the intersection of all barrier expressions.
+This is determined from a deduced home barrier expression (in this case, \texttt{z[m, n]}).
+
+In the context of a given \lighttt{Arrive} statement, an iterator (control variable) $y$ is a \myKeyA{multicast iterator} if it appears at some index $j$ of a barrier expression, and another barrier expression has an interval at index $j$.
+For example,
+\begin{equation*}
+    \texttt{Arrive(\codecomment{...}) >> $z$[m, n] >> $z$[m, :]}
+\end{equation*}
+has only \texttt{n} being a multicast iterator.
+
+Currently only \lighttt{CudaMbarrier}-mechanism split barriers (Section~\ref{sec:MbarrierUsage}) support multicasting.
+Each multicast iterator must have a thread pitch (def~\ref{sec:gThreadPitch}) that is a multiple of \lighttt{blockDim} (Section~\ref{sec:CudaDeviceFunction}).
+That is, multicast iterators must correspond to \lighttt{cuda\_threads} loops that iterate in the CTA-in-cluster dimension (Section~\ref{sec:CollTiling}).
+
+We impose a conservative convergence requirement for multicast iterators.
+This is the only case in Exo-GPU where convergence is enforced other than through scoping.
+Each multicast iterator is defined by some \lighttt{cuda\_threads} loop (Section~\ref{sec:CollTilingCudaThreads}).
+For a given \lighttt{Arrive} statement, it must not have any parent \lighttt{if} or \emph{sequential} \lighttt{for} loop statements that are not also parents of each multicast iterator's defining \lighttt{cuda\_threads} loop (Figure~\ref{fig:BadMulticastExample}).
+
+\begin{figure}[t]
+\codehrule
+\input{b_samples/BadMulticastExample.0.tex}
+\caption{Multicast Convergence Requirement Violation}
+\label{fig:BadMulticastExample}
+\codehrule
+\end{figure}
+

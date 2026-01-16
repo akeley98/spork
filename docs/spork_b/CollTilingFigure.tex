@@ -1,0 +1,51 @@
+\magicSubsection{Collective Tiling Figure}{sec:CollTilingFigure}
+
+We will illustrate the collective tiling that annotates the inner-most statement of the following example proc.
+The illustration is on a separate page.
+
+\filbreak
+\input{b_samples/for_CollTiling_figure.0.tex}
+
+where we note that
+\begin{itemize}
+  \item The \texttt{\violetBox{n\_cta}} loop has a collective unit (def~\ref{sec:gCollUnit}) of \lighttt{4 * cuda\_cta\_in\_cluster\_strided(2)}, indicating that each iteration is executed cooperatively by a thread collective comprising 4 CTAs, with \lighttt{cluster\_ctarank} of the CTAs in the thread collective increasing by 2's.
+  \item All \lighttt{unit} parameters are documented (def~\ref{sec:gCollUnit}).
+  \item The \lighttt{CudaWarps} statement has the effect of deactivating the 0th warpgroup (def~\ref{sec:gWarpgroup}) of a CTA.
+    The Exo-GPU compiler generates a hidden \lighttt{CudaWarps\_consumer\_None\_None} variable associated with this statement.
+\end{itemize}
+
+\filbreak
+{
+\sffamily
+\begin{tikzpicture}[node distance=0mm]
+\input{spork_b/b_CollTiling_autogen.tex}
+
+\node(keyText) [anchor=south west, yshift=60mm, xshift=-5mm] at(cta1.north west) {\textbf{KEY:}};
+\node(keyThread) [CollTilingExampleStyle, anchor=west] at(keyText.east) {tid\\$c_0$\\$c_1$\\$c_2$};
+\node(keyTid) [anchor=west, text width=40mm] at(keyThread.east) {where ``tid'' is the local thread index given by toLocal($\omega.D, (c_0, c_1, c_2)$) (def~\ref{sec:gLocalThreadIndex},~def~\ref{sec:gToLocal}).};
+\node(keyCta) [anchor=north west, yellowstyle, yshift=-2mm] at(keyThread.south west) {\texttt{cluster\_ctarank} (def~\ref{sec:gCluster})$\rightarrow$};
+
+\node(ops_2_2_value) [anchor=south east, bluestyle, text width=80mm, yshift=+35mm] at(t_0_0_383.north east)  {\rmfamily $\textit{offset}=0$, $\textit{box}=1$, $\textit{tileCount}=128, \textit{iter}=\texttt{t}$};
+\node(ops_2_1_value) [anchor=south east, bluestyle, text width=80mm, yshift=+1mm] at(ops_2_2_value.north east)  {\rmfamily $\textit{offset}=0$, $\textit{box}=128$, $\textit{tileCount}=2, \textit{iter}=\texttt{wg}$};
+\node(ops_2_0_value) [anchor=south east, bluestyle, text width=80mm, yshift=+1mm] at(ops_2_1_value.north east)  {\rmfamily $\textit{offset}=128$, $\textit{box}=256$, $\textit{tileCount}=1$,\\$\textit{iter}=\texttt{CudaWarps\_consumer\_None\_None}$};
+\node(ops_1_0_value) [anchor=south east, violetstyle, text width=80mm, yshift=+1mm] at(ops_2_0_value.north east) {\rmfamily $\textit{offset}=0$, $\textit{box}=1$, $\textit{tileCount}=2$, $\textit{iter}=\texttt{n\_cta}$};
+\node(ops_0_0_value) [anchor=south east, greenstyle, text width=80mm, yshift=+1mm] at(ops_1_0_value.north east) {\rmfamily $\textit{offset}=0$, $\textit{box}=1$, $\textit{tileCount}=4$, $\textit{iter}=\texttt{m\_cta}$};
+
+\node(ops_2_2_label) [anchor=east] at(ops_2_2_value.west) {\rmfamily $\omega_2.\textit{ops}_2$};
+\node(ops_2_1_label) [anchor=east] at(ops_2_1_value.west) {\rmfamily $\omega_2.\textit{ops}_1$};
+\node(ops_2_0_label) [anchor=east] at(ops_2_0_value.west) {\rmfamily $\omega_2.\textit{ops}_0$};
+\node(ops_1_0_label) [anchor=east] at(ops_1_0_value.west) {\rmfamily $\omega_1.\textit{ops}_0$};
+\node(ops_0_0_label) [anchor=east] at(ops_0_0_value.west) {\rmfamily $\omega_0.\textit{ops}_0$};
+
+\node(dim2) [anchor=north west, xshift=-50mm] at(ops_2_0_value.north west) {\textbf{Dim 2:} $\omega_2.n = 384$};
+\node(dim1) [anchor=north west, xshift=-50mm] at(ops_1_0_value.north west) {\textbf{Dim 1:} $\omega_1.n = 2$};
+\node(dim0) [anchor=north west, xshift=-50mm] at(ops_0_0_value.north west) {\textbf{Dim 0:} $\omega_0.n = 4$};
+\node(CollTiling) [draw=black, anchor=east, text width=20mm] at(dim1.west) {CollTiling\\$\omega: \Omega$ state};
+
+\node(domain) [anchor=north east, yshift=-2mm, text width=50mm] at(dim2.south east) {The domain $\omega.D = (4, 2, 384)$ is given by ($\omega_0.n$, $\omega_1.n$, $\omega_2.n$) (def~\ref{sec:gDomain}).};
+
+\end{tikzpicture}
+}
+
+\FloatBarrier
+\newpage

@@ -1,0 +1,25 @@
+\magicSubsection{Arrive Semantics}{sec:ArriveSemantics}
+
+A \lighttt{Arrive} statement adds pending await(s) (def~\ref{sec:gPendingAwait}) to all visibility records (Section~\ref{sec:VisRecordState}) that it witnesses (Section~\ref{sec:Witness}), and increments the arrive count of a barrier array element.
+
+For a given statement \texttt{Arrive($\tau_s^\mathrm{post}$) >> $e^*$}, with
+\begin{itemize}
+  \item $g^* = g_{s^\#}(\iota, \sigma)$ assigned to execute it (Section~\ref{sec:SyncSemanticsThreadMapping})
+  \item $z[n_h^*]$ being the home barrier of $e^*$ (def~\ref{sec:gHomeBarrier})
+  \item $a$ being the arrive count of the home barrier (i.e. $\rho(z, n_h^*).b.a$)
+\end{itemize}
+define $\lambda_\mathrm{Arrive}: \mathsf{VisRecord} \to \mathsf{VisRecord}$ as
+\begin{equation*}
+    \lambda_\mathrm{Arrive}(r) = \begin{cases}
+        (r.s, r.p \cup \{ (z, n^*, a) \text{ for each $z[n^*]$ referenced by any barrier expr.} \})
+        & \text{ if } \mathcal{W}(g^*, \tau_s^\mathrm{pre}.\mathrm{full}, r) \\
+        r & \text{ otherwise }
+    \end{cases}
+\end{equation*}
+The new synchronization environment $\rho''$ is defined from $\rho$ (Section~\ref{sec:SyncEnv}) by
+\begin{align*}
+  & \rho' = \mathsf{lift}(\rho, \lambda_\mathrm{Arrive}) & \text{(Section~\ref{sec:Lifting})} \\
+  & \rho'' = \rho'[z \to n_h^* \to (r.r, r.m, r.b.a + 1, r.b.w)] \text{ with } r = \rho'(z, n_h^*) & \text{(def~\ref{sec:gUpdateNotation})}
+\end{align*}
+The way we use and update only the arrive count of the home barrier (as a stand-in for the state of all barriers) is the reason for the barrier multicast convergence requirement (Section~\ref{sec:BarrierMulticast}).
+

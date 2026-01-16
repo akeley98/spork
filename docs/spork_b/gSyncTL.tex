@@ -1,0 +1,40 @@
+\magicSubsection{Synchronization Timeline (SyncTL)}{sec:gSyncTL}
+
+Parameter for synchronization statements (\lighttt{Fence}, \lighttt{Arrive}, \lighttt{Await}), which are defined as a composition of a \myKeyA{full timeline set} (set of \textsf{QualTL}, def~\ref{sec:gQualTL}) and a \myKeyA{temporal timeline set} (set of \textsf{QualTL}).
+For a given $\tau_s$, these are denoted as $\tau_s.\mathrm{full}$ and $\tau_s.\mathrm{temp}$ respectively.
+
+We list the sync timelines $\tau_s$ in the following table, where ``temp.'' in a qualitative timeline's column indicates membership of the qualitative timeline in $\tau_s.\mathrm{temp}$, and ``full'' indicates membership in \emph{both} $\tau_s.\mathrm{full}$ and $\tau_s.\mathrm{temp}$. The PLDI submission also had ``transitive'', which is gone now.
+
+{
+\setlength{\tabcolsep}{2pt}
+\small
+\begin{tabular}{|r|l l|l l|l l l| l l l l|l|}
+\hline
+$\tau_s$ & cpu & strm & cuda1 & cuda2 & Sm80 & tmaS & tmaG & wgA & wgD & wgS & wg0 & async \\
+\hline
+\texttt{empty\_sync\_tl} &  &  &  &  &  &  &  &  &  &  &  & \\
+\texttt{cpu\_in\_order} & full &  &  &  &  &  &  &  &  &  &  & \\
+\texttt{cuda\_stream\_sync} &  & full & full & full & full & full & full & full & full & full &  & full\\
+\texttt{cuda\_in\_order} &  &  & full & full &  &  &  &  &  &  & temp. & temp.\\
+\texttt{cuda\_temporal} &  &  & temp. & temp. &  &  &  &  &  &  & temp. & temp.\\
+\texttt{Sm80\_cp\_async} &  &  &  &  & full &  &  &  &  &  &  & \\
+\texttt{Sm80\_generic} &  &  & full & full & full &  &  &  &  &  & temp. & temp.\\
+\texttt{tma\_to\_smem\_async} &  &  &  &  &  & full &  &  &  &  &  & \\
+\texttt{tma\_to\_gmem\_async} &  &  &  &  &  &  & full &  &  &  &  & \\
+\texttt{wgmma\_async\_smem} &  &  &  &  &  &  &  &  &  & full &  & \\
+\texttt{wgmma\_fence\_1} &  &  & full &  &  &  &  & full & full &  &  & \\
+\texttt{wgmma\_fence\_2} &  &  &  &  &  &  &  & full & full &  &  & \\
+\texttt{wgmma\_async} &  &  &  &  &  &  &  & full & full & full &  & \\
+\texttt{cuda\_generic\_and\_async\_proxy} &  &  & full & full &  &  &  &  &  &  & temp. & full\\
+\hline
+\end{tabular}
+}
+
+\textsf{QualTL} key:
+
+\input{spork_b/QualTL.tex}
+
+% NB note alphabetical sorting
+%           |
+% Synchronization
+% Synchronizes

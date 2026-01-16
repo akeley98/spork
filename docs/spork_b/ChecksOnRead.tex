@@ -1,0 +1,17 @@
+\magicSubsection{Checks on Read, Arrive, Await}{sec:ChecksOnRead}
+
+Read-like accesses only impose requirements on the mutate visibility record set.
+
+For each array element $x[n^*]$ referenced by a read within a statement, an \lighttt{Arrive} statement, or an \lighttt{Await} statement,
+\begin{itemize}
+  \item let $g^* = g_{s^\#}(\iota, \sigma)$ be the thread collective assigned to execute the statement (Section~\ref{sec:SyncSemanticsThreadMapping})
+  \item let $q^*$ be the \myKeyA{extended timeline set} (Section~\ref{sec:InstrTL})
+  \item let $t$ be the convergence flag (Section~\ref{sec:InstrConvergentAccess})
+\end{itemize}
+Require that
+\begin{equation*}
+    \forall r \in \rho(x, n^*).m, \mathsf{CheckVisRecord}(t, g^*, q^*, \mathsf{VF_{full}}, r)
+\end{equation*}
+If the above is not true, the abstract machine enters the error condition.
+Otherwise, this step causes no state changes, but the abstract machine continues on to the changes specified in Section~\ref{sec:VisRecordCreation}.
+

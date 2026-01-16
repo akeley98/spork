@@ -1,0 +1,17 @@
+\magicSubsection{Intended Usage Patterns -- Access Before Synchronization}{sec:AccessBeforeSync}
+
+\begin{equation*}
+    \texttt{Read|Mutate} \to \texttt{Arrive(}\tau_s^\mathrm{pre}\texttt{)\codecomment{...} | Fence(}\tau_s^\mathrm{pre},\codecomment{...}\texttt{)}
+\end{equation*}
+
+A dependency edge forms between a read or mutate followed by an \lighttt{Arrive} or \lighttt{Fence} statement instance when the initial qualitative timeline $q$ of the read or mutate is a member of $\tau_s^\mathrm{pre}.\mathrm{full}$, and there is a thread in common executing the two.
+The synchronization timeline $\tau_s^\mathrm{pre}$ (def~\ref{sec:gSyncTL}) and barrier mechanism (def~\ref{sec:gBarrierMechanism}) to use varies depending on the instruction issuing the read or mutate:
+\begin{itemize}
+  \item For non-async cuda instructions, use \lighttt{cuda\_in\_order} and a \lighttt{Fence} (Section~\ref{sec:FenceUsage}) or mbarrier (Section~\ref{sec:MbarrierUsage}).
+  \item For sm\_80 non-bulk \lighttt{cp.async} instructions (Ampere), use \lighttt{Sm80\_cp\_async} and a commit group (Section~\ref{sec:CommitGroupUsage}) or mbarrier (Section~\ref{sec:MbarrierUsage}).
+  \item For TMA instructions copying into SMEM, use mbarriers (Section~\ref{sec:MbarrierUsage}).
+  \item For wgmma instructions and TMA instructions copying out of SMEM, use commit groups (Section~\ref{sec:CommitGroupUsage}).
+\end{itemize}
+This pattern is implemented by storing a new \textsf{VisRecord} (Section~\ref{sec:VisRecordCreation}) containing a timeline signature with one of the executing threads, the initial qualitative timeline $q$, and visibility flag $\mathsf{VF_{issue}}$.
+The later \lighttt{Arrive} or \lighttt{Fence} will witness (Section~\ref{sec:Witness}) this timeline signature.
+

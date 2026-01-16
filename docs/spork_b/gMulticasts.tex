@@ -1,0 +1,13 @@
+\magicSubsection{Multicasts}{sec:gMulticasts}
+
+Each barrier expression (def~\ref{sec:gBarrierExpr}) has its own \myKeyA{multicast flags}.
+This is a tuple of boolean values $t_i$ where $t_i$ is true if the $i^{th}$ index is an interval, and false if the $i^{th}$ index is a point.
+
+The multicasts of an \lighttt{Arrive} statement (Section~\ref{sec:BarrierMulticast}) is a tuple-of-tuple-of-booleans, consisting of each barrier expression's multicast flags.
+For example,
+
+\input{b_samples/multicast_flags_example.0.tex}
+
+
+% >N
+

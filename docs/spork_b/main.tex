@@ -1,0 +1,70 @@
+% exocc b_samples.py && python3 code_to_tex.py b_samples.py b_samples && xelatex spork_b.tex </dev/null
+\input{whitepaper_common.tex}
+
+\tikzstyle{arrow} = [thick,->,>=stealth]
+\tikzstyle{line} = [thick]
+
+\tikzstyle{redstyle} = [draw=redBoxFg, fill=redBoxBg, text=redBoxFg]
+\tikzstyle{yellowstyle} = [draw=yellowBoxFg, fill=yellowBoxBg, text=yellowBoxFg]
+\tikzstyle{greenstyle} = [draw=greenBoxFg, fill=greenBoxBg, text=greenBoxFg]
+\tikzstyle{bluestyle} = [draw=blueBoxFg, fill=blueBoxBg, text=blueBoxFg]
+\tikzstyle{violetstyle} = [draw=violetBoxFg, fill=violetBoxBg, text=violetBoxFg]
+\tikzstyle{nRedstyle} = [draw=nRedBoxFg, fill=nRedBoxBg, text=nRedBoxFg]
+\tikzstyle{nGoldstyle} = [draw=nGoldBoxFg, fill=nGoldBoxBg, text=nGoldBoxFg]
+\tikzstyle{nGreenstyle} = [draw=nGreenBoxFg, fill=nGreenBoxBg, text=nGreenBoxFg]
+\tikzstyle{nBluestyle} = [draw=nBlueBoxFg, fill=nBlueBoxBg, text=nBlueBoxFg]
+\tikzstyle{nPurplestyle} = [draw=nPurpleBoxFg, fill=nPurpleBoxBg, text=nPurpleBoxFg]
+
+\tikzstyle{CollTypeExampleStyle} = [rectangle, draw=black, text centered, text width=23mm]
+\tikzstyle{CollTilingExampleStyle} = [rectangle, draw=black, text centered, text width=12.5mm]
+
+\newcommand{\qc}[1]{\left\llbracket#1\right\rrbracket}
+
+\begin{document}
+
+\myTitle{Exo-GPU (Spork) Guide}
+
+\myChapterLink{sec:Overview}{Overview}
+
+\myChapterLink{sec:CudaDeviceFunction}{Cuda Device Function \& Warp Specialization}
+
+Launching kernels, distributing work to clusters with \lighttt{cuda\_tasks} loops, \lighttt{CudaWarps} blocks.
+
+\myChapterLink{sec:CollType}{Collective Units \& Collective Types}
+
+Modeling subdivisions of threads in the cluster, e.g. threads, warps, warpgroups, CTAs, CTA pairs.
+
+\myChapterLink{sec:CollTiling}{Collective Tiling}
+
+Distributing work to threads-in-cluster with \lighttt{cuda\_threads} loops and \lighttt{CudaWarps} blocks.
+
+\myChapterLink{sec:DistributedMemory}{Distributed Memory}
+
+Sharding tensor and barrier allocations onto different groups of threads.
+
+\myChapterLink{sec:SyncUsage}{Synchronization Usage}
+
+\lighttt{Fence}, \lighttt{Arrive}, \lighttt{Await}, barrier mechanisms, home barrier, guarding, timelines.
+
+\myChapterLink{sec:SyncSemantics} {Synchronization Semantics}
+
+Abstract machine semantics, how to read sync-check (\lighttt{camspork}) errors.
+
+\myChapterLink{sec:Instr}{Instructions \& Timelines}
+
+Instruction templates, timelines, atomic instructions, TMA, special window (\lighttt{CUtensorMap}).
+
+\myChapterLink{sec:Glossary}{Glossary \& Reference}
+
+
+\input{spork_b/Overview.tex}
+\input{spork_b/CudaDeviceFunction.tex}
+\input{spork_b/CollType.tex}
+\input{spork_b/CollTiling.tex}
+\input{spork_b/DistributedMemory.tex}
+\input{spork_b/SyncUsage.tex}
+\input{spork_b/SyncSemantics.tex}
+\input{spork_b/Instr.tex}
+\input{spork_b/Glossary.tex}
+\end{document}
+

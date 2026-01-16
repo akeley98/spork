@@ -1,0 +1,9 @@
+\magicSubsection{toLocal}{sec:gToLocal}
+
+We define the mapping $\mathsf{toLocal}: \mathbb{N}^M \to \mathbb{N}^M \to \mathbb{N}$, which converts a domain (def~\ref{sec:gDomain}) and coordinates to a local thread index, as
+\begin{align*}
+    \mathsf{toLocal}((D_0,...,D_{M-1}), (c_0,...,c_{M-1})) \mapsto \sum_{k=0}^{M-1} c_k \times D_{k+1} \times ... \times D_{M-1}
+\end{align*}
+i.e. the coordinates $[0, D_0-1]_\mathbb{N} \times ... \times [0, D_{M-1}-1]_\mathbb{N}$ get mapped to local thread indices (def~\ref{sec:gLocalThreadIndex}) in lexicographical order.
+For this definition to work as expected, the product of the domain coordinates $D_0 \times ... \times D_{M-1}$ must be equal to the number of threads in the cluster (\lighttt{clusterDim.x * blockDim.x}).
+

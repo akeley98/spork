@@ -1,0 +1,29 @@
+\magicSubsection{Base Threads Requirement}{sec:DistributedMemoryBaseThreads}
+
+The thread pitch tuple requirement will diagnose many cases of inconsistent sharding, but will not detect ``offset-only'' mismatches, such as $x[0], x[1], x[2]...$ being accessed by threads 0, 1, 2, ... in one usage and threads 64, 65, 66, ... in another usage (as could occur with warp specialization).
+The base threads requirement addresses this issue.
+We will define the \myKeyA{base offset} and \myKeyA{base box} of a collective tiling separately for data and barrier variables.
+
+\mainKey{Barrier:} Given an $M$-dimensional collective tiling $\omega$, the \myKeyA{base offset} is defined by the tuple $(O_0, ..., O_{M-1})$ where $O_i = \sum_{j} \omega_i.\textit{ops}_j.\textit{offset}$ (Section~\ref{sec:CollDimDescriptor}).
+The \myKeyA{base box} is $\omega.B$.
+
+\mainKey{Data:} Given a collective tiling $\omega_0$ and the collective type $\delta_0$ unpacked from the native unit (def~\ref{sec:gNativeUnit}), let $(\omega, \delta) = \mathsf{domainCompletion}(\omega_0, \delta_0)$.
+The \myKeyA{base offset} $O$ and the \myKeyA{base box} $\textit{BB}$ are both $M$ tuples, $M$ being the dimensionality of $\omega$.
+The $i^{th}$ dimension is a \myKeyA{intact dimension} if $\delta.B_i = \delta.D_i$.
+For intact dimensions\footnote{The motivation of this is to fill in intact dimensions with ``default'' values that will never fail the equality test.
+For example, a collective type for a CTA may have domain (4, 384) and box (1, 384), so dimension 0 is subdivided and dimension 1 is intact.
+The defaulting on dimension 1 ensures the base threads requirement allows different thread collectives within the same CTA to access an SMEM shard, while still ensuring incompatibilities on dimension 0 (different CTAs in the cluster) are diagnosed.}
+$i$, $O_i = 0$ and $\textit{BB}_i = \delta.D_i$.
+For other dimensions, $O_i = \sum_{j} \omega_i.\textit{ops}_j.\textit{offset}$ (Section~\ref{sec:CollDimDescriptor}) and $\textit{BB}_i = \omega.B_i$.
+
+\mainKey{Base Offset Equivalence:} Compute the linear offset of $\omega$ as $\sum_{i} O_i (\omega.P_i)$, where $O$ denotes the base offset derived from $\omega$, and $\omega.P_i$ denotes the dimension thread pitch (def~\ref{sec:gThreadPitch}).
+Base offset equivalence means that the linear offset computed for two collective tilings are the same.
+
+\mainKey{Base Box Equivalence:} Given collective tilings $\omega_1$ and $\omega_2$ with base boxes $\textit{BB}_1$ and $\textit{BB}_2$ respectively, the two collective tilings have equivalent base boxes when $\delta_1 = \delta_2$ given $(\delta_1, \delta_2) = \mathsf{domainCompletionTypeOnly}((\omega_1.D, \textit{BB}_1), (\omega_2.D, \textit{BB}_2))$ (def~\ref{sec:gDomainCompletionTypeOnly}).
+
+\mainKey{Barrier Requirements:} The base threads requirement is met for two collective indexing pairs when their two collective tilings satisfy base offset equivalence and base box equivalence.
+The specific pairs that must satisfy this requirement varies depending on the barrier mechanism (def~\ref{sec:gBarrierMechanism}).
+
+\mainKey{Data Requirements:} Any two collective indexing pairs for a given data variable must have their two collective tilings satisfy base offset equivalence and base box equivalence.
+
+

@@ -1,0 +1,37 @@
+\magicSection{Synchronization Semantics}{sec:SyncSemantics}
+
+The synchronization semantics are defined by translating the Exo-GPU program into an abstract machine program, and interpreting the abstract machine program with respect to abstract machine semantics.
+The program is synchronized correctly if no error condition is reached.
+In the current implementation (with camspork), this can only be done for a given concrete problem size specified by \lighttt{exo.Procedure.sync\_check}.
+
+Both existing Exo value semantics and new abstract machine semantics are defined sequentially.
+The primary difference is that in the value semantics, a data array element holds a numerical value, while in abstract machine semantics, each data array element encodes a threading-aware history of reads and mutates performed to it, with each access encoded as a \myKeyA{visibility record} (Section~\ref{sec:VisRecordState}).
+Specifically, the state of an interpreted abstract machine program consists of
+\begin{itemize}
+  \item A synchronization environment $\rho$ (rho), Section~\ref{sec:SyncEnv}
+  \item A current task ID $\iota: \mathbb{I}$ (iota), Section~\ref{sec:SyncSemanticsThreadMapping}
+  \item A control environment $\sigma: \Sigma$ (sigma), with $\Sigma \Coloneqq \mathbb{Y} \to \mathbb{Z}$ (def~\ref{sec:gControlEnv})
+\end{itemize}
+
+When a \myKeyA{non-sync-exempt} (def~\ref{sec:gSyncExempt}) array element is read or mutated, a new visibility record (\textsf{VisRecord}) gets added to the synchronization environment for that element (Section~\ref{sec:VisRecordCreation}).
+Each interpreted \lighttt{Fence} (Section~\ref{sec:FenceSemantics}), \lighttt{Arrive} (Section~\ref{sec:ArriveSemantics}), and \lighttt{Await} statement (Section~\ref{sec:AwaitSemantics}) conditionally modifies all visibility records in the \emph{entire environment}, via lifting (Section~\ref{sec:Lifting}) and augment (Section~\ref{sec:Augment}).
+\lighttt{Arrive} and \lighttt{Await} statements may also modify the arrive and await count.
+Finally, the abstract machine specifies correctness checks for each read to (Section~\ref{sec:ChecksOnRead}), mutate of (Section~\ref{sec:ChecksOnMutate}), or free of (Section~\ref{sec:ChecksOnFree}) an array element; these checks are a function of the synchronization environment state for said array element.
+
+For this informal documentation, we will skip the translation step and summarize the effects of relevant Exo-GPU statements upon the above state directly.
+
+\input{spork_b/ControlEnv.tex}
+\input{spork_b/SyncSemanticsThreadMapping.tex}
+\input{spork_b/SyncEnv.tex}
+\input{spork_b/VisRecordState.tex}
+\input{spork_b/VisRecordCreation.tex}
+\input{spork_b/Lifting.tex}
+\input{spork_b/Witness.tex}
+\input{spork_b/Augment.tex}
+\input{spork_b/FenceSemantics.tex}
+\input{spork_b/ArriveSemantics.tex}
+\input{spork_b/AwaitSemantics.tex}
+\input{spork_b/CheckVisRecordHelper.tex}
+\input{spork_b/ChecksOnRead.tex}
+\input{spork_b/ChecksOnMutate.tex}
+\input{spork_b/ChecksOnFree.tex}

@@ -1,0 +1,37 @@
+\magicSection{Cuda Device Function \& Warp Specialization}{sec:CudaDeviceFunction}
+
+Wrap code with a \lighttt{with CudaDeviceFunction(...):} statement to transform it to CUDA.
+The body of the \lighttt{CudaDeviceFunction} statement must consist of exactly one statement: a nest of one or more \lighttt{cuda\_tasks} loops.
+The body of the inner-most \lighttt{cuda\_tasks} loop is a \myKeyA{device task}; each is assigned to a CUDA cluster for execution.
+We implement a persistent-kernel design, so multiple tasks may be co-located on the same cluster.
+The shape of the \lighttt{cuda\_tasks} iteration space must be a cuboid, i.e., the loop bounds of one \lighttt{cuda\_tasks} loop must not be dependent on another \lighttt{cuda\_tasks} loop.
+
+The \lighttt{CudaDeviceFunction} object is a Python object, containing attributes
+\begin{itemize}
+  \item \lighttt{clusterDim} (default 1), number of CTAs per cluster.
+  \item \lighttt{blocks\_per\_sm} (default 1), number of CTAs concurrently executing per hardware SM.
+  \item \lighttt{blockDim}, number of threads per CTA.
+  \item \lighttt{warp\_config}, list of \lighttt{CudaWarpConfig} objects.
+\end{itemize}
+Exactly one of \lighttt{blockDim} or \lighttt{warp\_config} must be given.
+The latter is intended for kernels with warp specialization, where we partition the warps in the CTA into named groups of warps, possibly with a different number of registers each.
+Each \lighttt{CudaWarpConfig} defines a \myKeyA{warp variable}, and has attributes
+\begin{itemize}
+  \item \lighttt{name: str}, the name of the warp variable.
+  \item \lighttt{count: int}, number of warps.
+  \item \lighttt{setmaxnreg\_dec: Optional[int]}, registers per thread; regs allocated by \lighttt{setmaxnreg.dec}.
+  \item \lighttt{setmaxnreg\_inc: Optional[int]}, registers per thread; regs allocated by \lighttt{setmaxnreg.inc}.
+\end{itemize}
+The \lighttt{blockDim} of the CTA is implicitly 32 times the sum of the number of warps defined.
+Within the device task, a \lighttt{with CudaWarps(name=<str>)} statement may be used to restrict the body of the statement to only execute on the subset of warps named (Figure~\ref{fig:CudaDeviceFunction0}).
+
+\begin{figure}[h]
+\codehrule
+\input{b_samples/CudaDeviceFunction.0.tex}
+\caption{Kernel launch with warp specialization}
+\label{fig:CudaDeviceFunction0}
+\codehrule
+\end{figure}
+
+\FloatBarrier
+\newpage

@@ -1,0 +1,7 @@
+\magicSubsection{Collective Type Matching}{sec:CollTilingCollTypeMatching}
+
+Given a collective type $\delta_0$ and collective tiling $\omega_0$, we can query if $\omega_0$ \myKeyA{matches} $\delta_0$.
+Let $(\omega, \delta) = \mathsf{domainCompletion}(\omega_0, \delta_0)$.
+Then the query returns true if domain completion succeeded and $\omega.B = \delta.B$.
+This certifies that statements with collective tiling $\omega_0$ are at $\delta_0$-scope (def~\ref{sec:gCollType}).
+

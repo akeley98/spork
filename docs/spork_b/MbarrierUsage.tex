@@ -1,0 +1,38 @@
+\magicSubsection{Mbarrier Usage}{sec:MbarrierUsage}
+
+A barrier variable $z_a$ with mbarrier barrier mechanism may be declared with
+
+\texttt{$z_a$: barrier[$e^*$] @ CudaMbarrier}
+
+\texttt{insert\_barrier\_alloc(\codecomment{...}, $z_a$, None, [$e^*$], CudaMbarrier)}
+
+\texttt{$z_a$: barrier($z_g$) [$e^*$] @ CudaMbarrier}
+
+\texttt{insert\_barrier\_alloc(\codecomment{...}, $z_a$, $z_g$, [$e^*$], CudaMbarrier)}
+
+where the array size $e^*$ is subject to distributed memory analysis (Section~\ref{sec:DistributedMemory}), and the $z_g$ variable, if present, means that $z_a$ is explicitly guarded-by $z_g$ (def~\ref{sec:gGuardedBy}).
+This is used in the barrier guarding requirement (Section~\ref{sec:BarrierGuarding}); in short, \lighttt{Arrive} statements using $z_a$ must be matched with \lighttt{Await} statements using $z_g$.
+
+Each barrier array element is implemented as a \emph{ring buffer} of CUDA mbarrier objects (def~\ref{sec:gMbarrierRingBuffer}), resident in a single CTA.
+You cannot implement ring buffering explicitly in Exo-GPU (the indexing pattern required will not pass distributed memory analysis), which is an intentional break from Exo's imperative programming style in order to simplify sync-check.
+
+The first synchronization timeline (def~\ref{sec:gSyncTL}) $\tau_s^\mathrm{pre}$ for the \lighttt{Arrive} should be \lighttt{cuda\_in\_order}, \lighttt{Sm80\_cp\_async}, or \lighttt{cuda\_temporal}.
+The second synchronization timeline $\tau_s^\mathrm{post}$ for the \lighttt{Await} should be \lighttt{cuda\_in\_order}, \lighttt{cuda\_generic\_or\_async\_proxy}, or \lighttt{cuda\_temporal}.
+(Avoid using \lighttt{cuda\_generic\_or\_async\_proxy} unless required; in particular guarding against write-after-read (WAR) hazards for a producer warp using TMA requires only \lighttt{cuda\_temporal} for the producer warp's \lighttt{Await}).
+For TMA-to-SMEM instructions, use a trailing barrier expression for the instruction directly (Section~\ref{sec:Tma}).
+
+\mainKey{Statically-checked Requirements:}
+\begin{itemize}
+  \item Split barrier basic requirements (Section~\ref{sec:SplitBarrierBasic}).
+  \item Barrier guarding requirement, either arrive-first or await-first (Section~\ref{sec:BarrierGuarding}).
+  \item Barrier expressions (def~\ref{sec:gBarrierExpr}) must meet the barrier multicast requirements (Section~\ref{sec:BarrierMulticast}).
+  \item Each \lighttt{Await} for a given variable $z_a$ must have the same $n$ value, and $n < 0$, i.e. this is an await-indexed barrier (Section~\ref{sec:ArriveAwaitPairing}, Section~\ref{sec:AwaitSemantics}).
+  \item Distributed memory analysis (Section~\ref{sec:DistributedMemory}) must be able to map each barrier array element into only a single CTA (TODO, explain how?).
+  \item Each \lighttt{Arrive} for a given barrier array element must be executed by the same \myKeyA{thread collective} (def~\ref{sec:gThreadCollective}).
+    This is enforced by requiring base thread equality (Section~\ref{sec:DistributedMemoryBaseThreads}) between collective indexing pairs collected both from all \lighttt{Arrive} statements for $z_a$.
+  \item The above requirement applies separately for all \lighttt{Await} statements for $z_a$.
+  \item The deduced ring buffer size must be positive (def~\ref{sec:gMbarrierRingBuffer}).
+\end{itemize}
+
+% multicast, guarding, hidden ring buffer & why ...
+

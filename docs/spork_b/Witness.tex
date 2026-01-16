@@ -1,0 +1,10 @@
+\magicSubsection{VisRecord Synchronizes-with (Witness)}{sec:Witness}
+
+Given a first synchronization timeline $\tau_s^\mathrm{pre}$ (def~\ref{sec:gSyncTL}) and a thread collective $g^*$ mapped to execute (Section~\ref{sec:SyncSemanticsThreadMapping}) a certain \lighttt{Fence} or \lighttt{Arrive} statement instance, the statement instance ``witnesses'', or ``synchronizes-with'' a visibility record (Section~\ref{sec:VisRecordState}) when its visibility set contains a timeline signature (def~\ref{sec:gTlSig}) of the form $(g, q, \mathsf{VF_{issue}})$ with $g \in g^*$ and $q \in \tau_s^\mathrm{pre}.\mathrm{full}$.
+
+The witness function $\mathcal{W}: \mathcal{P}(\mathbb{G}) \to \mathcal{P}(\mathsf{QualTL}) \to \mathsf{VisRecord} \to \mathsf{Bool}$ is defined as
+\begin{equation*}
+  \mathcal{W}(g^*, \tau_s^\mathrm{pre}.\mathrm{full}, r) = \exists (g, q, v) \in r.s \text{ such that } g \in g^* \land q \in \tau_s^\mathrm{pre}.\mathrm{full} \land v \in \{ \mathsf{VF_{issue}}, \mathsf{VF_{full}} \}
+\end{equation*}
+The transitivity flag from the PLDI submission is removed. TODO is $\mathsf{VF_{full}}$ needed here?
+

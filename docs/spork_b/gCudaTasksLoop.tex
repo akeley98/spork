@@ -1,0 +1,8 @@
+\magicSubsection{\texttt{cuda\_tasks} Loop}{sec:gCudaTasksLoop}
+
+Loop with loop mode \lighttt{CudaTasks} (def~\ref{sec:gLoopMode}).
+When executed, these define device task instances (def~\ref{sec:gDeviceTask}), as well as new task IDs in abstract machine semantics (Section~\ref{sec:SyncSemanticsThreadMapping}).
+Each device task instance is assigned uniquely to a cluster on the device (def~\ref{sec:gCluster}) for execution.
+The mapping between device task instances and clusters is deliberately not part of the language specification (TODO Luca may change this, add a user-selected ``strategy'' for this).
+See Section~\ref{sec:CudaDeviceFunction}.
+

@@ -1,0 +1,7 @@
+\magicSubsection{Thread Collective}{sec:gThreadCollective}
+
+Set of threads within a single CUDA cluster (def~\ref{sec:gCluster}) assigned to execute one statement instance (def~\ref{sec:gStmtInstance}) or to allocate one shard (def~\ref{sec:gShard}) of a variable (Section~\ref{sec:DistributedMemory}).
+On the CUDA device, the threads in the thread collective are uniquely identified by its cluster index (which is not statically analyzed) and its local thread index (def~\ref{sec:gLocalThreadIndex}), which is analyzed by collective analysis (Section~\ref{sec:CollTiling}).
+In the context of the abstract machine, the cluster index is replaced with a task index, since the mapping between tasks and clusters is a hardware-dependent detail we abstract over.
+Specifically, a thread collective in this context is a set of global thread IDs (def~\ref{sec:gGlobalThreadID}).
+

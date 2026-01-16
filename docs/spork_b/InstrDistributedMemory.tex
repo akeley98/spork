@@ -1,0 +1,38 @@
+\magicSubsection{Instruction Distributed Memory}{sec:InstrDistributedMemory}
+
+Formal window-typed instruction parameters may define a non-empty\\ \lighttt{exo.instr\_info.AccessInfo.distributed\_coll\_units} attribute, which is a list of collective units (def~\ref{sec:gCollUnit}).
+For the purposes of distributed memory analysis (Section~\ref{sec:DistributedMemory}), it is as if the formal parameter $x$ is accessed in a loop\\
+\blacktt{for $y_0$ in cuda\_threads(0, $c_0$, unit=$\tau_u^0$):}\\
+\blacktt{~~for $y_1$ in cuda\_threads(0, $c_1$, unit=$\tau_u^1$):}\\
+\blacktt{~~~~}\codecomment{\#...}\\
+\blacktt{~~~~~~$x$[$y_0$, $y_1$, ...]}\\
+where the $y_i: \mathbb{Y}$ are unique control variable names (def~\ref{sec:gMathbbY}) generated for the purpose of this analysis, the $c_i: \mathbb{N}$ are the extents of the $i^{th}$ dimension of $x$ (must be a compile-time constant), and the collective unit list is \texttt{[$\tau_u^0$, $\tau_u^1$, ...]}.
+
+This feature is required when the native unit (def~\ref{sec:gNativeUnit}) for the \lighttt{Memory} type annotating $x$ is ``smaller'' than the collective unit required by the instruction (Section~\ref{sec:InstrCollUnit}).
+
+Similarly, the trailing barrier expression (Section~\ref{sec:InstrTrailingBarrierExpr}) is associated with the list\\ \lighttt{exo.instr\_info.AccessInfo.barrier\_coll\_units}.
+
+During distributed memory analysis for a given variable $x$ or $z$, a window expression parameter $x[e_0,...,e_{E-1}]$ or trailing barrier expression $z[e_0,...,e_{E-1}]$ contributes a collective indexing pair (Section~\ref{sec:CollIndexingPairs}) as follows:
+\begin{itemize}
+  \item Let $\tau_u^0, ... ,\tau_u^{U-1}$ be the relevant list of collective units, with $U$ being the length of the list.
+  \item Let $c_0, ..., c_{U-1}$ be the extents of the first $U$-many dimensions of the formal window parameter. These must be compile-time constants.
+  \item Let $\mathsf{int}_0, ..., \mathsf{int}_{U-1}$ be, in order, the first $U$-many interval expressions in $e_0, ..., e_{E-1}$.
+  The analysis fails if any $\mathsf{int}_i$ is not of the form \blacktt{0:$c_i$}, or if fewer than $U$-many interval expressions are present.
+  \item Define unique control variable names $y_0, ... ,y_{U-1}$.
+  \item Let $\omega_0$ be the collective tiling (Section~\ref{sec:CollTiling}) of the statement containing the expression being analyzed.
+  \item Define $\omega_U$ from $\omega_0$ by induction, using \textsf{deriveCollTiling} (def~\ref{sec:gDeriveCollTiling}) in the same manner as for a \lighttt{cuda\_threads} loop (Section~\ref{sec:CollTilingCudaThreads}).
+  \begin{align*}
+    & \omega_{i+1} = \mathsf{deriveCollTiling}(\omega_i, y_i, \delta_i, 0, c_i, c_i) \\
+    & \text{where } \delta_i \text{ is unpacked from } \tau_u^i \text{ with alignment and 1-padding (def~\ref{sec:gCollUnit})}
+  \end{align*}
+  \item The collective indexing pair is $(\omega_U, (e'_0, ... ,e'_{E-1}))$ where $e'$ is defined by
+  \begin{align*}
+    e'_j = \begin{cases}
+      y_i & \text{if $e'_j$ is $\mathsf{int}_i$, $i < U$} \\
+      e_j & \text{otherwise}
+    \end{cases}
+  \end{align*}
+  Note, in the common case where no \lighttt{distributed\_coll\_units} are given, $\omega_U = \omega_0$ and $e'^*_j = e^*_j$.
+\end{itemize}
+
+

@@ -1,0 +1,5 @@
+\magicSubsection{Warpgroup}{sec:gWarpgroup}
+
+128 CUDA threads with consecutive \lighttt{threadIdx.x} values, aligned so that the lowest index is a multiple of 128.
+(Note, this is simplified from the real CUDA definition, which takes into account the y and z dimensions that Exo-GPU does not parallelize on).
+

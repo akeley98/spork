@@ -1,0 +1,13 @@
+\magicSubsection{Trailing Barrier Expression}{sec:gTrailingBarrierExpr}
+
+Syntax ``\texttt{>}\texttt{> }$e$'' added after the closing \texttt{)} of an instruction call, with $e$ being a single barrier expression (def~\ref{sec:gBarrierExpr}).
+This allows direct usage of \lighttt{Await} (Section~\ref{sec:ArriveAwaitPairing}) to wait for the instruction to retire, which is treated as a special case in sync-check (Section~\ref{sec:VisRecordCreation}, Section~\ref{sec:AwaitSemantics}).
+
+The trailing barrier expression for an instruction is separate from its formal parameters.
+The \lighttt{replace} function does \textbf{not} require a correct trailing barrier expression.
+Use the scheduling function \lighttt{set\_trailing\_barrier\_expr} after the \lighttt{replace}.
+
+Note, the home barrier expression (def~\ref{sec:gHomeBarrier}) concept does \textbf{not} apply to the trailing barrier expression.
+
+% >U
+

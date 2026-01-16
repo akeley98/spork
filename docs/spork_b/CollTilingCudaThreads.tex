@@ -1,0 +1,28 @@
+\magicSubsection{cuda\_threads Loops}{sec:CollTilingCudaThreads}
+
+A \lighttt{cuda\_threads} loop must be in the form \lighttt{for $y$ in cuda\_threads(0, $c_\text{hi}$, unit=$\tau_u$)}, with $c_\text{hi}$ a positive constant integer.
+Let $\omega_\text{raw}$ be the collective tiling of the loop statement, and let $\delta_\text{raw}$ be the collective type unpacked from $\tau_u$ without alignment and without 1-padding (def~\ref{sec:gCollUnit}).
+Let $(\omega, \delta) = \textsf{domainCompletion}(\omega_\text{raw}, \delta_\text{raw})$ (def~\ref{sec:gDomainCompletion}) so that $\omega$ and $\delta$ have the same domain.
+
+The tiled dimension index $k$ is the value such that $\delta.B_k \notin \{ \top, \omega.B_k, \omega.D_k \}$.
+If no such $k$ exists, then the collective tiling of the child statements is $\omega$, and $c_\text{hi}$ must be 1 (trivial tiling).
+
+If multiple such $k$ exist, then the loop is ill-formed (ambiguous tiling).
+
+If $k$ exists uniquely, then we must have $c_\text{hi} \delta.B_k \le \omega.B_k$, otherwise the loop is ill-formed (not enough threads).
+In this case, the collective tiling $\omega'$ of the child statements is like $\omega$, but with a new $\textit{op}: \mathcal{O}$ appended to $\omega'_k.\textit{ops}$, with
+\begin{itemize}
+  \item $\textit{op}.\textit{iter} = y$
+  \item $\textit{op}.\textit{offset} = 0$
+  \item $\textit{op}.\textit{box} = \delta.B_k$
+  \item $\textit{op}.\textit{tileCount} = c_\text{hi}$
+\end{itemize}
+so that the output collective type of $\omega'$ is the same as that of $\omega$, except that $\omega'.B_k = \delta.B_k$.
+If all other box coordinates of $\omega'$ already match those of $\delta$, then the output collective type of $\omega'$ is $\delta$.
+This is commonly the case, but we designed this to allow for mismatches on dimensions other than $k$ to make it easier to place CTA-in-cluster loops inside thread-in-CTA loops or \lighttt{with CudaWarps} blocks.
+
+The generated collective tiling is more precisely defined by (def~\ref{sec:gDeriveCollTiling})
+\begin{equation*}
+    \mathsf{deriveCollTiling}(\omega_\text{raw}, y, \delta_\text{raw}, 0, c_\text{hi}, c_\text{hi})
+\end{equation*}
+

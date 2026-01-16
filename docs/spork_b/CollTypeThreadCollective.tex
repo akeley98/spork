@@ -1,0 +1,23 @@
+\magicSubsection{Collective Types \& Thread Collectives}{sec:CollTypeThreadCollective}
+
+A thread collective (def~\ref{sec:gThreadCollective}) is an instance of a collective type $\delta$ when all threads are in the same cluster, and, with $\mu: \mathcal{P}(\mathbb{N})$ being the set of local thread indices of the threads, there exist sets $C_0 ... C_{M-1}: \mathcal{P}(\mathbb{N})$ such that
+\begin{itemize}
+  \item $C_i \subseteq [0, \delta.D_i - 1]$
+  \item $\delta.B_i \ne \top \implies \exists x.\; C_i = [x, x + \delta.B_i - 1]_\mathbb{N}$.
+  \item $\mu = \{ \mathsf{toLocal}(\delta.D, c) \mid c \in C_0 \times ... \times C_{M-1}\}$
+\end{itemize}
+If we have no $\top$ box coordinates, this is specifying that the thread collective forms a cuboid of dimensions $\delta.B_0 \times ... \times \delta.B_{M-1}$ when its threads are arranged in the grid implied by $\delta.D$; therefore, the number of threads in the thread collective is the product of the box coordinates (Figure~\ref{fig:CollTypeExample}).
+
+\begin{figure}[h!]
+\sffamily
+\hspace{-12mm}
+\begin{tikzpicture}[node distance=0mm]
+\input{spork_b/CollTypeExample_tikz.tex}
+\end{tikzpicture}
+\caption{Example of a \violetBox{thread collective} that is an instance of the collective type $\delta$ with $\delta.B = (1, 2, 1, 128)$ and $\delta.D = (4, 2, 3, 128)$, which is a collective type in aligned form (def~\ref{sec:gAlignedForm}).
+The domain implies an organization of the threads in the cluster into a 4D \redBox{4} $\times$ \yellowBox{2} $\times$ \greenBox{3} $\times$ \blueBox{128} space (which is tough to illustrate).
+\lighttt{clusterDim = 8} and \lighttt{blockDim = 384}. $\mu = \{ \mathsf{toLocal}(\delta.D, c) \mid c \in [1, 1]_\mathbb{N} \times [0, 1]_\mathbb{N} \times [2, 2]_\mathbb{N} \times [0, 127]_\mathbb{N}\}$ (def~\ref{sec:gToLocal}).
+This is one warpgroup per CTA of a CTA pair.}
+\label{fig:CollTypeExample}
+\end{figure}
+

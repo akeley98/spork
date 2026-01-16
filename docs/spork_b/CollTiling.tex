@@ -1,0 +1,27 @@
+\magicSection{Collective Tiling}{sec:CollTiling}
+
+The \lighttt{cuda\_tasks} loops assign instances of device tasks (def~\ref{sec:gDeviceTask}) to different clusters on the system, and the user has no control (yet) over the mapping between device tasks and clusters.
+On the other hand, the \lighttt{cuda\_threads} loop, which assigns work to threads within a cluster, provides the user with tight control over this work mapping.
+
+Each statement at CUDA scope (def~\ref{sec:gCudaScope}) has a deduced \myKeyA{collective tiling} attribute.
+The collective tiling describes an arrangement of the threads in the cluster into a multidimensional space, in the same manner as a collective type's domain (def~\ref{sec:gDomain}), and groups \lighttt{cuda\_threads} loop iterators by the dimension they operate on.
+The statement's collective tiling may be converted to
+\begin{itemize}
+  \item an \myKeyA{output collective type}.
+    The thread collective assigned to execute an instance of this statement will always be an instance of this collective type (Section~\ref{sec:CollTypeThreadCollective}).
+  \item a \myKeyA{thread mapping function} of type $\Sigma \to \mathcal{P}(\mathbb{N})$; this converts the control environment $\sigma:\Sigma$ (i.e. $\sigma: \mathbb{Y} \to \mathbb{Z}$; the per-control-variable values) to the local thread indices (def~\ref{sec:gLocalThreadIndex}) of the thread collective assigned to execute an instance of this statement.
+  NB this is using syntax from the PLDI submission.
+  \item a per-\lighttt{cuda\_threads} iterator \myKeyA{thread pitch}: $\mathbb{N}$ (def~\ref{sec:gThreadPitch}).
+  \item a per-\lighttt{cuda\_threads} iterator \myKeyA{tiled dimension index}: $\mathbb{N}_\bot$.
+\end{itemize}
+The \myKeyA{domain} and \myKeyA{box} of a collective tiling $\omega$ are that of its output collective type, and for brevity, we denote it as $\omega.D$ and $\omega.B$ respectively.
+
+\input{spork_b/CollDimDescriptor.tex}
+\input{spork_b/CollTilingDerivedState.tex}
+\input{spork_b/CollTilingReshape.tex}
+\input{spork_b/CollTilingCollTypeMatching.tex}
+\input{spork_b/DerivedCollTiling.tex}
+\input{spork_b/CollTilingCudaDeviceFunction.tex}
+\input{spork_b/CollTilingCudaThreads.tex}
+\input{spork_b/CollTilingCudaWarps.tex}
+\input{spork_b/CollTilingFigure.tex}

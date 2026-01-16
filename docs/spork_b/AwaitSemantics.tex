@@ -1,0 +1,39 @@
+\magicSubsection{Await Semantics}{sec:AwaitSemantics}
+
+An \lighttt{Await} statement augments (Section~\ref{sec:Augment}) all visibility records (Section~\ref{sec:VisRecordState}) that contain the needed pending await (def~\ref{sec:gPendingAwait}), and updates the await count of the barrier array element referenced by the statement's barrier expression.
+
+For a given statement \texttt{Await}($e, \tau_s^\mathrm{post}, n$) with
+\begin{itemize}
+  \item $g^* = g_{s^\#}(\iota, \sigma)$ assigned to execute it (Section~\ref{sec:SyncSemanticsThreadMapping})
+  \item $z[n^*]$ being the barrier array element referenced by $e$ (def~\ref{sec:gBarrierExpr})
+  \item $a$ being the arrive count of the referenced barrier array element (i.e. $\rho(z, n^*).b.a$)
+  \item $w$ being the await count of the referenced barrier array element (i.e. $\rho(z, n^*).b.w$)
+\end{itemize}
+the behavior differs based on whether $n \ge 0$ (arrive-indexed case) or $n < 0$ (await-indexed case).
+
+If $n \ge 0$ (arrive-indexed case), then define
+\begin{align*}
+    & a_\mathrm{max} = a - n - 1 \\
+    & w' = \mathrm{max}(w, a_\mathrm{max} + 1)
+\end{align*}
+If $n < 0$ (await-indexed case), then define
+\begin{align*}
+    & \mathrm{lag} = -1 - n \\
+    & a_\mathrm{max} = w - \mathrm{lag} \\
+    & w' = w + 1
+\end{align*}
+Define $\lambda_\mathrm{Await}: \mathsf{VisRecord} \to \mathsf{VisRecord}$ as
+\begin{equation*}
+    \lambda_\mathrm{Await}(r) = \begin{cases}
+        \mathcal{A}(r, g^*, \tau_s^\mathrm{post}.\mathrm{full}, \tau_s^\mathrm{post}.\mathrm{temp}) & \text{ if } \exists (z', n'^*, a') \in r.p \text{ with } z = z' \land n^* = n'^* \land a' \le a_\mathrm{max} \\
+        r & \text{ otherwise }
+    \end{cases}
+\end{equation*}
+The new synchronization environment $\rho''$ is defined from $\rho$ (Section~\ref{sec:SyncEnv}) by
+\begin{align*}
+  & \rho' = \mathsf{lift}(\rho, \lambda_\mathrm{Await}) & \text{(Section~\ref{sec:Lifting})} \\
+  & \rho'' = \rho'[z \to n^* \to (r.r, r.m, r.b.a, w')] \text{ with } r = \rho'(z, n^*) & \text{(def~\ref{sec:gUpdateNotation})}
+\end{align*}
+
+\mainKey{Implementation Note:} camspork removes old pending awaits to avoid infinite state growth.
+

@@ -1,0 +1,40 @@
+\magicSubsection{Parallelism Overview}{sec:ParallelismOverview}
+
+\begin{figure}[b!]
+\codehrule
+\input{b_samples/OverviewThreads.0.tex}
+\caption{Threads Example Code}
+\label{fig:OverviewThreads}
+\codehrule
+\end{figure}
+
+CUDA C++ follows a SIMT programming model, where each statement instance (def~\ref{sec:gStmtInstance}) is viewed as being executed by a single thread.
+This places responsibility for correct parallelism entirely on the programmer.
+The SIMT viewpoint breaks down somewhat for instructions such as wgmma that require uniform execution within a certain grouping of threads.
+Languages such as Triton and cuTile reduce programmer responsibility by providing a programming model where statement instances are executed by a larger grouping of threads (e.g. a CTA, def~\ref{sec:gCta}).
+The compiler is tasked with mapping this work to device parallelism not exposed by the abstraction.
+
+Exo-GPU follows neither approach.
+Each statement instance is executed by a \myKeyA{thread collective} (def~\ref{sec:gThreadCollective}), which is a set of threads within a single CUDA cluster (def~\ref{sec:gCluster}).
+We do not impose a language-wide fixed size for a thread collective; it could, for example, be a single thread, a warp (def~\ref{sec:gWarp}), a CTA, a cluster, or more complicated user-defined cases.
+
+A \lighttt{for $y$ in cuda\_threads(0, $c_\text{hi}$, unit=$\tau_u$)} loop subdivides the executing thread collective into $c_\text{hi}$-many disjoint thread collectives, each assigned to execute a different ``iteration'' of the parallel-for loop.
+The $\tau_u$ is a \myKeyA{collective unit} (def~\ref{sec:gCollUnit}), from which a \myKeyA{collective type} $\delta$ (Section~\ref{sec:CollType}) is unpacked.
+The collective type describes a number and arrangement of threads (e.g. single thread, warp, CTA, CTA pair).
+In the common case, the thread collectives assigned to each iteration are instances of this unpacked $\delta$ (Section~\ref{sec:CollTypeThreadCollective}).
+These loops do \emph{not} imply implicit synchronization or ``fork-join'' semantics.
+In this sense, the Exo-GPU design is more similar in spirit to SIMT programming in that no implicit synchronization is inserted by the compiler.
+
+This design encodes uniform execution as a mostly-syntactic property of the language.
+When the thread collectives that execute instances of a statement are instances of a collective type $\delta$, the compiler deduces that the statement is at $\delta$-scope (e.g. warp-scope, CTA-scope, as in Figure~\ref{fig:OverviewThreads}).
+The underlying static analysis for this is based on \myKeyA{local thread indices} (def~\ref{sec:gLocalThreadIndex}), which number the threads within a cluster lexicographically based on CTA index, then thread index.
+The threads within a thread collective need not have a contiguous range of local thread indices (e.g., ``all even numbered CTAs in a cluster'' is a valid thread collective).
+
+All Exo code continues to be CPU code by default (we say that such code is at \myKeyA{CPU-scope}).
+To move code to the GPU, wrap it inside a \lighttt{with CudaDeviceFunction} block (Section~\ref{sec:CudaDeviceFunction}); this defines the \lighttt{clusterDim} (number of CTAs per cluster, def~\ref{sec:gCluster}) and \lighttt{blockDim} (number of threads per CTA, def~\ref{sec:gCta}), and may also define \myKeyA{warp variables} (def~\ref{sec:gWarpVariable}) giving names to subcollections of warps (def~\ref{sec:gWarp}) for the purposes of warp specialization.
+The statements within are at \myKeyA{CUDA scope} and are converted to CUDA C++ code.
+
+The body of the \lighttt{CudaDeviceFunction} block must contain only a single statement: a nest of one or more \lighttt{cuda\_tasks} loops.
+The body of the inner-most \lighttt{cuda\_tasks} loop is a \myKeyA{device task}; one instance of the device task is assigned to one CUDA cluster for execution (see example~\ref{sec:gCudaDeviceFunction}).
+Within the device task, the previously-described \lighttt{cuda\_threads} loops may be used to subdivide work into the threads of the cluster.
+

@@ -1,0 +1,7 @@
+\magicSubsection{Instructions Overview}{sec:InstrOverview}
+
+An instruction in Exo-GPU specifies its behavior/semantics (which is required for instruction-substitution rewrite rules to check for correctness, Section~\ref{sec:InstrBehavior}), a collective unit $\tau_u$ from which a collective type $\delta$ is unpacked (Section~\ref{sec:InstrCollUnit}), and memory access information for each formal parameter (Section~\ref{sec:InstrMemoryAccess}).
+Calls to the instruction must appear at $\delta$-scope (Section~\ref{sec:CollTilingCollTypeMatching}), e.g. wgmma instructions must appear at \lighttt{cuda\_warpgroup}-scope (def~\ref{sec:gCollUnit}).
+The per-formal-parameter information includes \myKeyA{qualitative timeline} information (def~\ref{sec:gQualTL}; this distinguishes the effects of non-asynchronous instructions and various categories of explicitly asynchronous instructions), atomicity information, implied thread convergence guarantees, and whether the effects are explicitly out-of-order.
+This information is required for synchronization checking (Section~\ref{sec:SyncSemantics}).
+

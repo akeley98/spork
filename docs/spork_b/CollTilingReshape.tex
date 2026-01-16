@@ -1,0 +1,14 @@
+\magicSubsection{Collective Tiling Reshape \& Domain Completion}{sec:CollTilingReshape}
+
+Similar to collective types (Section~\ref{sec:CollTypeReshape}), collective tilings may be reshaped by splitting dimensions.
+We split the $k^{th}$ dimension of $\omega$ by a factor $f: \mathbb{N}$ by replacing the collective dimension descriptor $\omega_k$ with a pair $(\omega_\text{hi}, \omega_\text{lo})$ defined by
+\begin{itemize}
+  \item $\omega_\text{hi}.n = \omega_k.n / f$
+  \item $\omega_\text{hi}.\textit{ops}$ is all $\textit{op} \in \omega_k.\textit{ops}$ with $\textit{op}.\textit{box} \ge f$, modified by dividing both $\textit{op}.\textit{box}$ and $\textit{op}.\textit{offset}$ by $f$. This fails if any division gives a non-integer.
+  \item $\omega_\text{lo}.n = f$
+  \item $\omega_\text{lo}.\textit{ops}$ is all $\textit{op} \in \omega_k.\textit{ops}$ with $\textit{op}.\textit{box} < f$, unmodified.
+\end{itemize}
+
+This mirrors Section~\ref{sec:CollTypeReshape}, in that this results in the single domain coordinate $\omega.D_k$ being replaced with $\omega.D_k / f$ and $f$.
+We use the function $\textsf{domainCompletion}: \Omega \times \Delta \to \Omega \times \Delta$ (def~\ref{sec:gDomainCompletion}) to reshape a collective tiling and a collective type so that they have the same domain.
+

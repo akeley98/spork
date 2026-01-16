@@ -1,0 +1,29 @@
+\magicSubsection{Collective Tiling Derived State}{sec:CollTilingDerivedState}
+
+The \myKeyA{output collective type} of $\omega$ is a collective type $\delta = (\omega.D, \omega.B)$ defined by
+\begin{itemize}
+  \item $\omega.D_i = \omega_i.n$
+  \item $\omega.B_i$ is $\omega_i.n$ if $\omega_i.\textit{ops}$ is empty, otherwise it is the $\textit{box}$ of the last op.
+  \item (recall dimension thread pitch values $\omega.P_i$ are implicit, as in def~\ref{sec:gThreadPitch}).
+\end{itemize}
+The \myKeyA{thread mapping function} selects, for each collective dimension descriptor $\omega_i$, an interval of size $\omega.B_i$ based on an affine transform of the values of the iterators associated with that dimension.
+These intervals together select a sub-grid of the $M$-dimensional space of threads-in-cluster.
+
+We derive the thread mapping from $\omega$ based on the function
+\begin{align*}
+    & \textsf{collMap}: \Omega \to \Sigma \to \mathcal{P}(\mathbb{N}) \\
+    & (\omega_0, ..., \omega_{M-1}) \mapsto \sigma \mapsto \{ \textsf{toLocal}(\omega.D, c) \mid
+      c \in [x_0, x_0 + \omega.B_0 - 1]_\mathbb{N} \times ... \times
+            [x_{M-1}, x_{M-1} + \omega.B_{M-1} - 1]_\mathbb{N} \} \\
+    & \text{ with } x_i = \sum_{\textit{op} \in \omega_i.\textit{ops}} \textit{op}.\textit{offset} + \sigma(\textit{op}.\textit{iter}) \textit{op}.\textit{box}
+\end{align*}
+where \textsf{toLocal} is def~\ref{sec:gToLocal} and the actual thread mapping function is $\textsf{collMap}(\omega)$ (partial evaluation).
+
+For a given $y: \mathbb{Y}$, let $\textit{op}_y = \omega_i.\textit{ops}_j$ such that $y = \textit{op}_y.\textit{iter}$, if it exists.
+The \myKeyA{thread pitch} and \myKeyA{tiled dimension index} of $y: \mathbb{Y}$ as defined by $\omega$ is
+\begin{itemize}
+  \item 0 and $i$, if $\textit{op}_y$ exists and $\textit{op}_y.\textit{tileCount} \le 1$
+  \item $(\omega.P_i)(\textit{op}_y.\textit{box})$ and $i$, if $\textit{op}_y$ exists and $\textit{op}_y.\textit{tileCount} > 1$
+  \item 0 and $\bot$ if $\textit{op}_y$ does not exist.
+\end{itemize}
+

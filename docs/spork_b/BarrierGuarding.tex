@@ -1,0 +1,30 @@
+\magicSubsection{Barrier Guarding Requirement}{sec:BarrierGuarding}
+
+This section applies only to barrier mechanisms that list it as a requirement.
+
+Each barrier variable is guarded-by some other barrier variable:
+\begin{itemize}
+    \item Declare a barrier variable $z$ with no explictly-guarded-by variable, and with no other barrier variable being explicitly-guarded-by $z$ (def~\ref{sec:gBarrierVariable}) to have $z$ be guarded by itself.
+    \item Declare a barrier variable $z_0$ with no explictly-guarded-by variable, and declare $z_1$ to be explicitly guarded-by $z_0$, and no other barrier variable being explicitly guarded-by $z_1$ to have $z_0$ and $z_1$ guard each other.
+    \item See the reference for ``guarded-by'' (def~\ref{sec:gGuardedBy}) for other use cases.
+\end{itemize}
+For each barrier variable $z_a$ subject to the barrier guarding requirement, the Exo-GPU program must pass some static analysis, specified in the reference (def~\ref{sec:gBarrierGuardingRequirement}),  that guarantees that each thread alternates between executing instances of
+\begin{itemize}
+    \item \lighttt{Arrive} statements involving $z_a$ (if this is the first stmt in the cycle, it's \myKeyA{arrive-first} usage)
+    \item \lighttt{Await} statements involving $z_g$ (if this is the first stmt in the cycle, it's \myKeyA{await-first} usage)
+\end{itemize}
+as occurs in Figure~\ref{fig:mbarrier_2_cycle}.
+
+\begin{figure}[t]
+\codehrule
+\input{b_samples/mbarrier_2_cycle.0.tex}
+\caption{Correct barrier guarding for a barrier guard cycle of length 2 (def~\ref{sec:gBarrierGuardCycle}).}
+\label{fig:mbarrier_2_cycle}
+\codehrule
+\end{figure}
+
+If any instruction calls have trailing barrier expressions (def~\ref{sec:gTrailingBarrierExpr}) that use $z_a$, these calls must occur after the \lighttt{Await} and before the \lighttt{Arrive} in the above cycle.
+Furthermore, the barrier array elements referenced by the trailing barrier expression must be a non-strict subset of the barrier array elements referenced in the \lighttt{Arrive}.
+
+The await-first usage must be used for any barrier variable that is not guarded-by itself.
+

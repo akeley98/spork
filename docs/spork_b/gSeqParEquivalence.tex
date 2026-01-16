@@ -1,0 +1,9 @@
+\magicSubsection{Sequential-parallel Equivalence}{sec:gSeqParEquivalence}
+
+The output of an Exo-GPU procedure is defined by interpreting it with sequential semantics, where
+\begin{itemize}
+\input{spork_b/seq_items.tex}
+\end{itemize}
+The procedure satisfies sequential-parallel equivalence when the CPU/CUDA code generated from it (parallelized as specified by the collective tilings (Section~\ref{sec:CollTiling}) and async instructions (Section~\ref{sec:Instr}) used) is functionally equivalent to the Exo-GPU procedure.
+This is verified by sync-check (def~\ref{sec:gSyncCheck}), which is based on abstract machine semantics (Section~\ref{sec:SyncSemantics}), although we have no proof that these semantics truly capture the requirements of the underlying CUDA platform.
+

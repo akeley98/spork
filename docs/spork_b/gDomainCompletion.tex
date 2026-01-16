@@ -1,0 +1,26 @@
+\magicSubsection{Domain Completion}{sec:gDomainCompletion}
+
+$\textsf{domainCompletion}: \Omega \times \Delta \to \Omega \times \Delta$ takes a collective tiling $\omega$ (def~\ref{sec:gCollTiling}) and a collective type $\delta$ (def~\ref{sec:gCollType}) and returns $(\omega', \delta')$ such that $\omega'.D = \delta'.D$ (def~\ref{sec:gDomain}), with $\omega$ converted to $\omega'$ and $\delta$ converted to $\delta'$ using only reshape operations.
+This ensures the ``meaning'' of $\omega'$ and $\delta'$ is the same as $\omega$ and $\delta$, except that $\delta'$ may imply stricter alignment requirements.
+
+An example (inefficient) implementation sketch of domain completion is given:
+
+\begin{itemize}
+  \item If $\omega.D = \delta.D$, return $(\omega, \delta)$.
+  \item If $\prod \omega.D_i \ne \prod \delta.D_i$, fail (the implied cluster thread count isn't equal).
+  \item Calculate the thread pitch sets (def~\ref{sec:gThreadPitch}) $\omega.P$ and $\delta.P$.
+  \item Pick $p \in \omega.P \setminus \delta.P$, if it exists, then,
+  \begin{itemize}
+    \item Let $\delta.P_i = \max \{ a \in \delta.P \mid a < p \}$.
+    \item Let $f = p / \delta.P_i$; fail if this is not an integer.
+    \item Split the $i^{th}$ dimension of $\delta$ by $f$ (Section~\ref{sec:CollTypeReshape}); this has the effect of adding $p$ to the thread pitch set of $\delta$.
+  \end{itemize}
+  \item Otherwise, pick $p \in \delta.P \setminus \omega.P$, which must exist, then,
+  \begin{itemize}
+    \item Let $\omega.P_i = \max \{ a \in \omega.P \mid a < p \}$.
+    \item Let $f = p / \omega.P_i$; fail if this is not an integer.
+    \item Split the $i^{th}$ dimension of $\omega$ by $f$ (Section~\ref{sec:CollTilingReshape}); this has the effect of adding $p$ to the thread pitch set of $\omega$.
+  \end{itemize}
+  \item Return $\mathsf{domainCompletion}(\omega, \delta)$.
+\end{itemize}
+

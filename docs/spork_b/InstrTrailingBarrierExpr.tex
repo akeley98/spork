@@ -1,0 +1,8 @@
+\magicSubsection{Instruction Trailing Barrier Expression}{sec:InstrTrailingBarrierExpr}
+
+The instruction takes a trailing barrier expression (def~\ref{sec:gTrailingBarrierExpr}) if and only if the instruction defines a barrier mechanism (\lighttt{InstrInfo.barrier\_mechanism}).
+If so, the barrier variable used in the trailing barrier expression must have a barrier mechanism matching the one required by the function (def~\ref{sec:gBarrierMechanism}).
+Currently, this is only used for TMA-to-SMEM instructions (Section~\ref{sec:Tma}).
+
+This is only checked at the time the fully-scheduled Exo-GPU proc is lowered, not throughout the scheduling process.
+

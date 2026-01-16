@@ -1,0 +1,12 @@
+\magicSubsection{VisRecord Augment}{sec:Augment}
+
+Given a second synchronization timeline $\tau_s^\mathrm{post}$ (def~\ref{sec:gSyncTL}) and a thread collective $g^*$ mapped to execute (Section~\ref{sec:SyncSemanticsThreadMapping}) a certain \lighttt{Fence} or \lighttt{Await} statement instance, the statement instance ``augments'' a visibility record $r$ (Section~\ref{sec:VisRecordState}) by adding the following sets of timeline signatures (def~\ref{sec:gTlSig}) to the visibility set $r.s$:
+\begin{align*}
+    & \mathcal{A}_\mathrm{full} \Coloneqq g^* \times \tau_s^\mathrm{post}.\mathrm{full} \times \{ \mathsf{VF_{atom}}, \mathsf{VF_{temp}}, \mathsf{VF_{full}}, \mathsf{VF_{issue}} \} \\
+    & \mathcal{A}_\mathrm{temp} \Coloneqq g^* \times \tau_s^\mathrm{post}.\mathrm{temp} \times \{ \mathsf{VF_{temp}} \}
+\end{align*}
+The augment function $\mathcal{A}: \mathsf{VisRecord} \to \mathcal{P}(\mathbb{G}) \to \mathcal{P}(\mathsf{QualTL}) \to \mathcal{P}(\mathsf{QualTL}) \to \mathsf{VisRecord}$ is defined based on the above as follows:
+\begin{equation*}
+    \mathcal{A}(r, g^*, \tau_s^\mathrm{post}.\mathrm{full}, \tau_s^\mathrm{post}.\mathrm{temp}) = (r.s\cup \mathcal{A}_\mathrm{full} \cup \mathcal{A}_\mathrm{temp}, r.p)
+\end{equation*}
+

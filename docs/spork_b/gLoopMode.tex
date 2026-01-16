@@ -1,0 +1,24 @@
+\magicSubsection{Loop Mode}{sec:gLoopMode}
+
+Each Exo loop has an included loop mode object, which is one of these Python objects:
+\begin{itemize}
+  \item \texttt{Seq(pragma\_unroll: Optional[int])}: sequential loop (def~\ref{sec:gSeqLoop}).
+  \item \texttt{Par()}: OpenMP parallel-for.
+  \item \texttt{CudaTasks()}: distribute iterations (device tasks,~\ref{sec:gDeviceTask}) to CUDA clusters; defines new task IDs in abstract machine semantics (Section~\ref{sec:SyncSemanticsThreadMapping}).
+    See Section~\ref{sec:CudaDeviceFunction}.
+  \item \texttt{CudaThreads(unit: CollUnit)}: distribute iterations to thread collectives within a cluster.
+    See Section~\ref{sec:CollTilingCudaThreads}.
+\end{itemize}
+This does not affect the sequential value semantics of the loop.
+
+The respective frontend syntax is
+
+\input{b_samples/loop_modes.0.tex}
+
+Scheduling functions:
+\begin{itemize}
+  \item \texttt{set\_loop\_mode}: use new loop mode object.
+  \item \texttt{update\_loop\_mode}: modify attribute of loop mode.
+  \item \texttt{parallelize\_loop}: use \lighttt{Par()} as the loop mode (legacy).
+\end{itemize}
+

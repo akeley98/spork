@@ -1,0 +1,33 @@
+\magicSubsection{Synchronization Overview}{sec:SyncOverview}
+
+\begin{figure}[b!]
+\codehrule
+\input{b_samples/OverviewSyncExample.0.tex}
+\caption{Examples of Synchronization Statements}
+\label{fig:OverviewSyncExample}
+\codehrule
+\end{figure}
+
+Exo-GPU introduces synchronization statements: \lighttt{Fence}, \lighttt{Arrive}, and \lighttt{Await}, as well as the ability to allocate \lighttt{barrier}-type variables (def~\ref{sec:gBarrierVariable}), which control \lighttt{Arrive} and \lighttt{Await} pairing.
+Like other Exo statements, threads execute synchronization statements in program order.
+
+We view each memory access (read or write) as being performed by a certain thread collective and \myKeyA{qualitative timeline} (\textsf{QualTL}, def~\ref{sec:gQualTL}).
+We need this latter attribute to be able to reason about async instructions; the qualitative timeline of a memory access varies depending on what instruction performs the access (Section~\ref{sec:InstrMemoryAccess}).
+
+A \lighttt{Fence} statement instance synchronizes the threads within the thread collective that executes it, e.g. a \lighttt{Fence} at warp-scope corresponds to a \lighttt{\_\_syncwarp}-like construct, and a \lighttt{Fence} at CTA-scope corresponds to a \lighttt{\_\_syncthreads}-like construct (Figure~\ref{fig:OverviewSyncExample}).
+``Paired'' instances of an \lighttt{Arrive} and an \lighttt{Await} statement implement a split-barrier construct.
+We use this syntax:
+
+\hphantom{spacing}
+\texttt{Fence($\tau_s^\mathrm{pre}, \tau_s^\mathrm{post}$)}
+\hfill
+\texttt{Arrive($\tau_s^\mathrm{pre}$) >}\texttt{> $e$}
+\hfill
+\texttt{Await($e, \tau_s^\mathrm{post}, n$)}
+\hphantom{spacing}
+
+where $\tau_s^\mathrm{pre}$ and $\tau_s^\mathrm{post}$ are \myKeyA{sync timelines} (\textsf{SyncTL}, def~\ref{sec:gSyncTL}), which are compositions of qualitative timelines, and $e$ and $n$ are a barrier expression (def~\ref{sec:gBarrierExpr}) and an integer, which together control pairing of executed \lighttt{Arrive} and \lighttt{Await} instances.
+
+A \lighttt{Fence($\tau_s^\mathrm{pre}, \tau_s^\mathrm{post}$)} statement instance synchronizes prior memory accesses executed by the executing thread collective (filtered by the qualitative timelines in $\tau_s^\text{pre}$, Section~\ref{sec:AccessBeforeSync}) with subsequent memory accesses executed by the executing thread collective (filtered by the qualitative timelines in $\tau_s^\text{post}$, Section~\ref{sec:AccessAfterSync}).
+Paired instances of \lighttt{Arrive} and \lighttt{Await} (Section~\ref{sec:ArriveAwaitPairing}) do the same, for memory accesses prior to the \lighttt{Arrive} and memory accesses subsequent to the \lighttt{Await}.
+

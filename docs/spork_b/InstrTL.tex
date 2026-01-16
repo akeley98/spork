@@ -1,0 +1,14 @@
+\magicSubsection{Instruction Timeline (InstrTL)}{sec:InstrTL}
+
+The initial qualitative timeline and the extended qualitative timelines are a function of the \lighttt{Memory} type of the accessed array elements and the instruction timeline (\textsf{InstrTL}) of the instruction performing the reads or mutates.
+This is based on the \lighttt{exo.memory.AllocableMemWin.qual\_tl\_dict} attribute, which is effectively a function of type
+\begin{equation*}
+    \texttt{Type[AllocableMemWin]} \to \mathsf{InstrTL} \to \mathsf{QualTL} \times \mathcal{P}(\mathsf{QualTL})\codecomment{~~(initial qual-tl, extended qual-tl set)}
+\end{equation*}
+Furthermore, the instruction timeline controls
+\begin{itemize}
+  \item Whether allocation, special window creation (Section~\ref{sec:Tma}), reads, or mutates are allowed at CPU-scope (def~\ref{sec:gCpuScope}) and/or at CUDA scope (def~\ref{sec:gCudaScope}), via the\\
+  \lighttt{exo.core.memory.MemWin.device\_permission} function.
+  \item Whether the instruction may be called at CPU scope and/or at CUDA scope, via the \lighttt{exo.spork.timelines.DeviceScope.allows\_instr\_tl} function.
+\end{itemize}
+

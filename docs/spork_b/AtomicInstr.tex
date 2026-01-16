@@ -1,0 +1,7 @@
+\magicSubsection{Atomic Instructions}{sec:AtomicInstr}
+
+Mutates issued to the actual parameters of an instruction call are atomic whenever the corresponding formal parameter has a non-empty \lighttt{exo.core.instr\_tl.AccessInfo.atomicity.qual\_tl\_list}.
+Although we use the shorthand ``atomic instruction'', in reality atomicity is a per-formal-parameter property, not a per-instruction property.
+
+Currently, reads must not be atomic.
+

@@ -1,0 +1,5 @@
+\magicSubsection{Cluster}{sec:gCluster}
+Group of \lighttt{clusterDim}-many CTAs (def~\ref{sec:gCta}) that execute concurrently on the same GPC, and can synchronize with cluster sync, or using mbarriers.
+When \lighttt{clusterDim = 1} (which is the case by default for Exo-GPU), then CTA and cluster are synonymous.
+The PTX variable \lighttt{cluster\_ctarank} is the 0-based index of the CTA in the cluster.
+

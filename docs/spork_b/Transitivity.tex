@@ -1,0 +1,13 @@
+\magicSubsection{Intended Usage Patterns -- Multiple Synchronization Statements (Transitivity)}{sec:Transitivity}
+
+\begin{equation*}
+    \texttt{Await(\codecomment{...}, $\tau_s^\mathrm{post}$, \codecomment{...})|Fence(\codecomment{...}, $\tau_s^\mathrm{post}$)} \to
+    \texttt{Fence($\tau_s^\mathrm{pre}$, \codecomment{...})|Arrive($\tau_s^\mathrm{pre}$)\codecomment{...}}
+\end{equation*}
+
+A dependency edge forms between an \lighttt{Await} or \lighttt{Fence} statement instance and a subsequent \lighttt{Arrive} or \lighttt{Fence} statement instance when the thread collectives executing the two statement instances have a thread in common, and there exists a qualitative timeline $q$ in the intersection of the first statement instance's $\tau_s^\mathrm{post}$ and the second statement instance's $\tau_s^\mathrm{pre}$ (def~\ref{sec:gSyncTL}).
+
+With $(\iota, n)$ denoting a thread in common, and with $q$ as described above, this pattern is implemented in sync-check through the timeline signature $((\iota, n), q, \mathsf{VF_{issue}})$ that is added by the augment (Section~\ref{sec:Augment}) for the first statement instance and detected by the witness (Section~\ref{sec:Witness}) of the second statement instance.
+
+% reason for async proxy retired thing
+

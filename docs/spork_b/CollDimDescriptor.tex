@@ -1,0 +1,16 @@
+\magicSubsection{Collective Dimension Descriptor}{sec:CollDimDescriptor}
+
+A collective tiling $\omega: \Omega$ (of some dimensionality $M$) is an $M$-tuple of \myKeyA{collective dimension descriptors} $(\omega_0 ... \omega_{M-1})$.
+Each descriptor $\omega_i$ consists of
+\begin{itemize}
+  \item $\omega_i.n: \mathbb{N}$, dimension extent
+  \item $\omega_i.\textit{ops}: \mathcal{O}^*$, tuple of \myKeyA{collective dimension operators}
+\end{itemize}
+where $\mathcal{O}$ is $\mathbb{Y} \times \mathbb{N}^3$, with each attribute denoted as
+\begin{itemize}
+  \item $\omega_i.\textit{ops}_j.\textit{iter}: \mathbb{Y}$ (name of a control variable; no two ops in $\omega$ can have the same \textit{iter})
+  \item $\omega_i.\textit{ops}_j.\textit{offset}: \mathbb{N}$
+  \item $\omega_i.\textit{ops}_j.\textit{box}: \mathbb{N}$
+  \item $\omega_i.\textit{ops}_j.\textit{tileCount}: \mathbb{N}$
+\end{itemize}
+

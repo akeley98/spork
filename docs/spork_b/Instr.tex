@@ -1,0 +1,19 @@
+\magicSection{Instructions \& Timelines}{sec:Instr}
+
+This section primarily deals with the specification of Exo-GPU instructions, but also contains information on qualitative timelines (def~\ref{sec:gQualTL}) and other information controlling the interaction between scalar reads and writes and the abstract machine (Section~\ref{sec:VisRecordCreation}).
+
+The \lighttt{exo.platforms.cuda} module is the public entry point for basic CUDA functionality.
+Platform-specific instructions and related functionality are in \lighttt{exo.platforms.Sm80}, \lighttt{exo.platforms.Sm90}, and \lighttt{exo.platforms.Sm100} (future work).
+
+\input{spork_b/InstrTemplate.tex}
+\input{spork_b/InstrBehavior.tex}
+\input{spork_b/InstrMemoryAccess.tex}
+\input{spork_b/InstrCollUnit.tex}
+\input{spork_b/InstrTL.tex}
+\input{spork_b/InstrConvergentAccess.tex}
+\input{spork_b/InstrOOO.tex}
+\input{spork_b/AtomicInstr.tex}
+\input{spork_b/InstrTrailingBarrierExpr.tex}
+\input{spork_b/InstrDistributedMemory.tex}
+\input{spork_b/Tma.tex}
+\input{spork_b/InstrCodegen.tex}

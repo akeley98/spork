@@ -1,0 +1,36 @@
+\magicSubsection{Intended Usage Patterns -- Arrive-Await Pairing, Trailing Barrier Expr}{sec:ArriveAwaitPairing}
+
+\begin{gather*}
+    \texttt{Arrive(\codecomment{...}) >> $e_a$} \to \texttt{Await(\codecomment{...}, $e_w$, $n$)} \\
+    \texttt{Read|Mutate >}\texttt{> } e_t \to \texttt{Await(\codecomment{...}, $e_w$, $n$)}
+\end{gather*}
+
+In the Exo-GPU abstraction, each barrier array element contains its own arrive count and await count, both initially 0 (Section~\ref{sec:SyncEnv}).
+The \lighttt{Arrive} statement may reference multiple barrier array elements (say, $B$-many), using multiple barrier expressions (def~\ref{sec:gBarrierExpr}) separated by \texttt{>}\texttt{>}.
+Each ``batch'' of $B$-many instances of such an \lighttt{Arrive} statement (issued with $B$-many different thread collectives) results in incrementing the arrive count of each referenced barrier array element by 1.
+This includes the common case where $B=1$.
+
+The \lighttt{Await} statement must contain only a single barrier expression $e_w$, and it must reference only one barrier array element.
+The behavior of the \lighttt{Await} changes based on $n$.
+
+If $n \ge 0$, then this is the ``arrive-indexed'' case.
+With $a$ being the arrive count of the referenced barrier array element, the eligible batches are the first $(a-n)$-many batches of \lighttt{Arrive} statement instances that reference the same barrier array element.
+There are dependency edges from the eligible batches to the await.
+
+If $n = \texttt{\textasciitilde lag}$ with \texttt{\textasciitilde} being the 2's complement and $\texttt{lag} \ge 0$, then this is the ``await-indexed'' case.
+With $w$ being the await count of the referenced barrier, the eligible batches are the first $(w - \texttt{lag} + 1)$-many batches of \lighttt{Arrive} statement instances that reference the same barrier array element.
+There are dependency edges from the eligible batches to the await.
+Afterwards, the await count of the referenced barrier is incremented by 1.
+
+In both cases, additional dependency edges are formed from reads and mutates executed by a statement instance with a trailing barrier expression $e_t$, when $e_t$ and $e_w$ reference the same barrier array element, and the read or mutate appears in the trace prior to at least one eligible batch of \lighttt{Arrive} statement instances.
+
+This pattern is implemented in sync-check through the shared pending await state between \lighttt{Arrive} (Section~\ref{sec:ArriveSemantics}) and \lighttt{Await} (Section~\ref{sec:AwaitSemantics}), and the initial pending awaits added for reads/mutates that include a trailing barrier expression (Section~\ref{sec:VisRecordCreation}).
+The to-be-described convergence requirements for multiple barriers (Section~\ref{sec:BarrierMulticast}) are required to ensure batches of arrives execute as intended.
+
+Scheduling Functions:
+\begin{itemize}
+  \item \texttt{insert\_arrive(\codecomment{...}, $\tau_s^\mathrm{pre}$, $e^*$)}
+  \item \texttt{insert\_await(\codecomment{...}, $e$, $\tau_s^\mathrm{post}$)}
+  \item \texttt{set\_trailing\_barrier\_expr(\codecomment{...}, $e$)}
+\end{itemize}
+

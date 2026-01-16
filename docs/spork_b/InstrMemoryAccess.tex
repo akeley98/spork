@@ -1,0 +1,33 @@
+\magicSubsection{Memory Access}{sec:InstrMemoryAccess}
+
+Each non-template (def~\ref{sec:gInstrTemplateParameter}), non-control-value (def~\ref{sec:gMathbbY}) formal parameter defines an expected \lighttt{MemWin} (memory or special window) type, with special window currently needed only for TMA (Section~\ref{sec:Tma}).
+The corresponding actual parameter passed must reference a variable that is annotated with a \lighttt{MemWin} type that is a subclass of the formal parameter's \lighttt{MemWin} type.
+This is only checked at the time the fully-scheduled Exo-GPU proc is lowered, not throughout the scheduling process.
+
+For the purposes of adding \textsf{VisRecord} instances in the abstract machine (Section~\ref{sec:VisRecordCreation}), when a call to an instruction is interpreted, for each non-template, non-control-value parameter, we take one action from the following list for each array element that is in-bounds of the scalar, tensor, or window expression of the actual parameter.
+If the access is through a window (including a special window, Section~\ref{sec:Tma}), the array elements accessed are those from the underlying tensor.
+Note that the contents of the \lighttt{behavior} function (Section~\ref{sec:InstrBehavior}) have no impact on the set of array elements read or mutated for the purposes of the abstract machine.
+\begin{itemize}
+  \item nothing is done, if the actual parameter's \lighttt{Memory} type is sync-exempt (def~\ref{sec:gSyncExempt}); otherwise,
+  \item one read is generated, if the corresponding formal parameter is never written or reduced in the instruction's \lighttt{behavior} function; otherwise,
+  \item one write-only mutate is generated, if the corresponding formal parameter is never read or reduced in the instruction's \lighttt{behavior} function; otherwise,
+  \item a read-write mutate is generated.
+\end{itemize}
+
+Each memory access performed has these attributes, which are defined separately for accesses through instruction calls and for scalar code:
+
+\begin{tabular}{|r|r|r|}
+\textbf{Attribute} & \textbf{non-instr} & \textbf{instr} \\
+initial qualitative timeline & defined below & Section~\ref{sec:InstrTL} \\
+extended qualitative timelines & defined below & Section~\ref{sec:InstrTL} \\
+atomic qualitative timelines & none & Section~\ref{sec:AtomicInstr} \\
+out-of-order flag & false & Section~\ref{sec:InstrOOO} \\
+convergence flag & false & Section~\ref{sec:InstrConvergentAccess}
+\end{tabular}
+
+For memory accesses by non-instr statements, the initial qualitative timeline and the extended qualitative timelines are as-if the access were done by an instruction with \textsf{InstrTL} (Section~\ref{sec:InstrTL})
+\begin{itemize}
+  \item \lighttt{cpu\_in\_order\_instr} if the statement is in CPU-scope (def~\ref{sec:gCpuScope})
+  \item \lighttt{cuda\_in\_order\_instr} if the statement is in CUDA-scope (def~\ref{sec:gCudaScope})
+\end{itemize}
+

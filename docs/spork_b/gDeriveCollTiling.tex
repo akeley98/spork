@@ -1,0 +1,28 @@
+\magicSubsection{deriveCollTiling}{sec:gDeriveCollTiling}
+
+The function $\mathsf{deriveCollTiling}: \Omega \to \mathbb{Y} \to \Delta \to \mathbb{N} \to \mathbb{N} \to \mathbb{N} \to \Omega$ is used for computing the collective tilings for \lighttt{cuda\_threads} loops (Section~\ref{sec:CollTilingCudaThreads}), \lighttt{with CudaWarps} (Section~\ref{sec:CollTilingCudaWarps}), and instructions with distributed memory (Section~\ref{sec:InstrDistributedMemory}).
+
+Recall, $\Omega$ denotes collective tilings (Section~\ref{sec:CollTiling}), $\mathbb{Y}$ denotes names of control variables (def~\ref{sec:gMathbbY}), $\Delta$ denotes collective types (Section~\ref{sec:CollType}), and $\delta.B$ and $\omega.B$ denote the box.
+
+$\mathsf{deriveCollTiling}(\omega_\text{raw}, y, \delta_\text{raw}, \texttt{lo}, \texttt{hi}, \texttt{tileCount})$ is defined by
+\begin{itemize}
+  \item Let $\omega, \delta = \mathsf{domainCompletion}(\omega_\text{raw}, \delta_\text{raw})$ (def~\ref{sec:gDomainCompletion}).
+  \item The $k^{th}$ dimension is a \myKeyA{tiled dimension} if $\delta.B_k \notin \{ \top, \omega.B_k, \omega.D_k \}$.
+  \item If no tiled dimension exists,
+  \begin{itemize}
+    \item We must have $\texttt{lo} = 0$ and $\texttt{hi} = \texttt{tileCount} = 1$ or the program is ill-formed.
+    \item Return $\omega$.
+  \end{itemize}
+  \item If multiple tiled dimensions exist, the program is ill-formed (``ambiguous tiling'').
+  \item Let $k$ be the index of the unique tiled dimension.
+  \item If $(\texttt{hi})(\delta.B_k) > \omega.B_k$, the program is ill-formed (``asked for too many threads'').
+  \item Append to $\omega_k.\textit{ops}$ (Section~\ref{sec:CollDimDescriptor}) a collective dimension operator with
+  \begin{itemize}
+    \item $\textit{iter} = y$
+    \item $\textit{offset} = (\texttt{lo})(\delta.B_k)$
+    \item $\textit{box} = \frac{\texttt{hi} - \texttt{lo}}{\texttt{tileCount}} (\delta.B_k)$
+    \item $\textit{tileCount} = \texttt{tileCount}$
+  \end{itemize}
+  \item Return $\omega$.
+\end{itemize}
+

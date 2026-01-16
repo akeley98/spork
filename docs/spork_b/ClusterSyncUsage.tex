@@ -1,0 +1,24 @@
+\magicSubsection{Cluster Sync Usage}{sec:ClusterSyncUsage}
+
+A barrier variable $z$ with cluster sync barrier mechanism may be declared with
+
+\texttt{$z$: barrier @ CudaClusterSync}
+
+\texttt{insert\_barrier\_alloc(\codecomment{...}, $z$, None, [], CudaClusterSync)}
+
+The valid synchronization timelines (def~\ref{sec:gSyncTL}) for the \lighttt{Arrive} and \lighttt{Await} using the cluster sync barrier mechanism are the same as for garden-variety fences (Section~\ref{sec:FenceUsage}).
+
+\mainKey{Statically-checked Requirements:}
+\begin{itemize}
+  \item Split barrier basic requirements (Section~\ref{sec:SplitBarrierBasic})
+  \item Barrier guarding requirement (Section~\ref{sec:BarrierGuarding}) with only the arrive-first configuration allowed
+  \item Solitary barrier requirement (Section~\ref{sec:SolitaryBarrier})
+  \item Barrier expressions (def~\ref{sec:gBarrierExpr}) must use only point indices, not intervals.
+  \item \lighttt{Await} must have $n=0$.
+  \item \lighttt{Arrive} and \lighttt{Await} must be at \lighttt{cuda\_cluster}-scope (def~\ref{sec:gCollUnit}).
+  \item The \lighttt{Arrive} and \lighttt{Await} statements for a given barrier array element must be executed by the same \myKeyA{thread collective} (def~\ref{sec:gThreadCollective}).
+    This is enforced by requiring base thread equality (Section~\ref{sec:DistributedMemoryBaseThreads}) between collective indexing pairs collected both from \lighttt{Arrive} and \lighttt{Await} statements for $z$.
+\end{itemize}
+
+% solitary, sync-exempt, barrier variable vs CUDA implicit state
+

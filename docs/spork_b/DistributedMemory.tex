@@ -1,0 +1,21 @@
+\magicSection{Distributed Memory}{sec:DistributedMemory}
+
+Both barrier and data allocations in CUDA scope are subject to distributed memory analysis, which deduces a certain number of distributed dimensions (def~\ref{sec:gDistributedDimension}), and properties of those dimensions.
+All other allocations have 0 distributed dimensions.
+
+The rules are somewhat different for the two cases.
+For barrier allocations, all dimensions are distributed.
+For data allocations, the memory type specifies a collective unit (the \myKeyA{native unit}, def~\ref{sec:gNativeUnit}) from which a collective type $\delta_0$ is unpacked with alignment and 1-padding (def~\ref{sec:gCollUnit}); this must not be agnostic (def~\ref{sec:gAgnostic}).
+Exo-GPU then deduces a certain number of distributed dimensions (say, $R$) so that each shard (def~\ref{sec:gShard}) $x[c_0,...,c_{R-1},:,...,:]$ is allocated on a different thread collective, all of which are instances of $\delta_0$ (Section~\ref{sec:CollTypeThreadCollective}).
+The distributed dimensions are always to the left of non-distributed dimensions.
+
+During codegen (Section~\ref{sec:InstrCodegen}), Exo-GPU erases indicies and array extents corresponding to distributed dimensions.
+The codegen functions for memory and instructions only see indices and extents corresponding to non-distributed dimensions.
+
+Distributed memory analysis runs independently for each data variable and barrier variable, with the following rules.
+
+\input{spork_b/CollIndexingPairs.tex}
+\input{spork_b/DistributedMemoryThreadPitch.tex}
+\input{spork_b/DistributedMemoryRange.tex}
+\input{spork_b/DistributedMemoryBaseThreads.tex}
+\input{spork_b/DistributedMemoryBoxSize.tex}

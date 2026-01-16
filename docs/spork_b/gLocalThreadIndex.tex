@@ -1,0 +1,8 @@
+\magicSubsection{Local Thread Index}{sec:gLocalThreadIndex}
+
+0-based integer index uniquely identifying a thread within a cluster.
+The threads are indexed lexicographically by (CTA index, thread index in CTA).
+The closed-form equation is \lighttt{cluster\_ctarank * blockDim.x + threadIdx.x}
+
+Note, not to be confused with linear thread IDs (tid) in camspork, which also encodes the task index (Section~\ref{sec:SyncSemanticsThreadMapping}).
+

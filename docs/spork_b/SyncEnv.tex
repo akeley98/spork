@@ -1,0 +1,19 @@
+\magicSubsection{Synchronization Environment (SyncEnv)}{sec:SyncEnv}
+
+A synchronization environment $\rho$ is a function of type
+\begin{equation*}
+    \rho: \mathbb{X} \cup \mathbb{B} \to \mathbb{Z}^* \to \mathcal{P}(\mathsf{VisRecord}) \times \mathcal{P}(\mathsf{VisRecord}) \times \mathbb{N}^2
+\end{equation*}
+which maps an index into a data variable $x: \mathbb{X}$ (def~\ref{sec:gMathbbX}) or a barrier variable $z: \mathbb{B}$ (def~\ref{sec:gMathbbB}) to a 3-tuple of
+\begin{itemize}
+  \item set of read visibility records, accessed with $.r$
+  \item set of mutate visibility records, accessed with $.m$
+  \item pair of arrive count and await count, accessed together as $.b$ and separately as $.b.a$ and $.b.w$ respectively.
+\end{itemize}
+
+A newly-allocated variable has all its array elements initialized to an empty read visibility record set, an empty mutate visibility record set, and 0 arrive and await count.
+
+% Referenced in glossary for barrier env
+\mainKey{Implementation Note:} the arrive and await count attributes are separated out into a separate barrier environment in camspork, i.e., the synchronization environment is implemented as $\mathbb{X} \cup \mathbb{B} \to \mathbb{Z}^* \to \mathcal{P}(\mathsf{VisRecord}) \times \mathcal{P}(\mathsf{VisRecord})$ only, and the barrier environment is $\mathbb{B} \to \mathbb{Z}^* \to \mathbb{N}^2$.
+
+

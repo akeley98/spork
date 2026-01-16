@@ -1,0 +1,9 @@
+\magicSubsection{Instruction Behavior}{sec:InstrBehavior}
+
+The \lighttt{behavior} function is much the same as Exo before.
+This informs the Exo compiler of the sequential value semantics of the instruction.
+If you implement an instruction, it's your job to faithfully implement those semantics in the instruction template's \lighttt{codegen} function (Section~\ref{sec:InstrCodegen}).
+
+When an instruction template generates an instruction, it substitutes concrete values for all template parameters (def~\ref{sec:gInstrTemplateParameter}) in the \lighttt{behavior}.
+The parameter count of the generated function is only equal to the number of non-template parameters.
+

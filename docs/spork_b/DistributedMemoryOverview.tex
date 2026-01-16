@@ -1,0 +1,35 @@
+\magicSubsection{Distributed Memory Overview}{sec:DistributedMemoryOverview}
+
+\begin{figure}[b!]
+\codehrule
+\input{b_samples/OverviewDistributedMemory.0.tex}
+\caption{Distributed Memory Example Code}
+\label{fig:OverviewDistributedMemory}
+\codehrule
+\end{figure}
+
+In CUDA C++, register allocations are implicitly duplicated per-thread, and SMEM allocations are implicitly duplicated per-CTA.
+This design would not be appropriate for Exo-GPU as it would undermine sequential-parallel equivalence (Figure~\ref{fig:why_dist}).
+In Exo-GPU, the size of each allocated tensor is whatever its \emph{logical} size should be.
+Distributed memory is deduced from the indexing pattern of an array, and attempts to map shards of the array into thread collectives that are instances of the collective type specified by the memory type of the tensor.
+This parameterization allows memory to be sharded at different levels of the CUDA thread hierarchy (e.g. per-CTA shared memory shards, per-thread register shards).
+
+The sharding pattern is statically encoded primarily based on the \myKeyA{thread pitch} (def~\ref{sec:gThreadPitch}).
+Each \lighttt{cuda\_threads} loop iterator indirectly defines a thread pitch, which is the difference, in local thread indices (def~\ref{sec:gLocalThreadIndex}), between thread collectives assigned to consecutive loop iterations.
+The deduction assigns a thread pitch to each distributed dimension (def~\ref{sec:gDistributedDimension}); elements that are adjacent on a dimension are resident in thread collectives whose local thread indices differ by that dimension's thread pitch.
+We define requirements for distributed memory deduction (Section~\ref{sec:DistributedMemory}); in particular, the index used to index a distributed dimension must be a plain read of an iterator with the same thread pitch as that dimension (Figure~\ref{fig:OverviewDistributedMemory}).
+
+The deduction rules leading to the statically-deduced state are incidental to the programming model we're promulgating.
+A reasonable alternative design could have the user make explicit per-dimension annotations for sharding.
+
+\begin{figure*}[!h]
+\codehrule
+\input{b_samples/why_dist.0.tex}
+\caption{\textbf{Optional reading:} counterexample for sequential-parallel equivalence for a hypothetical design where variables are implicitly duplicated across threads.
+Note: in general we cannot fuse the \lighttt{tid} loops or sink the allocation of \lighttt{x} into the loop scope, since there may be required synchronization or other warp/CTA-uniform code between them.}
+\label{fig:why_dist}
+\codehrule
+\end{figure*}
+
+\FloatBarrier
+\newpage

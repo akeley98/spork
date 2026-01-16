@@ -1,0 +1,12 @@
+\magicSubsection{Check VisRecord Helper}{sec:CheckVisRecordHelper}
+
+For the following checks, we use this to check the visibility set (def~\ref{sec:gVisSet}) of a visibility record: \\
+$\mathsf{CheckVisRecord}: \mathsf{Bool} \to \mathcal{P}(\mathbb{G}) \to \mathcal{P}(\mathsf{QualTL}) \to \mathsf{VisFlag} \to \mathsf{VisRecord} \to \mathsf{Bool}$
+\begin{equation*}
+    \mathsf{CheckVisRecord}(t, g^*, q^*, \mathsf{vf}, r) = \begin{cases}
+        \exists g \in g^*, \exists q \in q^*, (g, q, \mathsf{vf}) \in r.s & \text{ if $t$ is true} \\
+        \forall g \in g^*, \exists q \in q^*, (g, q, \mathsf{vf}) \in r.s & \text{ if $t$ is false} \\
+    \end{cases}
+\end{equation*}
+In this context $t$ is the \myKeyA{convergence flag}; note it only changes the qualifier $\forall$ or $\exists$ for $g \in g^*$, which has no effect when $g^*$ consists only of a single global thread ID (def~\ref{sec:gGlobalThreadID}).
+

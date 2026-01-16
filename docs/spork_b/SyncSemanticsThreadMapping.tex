@@ -1,0 +1,24 @@
+\magicSubsection{Thread Mapping}{sec:SyncSemanticsThreadMapping}
+
+The thread mapping function for a given statement $s$ is denoted, in the PLDI submission, as $g_{s^\#}: \Sigma \to \mathbb{I} \to \mathcal{P}(\mathbb{G})$ where
+\begin{itemize}
+  \item $s^\#$ denotes $s$ translated to abstract machine IR, which this documentation skips over.
+  \item $\Sigma$ is the set of control environments (Section~\ref{sec:ControlEnv}).
+  \item $\mathbb{I}$ is the set of task IDs; each executed instance of a device task (def~\ref{sec:gDeviceTask}) defines a new current task ID.
+  This abstracts over cluster IDs (def~\ref{sec:gCluster}), since the mapping between tasks and clusters is not statically encoded.
+  \item $\mathbb{G} \Coloneqq \mathbb{I} \times \mathbb{N}$ is the set of global thread IDs (def~\ref{sec:gGlobalThreadID}); each is a pair of task ID and local thread index (def~\ref{sec:gLocalThreadIndex}).
+  In the context of the abstract machine, a set of $\mathbb{G}$ is a \myKeyA{thread collective} (def~\ref{sec:gThreadCollective}).
+\end{itemize}
+
+For each \myKeyA{CPU scope} statement (def~\ref{sec:gCpuScope}), the thread mapping function always gives $\mathbb{G}$.
+
+For each \myKeyA{CUDA scope} statement (def~\ref{sec:gCudaScope}), the thread mapping function is
+\begin{equation*}
+    g_{s^\#}(\sigma, \iota) = \{ (\iota, n) \mid n \in \textsf{collMap}(\omega_s, \sigma) \}
+\end{equation*}
+where $\omega_s$ is the collective tiling (Section~\ref{sec:CollTiling}) that collective analysis (def~\ref{sec:gCollAnalysis}) annotated the statement $s$ with, and $\mathsf{collMap}$ is as defined in Section~\ref{sec:CollTilingDerivedState}.
+
+\mainKey{Implementation Note:} This is not at all how camspork works (i.e. we don't actually materialize the thread mapping function).
+For the real implementation, we still encode the loop mode (def~\ref{sec:gLoopMode}) for each loop and store the current thread collective as a thread cuboid (def~\ref{sec:gThreadCuboid}), which is modified by parallel loops.
+
+

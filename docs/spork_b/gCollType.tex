@@ -1,0 +1,12 @@
+\magicSubsection{Collective Type (Scope)}{sec:gCollType}
+
+Description of a certain number and arrangement of threads in a cluster, e.g. thread, warp, CTA (Section~\ref{sec:CollType}).
+A collective type $\delta$ has a certain dimensionality $M$, and consists of
+\begin{itemize}
+  \item domain, $\delta.D: \mathbb{N}_{\ge2}^M$ (coordinates are natural numbers at least 2).
+  \item box, $\delta.B: \mathbb{N}_\top^M$ (coordinates are natural numbers or $\top$).
+\end{itemize}
+As well as implied dimension thread pitch values $\delta.P$ (def~\ref{sec:gThreadPitch}).
+A statement is at $\delta$-scope when it is in CUDA scope (def~\ref{sec:gCudaScope}) and the thread collectives assigned to execute instances of that statement are always instances of $\delta$ (Section~\ref{sec:CollTypeThreadCollective}).
+
+

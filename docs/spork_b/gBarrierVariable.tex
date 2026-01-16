@@ -1,0 +1,14 @@
+\magicSubsection{Barrier Variable}{sec:gBarrierVariable}
+
+A barrier variable is declared with one of
+\begin{itemize}
+  \item Frontend syntax ``$z_a$: \texttt{barrier[$e^*$] @ }$\tau_b$'' where $z_a$ is the variable name, $e^*$ are the extents of the barrier array, and $\tau_b$ is a barrier mechanism (def~\ref{sec:gBarrierMechanism})
+  \item Frontend syntax ``$z_a$: \texttt{barrier($z_g$)[$e^*$] @ }$\tau_b$'' where the declared barrier is \myKeyA{explicitly guarded by} the barrier named $z_g$, and all others are as above
+  \item Scheduling operator \texttt{insert\_barrier\_alloc}
+\end{itemize}
+If $e^*$ is empty, the square brackets shall be omitted.
+
+In semantics, we denote a barrier variable name with $z: \mathbb{B}$.
+
+% >C
+

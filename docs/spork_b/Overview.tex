@@ -1,0 +1,20 @@
+\magicSection{Overview}{sec:Overview}
+
+This document assumes knowledge of CPU-only Exo.
+We only describe the GPU extensions.
+
+Exo-GPU aims to provide an imperative programming language that is close-to-the-metal (providing a similar level of control as handwritten CUDA) while providing a higher degree of safety and algorithmic clarity than traditional SIMT-style programming.
+We provide an imperative object language that supports
+\begin{itemize}
+  \item explicit calls to PTX instructions (Section~\ref{sec:Instr}), including the explicitly-asynchronous TMA (Section~\ref{sec:Tma}) and wgmma tensor core instructions
+  \item a library of verified rewrite rules (e.g. loop fissioning, tiling, instruction substitution)
+  \item source-level synchronization checking (Section~\ref{sec:SyncSemantics})
+\end{itemize}
+This allows programmers to generate optimized CUDA kernels by specifying a simple sequential program (e.g. a triple for loop for GEMM), then applying a series of rewrite rules that optimize the dataflow, introduce parallelism, and offload work to accelerators.
+The rewrite and synchronization checks ensure functional equivalence of the original program and the optimized CUDA program.
+
+\input{spork_b/ParallelismOverview.tex}
+\input{spork_b/InstrOverview.tex}
+\input{spork_b/SyncOverview.tex}
+\input{spork_b/SeqParEquivalenceOverview.tex}
+\input{spork_b/DistributedMemoryOverview.tex}

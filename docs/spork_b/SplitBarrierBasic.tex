@@ -1,0 +1,12 @@
+\magicSubsection{Split Barrier Basic Requirements}{sec:SplitBarrierBasic}
+
+For a given barrier variable $z$,
+\begin{itemize}
+  \item At least one \lighttt{Arrive} using $z$ must exist, each using the same $\tau_s^\mathrm{pre}$ (def~\ref{sec:gSyncTL}).
+  \item At least one \lighttt{Await} using $z$ must exist, each using the same $\tau_s^\mathrm{post}$ (def~\ref{sec:gSyncTL}).
+  \item \lighttt{Arrive} statements must have a valid home barrier expression (def~\ref{sec:gHomeBarrier}).
+  \item \lighttt{Await} statements must have only a single barrier expression (def~\ref{sec:gBarrierExpr}) with all indices being points.
+  \item Two different barrier variables must not be guarded-by the same barrier variable (def~\ref{sec:gGuardedBy}).
+  \item The multicasts (def~\ref{sec:gMulticasts}) of all \lighttt{Arrive} statements using $z$ must be the same.
+\end{itemize}
+

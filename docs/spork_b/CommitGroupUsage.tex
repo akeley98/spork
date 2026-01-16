@@ -1,0 +1,34 @@
+\magicSubsection{Commit Group Usage}{sec:CommitGroupUsage}
+
+A barrier variable $z$ with commit group barrier mechanism may be declared with
+
+\texttt{$z$: barrier[$e^*$] @ CudaCommitGroup}
+
+\texttt{insert\_barrier\_alloc(\codecomment{...}, $z$, None, [$e^*$], CudaCommitGroup)}
+
+where the array size $e^*$ is subject to distributed memory analysis (Section~\ref{sec:DistributedMemory}).
+In CUDA, the commit group is implicit state local to a thread, warp, or warpgroup; however in Exo-GPU we explicitly shard this barrier state onto the implicit thread state with distributed memory analysis.
+This motivates the solitary barrier requirement (Section~\ref{sec:SolitaryBarrier}).
+
+The synchronization timelines (def~\ref{sec:gSyncTL}) $\tau_s^\mathrm{pre}$ for the \lighttt{Arrive} and $\tau_s^\mathrm{post}$ for the \lighttt{Await} must match one of the rows in this table, which also defines the expected collective unit $\tau_u$ (def~\ref{sec:gCollUnit}).
+
+\begin{tabular}{|r|r|r|}
+$\tau_s^\mathrm{pre}$ & $\tau_s^\mathrm{post}$ & $\tau_u$ \\
+\texttt{Sm80\_cp\_async} & \texttt{cuda\_in\_order} & \texttt{cuda\_thread} \\
+\texttt{tma\_to\_gmem\_async} (Section~\ref{sec:Tma}) & \texttt{cuda\_generic\_or\_async\_proxy} & \texttt{cuda\_warp} \\
+\texttt{wgmma\_async} & \texttt{cuda\_generic\_or\_async\_proxy} & \texttt{cuda\_warpgroup}
+\end{tabular}
+
+\mainKey{Statically-checked Requirements:}
+\begin{itemize}
+  \item Split barrier basic requirements (Section~\ref{sec:SplitBarrierBasic})
+  \item Solitary barrier requirement (Section~\ref{sec:SolitaryBarrier})
+  \item Barrier expressions (def~\ref{sec:gBarrierExpr}) must use only point indices, not intervals.
+  \item \lighttt{Await} must have $n \ge 0$, i.e. this is an arrive-indexed barrier (Section~\ref{sec:ArriveAwaitPairing}, Section~\ref{sec:AwaitSemantics}).
+  \item \lighttt{Arrive} and \lighttt{Await} must be at $\tau_u$-scope as defined in the above table (def~\ref{sec:gCollUnit}).
+  \item The \lighttt{Arrive} and \lighttt{Await} statements for a given barrier array element must be executed by the same \myKeyA{thread collective} (def~\ref{sec:gThreadCollective}).
+    This is enforced by requiring base thread equality (Section~\ref{sec:DistributedMemoryBaseThreads}) between collective indexing pairs collected both from \lighttt{Arrive} and \lighttt{Await} statements for $z$.
+\end{itemize}
+
+% solitary, sync-exempt, barrier variable vs CUDA implicit state
+

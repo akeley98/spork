@@ -1,0 +1,10 @@
+\magicSubsection{Collective Indexing Pairs}{sec:CollIndexingPairs}
+
+Distributed memory analysis for a variable is based on the collective tiling $\omega_0^\text{alloc}$ (Section~\ref{sec:CollTiling}) of the variable allocation statement, and the set of \myKeyA{collective indexing pairs} $\Omega \times \mathsf{Expr}^*$ collected from all statements and expressions that index the variable:
+\begin{itemize}
+  \item For read expressions ``$x[e^*]$'' not in the context of an instruction call, the collective indexing pair is $(\omega, e^*)$, where $\omega$ is the collective tiling of the statement containing the read expression.
+  \item For write statements ``$x[e^*] \texttt{= \_}$'' and reduce statements ``$x[e^*] \texttt{+= \_}$'', the collective indexing pair is $(\omega, e^*)$, where $\omega$ is the collective tiling of the statement.
+  \item For sync statements, the collective indexing pair is $(\omega, e^*)$, where $\omega$ is the collective tiling of the statement and $e^*$ is extracted from the home barrier expression $z[e^*]$ (def~\ref{sec:gHomeBarrier}).
+  \item The collective indexing expressions collected from instruction calls are described in Section~\ref{sec:InstrDistributedMemory}.
+\end{itemize}
+

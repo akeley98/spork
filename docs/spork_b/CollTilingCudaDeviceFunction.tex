@@ -1,0 +1,6 @@
+\magicSubsection{CudaDeviceFunction}{sec:CollTilingCudaDeviceFunction}
+
+If \lighttt{clusterDim = 1}, then $\omega$ is one-dimensional, with $\omega_0.n = \lighttt{blockDim}$.
+Otherwise, $\omega$ is two-dimensional, with $\omega_0.n = \lighttt{clusterDim}$ and $\omega_1.n = \lighttt{blockDim}$.
+In both cases, $\omega_*.\textit{ops}$ is empty.
+

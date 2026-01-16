@@ -1,0 +1,17 @@
+\magicSubsection{Mbarrier Ring Buffer}{sec:gMbarrierRingBuffer}
+
+Each barrier array element with \lighttt{CudaMbarrier} barrier mechanism (Section~\ref{sec:MbarrierUsage}) is lowered as a ring buffer of CUDA mbarrier objects.
+The depth of this ring buffer depends on the number of barriers on the barrier guard cycle (def~\ref{sec:gBarrierGuardCycle}) for the barrier variable being lowered.
+
+Each barrier variable $z$ has a unique value $n(z)$ used as its $n$ parameter for \lighttt{Await}.
+Let $\texttt{lag}(z) = -1 - n(z)$.
+Let $C$ be the barrier guard cycle for $z$.
+The ring buffer depth is
+\begin{equation*}
+  \begin{cases}
+    1 + \texttt{lag}(z) & \text{ if $C$ is of size 1 } \\
+    \sum_{z' \in C} \texttt{lag}(z') & \text{ otherwise }
+  \end{cases}
+\end{equation*}
+If the calculated depth is non-positive, the compilation fails.
+

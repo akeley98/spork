@@ -1,0 +1,6 @@
+\magicSubsection{CTA}{sec:gCta}
+Cooperative thread array, also known as a ``thread block''.
+Group of \lighttt{blockDim}-many CUDA threads that execute concurrently on the same SM, and can be synchronized with \lighttt{\_\_syncthreads()} in CUDA C++.
+
+Exo-GPU only parallelizes on the x-dimension, so \lighttt{threadIdx.x} identifies a thread within a CTA; it ranges from 0 to \lighttt{blockDim - 1}.
+

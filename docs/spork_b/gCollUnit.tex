@@ -1,0 +1,82 @@
+\magicSubsection{Collective Unit (Scope)}{sec:gCollUnit}
+
+Syntactic construct that wraps a collective type (\lighttt{exo.spork.coll\_algebra.CollUnit}).
+This may be parameterized based on \lighttt{blockDim} and \lighttt{clusterDim}.
+A collective unit instance is $\tau_u$ in the grammar, and is an instance of \lighttt{CollUnit} in Python, with $\top$ represented by \lighttt{None} and other coordinate values represented by an instance of \lighttt{CollSizeExpr}.
+
+A statement is at $\tau_u$-scope when it is in $\delta$-scope (def~\ref{sec:gCollType}), where $\delta$ is unpacked from $\tau_u$ with alignment and 1-padding; we define this after the table.
+
+{
+\footnotesize
+\centering
+\arraycolsep=1.8pt\def\arraystretch{1.0}
+\setlength{\tabcolsep}{2pt}
+\begin{tabular}{rrlll}
+\toprule
+& & & \emph{domain} & \emph{box} \\
+$\tau_u : \mathrm{CollUnit} $ & $\Coloneqq$ &
+  \texttt{standalone\_thread} & \texttt{(1,)} & \texttt{(1,)} \\
+  &|& \texttt{$n_1$ * cuda\_thread} & \texttt{(blockDim,)} & \texttt{($n_1$,)} \\
+  &|& \texttt{cuda\_quadpair} & \texttt{(blockDim/16, 16)} & \texttt{(2, 4)} \\
+  &|& \texttt{$n_1$ * cuda\_warp} & \texttt{(blockDim,)} & \texttt{($n_1$ * 32,)} \\
+  &|& \texttt{$n_1$ * cuda\_warpgroup} & \texttt{(blockDim,)} & \texttt{($n_1$ * 128,)} \\
+  &|& \texttt{$n_1$ * cuda\_threads\_strided($n_2$, $n_3$)} & \texttt{(blockDim/$n_3$, $n_3$)} & \texttt{($n_1$, $n_2$)} \\
+  &|& \texttt{$n_1$ * cuda\_warp\_in\_cluster} & \texttt{(clusterDim, blockDim)} & \texttt{($n_1$, 32)} \\
+  &|& \texttt{$n_1$ * cuda\_cta\_in\_cluster} & \texttt{(clusterDim * blockDim,)} & \texttt{($n_1$ * blockDim,)} \\
+  &|& \texttt{cuda\_cluster} & \texttt{(clusterDim * blockDim,)} & \texttt{(clusterDim * blockDim,)} \\
+  &|& \texttt{$n_1$ * cuda\_cta\_in\_cluster\_strided($n_3$)} & \texttt{(ClusterDim/$n_3$, $n_3$, blockDim)} & \texttt{($n_1$, 1, blockDim)} \\
+  &|& \texttt{$n_1$ * cuda\_warp\_in\_cluster\_strided($n_3$)} & \texttt{(clusterDim/$n_3$, $n_3$, blockDim)} & \texttt{($n_1$, 1, 32)} \\
+  &|& \texttt{cuda\_agnostic\_sub\_cta} & \texttt{(clusterDim, blockDim)} & \texttt{(1, $\top$)} \\
+  &|& \texttt{cuda\_agnostic\_intact\_cta} & \texttt{(clusterDim, blockDim)} & \texttt{($\top$, blockDim)} \\
+\bottomrule
+\end{tabular}
+}
+
+The conversion to a collective type may or may not be \textit{aligned} and may or may not be \textit{1-padded}.
+The steps to unpack a collective type from a collective unit are
+
+\begin{itemize}
+  \item Substitute concrete values for \lighttt{clusterDim} and \lighttt{blockDim}.
+    This converts the domain and box into tuples of rational numbers or $\top$.
+  \item Fail if any non-$\top$ coordinate is not a natural number, or if $B_i \ne \top \land B_i \notin [1, D_i]$ for any box coordinate $B_i$ and corresponding domain coordinate $D_i$.
+  \item Remove any domain coordinates $D_i$ with $D_i = 1$ and remove corresponding box coordinates $B_i$ (it must be the case that $B_i = 1$ or $B_i = \top$ by the above check).
+  \item Initialize the collective type $\delta$ with the box and domain.
+  \item Let $f = \frac{\texttt{clusterDim * blockDim}}{\delta.D_0 \times \delta.D_1 \times ...}$; fail if $f \notin \mathbb{N}$.
+  \item If $f > 1$, prepend $f$ to $\delta.D$, and prepend $1$ or $\top$ to $\delta.B$, for the 1-padded and non-1-padded cases, respectively.
+  \item If the conversion is \textit{aligned}, reshape (Section~\ref{sec:CollTypeReshape}) until the collective type is in aligned form (def~\ref{sec:gAlignedForm}); fail if this cannot be done.
+  \item \textbf{NOTE:} not all of these failures seem to be checked by Exo-GPU today.
+\end{itemize}
+
+\mainKey{Example 1:} Suppose \lighttt{clusterDim = 2}, \lighttt{blockDim = 256}, and the collective unit has domain (\lighttt{blockDim},), box (128,).
+
+If we have alignment and 1-padding, then
+\begin{itemize}
+  \item Substitution gives $\delta.D = (256,)$, $\delta.B = (128,)$.
+  \item No domain coordinates are 1.
+  \item $f = 2$, so we prepend $2$ to $\delta.D$ and $1$ to $\delta.B$ (since 1-padding is on).
+    Now $\delta.D = (2, 256)$ and $\delta.B = (1, 128)$.
+  \item Since we have alignment, split dimension 1 by 128 to get the final collective type $\delta$, with $\delta.D = (2, 2, 128)$ and $\delta.B = (1, 1, 128)$.
+\end{itemize}
+If we have neither alignment nor 1-padding, then the result would instead be $\delta.D = (2, 256)$ and $\delta.B = (\top, 128)$.
+
+\mainKey{Example 2:} Suppose \lighttt{clusterDim = 8}, \lighttt{blockDim = 384}, and the collective unit has domain (\lighttt{clusterDim}, \lighttt{blockDim}) and box (2, 128).
+
+If we have alignment, then
+\begin{itemize}
+  \item Substitution gives $\delta.D = (8, 384), \delta.B = (2, 128)$.
+  \item No domain coordinates are 1.
+  \item $f = 1$, so no change needed.
+  \item Since we have alignment, we do two splits to get $\delta.D = (4, 2, 3, 128)$ and $\delta.B = (1, 2, 1, 128)$.
+\end{itemize}
+If we don't have alignment, then the result would instead be $\delta.D = (8, 384)$ and $\delta.B = (2, 128)$.
+1-padding does not impact this result.
+
+\mainKey{Example 3:} Suppose \lighttt{clusterDim=1}, \lighttt{blockDim = 128}, and the collective unit has domain $(\lighttt{clusterDim}, \lighttt{blockDim})$ and box $(1, \top)$.
+\begin{itemize}
+  \item Substitution gives $\delta.D = (1, 128), \delta.B = (1, \top)$.
+  \item Remove the $0^{th}$ dimension as $\delta.D_0 = 1$. So $\delta.D = (128,), \delta.B = (\top,)$.
+  \item $f = 1$, so no change needed.
+\end{itemize}
+Alignment and 1-padding don't affect this example.
+The unpacked collective type is always $\delta.D = (128,), \delta.B = (\top,)$.
+
