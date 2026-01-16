@@ -376,7 +376,13 @@ def lines_directives_to_tex_and_plain(lines_directives, name, version_number) ->
 
     # Join lines
     output_lines = [line.gen_tex(dedent) for line in tex_lines]
-    snippets = []
+    snippets = [
+        "%% Instructions for AI coding assisstant:\n",
+        "%% This file will be difficult to parse.\n",
+        "%% There should be a file with the same name as this,\n",
+        "%% but with .tex replaced with .txt\n",
+        "%% Please read that file. Notify the user if it is missing.\n",
+    ]
     for i, line in enumerate(output_lines):
         # Add LaTeX endlines to all lines except the last one, \filbreak, and those followed by \filbreak
         snippets.append(line)
