@@ -67,6 +67,8 @@
 \newcommand{\useMinorSub}{\titleformat*{\subsection}{\color{minorColor}\normalfont\sffamily}}
 \titlespacing{\subsection}{-15mm}{2mm}{1mm}
 \useMainSub
+\newcommand{\magicSection}[2]{\section{#1 \hfill \small \graytt{#2}}\label{#2}}
+\newcommand{\magicSubsection}[2]{\subsection{#1 \hfill \small \graytt{#2}}\label{#2}}
 
 \definecolor{hookColor}{RGB}{204, 0, 255}
 \newcommand{\hook}[1]{{\color{hookColor}\textbf{#1}}}

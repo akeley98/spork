@@ -61,8 +61,7 @@ Instruction templates, timelines, atomic instructions, TMA, special window (\lig
 \myChapterLink{sec:Glossary}{Glossary \& Reference}
 
 
-\section{Overview}
-\label{sec:Overview}
+\magicSection{Overview}{sec:Overview}
 
 This document assumes knowledge of CPU-only Exo.
 We only describe the GPU extensions.
@@ -77,8 +76,7 @@ We provide an imperative object language that supports
 This allows programmers to generate optimized CUDA kernels by specifying a simple sequential program (e.g. a triple for loop for GEMM), then applying a series of rewrite rules that optimize the dataflow, introduce parallelism, and offload work to accelerators.
 The rewrite and synchronization checks ensure functional equivalence of the original program and the optimized CUDA program.
 
-\subsection{Parallelism Overview}
-\label{sec:ParallelismOverview}
+\magicSubsection{Parallelism Overview}{sec:ParallelismOverview}
 
 \begin{figure}[b!]
 \codehrule
@@ -118,16 +116,14 @@ The body of the \lighttt{CudaDeviceFunction} block must contain only a single st
 The body of the inner-most \lighttt{cuda\_tasks} loop is a \myKeyA{device task}; one instance of the device task is assigned to one CUDA cluster for execution (see example~\ref{sec:gCudaDeviceFunction}).
 Within the device task, the previously-described \lighttt{cuda\_threads} loops may be used to subdivide work into the threads of the cluster.
 
-\subsection{Instructions Overview}
-\label{sec:InstrOverview}
+\magicSubsection{Instructions Overview}{sec:InstrOverview}
 
 An instruction in Exo-GPU specifies its behavior/semantics (which is required for instruction-substitution rewrite rules to check for correctness, Section~\ref{sec:InstrBehavior}), a collective unit $\tau_u$ from which a collective type $\delta$ is unpacked (Section~\ref{sec:InstrCollUnit}), and memory access information for each formal parameter (Section~\ref{sec:InstrMemoryAccess}).
 Calls to the instruction must appear at $\delta$-scope (Section~\ref{sec:CollTilingCollTypeMatching}), e.g. wgmma instructions must appear at \lighttt{cuda\_warpgroup}-scope (def~\ref{sec:gCollUnit}).
 The per-formal-parameter information includes \myKeyA{qualitative timeline} information (def~\ref{sec:gQualTL}; this distinguishes the effects of non-asynchronous instructions and various categories of explicitly asynchronous instructions), atomicity information, implied thread convergence guarantees, and whether the effects are explicitly out-of-order.
 This information is required for synchronization checking (Section~\ref{sec:SyncSemantics}).
 
-\subsection{Synchronization Overview}
-\label{sec:SyncOverview}
+\magicSubsection{Synchronization Overview}{sec:SyncOverview}
 
 \begin{figure}[b!]
 \codehrule
@@ -160,8 +156,7 @@ where $\tau_s^\mathrm{pre}$ and $\tau_s^\mathrm{post}$ are \myKeyA{sync timeline
 A \lighttt{Fence($\tau_s^\mathrm{pre}, \tau_s^\mathrm{post}$)} statement instance synchronizes prior memory accesses executed by the executing thread collective (filtered by the qualitative timelines in $\tau_s^\text{pre}$, Section~\ref{sec:AccessBeforeSync}) with subsequent memory accesses executed by the executing thread collective (filtered by the qualitative timelines in $\tau_s^\text{post}$, Section~\ref{sec:AccessAfterSync}).
 Paired instances of \lighttt{Arrive} and \lighttt{Await} (Section~\ref{sec:ArriveAwaitPairing}) do the same, for memory accesses prior to the \lighttt{Arrive} and memory accesses subsequent to the \lighttt{Await}.
 
-\subsection{Sequential-Parallel Equivalence Overview}
-\label{sec:SeqParEquivalenceOverview}
+\magicSubsection{Sequential-Parallel Equivalence Overview}{sec:SeqParEquivalenceOverview}
 
 The output values of an Exo-GPU program are defined by \myKeyA{sequential semantics}, where
 \begin{itemize}
@@ -205,8 +200,7 @@ Note, the \lighttt{cuda\_tasks} loops (def~\ref{sec:gCudaTasksLoop}), which dist
 \end{figure}
 
 
-\subsection{Distributed Memory Overview}
-\label{sec:DistributedMemoryOverview}
+\magicSubsection{Distributed Memory Overview}{sec:DistributedMemoryOverview}
 
 \begin{figure}[b!]
 \codehrule
@@ -241,8 +235,7 @@ Note: in general we cannot fuse the \lighttt{tid} loops or sink the allocation o
 
 \FloatBarrier
 \newpage
-\section{Cuda Device Function \& Warp Specialization}
-\label{sec:CudaDeviceFunction}
+\magicSection{Cuda Device Function \& Warp Specialization}{sec:CudaDeviceFunction}
 
 Wrap code with a \lighttt{with CudaDeviceFunction(...):} statement to transform it to CUDA.
 The body of the \lighttt{CudaDeviceFunction} statement must consist of exactly one statement: a nest of one or more \lighttt{cuda\_tasks} loops.
@@ -279,8 +272,7 @@ Within the device task, a \lighttt{with CudaWarps(name=<str>)} statement may be 
 
 \FloatBarrier
 \newpage
-\section{Collective Units \& Collective Types}
-\label{sec:CollType}
+\magicSection{Collective Units \& Collective Types}{sec:CollType}
 
 We use collective types $\delta$ to describe a quantity and arrangement of threads within a cluster (def~\ref{sec:gCluster}), such as ``single thread'', ``warp'', ``CTA'', ``one warp from a pair of CTAs''.
 These are unpacked from a collective unit $\tau_u$ defined in the frontend language (def~\ref{sec:gCollUnit}).
@@ -300,8 +292,7 @@ For a given domain, we derive the \myKeyA{dimension thread pitch} $\delta.P_i$:
 and we define the mapping $\mathsf{toLocal}(D, c)$ (def~\ref{sec:gToLocal}), which converts a domain $D$ and coordinates $c$ to a local thread index; the coordinates $[0, \delta.D_0-1]_\mathbb{N} \times ... \times [0, \delta.D_{M-1}-1]_\mathbb{N}$ get mapped to local thread indices in lexicographical order.
 The product of the domain coordinates $\delta.D_0 \times ... \times \delta.D_{M-1}$ must be equal to the number of threads in the cluster (\lighttt{clusterDim.x * blockDim.x}).
 
-\subsection{Collective Types \& Thread Collectives}
-\label{sec:CollTypeThreadCollective}
+\magicSubsection{Collective Types \& Thread Collectives}{sec:CollTypeThreadCollective}
 
 A thread collective (def~\ref{sec:gThreadCollective}) is an instance of a collective type $\delta$ when all threads are in the same cluster, and, with $\mu: \mathcal{P}(\mathbb{N})$ being the set of local thread indices of the threads, there exist sets $C_0 ... C_{M-1}: \mathcal{P}(\mathbb{N})$ such that
 \begin{itemize}
@@ -432,8 +423,7 @@ This is one warpgroup per CTA of a CTA pair.}
 \label{fig:CollTypeExample}
 \end{figure}
 
-\subsection{Collective Type Reshape}
-\label{sec:CollTypeReshape}
+\magicSubsection{Collective Type Reshape}{sec:CollTypeReshape}
 
 Reshaping a collective type means to apply a series of dimension split operations to yield a new collective type.
 We split the $k^{th}$ dimension of a collective type by a factor $f \in \mathbb{N}$ by
@@ -445,8 +435,7 @@ We split the $k^{th}$ dimension of a collective type by a factor $f \in \mathbb{
 \end{itemize}
 e.g. if $\delta.D = (4, 384)$ and $\delta.B = (1, 128)$, then splitting dimension 1 by $32$ gives $\delta.D = (4, 12, 32)$ and $\delta.B = (1, 4, 32)$.
 
-\subsection{Collective Unit to Collective Type}
-\label{sec:CollUnit}
+\magicSubsection{Collective Unit to Collective Type}{sec:CollUnit}
 
 Collective units are also parameterized by a pair of $M$-tuples (domain and box), with coordinates being integer expressions of \lighttt{blockDim} and \lighttt{clusterDim}, or $\top$ in the case of the box.
 This is represented in the frontend language as a Python \lighttt{CollUnit} object (the code consistently abbreviates ``collective'' as ``coll''), with $\top$ represented by \lighttt{None}.
@@ -455,8 +444,7 @@ We describe this further in def~\ref{sec:gCollUnit}.
 \FloatBarrier
 \newpage
 \useMainSub
-\section{Collective Tiling}
-\label{sec:CollTiling}
+\magicSection{Collective Tiling}{sec:CollTiling}
 
 The \lighttt{cuda\_tasks} loops assign instances of device tasks (def~\ref{sec:gDeviceTask}) to different clusters on the system, and the user has no control (yet) over the mapping between device tasks and clusters.
 On the other hand, the \lighttt{cuda\_threads} loop, which assigns work to threads within a cluster, provides the user with tight control over this work mapping.
@@ -474,8 +462,7 @@ The statement's collective tiling may be converted to
 \end{itemize}
 The \myKeyA{domain} and \myKeyA{box} of a collective tiling $\omega$ are that of its output collective type, and for brevity, we denote it as $\omega.D$ and $\omega.B$ respectively.
 
-\subsection{Collective Dimension Descriptor}
-\label{sec:CollDimDescriptor}
+\magicSubsection{Collective Dimension Descriptor}{sec:CollDimDescriptor}
 
 A collective tiling $\omega: \Omega$ (of some dimensionality $M$) is an $M$-tuple of \myKeyA{collective dimension descriptors} $(\omega_0 ... \omega_{M-1})$.
 Each descriptor $\omega_i$ consists of
@@ -491,8 +478,7 @@ where $\mathcal{O}$ is $\mathbb{Y} \times \mathbb{N}^3$, with each attribute den
   \item $\omega_i.\textit{ops}_j.\textit{tileCount}: \mathbb{N}$
 \end{itemize}
 
-\subsection{Collective Tiling Derived State}
-\label{sec:CollTilingDerivedState}
+\magicSubsection{Collective Tiling Derived State}{sec:CollTilingDerivedState}
 
 The \myKeyA{output collective type} of $\omega$ is a collective type $\delta = (\omega.D, \omega.B)$ defined by
 \begin{itemize}
@@ -521,8 +507,7 @@ The \myKeyA{thread pitch} and \myKeyA{tiled dimension index} of $y: \mathbb{Y}$ 
   \item 0 and $\bot$ if $\textit{op}_y$ does not exist.
 \end{itemize}
 
-\subsection{Collective Tiling Reshape \& Domain Completion}
-\label{sec:CollTilingReshape}
+\magicSubsection{Collective Tiling Reshape \& Domain Completion}{sec:CollTilingReshape}
 
 Similar to collective types (Section~\ref{sec:CollTypeReshape}), collective tilings may be reshaped by splitting dimensions.
 We split the $k^{th}$ dimension of $\omega$ by a factor $f: \mathbb{N}$ by replacing the collective dimension descriptor $\omega_k$ with a pair $(\omega_\text{hi}, \omega_\text{lo})$ defined by
@@ -536,29 +521,25 @@ We split the $k^{th}$ dimension of $\omega$ by a factor $f: \mathbb{N}$ by repla
 This mirrors Section~\ref{sec:CollTypeReshape}, in that this results in the single domain coordinate $\omega.D_k$ being replaced with $\omega.D_k / f$ and $f$.
 We use the function $\textsf{domainCompletion}: \Omega \times \Delta \to \Omega \times \Delta$ (def~\ref{sec:gDomainCompletion}) to reshape a collective tiling and a collective type so that they have the same domain.
 
-\subsection{Collective Type Matching}
-\label{sec:CollTilingCollTypeMatching}
+\magicSubsection{Collective Type Matching}{sec:CollTilingCollTypeMatching}
 
 Given a collective type $\delta_0$ and collective tiling $\omega_0$, we can query if $\omega_0$ \myKeyA{matches} $\delta_0$.
 Let $(\omega, \delta) = \mathsf{domainCompletion}(\omega_0, \delta_0)$.
 Then the query returns true if domain completion succeeded and $\omega.B = \delta.B$.
 This certifies that statements with collective tiling $\omega_0$ are at $\delta_0$-scope (def~\ref{sec:gCollType}).
 
-\subsection{Derived Collective Tilings}
-\label{sec:DerivedCollTiling}
+\magicSubsection{Derived Collective Tilings}{sec:DerivedCollTiling}
 
 The collective tiling of each statement is the same as that of its parent, except that \lighttt{with CudaDeviceFunction}, \lighttt{for cuda\_threads}, and \lighttt{with CudaWarps} assign a new collective tiling for their children.
 The latter two are defined based on the \textsf{deriveCollTiling} function (def~\ref{sec:gDeriveCollTiling}); here we just summarize the collective tilings.
 
-\subsection{CudaDeviceFunction}
-\label{sec:CollTilingCudaDeviceFunction}
+\magicSubsection{CudaDeviceFunction}{sec:CollTilingCudaDeviceFunction}
 
 If \lighttt{clusterDim = 1}, then $\omega$ is one-dimensional, with $\omega_0.n = \lighttt{blockDim}$.
 Otherwise, $\omega$ is two-dimensional, with $\omega_0.n = \lighttt{clusterDim}$ and $\omega_1.n = \lighttt{blockDim}$.
 In both cases, $\omega_*.\textit{ops}$ is empty.
 
-\subsection{cuda\_threads Loops}
-\label{sec:CollTilingCudaThreads}
+\magicSubsection{cuda\_threads Loops}{sec:CollTilingCudaThreads}
 
 A \lighttt{cuda\_threads} loop must be in the form \lighttt{for $y$ in cuda\_threads(0, $c_\text{hi}$, unit=$\tau_u$)}, with $c_\text{hi}$ a positive constant integer.
 Let $\omega_\text{raw}$ be the collective tiling of the loop statement, and let $\delta_\text{raw}$ be the collective type unpacked from $\tau_u$ without alignment and without 1-padding (def~\ref{sec:gCollUnit}).
@@ -586,8 +567,7 @@ The generated collective tiling is more precisely defined by (def~\ref{sec:gDeri
     \mathsf{deriveCollTiling}(\omega_\text{raw}, y, \delta_\text{raw}, 0, c_\text{hi}, c_\text{hi})
 \end{equation*}
 
-\subsection{CudaWarps}
-\label{sec:CollTilingCudaWarps}
+\magicSubsection{CudaWarps}{sec:CollTilingCudaWarps}
 
 % Pants-on-fire simplified explanation for the end user.
 We describe this somewhat informally in terms of the \lighttt{cuda\_threads} loop behavior.
@@ -612,8 +592,7 @@ The generated collective tiling is more precisely defined by (def~\ref{sec:gDeri
 \end{equation*}
 where $\delta_\text{warp}$ is unpacked from \lighttt{cuda\_warp} with alignment and 1-padding (def~\ref{sec:gCollUnit}).
 
-\subsection{Collective Tiling Figure}
-\label{sec:CollTilingFigure}
+\magicSubsection{Collective Tiling Figure}{sec:CollTilingFigure}
 
 We will illustrate the collective tiling that annotates the inner-most statement of the following example proc.
 The illustration is on a separate page.
@@ -664,8 +643,7 @@ where we note that
 
 \FloatBarrier
 \newpage
-\section{Distributed Memory}
-\label{sec:DistributedMemory}
+\magicSection{Distributed Memory}{sec:DistributedMemory}
 
 Both barrier and data allocations in CUDA scope are subject to distributed memory analysis, which deduces a certain number of distributed dimensions (def~\ref{sec:gDistributedDimension}), and properties of those dimensions.
 All other allocations have 0 distributed dimensions.
@@ -681,8 +659,7 @@ The codegen functions for memory and instructions only see indices and extents c
 
 Distributed memory analysis runs independently for each data variable and barrier variable, with the following rules.
 
-\subsection{Collective Indexing Pairs}
-\label{sec:CollIndexingPairs}
+\magicSubsection{Collective Indexing Pairs}{sec:CollIndexingPairs}
 
 Distributed memory analysis for a variable is based on the collective tiling $\omega_0^\text{alloc}$ (Section~\ref{sec:CollTiling}) of the variable allocation statement, and the set of \myKeyA{collective indexing pairs} $\Omega \times \mathsf{Expr}^*$ collected from all statements and expressions that index the variable:
 \begin{itemize}
@@ -692,8 +669,7 @@ Distributed memory analysis for a variable is based on the collective tiling $\o
   \item The collective indexing expressions collected from instruction calls are described in Section~\ref{sec:InstrDistributedMemory}.
 \end{itemize}
 
-\subsection{Thread Pitch Requirement}
-\label{sec:DistributedMemoryThreadPitch}
+\magicSubsection{Thread Pitch Requirement}{sec:DistributedMemoryThreadPitch}
 
 For each collective indexing pair $(\omega_0, e^*)$, we deduce a thread pitch tuple.
 The deduced number of distributed dimensions ($R$) is the length of this tuple.
@@ -728,13 +704,11 @@ An iterator is a \myKeyA{required iterator} if all these conditions apply:
 The number of distributed dimensions $R$ is the number of index expressions $e^*$, which must consist only of permitted index expressions, and all required index expressions must appear exactly once (fail if this is not the case).
 The thread pitch tuple is $(g(e_0), ..., g(e_{R-1}))$ where $g(e)$ gives the thread pitch (as defined by $\omega$) of the iterator indexed by the permitted index expression $e$.
 
-\subsection{Range Requirement}
-\label{sec:DistributedMemoryRange}
+\magicSubsection{Range Requirement}{sec:DistributedMemoryRange}
 
 The iterator (control variable) used to index a distributed dimension must have range $[0, x_i - 1]_\mathbb{N}$ where $x_i$ is the extent of the array on that dimension.
 
-\subsection{Base Threads Requirement}
-\label{sec:DistributedMemoryBaseThreads}
+\magicSubsection{Base Threads Requirement}{sec:DistributedMemoryBaseThreads}
 
 The thread pitch tuple requirement will diagnose many cases of inconsistent sharding, but will not detect ``offset-only'' mismatches, such as $x[0], x[1], x[2]...$ being accessed by threads 0, 1, 2, ... in one usage and threads 64, 65, 66, ... in another usage (as could occur with warp specialization).
 The base threads requirement addresses this issue.
@@ -763,8 +737,7 @@ The specific pairs that must satisfy this requirement varies depending on the ba
 \mainKey{Data Requirements:} Any two collective indexing pairs for a given data variable must have their two collective tilings satisfy base offset equivalence and base box equivalence.
 
 
-\subsection{Box Size Requirements}
-\label{sec:DistributedMemoryBoxSize}
+\magicSubsection{Box Size Requirements}{sec:DistributedMemoryBoxSize}
 
 These additional requirements, which apply to data allocations only, ensure the storage for each shard is truly allocated by a thread collective that is an instance of $\delta_0$ (Section~\ref{sec:CollTypeThreadCollective}).
 
@@ -779,8 +752,7 @@ For each subdivided dimension $i$, we must have $\omega.B_i = 1$.
 
 \FloatBarrier
 \newpage
-\section{Synchronization Usage}
-\label{sec:SyncUsage}
+\magicSection{Synchronization Usage}{sec:SyncUsage}
 
 We view each statement instance (def~\ref{sec:gStmtInstance}) as issuing reads or mutates to a set of array elements; the reads and mutates are executed by a thread collective (def~\ref{sec:gThreadCollective}) with a certain \myKeyA{initial qualitative timeline} (Section~\ref{sec:InstrTL}), which varies based on the issued instruction.
 The purpose of the qualitative timeline is to model that the read or mutate is only synchronized by a subset of possible synchronization statements.
@@ -826,8 +798,7 @@ It must be possible to find a connection using dependency edges between one read
 While describing the intended usage patterns, we will also jump ahead and reference the rules in Section~\ref{sec:SyncSemantics} that are involved in detecting that pattern for sync-check.
 This information is not required for understanding this section.
 
-\subsection{Intended Usage Patterns -- Access Before Synchronization}
-\label{sec:AccessBeforeSync}
+\magicSubsection{Intended Usage Patterns -- Access Before Synchronization}{sec:AccessBeforeSync}
 
 \begin{equation*}
     \texttt{Read|Mutate} \to \texttt{Arrive(}\tau_s^\mathrm{pre}\texttt{)\codecomment{...} | Fence(}\tau_s^\mathrm{pre},\codecomment{...}\texttt{)}
@@ -844,8 +815,7 @@ The synchronization timeline $\tau_s^\mathrm{pre}$ (def~\ref{sec:gSyncTL}) and b
 This pattern is implemented by storing a new \textsf{VisRecord} (Section~\ref{sec:VisRecordCreation}) containing a timeline signature with one of the executing threads, the initial qualitative timeline $q$, and visibility flag $\mathsf{VF_{issue}}$.
 The later \lighttt{Arrive} or \lighttt{Fence} will witness (Section~\ref{sec:Witness}) this timeline signature.
 
-\subsection{Intended Usage Patterns -- Access After Synchronization}
-\label{sec:AccessAfterSync}
+\magicSubsection{Intended Usage Patterns -- Access After Synchronization}{sec:AccessAfterSync}
 
 \begin{equation*}
     \texttt{Await(\codecomment{...}, $\tau_s^\mathrm{post}$, \codecomment{...})|Fence(\codecomment{...}, $\tau_s^\mathrm{post}$)} \to \texttt{Read|Mutate}
@@ -877,8 +847,7 @@ With $(\iota, n)$ denoting a thread in common, and with
 this pattern is implemented in sync-check by the augment step (Section~\ref{sec:Augment}) adding the timeline signature $((\iota, n), q, \mathsf{vf})$ to visibility records, which satisfy the checking requirements for the subsequent read (Section~\ref{sec:ChecksOnRead}) or mutate (Section~\ref{sec:ChecksOnMutate}).
 
 
-\subsection{Intended Usage Patterns -- Arrive-Await Pairing, Trailing Barrier Expr}
-\label{sec:ArriveAwaitPairing}
+\magicSubsection{Intended Usage Patterns -- Arrive-Await Pairing, Trailing Barrier Expr}{sec:ArriveAwaitPairing}
 
 \begin{gather*}
     \texttt{Arrive(\codecomment{...}) >> $e_a$} \to \texttt{Await(\codecomment{...}, $e_w$, $n$)} \\
@@ -914,8 +883,7 @@ Scheduling Functions:
   \item \texttt{set\_trailing\_barrier\_expr(\codecomment{...}, $e$)}
 \end{itemize}
 
-\subsection{Intended Usage Patterns -- Multiple Memory Accesses}
-\label{sec:MultipleMemoryAccesses}
+\magicSubsection{Intended Usage Patterns -- Multiple Memory Accesses}{sec:MultipleMemoryAccesses}
 
 \begin{equation*}
     \texttt{Read|Mutate} \to \texttt{Read|Mutate}
@@ -930,8 +898,7 @@ This pattern is implemented in sync-check through a timeline signature with $\ma
 
 % atomic, non-ooo
 
-\subsection{Intended Usage Patterns -- Multiple Synchronization Statements (Transitivity)}
-\label{sec:Transitivity}
+\magicSubsection{Intended Usage Patterns -- Multiple Synchronization Statements (Transitivity)}{sec:Transitivity}
 
 \begin{equation*}
     \texttt{Await(\codecomment{...}, $\tau_s^\mathrm{post}$, \codecomment{...})|Fence(\codecomment{...}, $\tau_s^\mathrm{post}$)} \to
@@ -944,8 +911,7 @@ With $(\iota, n)$ denoting a thread in common, and with $q$ as described above, 
 
 % reason for async proxy retired thing
 
-\subsection{Fence Usage}
-\label{sec:FenceUsage}
+\magicSubsection{Fence Usage}{sec:FenceUsage}
 
 \texttt{Fence($\tau_s^\mathrm{pre}$, $\tau_s^\mathrm{post}$)}
 
@@ -962,8 +928,7 @@ These non-wgmma \lighttt{Fence} configurations are referred to as \myKeyA{garden
 
 If the \lighttt{Fence} statement appears at \lighttt{cuda\_cluster}-scope but not at \lighttt{cuda\_cta\_in\_cluster}-scope, then it is subject to the solitary barrier requirement (Section~\ref{sec:SolitaryBarrier}).
 
-\subsection{Cluster Sync Usage}
-\label{sec:ClusterSyncUsage}
+\magicSubsection{Cluster Sync Usage}{sec:ClusterSyncUsage}
 
 A barrier variable $z$ with cluster sync barrier mechanism may be declared with
 
@@ -987,8 +952,7 @@ The valid synchronization timelines (def~\ref{sec:gSyncTL}) for the \lighttt{Arr
 
 % solitary, sync-exempt, barrier variable vs CUDA implicit state
 
-\subsection{Commit Group Usage}
-\label{sec:CommitGroupUsage}
+\magicSubsection{Commit Group Usage}{sec:CommitGroupUsage}
 
 A barrier variable $z$ with commit group barrier mechanism may be declared with
 
@@ -1022,8 +986,7 @@ $\tau_s^\mathrm{pre}$ & $\tau_s^\mathrm{post}$ & $\tau_u$ \\
 
 % solitary, sync-exempt, barrier variable vs CUDA implicit state
 
-\subsection{Mbarrier Usage}
-\label{sec:MbarrierUsage}
+\magicSubsection{Mbarrier Usage}{sec:MbarrierUsage}
 
 A barrier variable $z_a$ with mbarrier barrier mechanism may be declared with
 
@@ -1061,8 +1024,7 @@ For TMA-to-SMEM instructions, use a trailing barrier expression for the instruct
 
 % multicast, guarding, hidden ring buffer & why ...
 
-\subsection{Barrier Multicast}
-\label{sec:BarrierMulticast}
+\magicSubsection{Barrier Multicast}{sec:BarrierMulticast}
 
 % thread pitch multiple of blockDim, multicast convergence, home barrier expr
 
@@ -1098,8 +1060,7 @@ For a given \lighttt{Arrive} statement, it must not have any parent \lighttt{if}
 \codehrule
 \end{figure}
 
-\subsection{Split Barrier Basic Requirements}
-\label{sec:SplitBarrierBasic}
+\magicSubsection{Split Barrier Basic Requirements}{sec:SplitBarrierBasic}
 
 For a given barrier variable $z$,
 \begin{itemize}
@@ -1111,8 +1072,7 @@ For a given barrier variable $z$,
   \item The multicasts (def~\ref{sec:gMulticasts}) of all \lighttt{Arrive} statements using $z$ must be the same.
 \end{itemize}
 
-\subsection{Barrier Guarding Requirement}
-\label{sec:BarrierGuarding}
+\magicSubsection{Barrier Guarding Requirement}{sec:BarrierGuarding}
 
 This section applies only to barrier mechanisms that list it as a requirement.
 
@@ -1142,8 +1102,7 @@ Furthermore, the barrier array elements referenced by the trailing barrier expre
 
 The await-first usage must be used for any barrier variable that is not guarded-by itself.
 
-\subsection{Solitary Barrier Requirement}
-\label{sec:SolitaryBarrier}
+\magicSubsection{Solitary Barrier Requirement}{sec:SolitaryBarrier}
 
 There must not be two barrier variables with the same lowered barrier type live in the same scope, if the lowered barrier type of the barrier appears in the following list:
 \begin{itemize}
@@ -1156,8 +1115,7 @@ Additionally, a \lighttt{Fence} statement (Section~\ref{sec:FenceUsage}) at \lig
 
 \FloatBarrier
 \newpage
-\section{Synchronization Semantics}
-\label{sec:SyncSemantics}
+\magicSection{Synchronization Semantics}{sec:SyncSemantics}
 
 The synchronization semantics are defined by translating the Exo-GPU program into an abstract machine program, and interpreting the abstract machine program with respect to abstract machine semantics.
 The program is synchronized correctly if no error condition is reached.
@@ -1179,14 +1137,12 @@ Finally, the abstract machine specifies correctness checks for each read to (Sec
 
 For this informal documentation, we will skip the translation step and summarize the effects of relevant Exo-GPU statements upon the above state directly.
 
-\subsection{Control Environment}
-\label{sec:ControlEnv}
+\magicSubsection{Control Environment}{sec:ControlEnv}
 
 Function $\sigma: \mathbb{Y} \to \mathbb{Z}$, mapping control variable names (def~\ref{sec:gMathbbY}) to integer values.
 This is common to both Exo value semantics, and Exo-GPU abstract machine semantics.
 
-\subsection{Thread Mapping}
-\label{sec:SyncSemanticsThreadMapping}
+\magicSubsection{Thread Mapping}{sec:SyncSemanticsThreadMapping}
 
 The thread mapping function for a given statement $s$ is denoted, in the PLDI submission, as $g_{s^\#}: \Sigma \to \mathbb{I} \to \mathcal{P}(\mathbb{G})$ where
 \begin{itemize}
@@ -1210,8 +1166,7 @@ where $\omega_s$ is the collective tiling (Section~\ref{sec:CollTiling}) that co
 For the real implementation, we still encode the loop mode (def~\ref{sec:gLoopMode}) for each loop and store the current thread collective as a thread cuboid (def~\ref{sec:gThreadCuboid}), which is modified by parallel loops.
 
 
-\subsection{Synchronization Environment (SyncEnv)}
-\label{sec:SyncEnv}
+\magicSubsection{Synchronization Environment (SyncEnv)}{sec:SyncEnv}
 
 A synchronization environment $\rho$ is a function of type
 \begin{equation*}
@@ -1230,8 +1185,7 @@ A newly-allocated variable has all its array elements initialized to an empty re
 \mainKey{Implementation Note:} the arrive and await count attributes are separated out into a separate barrier environment in camspork, i.e., the synchronization environment is implemented as $\mathbb{X} \cup \mathbb{B} \to \mathbb{Z}^* \to \mathcal{P}(\mathsf{VisRecord}) \times \mathcal{P}(\mathsf{VisRecord})$ only, and the barrier environment is $\mathbb{B} \to \mathbb{Z}^* \to \mathbb{N}^2$.
 
 
-\subsection{VisRecord State}
-\label{sec:VisRecordState}
+\magicSubsection{VisRecord State}{sec:VisRecordState}
 
 Each visibility record $r$ is a pair of type $\mathcal{P}(\mathsf{TlSig}) \times \mathcal{P}(\mathbb{P})$, with the two elements being
 \begin{itemize}
@@ -1263,8 +1217,7 @@ The timeline signature interval is the set of all $((\iota, n), q, \mathsf{vf})$
 Each pending await $(z, n^*, a)$ in the pending await set is formatted as \\
 ``\texttt{pending await: $z$[$n^*$] arrive\_count=$a$}''.
 
-\subsection{VisRecord Creation}
-\label{sec:VisRecordCreation}
+\magicSubsection{VisRecord Creation}{sec:VisRecordCreation}
 
 Each read, mutate, \lighttt{Arrive}, or \lighttt{Await} statement instance that references an array element $x[n^*]$ or $z[n^*]$ in non-sync-exempt (def~\ref{sec:gSyncExempt}) memory causes a new set of visibility records $r^*$ (to be defined) to be associated with $\rho(x, n^*)$ or $\rho(z, n^*)$.
 For brevity we will omit the $z$ case in the following description.
@@ -1314,8 +1267,7 @@ However, for performance reasons, if the non-convergent access is out-of-order, 
 
 Note that for single-threaded accesses, the convergence makes no difference to the result (setting aside said optimization).
 
-\subsection{Lifting}
-\label{sec:Lifting}
+\magicSubsection{Lifting}{sec:Lifting}
 
 The semantics for synchronization statements entail mapping over each visibility record (Section~\ref{sec:VisRecordState}) in the entire synchronization environment (Section~\ref{sec:SyncEnv}).
 This is done by applying the function $\mathsf{lift}$ to the synchronization environment, which takes $\lambda: \mathsf{VisRecord} \to \mathsf{VisRecord}$.
@@ -1324,8 +1276,7 @@ $\rho' = \mathsf{lift}(\rho, \lambda)$ is defined by
     \rho'(x, n^*) = \{ \lambda(r) \mid r \in \rho(x, n^*).r \}, \{ \lambda(r) \mid r \in \rho(x, n^*).m \}, \rho(x, n^*).b
 \end{equation*}
 
-\subsection{VisRecord Synchronizes-with (Witness)}
-\label{sec:Witness}
+\magicSubsection{VisRecord Synchronizes-with (Witness)}{sec:Witness}
 
 Given a first synchronization timeline $\tau_s^\mathrm{pre}$ (def~\ref{sec:gSyncTL}) and a thread collective $g^*$ mapped to execute (Section~\ref{sec:SyncSemanticsThreadMapping}) a certain \lighttt{Fence} or \lighttt{Arrive} statement instance, the statement instance ``witnesses'', or ``synchronizes-with'' a visibility record (Section~\ref{sec:VisRecordState}) when its visibility set contains a timeline signature (def~\ref{sec:gTlSig}) of the form $(g, q, \mathsf{VF_{issue}})$ with $g \in g^*$ and $q \in \tau_s^\mathrm{pre}.\mathrm{full}$.
 
@@ -1335,8 +1286,7 @@ The witness function $\mathcal{W}: \mathcal{P}(\mathbb{G}) \to \mathcal{P}(\math
 \end{equation*}
 The transitivity flag from the PLDI submission is removed. TODO is $\mathsf{VF_{full}}$ needed here?
 
-\subsection{VisRecord Augment}
-\label{sec:Augment}
+\magicSubsection{VisRecord Augment}{sec:Augment}
 
 Given a second synchronization timeline $\tau_s^\mathrm{post}$ (def~\ref{sec:gSyncTL}) and a thread collective $g^*$ mapped to execute (Section~\ref{sec:SyncSemanticsThreadMapping}) a certain \lighttt{Fence} or \lighttt{Await} statement instance, the statement instance ``augments'' a visibility record $r$ (Section~\ref{sec:VisRecordState}) by adding the following sets of timeline signatures (def~\ref{sec:gTlSig}) to the visibility set $r.s$:
 \begin{align*}
@@ -1348,8 +1298,7 @@ The augment function $\mathcal{A}: \mathsf{VisRecord} \to \mathcal{P}(\mathbb{G}
     \mathcal{A}(r, g^*, \tau_s^\mathrm{post}.\mathrm{full}, \tau_s^\mathrm{post}.\mathrm{temp}) = (r.s\cup \mathcal{A}_\mathrm{full} \cup \mathcal{A}_\mathrm{temp}, r.p)
 \end{equation*}
 
-\subsection{Fence Semantics}
-\label{sec:FenceSemantics}
+\magicSubsection{Fence Semantics}{sec:FenceSemantics}
 
 A \lighttt{Fence} statement augments (Section~\ref{sec:Augment}) all visibility records (Section~\ref{sec:VisRecordState}) that it witnesses (Section~\ref{sec:Witness}).
 Specifically, for a given statement \texttt{Fence($\tau_s^\mathrm{pre}, \tau_s^\mathrm{post}$)}, with $g^* = g_{s^\#}(\iota, \sigma)$ assigned to execute it (Section~\ref{sec:SyncSemanticsThreadMapping}), define $\lambda_\mathrm{Fence}: \mathsf{VisRecord} \to \mathsf{VisRecord}$ as
@@ -1361,8 +1310,7 @@ Specifically, for a given statement \texttt{Fence($\tau_s^\mathrm{pre}, \tau_s^\
 \end{equation*}
 The new synchronization environment is $\mathsf{lift}(\rho, \lambda_\mathrm{Fence})$ (Section~\ref{sec:Lifting}).
 
-\subsection{Arrive Semantics}
-\label{sec:ArriveSemantics}
+\magicSubsection{Arrive Semantics}{sec:ArriveSemantics}
 
 A \lighttt{Arrive} statement adds pending await(s) (def~\ref{sec:gPendingAwait}) to all visibility records (Section~\ref{sec:VisRecordState}) that it witnesses (Section~\ref{sec:Witness}), and increments the arrive count of a barrier array element.
 
@@ -1387,8 +1335,7 @@ The new synchronization environment $\rho''$ is defined from $\rho$ (Section~\re
 \end{align*}
 The way we use and update only the arrive count of the home barrier (as a stand-in for the state of all barriers) is the reason for the barrier multicast convergence requirement (Section~\ref{sec:BarrierMulticast}).
 
-\subsection{Await Semantics}
-\label{sec:AwaitSemantics}
+\magicSubsection{Await Semantics}{sec:AwaitSemantics}
 
 An \lighttt{Await} statement augments (Section~\ref{sec:Augment}) all visibility records (Section~\ref{sec:VisRecordState}) that contain the needed pending await (def~\ref{sec:gPendingAwait}), and updates the await count of the barrier array element referenced by the statement's barrier expression.
 
@@ -1427,8 +1374,7 @@ The new synchronization environment $\rho''$ is defined from $\rho$ (Section~\re
 
 \mainKey{Implementation Note:} camspork removes old pending awaits to avoid infinite state growth.
 
-\subsection{Check VisRecord Helper}
-\label{sec:CheckVisRecordHelper}
+\magicSubsection{Check VisRecord Helper}{sec:CheckVisRecordHelper}
 
 For the following checks, we use this to check the visibility set (def~\ref{sec:gVisSet}) of a visibility record: \\
 $\mathsf{CheckVisRecord}: \mathsf{Bool} \to \mathcal{P}(\mathbb{G}) \to \mathcal{P}(\mathsf{QualTL}) \to \mathsf{VisFlag} \to \mathsf{VisRecord} \to \mathsf{Bool}$
@@ -1440,8 +1386,7 @@ $\mathsf{CheckVisRecord}: \mathsf{Bool} \to \mathcal{P}(\mathbb{G}) \to \mathcal
 \end{equation*}
 In this context $t$ is the \myKeyA{convergence flag}; note it only changes the qualifier $\forall$ or $\exists$ for $g \in g^*$, which has no effect when $g^*$ consists only of a single global thread ID (def~\ref{sec:gGlobalThreadID}).
 
-\subsection{Checks on Read, Arrive, Await}
-\label{sec:ChecksOnRead}
+\magicSubsection{Checks on Read, Arrive, Await}{sec:ChecksOnRead}
 
 Read-like accesses only impose requirements on the mutate visibility record set.
 
@@ -1458,8 +1403,7 @@ Require that
 If the above is not true, the abstract machine enters the error condition.
 Otherwise, this step causes no state changes, but the abstract machine continues on to the changes specified in Section~\ref{sec:VisRecordCreation}.
 
-\subsection{Checks on Mutate}
-\label{sec:ChecksOnMutate}
+\magicSubsection{Checks on Mutate}{sec:ChecksOnMutate}
 
 Mutate accesses impose requirements on both the read and mutate visibility record sets, with the requirements conditional on whether the mutate is write-only (Section~\ref{sec:InstrMemoryAccess}) and/or atomic (Section~\ref{sec:AtomicInstr}).
 
@@ -1478,8 +1422,7 @@ Require that
 If the above is not true, the abstract machine enters the error condition.
 Otherwise, this step causes no state changes, but the abstract machine continues on to the changes specified in Section~\ref{sec:VisRecordCreation}.
 
-\subsection{Checks on Free}
-\label{sec:ChecksOnFree}
+\magicSubsection{Checks on Free}{sec:ChecksOnFree}
 
 When barrier variables are freed, the arrive and await count (Section~\ref{sec:SyncEnv}) must be equal for all elements in the freed barrier array.
 
@@ -1493,16 +1436,14 @@ For such variables, upon free, we perform the same checks as for a non-atomic wr
 
 \FloatBarrier
 \newpage
-\section{Instructions \& Timelines}
-\label{sec:Instr}
+\magicSection{Instructions \& Timelines}{sec:Instr}
 
 This section primarily deals with the specification of Exo-GPU instructions, but also contains information on qualitative timelines (def~\ref{sec:gQualTL}) and other information controlling the interaction between scalar reads and writes and the abstract machine (Section~\ref{sec:VisRecordCreation}).
 
 The \lighttt{exo.platforms.cuda} module is the public entry point for basic CUDA functionality.
 Platform-specific instructions and related functionality are in \lighttt{exo.platforms.Sm80}, \lighttt{exo.platforms.Sm90}, and \lighttt{exo.platforms.Sm100} (future work).
 
-\subsection{Instruction Template (Classes)}
-\label{sec:InstrTemplate}
+\magicSubsection{Instruction Template (Classes)}{sec:InstrTemplate}
 
 The new way to define functions in Exo-GPU is using classes, instead of functions.
 These class-based instructions define ``instruction templates''.
@@ -1527,8 +1468,7 @@ For example,\\
 \texttt{MyInstrClass(a, b, tparam=c)}\\
 where \texttt{a} and \texttt{b} are not template parameters, and \texttt{c} is.
 
-\subsection{Instruction Behavior}
-\label{sec:InstrBehavior}
+\magicSubsection{Instruction Behavior}{sec:InstrBehavior}
 
 The \lighttt{behavior} function is much the same as Exo before.
 This informs the Exo compiler of the sequential value semantics of the instruction.
@@ -1537,8 +1477,7 @@ If you implement an instruction, it's your job to faithfully implement those sem
 When an instruction template generates an instruction, it substitutes concrete values for all template parameters (def~\ref{sec:gInstrTemplateParameter}) in the \lighttt{behavior}.
 The parameter count of the generated function is only equal to the number of non-template parameters.
 
-\subsection{Memory Access}
-\label{sec:InstrMemoryAccess}
+\magicSubsection{Memory Access}{sec:InstrMemoryAccess}
 
 Each non-template (def~\ref{sec:gInstrTemplateParameter}), non-control-value (def~\ref{sec:gMathbbY}) formal parameter defines an expected \lighttt{MemWin} (memory or special window) type, with special window currently needed only for TMA (Section~\ref{sec:Tma}).
 The corresponding actual parameter passed must reference a variable that is annotated with a \lighttt{MemWin} type that is a subclass of the formal parameter's \lighttt{MemWin} type.
@@ -1571,8 +1510,7 @@ For memory accesses by non-instr statements, the initial qualitative timeline an
   \item \lighttt{cuda\_in\_order\_instr} if the statement is in CUDA-scope (def~\ref{sec:gCudaScope})
 \end{itemize}
 
-\subsection{Instruction Collective Unit}
-\label{sec:InstrCollUnit}
+\magicSubsection{Instruction Collective Unit}{sec:InstrCollUnit}
 
 Each non-CPU instruction defines a collective unit $\tau_u$ (\lighttt{InstrInfo.coll\_unit}).
 A call statement using that instruction must appear only at $\tau_u$-scope (def~\ref{sec:gCollUnit}).
@@ -1581,8 +1519,7 @@ Hopper tensor cores (wgmma) use collective unit \lighttt{cuda\_warpgroup}.
 
 Ampere tensor cores and TMA instructions (Section~\ref{sec:Tma}) use collective unit \lighttt{cuda\_warp}.
 
-\subsection{Instruction Timeline (InstrTL)}
-\label{sec:InstrTL}
+\magicSubsection{Instruction Timeline (InstrTL)}{sec:InstrTL}
 
 The initial qualitative timeline and the extended qualitative timelines are a function of the \lighttt{Memory} type of the accessed array elements and the instruction timeline (\textsf{InstrTL}) of the instruction performing the reads or mutates.
 This is based on the \lighttt{exo.memory.AllocableMemWin.qual\_tl\_dict} attribute, which is effectively a function of type
@@ -1596,27 +1533,23 @@ Furthermore, the instruction timeline controls
   \item Whether the instruction may be called at CPU scope and/or at CUDA scope, via the \lighttt{exo.spork.timelines.DeviceScope.allows\_instr\_tl} function.
 \end{itemize}
 
-\subsection{Convergent Access}
-\label{sec:InstrConvergentAccess}
+\magicSubsection{Convergent Access}{sec:InstrConvergentAccess}
 
 For reads and mutates issued by instructions, the convergence flag is a function of the initial qualitative timeline (Section~\ref{sec:InstrTL}).
 We may choose to allow overriding this on a per-formal-parameter basis later if needed.
 
-\subsection{Out-of-order Access}
-\label{sec:InstrOOO}
+\magicSubsection{Out-of-order Access}{sec:InstrOOO}
 
 Reads and mutates issued to the actual parameters of an instruction call are that of the corresponding formal parameter's \lighttt{exo.core.instr\_info.AccessInfo.out\_of\_order} value (Section~\ref{sec:InstrTemplate}).
 
-\subsection{Atomic Instructions}
-\label{sec:AtomicInstr}
+\magicSubsection{Atomic Instructions}{sec:AtomicInstr}
 
 Mutates issued to the actual parameters of an instruction call are atomic whenever the corresponding formal parameter has a non-empty \lighttt{exo.core.instr\_tl.AccessInfo.atomicity.qual\_tl\_list}.
 Although we use the shorthand ``atomic instruction'', in reality atomicity is a per-formal-parameter property, not a per-instruction property.
 
 Currently, reads must not be atomic.
 
-\subsection{Instruction Trailing Barrier Expression}
-\label{sec:InstrTrailingBarrierExpr}
+\magicSubsection{Instruction Trailing Barrier Expression}{sec:InstrTrailingBarrierExpr}
 
 The instruction takes a trailing barrier expression (def~\ref{sec:gTrailingBarrierExpr}) if and only if the instruction defines a barrier mechanism (\lighttt{InstrInfo.barrier\_mechanism}).
 If so, the barrier variable used in the trailing barrier expression must have a barrier mechanism matching the one required by the function (def~\ref{sec:gBarrierMechanism}).
@@ -1624,8 +1557,7 @@ Currently, this is only used for TMA-to-SMEM instructions (Section~\ref{sec:Tma}
 
 This is only checked at the time the fully-scheduled Exo-GPU proc is lowered, not throughout the scheduling process.
 
-\subsection{Instruction Distributed Memory}
-\label{sec:InstrDistributedMemory}
+\magicSubsection{Instruction Distributed Memory}{sec:InstrDistributedMemory}
 
 Formal window-typed instruction parameters may define a non-empty\\ \lighttt{exo.instr\_info.AccessInfo.distributed\_coll\_units} attribute, which is a list of collective units (def~\ref{sec:gCollUnit}).
 For the purposes of distributed memory analysis (Section~\ref{sec:DistributedMemory}), it is as if the formal parameter $x$ is accessed in a loop\\
@@ -1663,8 +1595,7 @@ During distributed memory analysis for a given variable $x$ or $z$, a window exp
 \end{itemize}
 
 
-\subsection{TMA Usage}
-\label{sec:Tma}
+\magicSubsection{TMA Usage}{sec:Tma}
 
 Note, the library of Exo-GPU CUDA instructions is highly incomplete.
 This section gives the guidelines for the expected interface of added TMA instructions.
@@ -1729,8 +1660,7 @@ See Figure~\ref{fig:multicast_tma_excerpt} for example correct usage of a TMA in
 \end{figure}
 
 \newpage
-\subsection{Instruction Codegen}
-\label{sec:InstrCodegen}
+\magicSubsection{Instruction Codegen}{sec:InstrCodegen}
 
 For the most part, codegen is documented through the comments in relevant Python functions and classes.
 Here we will only provide a top-level overview of these components.
@@ -1805,60 +1735,50 @@ This is a whole other Pandora's Box which we will \emph{not} get into right now,
 
 \FloatBarrier
 \newpage
-\section{Glossary \& Reference}
-\label{sec:Glossary}
+\magicSection{Glossary \& Reference}{sec:Glossary}
 
 % >A
 
-\subsection{$\mathcal{A}$ (Augment Function)}
-\label{sec:gAugment}
+\magicSubsection{$\mathcal{A}$ (Augment Function)}{sec:gAugment}
 
 Abstract machine helper function defined in Section~\ref{sec:Augment}.
 Used to modify the set of visibility records (Section~\ref{sec:VisRecordState}) modified by an interpreted \lighttt{Fence} statement (Section~\ref{sec:FenceSemantics}) or \lighttt{Await} statement (Section~\ref{sec:AwaitSemantics}).
 
-\subsection{Agnostic (Collective Type)}
-\label{sec:gAgnostic}
+\magicSubsection{Agnostic (Collective Type)}{sec:gAgnostic}
 
 A collective type $\delta$ is agnostic if any $\delta.B_i$ is $\top$.
 
-\subsection{Aligned Form (Collective Type)}
-\label{sec:gAlignedForm}
+\magicSubsection{Aligned Form (Collective Type)}{sec:gAlignedForm}
 
 A collective type $\delta$ is in aligned form when all box coordinates $\delta.B_i$ satisfy $\delta.B_i \in \{\top, 1, \delta.D_i\}$.
 If no box coordinate is $\top$, then if two thread collectives are both instances of $\delta$, those two thread collectives are either identical or disjoint.
 
-\subsection{Arrive Statement}
-\label{sec:gArriveStmt}
+\magicSubsection{Arrive Statement}{sec:gArriveStmt}
 
 Split-barrier synchronization statement (def~\ref{sec:gSyncStmt}) paired with \lighttt{Await} (Section~\ref{sec:ArriveAwaitPairing}).
 
-\subsection{Atomicity}
-\label{sec:gAtomicity}
+\magicSubsection{Atomicity}{sec:gAtomicity}
 
 Per-parameter property of an instruction (Section~\ref{sec:AtomicInstr}).
 This alters abstract machine semantics for mutates (Section~\ref{sec:VisRecordCreation}, Section~\ref{sec:ChecksOnMutate}).
 
-\subsection{Await Statement}
-\label{sec:gAwaitStmt}
+\magicSubsection{Await Statement}{sec:gAwaitStmt}
 
 Split-barrier synchronization statement (def~\ref{sec:gSyncStmt}) paired with \lighttt{Arrive} (Section~\ref{sec:ArriveAwaitPairing}).
 
 % >B
 
-\subsection{$\mathbb{B}$ (mathbb-B)}
-\label{sec:gMathbbB}
+\magicSubsection{$\mathbb{B}$ (mathbb-B)}{sec:gMathbbB}
 
 $\mathbb{B}$ denotes the set of barrier variable names (def~\ref{sec:gBarrierVariable}).
 Somewhat confusingly, we conventionally use $z$ to mean an element of $\mathbb{B}$, i.e. $z$ is the name of a barrier variable (def~\ref{sec:gBarrierVariable}).
 
-\subsection{Barrier Environment}
-\label{sec:gBarrierEnv}
+\magicSubsection{Barrier Environment}{sec:gBarrierEnv}
 
 This is an implementation detail of camspork, and ``officially'', this is part of the synchronization environment.
 See Section~\ref{sec:SyncEnv}.
 
-\subsection{Barrier Expression}
-\label{sec:gBarrierExpr}
+\magicSubsection{Barrier Expression}{sec:gBarrierExpr}
 
 An expression ``$z[e^*]$'', where $z: \mathbb{B}$ is a barrier variable name and $e^*$ is a tuple of expressions (``$z$'' alone indicates $e^*$ is empty).
 Each expression $e_i$ must either be a point expression consisting of a plain read of a control variable (def~\ref{sec:gMathbbY}) or an interval expression $0:x_i$, $x_i$ being the extent of the $i^{th}$ dimension of $z$'s array size.
@@ -1869,13 +1789,11 @@ A barrier expression $z[e_0, ..., e_{M-1}]$ references all barrier array element
   \item $n_i \in [0, x_i - 1]_\mathbb{N}$ for all $e_i$ that are intervals $0:x_i$.
 \end{itemize}
 
-\subsection{Barrier Guard Cycle}
-\label{sec:gBarrierGuardCycle}
+\magicSubsection{Barrier Guard Cycle}{sec:gBarrierGuardCycle}
 
 The barrier guard cycle for a given barrier name $z$ is the set of barrier names in $\{ \textsf{guardedBy}^n(z)\mid n = 1, 2, 3... \}$ (def~\ref{sec:gGuardedBy}).
 
-\subsection{Barrier Guarding Requirement}
-\label{sec:gBarrierGuardingRequirement}
+\magicSubsection{Barrier Guarding Requirement}{sec:gBarrierGuardingRequirement}
 
 Here we give a more complete description of the static analysis for the barrier guarding requirement (Section~\ref{sec:BarrierGuarding}).
 Let $z_a$ be a barrier variable subject to the barrier guarding requirement, and let it be guarded-by $z_g$ (def~\ref{sec:gGuardedBy}).
@@ -1927,8 +1845,7 @@ For each trailing barrier expression that uses $z_a$, let $c: \mathsf{Bool}^*$ b
   \item $m_{i,j}$ or not $c_j$ for all $j = 0, 1, ..., M-1$.
 \end{itemize}
 
-\subsection{Barrier Mechanism}
-\label{sec:gBarrierMechanism}
+\magicSubsection{Barrier Mechanism}{sec:gBarrierMechanism}
 
 Concept similar to \lighttt{Memory} for barrier variables (def~\ref{sec:gBarrierVariable}).
 Currently, one of
@@ -1938,8 +1855,7 @@ Currently, one of
   \item \texttt{CudaMbarrier} (Section~\ref{sec:MbarrierUsage})
 \end{itemize}
 
-\subsection{Barrier Variable}
-\label{sec:gBarrierVariable}
+\magicSubsection{Barrier Variable}{sec:gBarrierVariable}
 
 A barrier variable is declared with one of
 \begin{itemize}
@@ -1953,45 +1869,38 @@ In semantics, we denote a barrier variable name with $z: \mathbb{B}$.
 
 % >C
 
-\subsection{Camspork}
-\label{sec:gCamspork}
+\magicSubsection{Camspork}{sec:gCamspork}
 
 C Abstract Machine for Spork.
 C++ library that implements the abstract machine interpreter used for sync-check.
 
-\subsection{Cluster}
-\label{sec:gCluster}
+\magicSubsection{Cluster}{sec:gCluster}
 Group of \lighttt{clusterDim}-many CTAs (def~\ref{sec:gCta}) that execute concurrently on the same GPC, and can synchronize with cluster sync, or using mbarriers.
 When \lighttt{clusterDim = 1} (which is the case by default for Exo-GPU), then CTA and cluster are synonymous.
 The PTX variable \lighttt{cluster\_ctarank} is the 0-based index of the CTA in the cluster.
 
-\subsection{Collective Analysis}
-\label{sec:gCollAnalysis}
+\magicSubsection{Collective Analysis}{sec:gCollAnalysis}
 
 Compilation step that assigns collective tilings (Section~\ref{sec:CollTiling}) to each CUDA-scope statement (def~\ref{sec:gCudaScope}) and performs distributed memory analysis (Section~\ref{sec:DistributedMemory}).
 
-\subsection{Collective Dimension Descriptor}
-\label{sec:gCollDimDescriptor}
+\magicSubsection{Collective Dimension Descriptor}{sec:gCollDimDescriptor}
 
 Stores the collective tiling state (def~\ref{sec:gCollTiling}) for a single dimension.
 See Section~\ref{sec:CollDimDescriptor}.
 
-\subsection{Collective Indexing Pair}
-\label{sec:gCollIndexingPair}
+\magicSubsection{Collective Indexing Pair}{sec:gCollIndexingPair}
 
 Object of type $\Omega \times \mathsf{Expr}^*$, where $\Omega$ is a collective tiling (def~\ref{sec:gCollTiling}) and $\mathsf{Expr}^*$ is a tuple of array index expressions.
 Used for distributed memory analysis (Section~\ref{sec:DistributedMemory}) of a variable.
 Collective indexing pairs are collected from all statements and expressions that index said variable.
 
-\subsection{Collective Tiling}
-\label{sec:gCollTiling}
+\magicSubsection{Collective Tiling}{sec:gCollTiling}
 
 A per-statement attribute of statements at CUDA scope (def~\ref{sec:gCudaScope}).
 We denote a collective tiling with $\omega \in \Omega$.
 This describes via the function $\textsf{collMap}: \Omega \to \Sigma \to \mathcal{P}(\mathbb{N})$ (Section~\ref{sec:CollTilingDerivedState}) a mapping between control variable values and the local thread indices (def~\ref{sec:gLocalThreadIndex}) of the thread collective (def~\ref{sec:gThreadCollective}) assigned to execute an instance of the statement (def~\ref{sec:gStmtInstance}).
 
-\subsection{Collective Type (Scope)}
-\label{sec:gCollType}
+\magicSubsection{Collective Type (Scope)}{sec:gCollType}
 
 Description of a certain number and arrangement of threads in a cluster, e.g. thread, warp, CTA (Section~\ref{sec:CollType}).
 A collective type $\delta$ has a certain dimensionality $M$, and consists of
@@ -2003,8 +1912,7 @@ As well as implied dimension thread pitch values $\delta.P$ (def~\ref{sec:gThrea
 A statement is at $\delta$-scope when it is in CUDA scope (def~\ref{sec:gCudaScope}) and the thread collectives assigned to execute instances of that statement are always instances of $\delta$ (Section~\ref{sec:CollTypeThreadCollective}).
 
 
-\subsection{Collective Unit (Scope)}
-\label{sec:gCollUnit}
+\magicSubsection{Collective Unit (Scope)}{sec:gCollUnit}
 
 Syntactic construct that wraps a collective type (\lighttt{exo.spork.coll\_algebra.CollUnit}).
 This may be parameterized based on \lighttt{blockDim} and \lighttt{clusterDim}.
@@ -2086,27 +1994,23 @@ If we don't have alignment, then the result would instead be $\delta.D = (8, 384
 Alignment and 1-padding don't affect this example.
 The unpacked collective type is always $\delta.D = (128,), \delta.B = (\top,)$.
 
-\subsection{Control Environment}
-\label{sec:gControlEnv}
+\magicSubsection{Control Environment}{sec:gControlEnv}
 
 Function $\sigma: \mathbb{Y} \to \mathbb{Z}$, mapping control variable names (def~\ref{sec:gMathbbY}) to integer values.
 This is common to both Exo value semantics, and Exo-GPU abstract machine semantics.
 
-\subsection{CPU Scope}
-\label{sec:gCpuScope}
+\magicSubsection{CPU Scope}{sec:gCpuScope}
 
 Statements outside of a \lighttt{CudaDeviceFunction} block (def~\ref{sec:gCudaDeviceFunction}), including said statement itself, are at CPU scope\\
 (\lighttt{exo.spork.timelines.cpu\_basic\_device: exo.spork.timelines.DeviceScope}).
 
-\subsection{CTA}
-\label{sec:gCta}
+\magicSubsection{CTA}{sec:gCta}
 Cooperative thread array, also known as a ``thread block''.
 Group of \lighttt{blockDim}-many CUDA threads that execute concurrently on the same SM, and can be synchronized with \lighttt{\_\_syncthreads()} in CUDA C++.
 
 Exo-GPU only parallelizes on the x-dimension, so \lighttt{threadIdx.x} identifies a thread within a CTA; it ranges from 0 to \lighttt{blockDim - 1}.
 
-\subsection{CUDA Device Function Block}
-\label{sec:gCudaDeviceFunction}
+\magicSubsection{CUDA Device Function Block}{sec:gCudaDeviceFunction}
 
 Statement that launches its body as a CUDA device function (``kernel''/``grid'') (Section~\ref{sec:CudaDeviceFunction}).
 
@@ -2116,14 +2020,12 @@ The above example may be scheduled using
 
 \input{b_samples/CudaDeviceFunction_scheduling.0.tex}
 
-\subsection{CUDA Scope}
-\label{sec:gCudaScope}
+\magicSubsection{CUDA Scope}{sec:gCudaScope}
 
 Statements within a \lighttt{CudaDeviceFunction} block (def~\ref{sec:gCudaDeviceFunction}) are at CUDA scope\\
 (\lighttt{exo.spork.timelines.cuda\_basic\_device: exo.spork.timelines.DeviceScope}).
 
-\subsection{\texttt{cuda\_tasks} Loop}
-\label{sec:gCudaTasksLoop}
+\magicSubsection{\texttt{cuda\_tasks} Loop}{sec:gCudaTasksLoop}
 
 Loop with loop mode \lighttt{CudaTasks} (def~\ref{sec:gLoopMode}).
 When executed, these define device task instances (def~\ref{sec:gDeviceTask}), as well as new task IDs in abstract machine semantics (Section~\ref{sec:SyncSemanticsThreadMapping}).
@@ -2131,15 +2033,13 @@ Each device task instance is assigned uniquely to a cluster on the device (def~\
 The mapping between device task instances and clusters is deliberately not part of the language specification (TODO Luca may change this, add a user-selected ``strategy'' for this).
 See Section~\ref{sec:CudaDeviceFunction}.
 
-\subsection{\texttt{cuda\_threads} Loop}
-\label{sec:gCudaThreadsLoop}
+\magicSubsection{\texttt{cuda\_threads} Loop}{sec:gCudaThreadsLoop}
 
 Loop with loop mode \lighttt{CudaThreads} (def~\ref{sec:gLoopMode}).
 Such loops subdivide their executing thread collective (def~\ref{sec:gThreadCollective}) into subsets, each assigned to execute an ``iteration'' of the loop in parallel.
 See Section~\ref{sec:CollTilingCudaThreads}.
 
-\subsection{\texttt{CudaWarps} Block}
-\label{sec:gCudaWarpsBlock}
+\magicSubsection{\texttt{CudaWarps} Block}{sec:gCudaWarpsBlock}
 
 Warp specialization statement of the form ``\lighttt{with CudaWarps(...): $s$}'', which restricts instances of the child statement $s$ to execute using only a certain subset of warps.
 These warps may be identified by a warp variable (def~\ref{sec:gWarpVariable}).
@@ -2147,13 +2047,11 @@ See Section~\ref{sec:CollTilingCudaWarps}.
 
 % >D
 
-\subsection{Delta ($\delta: \Delta$)}
-\label{sec:gDelta}
+\magicSubsection{Delta ($\delta: \Delta$)}{sec:gDelta}
 
 $\Delta$ denotes the set of all collective types (def~\ref{sec:gCollType}, Section~\ref{sec:CollType}) and $\delta$ is an element of that set.
 
-\subsection{deriveCollTiling}
-\label{sec:gDeriveCollTiling}
+\magicSubsection{deriveCollTiling}{sec:gDeriveCollTiling}
 
 The function $\mathsf{deriveCollTiling}: \Omega \to \mathbb{Y} \to \Delta \to \mathbb{N} \to \mathbb{N} \to \mathbb{N} \to \Omega$ is used for computing the collective tilings for \lighttt{cuda\_threads} loops (Section~\ref{sec:CollTilingCudaThreads}), \lighttt{with CudaWarps} (Section~\ref{sec:CollTilingCudaWarps}), and instructions with distributed memory (Section~\ref{sec:InstrDistributedMemory}).
 
@@ -2181,20 +2079,17 @@ $\mathsf{deriveCollTiling}(\omega_\text{raw}, y, \delta_\text{raw}, \texttt{lo},
   \item Return $\omega$.
 \end{itemize}
 
-\subsection{Device Task}
-\label{sec:gDeviceTask}
+\magicSubsection{Device Task}{sec:gDeviceTask}
 
 The body of the inner-most \lighttt{cuda\_tasks} loop is a device task (see~\ref{sec:gCudaDeviceFunction}).
 
-\subsection{Distributed Collective Units}
-\label{sec:gDistributedCollUnits}
+\magicSubsection{Distributed Collective Units}{sec:gDistributedCollUnits}
 
 Per-instruction parameter list of $N$-many collective units (def~\ref{sec:gCollUnit}).
 This specifies that the first $N$ dimensions of the parameter are distributed dimensions (def~\ref{sec:gDistributedDimension}), while the others are not.
 The interpretation of this is specified in Section~\ref{sec:InstrDistributedMemory}.
 
-\subsection{Distributed Dimension}
-\label{sec:gDistributedDimension}
+\magicSubsection{Distributed Dimension}{sec:gDistributedDimension}
 
 A dimension of an allocated tensor is \emph{distributed} when adjacent elements on that dimension are physically allocated onto different thread collectives (def~\ref{sec:gThreadCollective}).
 Each distributed dimension has a thread pitch (def~\ref{sec:gThreadPitch}) describing the ``stride'' in local thread indices (def~\ref{sec:gLocalThreadIndex}) between adjacent elements along that dimension.
@@ -2209,15 +2104,13 @@ Note that the indices for non-distributed dimensions have no effect in this equa
 
 The distributed dimensions are deduced by distributed memory analysis (Section~\ref{sec:DistributedMemory}).
 
-\subsection{Domain}
-\label{sec:gDomain}
+\magicSubsection{Domain}{sec:gDomain}
 
 Attribute $\delta.D$ of a collective type $\delta$ (Section~\ref{sec:CollType}) and attribute $\omega.D$ (Section~\ref{sec:CollTiling}) of a collective tiling $\omega$.
 Both are of type $\mathbb{N}_{\ge2}^M$ for some dimension $M: \mathbb{N}$.
 This describes the arrangement of threads within a cluster into an $M$-dimensional grid via the \textsf{toLocal} function (def~\ref{sec:gToLocal}).
 
-\subsection{Domain Completion}
-\label{sec:gDomainCompletion}
+\magicSubsection{Domain Completion}{sec:gDomainCompletion}
 
 $\textsf{domainCompletion}: \Omega \times \Delta \to \Omega \times \Delta$ takes a collective tiling $\omega$ (def~\ref{sec:gCollTiling}) and a collective type $\delta$ (def~\ref{sec:gCollType}) and returns $(\omega', \delta')$ such that $\omega'.D = \delta'.D$ (def~\ref{sec:gDomain}), with $\omega$ converted to $\omega'$ and $\delta$ converted to $\delta'$ using only reshape operations.
 This ensures the ``meaning'' of $\omega'$ and $\delta'$ is the same as $\omega$ and $\delta$, except that $\delta'$ may imply stricter alignment requirements.
@@ -2243,46 +2136,39 @@ An example (inefficient) implementation sketch of domain completion is given:
   \item Return $\mathsf{domainCompletion}(\omega, \delta)$.
 \end{itemize}
 
-\subsection{Domain Completion Type Only}
-\label{sec:gDomainCompletionTypeOnly}
+\magicSubsection{Domain Completion Type Only}{sec:gDomainCompletionTypeOnly}
 
 $\textsf{domainCompletionTypeOnly}: \Delta \times \Delta \to \Delta \times \Delta$ is defined as $\textsf{domainCompletion}$ (def~\ref{sec:gDomainCompletion}), but with the role of $\omega: \Omega$ replaced with $\delta_2: \Delta$.
 
 % >E
-\subsection{Extended Qualitative Timelines (Set)}
-\label{sec:gExtQualTL}
+\magicSubsection{Extended Qualitative Timelines (Set)}{sec:gExtQualTL}
 
 Set of qualitative timelines (def~\ref{sec:gQualTL}) associated with each read/mutate memory access.
 This varies depending on the memory type accessed and the instruction used (Section~\ref{sec:InstrTL}).
 In abstract machine semantics, this controls the checks upon reading (Section~\ref{sec:ChecksOnRead}) or mutating (Section~\ref{sec:ChecksOnMutate}) an array element.
 
 % >F
-\subsection{First Synchronization Timeline}
-\label{sec:gFirstSyncTL}
+\magicSubsection{First Synchronization Timeline}{sec:gFirstSyncTL}
 
 First synchronization timeline (def~\ref{sec:gSyncTL}) parameter of a \lighttt{Fence} statement, or only synchronization timeline parameter of an \lighttt{Arrive} statement.
 Denoted $\tau_s^\text{pre}$.
 This filters by qualitative timeline (def~\ref{sec:gQualTL}) the memory accesses prior to the synchronization statement (def~\ref{sec:gSyncStmt}) that interact with the synchronization (Section~\ref{sec:AccessBeforeSync}).
 
-\subsection{Fence Statement}
-\label{sec:gFenceStmt}
+\magicSubsection{Fence Statement}{sec:gFenceStmt}
 
 Standalone synchronization statement (def~\ref{sec:gSyncStmt}); see Section~\ref{sec:FenceUsage}.
 
 % >G
 
-\subsection{Garden-variety Fence}
-\label{sec:gGardenVarietyFence}
+\magicSubsection{Garden-variety Fence}{sec:gGardenVarietyFence}
 
 See ``Fence Usage'' (Section~\ref{sec:FenceUsage}).
 
-\subsection{Global Thread ID ($\mathbb{G}$, mathbb-G)}
-\label{sec:gGlobalThreadID}
+\magicSubsection{Global Thread ID ($\mathbb{G}$, mathbb-G)}{sec:gGlobalThreadID}
 
 Pair of task ID $\iota: \mathbb{I}$ (Section~\ref{sec:SyncSemanticsThreadMapping}) and local thread index $n \in \mathbb{N}$ (def~\ref{sec:gLocalThreadIndex}).
 
-\subsection{Guarded-by}
-\label{sec:gGuardedBy}
+\magicSubsection{Guarded-by}{sec:gGuardedBy}
 
 A barrier variable declaration for $z_a$ may or may not include an explicit-guarded-by barrier name $z_g$ (def~\ref{sec:gBarrierVariable}).
 Two barrier variables must not share the same explicit-guarded-by barrier name.
@@ -2304,8 +2190,7 @@ See also ``Barrier Guard Cycle'' (def~\ref{sec:gBarrierGuardCycle}).
 
 % >H
 
-\subsection{Home Barrier (Expression)}
-\label{sec:gHomeBarrier}
+\magicSubsection{Home Barrier (Expression)}{sec:gHomeBarrier}
 
 Each barrier expression (def~\ref{sec:gBarrierExpr}), when interpreted, references a certain set of barrier array elements.
 The intersection of these sets for all barrier expressions in a synchronization statement (def~\ref{sec:gSyncStmt}) must be a single barrier array element; this is the home barrier.
@@ -2330,39 +2215,33 @@ Examples
 
 % >I
 
-\subsection{Initial Qualitative Timeline}
-\label{sec:gInitialQualTL}
+\magicSubsection{Initial Qualitative Timeline}{sec:gInitialQualTL}
 
 Qualitative timeline (def~\ref{sec:gQualTL}) associated with each read/mutate memory access.
 This varies depending on the memory type accessed and the instruction used (Section~\ref{sec:InstrTL}).
 In abstract machine semantics, this controls \textsf{VisRecord} creation (Section~\ref{sec:VisRecordCreation}).
 
-\subsection{Instruction Template}
-\label{sec:gInstrTemplate}
+\magicSubsection{Instruction Template}{sec:gInstrTemplate}
 
 Factory function that outputs instructions (\lighttt{exo.Procedure}).
 These are from Exo instructions defined as a class (Section~\ref{sec:InstrTemplate}).
 
-\subsection{Instruction Template Parameter}
-\label{sec:gInstrTemplateParameter}
+\magicSubsection{Instruction Template Parameter}{sec:gInstrTemplateParameter}
 
 Parameter named in the \lighttt{instance} function of an instruction template (Section~\ref{sec:InstrTemplate}), except for the left-most argument (\lighttt{self}).
 Any parameters in the \lighttt{behavior} function whose name matches that of an instruction template parameter (as defined by \lighttt{instance}) is itself an instruction template parameter.
 
-\subsection{Instruction Timeline}
-\label{sec:gInstrTL}
+\magicSubsection{Instruction Timeline}{sec:gInstrTL}
 
 Attribute of Exo-GPU instructions (Section~\ref{sec:InstrTL}).
 Together with the memory type accessed, this indirectly controls the qualitative timelines (def~\ref{sec:gQualTL}) associated with the executed instruction's memory accesses (Section~\ref{sec:VisRecordCreation}).
 The instruction timeline exists only to help externalize instruction definitions; it is not directly involved in defining abstract machine semantics.
 
-\subsection{Intact Dimension}
-\label{sec:gIntactDimension}
+\magicSubsection{Intact Dimension}{sec:gIntactDimension}
 
 See ``Distributed Memory'' (Section~\ref{sec:DistributedMemory}).
 
-\subsection{\textrm{I}ota, mathbb-\textrm{I} ($\iota: \mathbb{I}$)}
-\label{sec:gIota}
+\magicSubsection{\textrm{I}ota, mathbb-\textrm{I} ($\iota: \mathbb{I}$)}{sec:gIota}
 
 $\mathbb{I}$ denotes the set of all task IDs (Section~\ref{sec:SyncSemanticsThreadMapping}) and $\iota$ is an element of that set.
 
@@ -2370,8 +2249,7 @@ $\mathbb{I}$ denotes the set of all task IDs (Section~\ref{sec:SyncSemanticsThre
 % >K
 % >L
 
-\subsection{Local Thread Index}
-\label{sec:gLocalThreadIndex}
+\magicSubsection{Local Thread Index}{sec:gLocalThreadIndex}
 
 0-based integer index uniquely identifying a thread within a cluster.
 The threads are indexed lexicographically by (CTA index, thread index in CTA).
@@ -2379,8 +2257,7 @@ The closed-form equation is \lighttt{cluster\_ctarank * blockDim.x + threadIdx.x
 
 Note, not to be confused with linear thread IDs (tid) in camspork, which also encodes the task index (Section~\ref{sec:SyncSemanticsThreadMapping}).
 
-\subsection{Loop Mode}
-\label{sec:gLoopMode}
+\magicSubsection{Loop Mode}{sec:gLoopMode}
 
 Each Exo loop has an included loop mode object, which is one of these Python objects:
 \begin{itemize}
@@ -2404,15 +2281,13 @@ Scheduling functions:
   \item \texttt{parallelize\_loop}: use \lighttt{Par()} as the loop mode (legacy).
 \end{itemize}
 
-\subsection{Lowered Barrier Type}
-\label{sec:gLoweredBarrierType}
+\magicSubsection{Lowered Barrier Type}{sec:gLoweredBarrierType}
 
 See Section~\ref{sec:SolitaryBarrier}.
 
 % >M
 
-\subsection{Mbarrier Ring Buffer}
-\label{sec:gMbarrierRingBuffer}
+\magicSubsection{Mbarrier Ring Buffer}{sec:gMbarrierRingBuffer}
 
 Each barrier array element with \lighttt{CudaMbarrier} barrier mechanism (Section~\ref{sec:MbarrierUsage}) is lowered as a ring buffer of CUDA mbarrier objects.
 The depth of this ring buffer depends on the number of barriers on the barrier guard cycle (def~\ref{sec:gBarrierGuardCycle}) for the barrier variable being lowered.
@@ -2429,13 +2304,11 @@ The ring buffer depth is
 \end{equation*}
 If the calculated depth is non-positive, the compilation fails.
 
-\subsection{Multicast Flags}
-\label{sec:gMulticastFlags}
+\magicSubsection{Multicast Flags}{sec:gMulticastFlags}
 
 See ``Multicasts'' (def~\ref{sec:gMulticasts}).
 
-\subsection{Multicasts}
-\label{sec:gMulticasts}
+\magicSubsection{Multicasts}{sec:gMulticasts}
 
 Each barrier expression (def~\ref{sec:gBarrierExpr}) has its own \myKeyA{multicast flags}.
 This is a tuple of boolean values $t_i$ where $t_i$ is true if the $i^{th}$ index is an interval, and false if the $i^{th}$ index is a point.
@@ -2448,28 +2321,24 @@ For example,
 
 % >N
 
-\subsection{$\mathbb{N}$ (mathbb-N)}
-\label{sec:gMathbbN}
+\magicSubsection{$\mathbb{N}$ (mathbb-N)}{sec:gMathbbN}
 
 Set of natural numbers (non-negative integers).
 We use $\mathbb{N}_{\ge x}$ to mean the set of natural numbers greater-than-or-equal-to $x$, and $\mathbb{N}_\top$ to mean the set of natural numbers and the symbol $\top$ (top).
 
 $[a, b]_\mathbb{N}$ denotes the set of natural numbers $n$ where $a \le n \le b$.
 
-\subsection{Native Unit}
-\label{sec:gNativeUnit}
+\magicSubsection{Native Unit}{sec:gNativeUnit}
 
 A per-CUDA-memory collective unit (def~\ref{sec:gCollUnit}) attribute given by the classmethod \lighttt{exo.spork.cuda\_memory.CudaBasicDeviceVisible.native\_unit}.
 Distributed memory analysis physically maps each shard (def~\ref{sec:gShard}) of a variable annotated with this \lighttt{Memory} type onto a thread collective (def~\ref{sec:gThreadCollective}) that is an instance of the collective type (Section~\ref{sec:CollTypeThreadCollective}) unpacked from this collective unit.
 
 % >O
-\subsection{Omega ($\omega: \Omega$)}
-\label{sec:gOmega}
+\magicSubsection{Omega ($\omega: \Omega$)}{sec:gOmega}
 
 $\Omega$ denotes the set of all collective tilings (def~\ref{sec:gCollTiling}, Section~\ref{sec:CollTiling}) and $\omega$ is an element of that set.
 
-\subsection{Out-of-order Non-convergent Abstract Machine Optimization}
-\label{sec:gOooOpt}
+\magicSubsection{Out-of-order Non-convergent Abstract Machine Optimization}{sec:gOooOpt}
 
 Alteration of abstract machine semantics for out-of-order, non-convergent accesses as implemented by \lighttt{camspork} (def~\ref{sec:gCamspork}).
 
@@ -2501,8 +2370,7 @@ TODO on the other hand, this seems applicable to the convergent case as well.
 
 % >P
 
-\subsection{Pending Await ($\mathbb{P}$ / mathbb-P)}
-\label{sec:gPendingAwait}
+\magicSubsection{Pending Await ($\mathbb{P}$ / mathbb-P)}{sec:gPendingAwait}
 
 Abstract machine concept (Section~\ref{sec:SyncSemantics}).
 Tuple of type $\mathbb{B} \times \mathbb{Z}^* \times \mathbb{Z}$ where the respective tuple elements are
@@ -2514,56 +2382,48 @@ Tuple of type $\mathbb{B} \times \mathbb{Z}^* \times \mathbb{Z}$ where the respe
 Note the PLDI submission formulates this differently, as a function $p : \mathbb{B} \to \mathbb{Z}^* \to \mathcal{P}(\mathbb{N})$.
 Given $z: \mathbb{B}$ (def~\ref{sec:gMathbbB}), $i^* : \mathbb{Z}^*$, and $p'$ is a set of pending awaits as currently formulated, the correspondence between $p'$ and equivalent $p$ is $(z, i^*, n) \in p' \iff n \in p(z, i^*)$.
 
-\subsection{Power Set ($\mathcal{P}$ / mathcal-P)}
-\label{sec:gPowerSet}
+\magicSubsection{Power Set ($\mathcal{P}$ / mathcal-P)}{sec:gPowerSet}
 
 $a^* \in \mathcal{P}(A)$ or $a^*: \mathcal{P}(A)$ means that $a^*$ is of type ``set of $A$''.
 
 % >Q
 
-\subsection{Qualitative Timelines (QualTL)}
-\label{sec:gQualTL}
+\magicSubsection{Qualitative Timelines (QualTL)}{sec:gQualTL}
 
 Additional description on each memory access, beyond the IDs of the thread(s) performing the access.
 A synchronization timeline (SyncTL, def~\ref{sec:gSyncTL}) groups together qualitative timelines.
 
 \input{spork_b/QualTL.tex}
 
-\subsection{Queue Barrier}
-\label{sec:gQueueBarrier}
+\magicSubsection{Queue Barrier}{sec:gQueueBarrier}
 
 Old name for a barrier array element.
 
 % >R
-\subsection{$\mathbb{R}$ (mathbb-R)}
-\label{sec:gMathbbR}
+\magicSubsection{$\mathbb{R}$ (mathbb-R)}{sec:gMathbbR}
 
 Used in the PLDI submission to mean $\mathsf{VisRecord}$ (def~\ref{sec:gVisRecord}).
 
 % >S
 
-\subsection{$\mathbb{S}$ (mathbb-S)}
-\label{sec:gMathbbS}
+\magicSubsection{$\mathbb{S}$ (mathbb-S)}{sec:gMathbbS}
 
 Used in the PLDI submission to mean the set of all visibility functions, which corresponds to visibility sets (def~\ref{sec:gVisSet}) in Exo-GPU as it is currently formulated.
 Note ``visibility function'' is not a term used in the PLDI submission; this is retroactive terminology for this deprecated concept.
 
-\subsection{Second Synchronization Timeline}
-\label{sec:gSecondSyncTL}
+\magicSubsection{Second Synchronization Timeline}{sec:gSecondSyncTL}
 
 Second synchronization timeline (def~\ref{sec:gSyncTL}) parameter of a \lighttt{Fence} statement, or only synchronization timeline parameter of an \lighttt{Await} statement.
 Denoted $\tau_s^\text{post}$.
 This filters by qualitative timeline (def~\ref{sec:gQualTL}) the memory accesses subsequent to the synchronization statement (def~\ref{sec:gSyncStmt}) that interact with the synchronization (Section~\ref{sec:AccessAfterSync}).
 
-\subsection{Sequential (\texttt{seq}) Loop}
-\label{sec:gSeqLoop}
+\magicSubsection{Sequential (\texttt{seq}) Loop}{sec:gSeqLoop}
 
 Loop with loop mode \lighttt{Seq} (def~\ref{sec:gLoopMode}).
 Each thread of the thread collective (def~\ref{sec:gThreadCollective}) executes each iteration of the loop sequentially.
 There is no convergence or coherence guaranteed between threads cooperating to execute the loop.
 
-\subsection{Sequential-parallel Equivalence}
-\label{sec:gSeqParEquivalence}
+\magicSubsection{Sequential-parallel Equivalence}{sec:gSeqParEquivalence}
 
 The output of an Exo-GPU procedure is defined by interpreting it with sequential semantics, where
 \begin{itemize}
@@ -2572,59 +2432,49 @@ The output of an Exo-GPU procedure is defined by interpreting it with sequential
 The procedure satisfies sequential-parallel equivalence when the CPU/CUDA code generated from it (parallelized as specified by the collective tilings (Section~\ref{sec:CollTiling}) and async instructions (Section~\ref{sec:Instr}) used) is functionally equivalent to the Exo-GPU procedure.
 This is verified by sync-check (def~\ref{sec:gSyncCheck}), which is based on abstract machine semantics (Section~\ref{sec:SyncSemantics}), although we have no proof that these semantics truly capture the requirements of the underlying CUDA platform.
 
-\subsection{Sigma ($\sigma: \Sigma$)}
-\label{sec:gSigma}
+\magicSubsection{Sigma ($\sigma: \Sigma$)}{sec:gSigma}
 
 $\Sigma$ denotes the set of all control environments (def~\ref{sec:gControlEnv}) and $\sigma$ is an element of that set.
 Note, historically sometimes $\Sigma_c$ or $\sigma_c$ are used.
 
-\subsection{Shard}
-\label{sec:gShard}
+\magicSubsection{Shard}{sec:gShard}
 
 Suppose there are $R$-many distributed dimensions (def~\ref{sec:gDistributedDimension}) for a certain tensor $x$ (or barrier $z$, skipped for brevity).
 A set of array elements of $x$ are co-located in the same shard if their index tuples all match in the first $R$ dimensions.
 
-\subsection{Spork}
-\label{sec:gSpork}
+\magicSubsection{Spork}{sec:gSpork}
 
 The \lighttt{exo.spork} module contains most new features added to Exo-GPU compared to initial Exo.
 Spork = ``supports more than fork-join'', i.e., the \lighttt{cuda\_threads} loops in Exo-GPU do not imply any implicit convergent behavior upon termination.
 
-\subsection{Square Brackets}
-\label{sec:gSquareBrackets}
+\magicSubsection{Square Brackets}{sec:gSquareBrackets}
 
 May denote indexing an array, or function update notation (def~\ref{sec:gUpdateNotation}).
-\subsection{Statement Instance}
-\label{sec:gStmtInstance}
+\magicSubsection{Statement Instance}{sec:gStmtInstance}
 
 A \emph{statement} is a syntactic construct, while a \emph{statement instance} is a single interpretation/``execution'' of a statement. For example, ``\lighttt{for i in seq(0, 10): $s_1$; $s_2$}'' is a loop containing two statements: $s_1$ and $s_2$, and when the loop is executed, 20 statement instances are created (10 instances of $s_1$ and 10 instances of $s_2$).
 
-\subsection{Subdivided Dimension}
-\label{sec:gSubdividedDimension}
+\magicSubsection{Subdivided Dimension}{sec:gSubdividedDimension}
 
 See ``Distributed Memory'' (Section~\ref{sec:DistributedMemory}).
 
-\subsection{Sync Check}
-\label{sec:gSyncCheck}
+\magicSubsection{Sync Check}{sec:gSyncCheck}
 
 Checks that a program does not reach an error condition under abstract machine semantics (Section~\ref{sec:SyncSemantics}).
 This is intended to ensure sequential-parallel equivalence (def~\ref{sec:gSeqParEquivalence}), although we don't prove this at all.
 Use the \lighttt{exo.Procedure.sync\_check} function with the problem size given as keyword arguments, e.g. \lighttt{my\_gemm.sync\_check(M=512, N=256, K=384)}.
 
-\subsection{Sync-Exempt}
-\label{sec:gSyncExempt}
+\magicSubsection{Sync-Exempt}{sec:gSyncExempt}
 
 Certain memory types are sync-exempt, as defined by their Python\\
 \lighttt{AllocableMemWin.sync\_exempt()} function.
 All reads and writes to array elements stored in sync-exempt memory type are no-ops in the abstract machine (Section~\ref{sec:SyncSemantics}), i.e., no hazards will ever be diagnosed for variables stored in sync-exempt memory.
 
-\subsection{Synchronization Environment (SyncEnv)}
-\label{sec:gSyncEnv}
+\magicSubsection{Synchronization Environment (SyncEnv)}{sec:gSyncEnv}
 
 See Section~\ref{sec:SyncEnv}.
 
-\subsection{Synchronization Statement}
-\label{sec:gSyncStmt}
+\magicSubsection{Synchronization Statement}{sec:gSyncStmt}
 
 One of
 
@@ -2648,8 +2498,7 @@ Scheduling functions:
   \item \texttt{insert\_await(\codecomment{...}, $e$, $\tau_s^\mathrm{post}$)}
 \end{itemize}
 
-\subsection{Synchronization Timeline (SyncTL)}
-\label{sec:gSyncTL}
+\magicSubsection{Synchronization Timeline (SyncTL)}{sec:gSyncTL}
 
 Parameter for synchronization statements (\lighttt{Fence}, \lighttt{Arrive}, \lighttt{Await}), which are defined as a composition of a \myKeyA{full timeline set} (set of \textsf{QualTL}, def~\ref{sec:gQualTL}) and a \myKeyA{temporal timeline set} (set of \textsf{QualTL}).
 For a given $\tau_s$, these are denoted as $\tau_s.\mathrm{full}$ and $\tau_s.\mathrm{temp}$ respectively.
@@ -2689,22 +2538,19 @@ $\tau_s$ & cpu & strm & cuda1 & cuda2 & Sm80 & tmaS & tmaG & wgA & wgD & wgS & w
 %           |
 % Synchronization
 % Synchronizes
-\subsection{Synchronizes-with}
-\label{sec:gSynchronizesWith}
+\magicSubsection{Synchronizes-with}{sec:gSynchronizesWith}
 
 camspork's name for the witness function (Section~\ref{sec:Witness}).
 
 % >T
-\subsection{Thread Collective}
-\label{sec:gThreadCollective}
+\magicSubsection{Thread Collective}{sec:gThreadCollective}
 
 Set of threads within a single CUDA cluster (def~\ref{sec:gCluster}) assigned to execute one statement instance (def~\ref{sec:gStmtInstance}) or to allocate one shard (def~\ref{sec:gShard}) of a variable (Section~\ref{sec:DistributedMemory}).
 On the CUDA device, the threads in the thread collective are uniquely identified by its cluster index (which is not statically analyzed) and its local thread index (def~\ref{sec:gLocalThreadIndex}), which is analyzed by collective analysis (Section~\ref{sec:CollTiling}).
 In the context of the abstract machine, the cluster index is replaced with a task index, since the mapping between tasks and clusters is a hardware-dependent detail we abstract over.
 Specifically, a thread collective in this context is a set of global thread IDs (def~\ref{sec:gGlobalThreadID}).
 
-\subsection{Thread Cuboid}
-\label{sec:gThreadCuboid}
+\magicSubsection{Thread Cuboid}{sec:gThreadCuboid}
 
 camspork implementation concept, which takes the place of the thread mapping (Section~\ref{sec:SyncSemanticsThreadMapping}).
 The thread cuboid has a task ID $\iota: \mathbb{I}$, and equal-dimensional integer tuples domain ($D$), box ($B$), and offset ($\textit{Off}$).
@@ -2715,15 +2561,13 @@ This encodes via the \textsf{toLocal} function (def~\ref{sec:gToLocal}) the thre
       [\textit{Off}_1, \textit{Off}_1 + B_1 - 1]_\mathbb{N} \times ...  \}
 \end{equation*}
 
-\subsection{Thread Mapping Function}
-\label{sec:gThreadMappingFunction}
+\magicSubsection{Thread Mapping Function}{sec:gThreadMappingFunction}
 
 Function of type $\Sigma \to \mathcal{P}(\mathbb{N})$ that annotated CUDA-scope statements (def~\ref{sec:gCudaScope}).
 Given a control environment $\sigma: \Sigma$ (def~\ref{sec:gControlEnv}), it returns the local thread indices (def~\ref{sec:gLocalThreadIndex}) of the threads in the thread collective (def~\ref{sec:gThreadCollective}) used to execute an instance of the annotated statement (def~\ref{sec:gStmtInstance}).
 See Section~\ref{sec:CollTilingDerivedState}.
 
-\subsection{Thread Pitch (Set)}
-\label{sec:gThreadPitch}
+\magicSubsection{Thread Pitch (Set)}{sec:gThreadPitch}
 
 The thread pitch is used in multiple contexts.
 In all cases, it describes the ``distance'', in local thread indices (def~\ref{sec:gLocalThreadIndex}), between adjacent items of some sort.
@@ -2747,26 +2591,22 @@ The thread pitch set of $D$ is $\{P_0, ..., P_{M-1}\}$; note $P_{M-1} = 1$ alway
 
 \mainKey{Collective Tiling/Type:} The thread pitch set of a collective tiling/type is that of its domain.
 
-\subsection{Tiled Dimension}
-\label{sec:gTiledDimension}
+\magicSubsection{Tiled Dimension}{sec:gTiledDimension}
 
 See \textsf{deriveCollTiling} (def~\ref{sec:gDeriveCollTiling}).
 
-\subsection{Timeline Signature (TlSig)}
-\label{sec:gTlSig}
+\magicSubsection{Timeline Signature (TlSig)}{sec:gTlSig}
 
 Abstract machine concept (Section~\ref{sec:SyncSemantics}).
 Triple $(g, q, v)$ of type $\mathbb{G} \times \mathsf{QualTL} \times \mathsf{VF}$, i.e. a global thread id $g$ (def~\ref{sec:gGlobalThreadID}), qualitative timeline $q$ (def~\ref{sec:gQualTL}), and visibility flag $v$ (def~\ref{sec:gVisFlag}).
 These are composed by visibility records (def~\ref{sec:gVisRecord}).
 
-\subsection{TMA}
-\label{sec:gTma}
+\magicSubsection{TMA}{sec:gTma}
 
 Tensor Memory Accelerator, a.k.a. \lighttt{cp.async.bulk}.
 See Section~\ref{sec:Tma}.
 
-\subsection{toLocal}
-\label{sec:gToLocal}
+\magicSubsection{toLocal}{sec:gToLocal}
 
 We define the mapping $\mathsf{toLocal}: \mathbb{N}^M \to \mathbb{N}^M \to \mathbb{N}$, which converts a domain (def~\ref{sec:gDomain}) and coordinates to a local thread index, as
 \begin{align*}
@@ -2775,8 +2615,7 @@ We define the mapping $\mathsf{toLocal}: \mathbb{N}^M \to \mathbb{N}^M \to \math
 i.e. the coordinates $[0, D_0-1]_\mathbb{N} \times ... \times [0, D_{M-1}-1]_\mathbb{N}$ get mapped to local thread indices (def~\ref{sec:gLocalThreadIndex}) in lexicographical order.
 For this definition to work as expected, the product of the domain coordinates $D_0 \times ... \times D_{M-1}$ must be equal to the number of threads in the cluster (\lighttt{clusterDim.x * blockDim.x}).
 
-\subsection{Trailing Barrier Expression}
-\label{sec:gTrailingBarrierExpr}
+\magicSubsection{Trailing Barrier Expression}{sec:gTrailingBarrierExpr}
 
 Syntax ``\texttt{>}\texttt{> }$e$'' added after the closing \texttt{)} of an instruction call, with $e$ being a single barrier expression (def~\ref{sec:gBarrierExpr}).
 This allows direct usage of \lighttt{Await} (Section~\ref{sec:ArriveAwaitPairing}) to wait for the instruction to retire, which is treated as a special case in sync-check (Section~\ref{sec:VisRecordCreation}, Section~\ref{sec:AwaitSemantics}).
@@ -2789,8 +2628,7 @@ Note, the home barrier expression (def~\ref{sec:gHomeBarrier}) concept does \tex
 
 % >U
 
-\subsection{Update Notation}
-\label{sec:gUpdateNotation}
+\magicSubsection{Update Notation}{sec:gUpdateNotation}
 
 $\rho[a_0 \to b_0, a_1 \to b_1, ...]$ means the function $\rho$ with outputs for $a_0, a_1,...$ modified:
 \begin{equation*}
@@ -2804,8 +2642,7 @@ $\rho[a_0 \to b_0, a_1 \to b_1, ...]$ means the function $\rho$ with outputs for
 
 % >V
 
-\subsection{Visibility Flag ($\mathsf{VF}$)}
-\label{sec:gVisFlag}
+\magicSubsection{Visibility Flag ($\mathsf{VF}$)}{sec:gVisFlag}
 
 Abstract machine concept (Section~\ref{sec:SyncSemantics}).
 One of
@@ -2817,14 +2654,12 @@ One of
 \end{itemize}
 These are part of a timeline signature (def~\ref{sec:gTlSig}).
 
-\subsection{Visibility Level}
-\label{sec:gVisLevel}
+\magicSubsection{Visibility Level}{sec:gVisLevel}
 
 Removed concept from the PLDI 2025 submission's semantics.
 See ``visibility set'' (def~\ref{sec:gVisSet}).
 
-\subsection{Visibility Record (VisRecord)}
-\label{sec:gVisRecord}
+\magicSubsection{Visibility Record (VisRecord)}{sec:gVisRecord}
 
 Defined in abstract machine semantics (Section~\ref{sec:VisRecordState}).
 Pair of type $\mathcal{P}(\mathsf{TlSig}) \times \mathcal{P}(\mathbb{P})$, i.e.
@@ -2833,8 +2668,7 @@ Pair of type $\mathcal{P}(\mathsf{TlSig}) \times \mathcal{P}(\mathbb{P})$, i.e.
   \item set of pending awaits (def~\ref{sec:gPendingAwait}).
 \end{itemize}
 
-\subsection{Visibility Set}
-\label{sec:gVisSet}
+\magicSubsection{Visibility Set}{sec:gVisSet}
 
 Note, the PLDI submission incorrectly uses ``visibility set'' to mean ``visibility record'' sometimes.
 
@@ -2850,20 +2684,17 @@ Approximately, the correspondence between a visibility function $f$ and a visibi
 
 % >W
 
-\subsection{Warp}
-\label{sec:gWarp}
+\magicSubsection{Warp}{sec:gWarp}
 
 32 CUDA threads with consecutive \lighttt{threadIdx.x} values, aligned so that the lowest index is a multiple of 32.
 (Note, this is simplified from the real CUDA definition, which takes into account the y and z dimensions that Exo-GPU does not parallelize on).
 
-\subsection{Warpgroup}
-\label{sec:gWarpgroup}
+\magicSubsection{Warpgroup}{sec:gWarpgroup}
 
 128 CUDA threads with consecutive \lighttt{threadIdx.x} values, aligned so that the lowest index is a multiple of 128.
 (Note, this is simplified from the real CUDA definition, which takes into account the y and z dimensions that Exo-GPU does not parallelize on).
 
-\subsection{Warp Variable}
-\label{sec:gWarpVariable}
+\magicSubsection{Warp Variable}{sec:gWarpVariable}
 
 The warp variables for a specific CUDA device function are specified by the \lighttt{warp\_config: List[CudaWarpConfig]} parameter of \lighttt{CudaDeviceFunction}.
 This specifies a name and register count for a certain number of warps in the CTA.
@@ -2875,43 +2706,37 @@ The ``prefix'' of a warp variable is the sum of the warp counts of the warp vari
 
 The CUDA device function is compiled separately for each warp variable, with code paths for other warp variables statically elimintated.
 
-\subsection{wgmma Fence}
-\label{sec:gWgmmaFence}
+\magicSubsection{wgmma Fence}{sec:gWgmmaFence}
 
 Fence of the form \texttt{Fence(wgmma\_fence\_1, wgmma\_fence\_2)} at \lighttt{cuda\_warpgroup}-scope (def~\ref{sec:gCollUnit}).
 A thread must execute this before any usage of registers in \lighttt{wgmma} instructions.
 See also ``Fence Usage'' (Section~\ref{sec:FenceUsage}).
 
-\subsection{$\mathcal{W}$ (Witness Function)}
-\label{sec:gWitness}
+\magicSubsection{$\mathcal{W}$ (Witness Function)}{sec:gWitness}
 
 Abstract machine helper function defined in Section~\ref{sec:Witness}.
 Used to filter the set of visibility records (Section~\ref{sec:VisRecordState}) modified by an interpreted \lighttt{Fence} statement (Section~\ref{sec:FenceSemantics}) or \lighttt{Arrive} statement (Section~\ref{sec:ArriveSemantics}).
 
 % >X
 
-\subsection{$\mathbb{X}$ (mathbb-x)}
-\label{sec:gMathbbX}
+\magicSubsection{$\mathbb{X}$ (mathbb-x)}{sec:gMathbbX}
 
 Set of data variable names.
 These are variables that are not of control ($\mathbb{Y}$, def~\ref{sec:gMathbbY}) or barrier ($\mathbb{B}$, def~\ref{sec:gMathbbB}) type.
 
 % >Y
 
-\subsection{$\mathbb{Y}$ (mathbb-y)}
-\label{sec:gMathbbY}
+\magicSubsection{$\mathbb{Y}$ (mathbb-y)}{sec:gMathbbY}
 
 Set of control variable names: names of index and size variables (either function parameters of index/size type, or loop iterators).
 
 % >Z
 
-\subsection{$z: \mathbb{B}$}
-\label{sec:gZ}
+\magicSubsection{$z: \mathbb{B}$}{sec:gZ}
 
 Somewhat confusingly, we conventionally use $z$ to mean an element of $\mathbb{B}$, i.e. $z$ is the name of a barrier variable (def~\ref{sec:gBarrierVariable}).
 
-\subsection{$\mathbb{Z}$ (mathbb-z)}
-\label{sec:gMathbbZ}
+\magicSubsection{$\mathbb{Z}$ (mathbb-z)}{sec:gMathbbZ}
 
 Set of all integers.
 
