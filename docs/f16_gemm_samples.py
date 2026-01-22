@@ -63,19 +63,31 @@ class ldmatrix_test(InstrInfo):
                                                            8 * iR + 2 * iT + iB]
     # TeX: end ldmatrix_behavior[0]
 
-    def instance(self: InstrInfo):
+    def instance(self: InstrInfo, nmat0, nmat1):
+        if nmat0 * nmat1 != 4:
+            raise ValueError(f"Need nmat0={nmat0} * nmat1={nmat1} == 4")
         self.instr_tl = cuda_in_order_instr
         self.coll_unit = cuda_warp
         self.access_info["rmem"].distributed_coll_units = [4 * cuda_thread, cuda_thread]
 
     def codegen(self, args):
-        return []
+        ptx = InlinePtxGen("ldmatrix.sync.aligned.x4.m8n8.shared.b16 #0#;", volatile=True)
+        registers = [
+            args.rmem.index(i // args.nmat1, i % args.nmat1, ptx_data=True) for i in range(4)
+        ]
+        matrix0_index = args.exo_wrap_cir(f"threadIdx.x % 32 / 8 / {args.nmat1}")
+        matrix1_index = args.exo_wrap_cir(f"threadIdx.x % 32 / 8 % {args.nmat1}")
+        l_row_index = args.exo_wrap_cir("threadIdx.x % 8")
+        smem_expr = args.src.index_ptr(8 * matrix0_index + l_row_index, 8 * matrix1_index)
+        ptx.add_arg(registers, constraint="=r", log_as=None)
+        ptx.add_arg(smem_expr, constraint="smem", log_as="bits")
+        return ptx.as_c_lines()
 
 @proc
-def p(gmem: f16[16, 16] @ CudaGmemLinear, out: f16[16, 16] @ CudaGmemLinear):
+def p(gmem: f32[16, 16] @ CudaGmemLinear, out: f16[16, 16] @ CudaGmemLinear):
     with CudaDeviceFunction(blockDim=32):
         for task in cuda_tasks(0, 1):
-            src: f16[16, 16] @ CudaSmemLinear
+            src: f16[160, 160] @ CudaSmemLinear
             for m_ld in cuda_threads(0, 16):
                 for k_ld in seq(0, 16):
                     src[m_ld, k_ld] = gmem[m_ld, k_ld]
@@ -88,6 +100,7 @@ def p(gmem: f16[16, 16] @ CudaGmemLinear, out: f16[16, 16] @ CudaGmemLinear):
             for m_st in seq(0, 16):
                 for k_st in seq(0, 16):
                     out[m_st, k_st] = rmem[m_st, k_st]
+            Fence(cuda_in_order, cuda_in_order)
 
 
 p = divide_dim(p, "rmem", 0, 8)
@@ -103,7 +116,9 @@ p = divide_loop(p, "kT_st", 2, ("kT_st", "kB_st"), perfect=True)
 p = set_loop_mode(p, "mT_st", CudaThreads(unit=4 * cuda_thread))
 p = set_loop_mode(p, "kT_st", CudaThreads(unit=1 * cuda_thread))
 p = simplify(p)
-p = replace(p, p.find_loop("mR"), ldmatrix_test())
+p = replace(p, p.find_loop("mR"), ldmatrix_test(nmat0=2, nmat1=2))
+p = replace(p, p.find_loop("kB_st"), cuda_packed_store_f16())
+p = simplify(p)
 p.sync_check()
 
 print(p)
