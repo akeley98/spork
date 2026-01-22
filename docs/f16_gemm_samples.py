@@ -237,7 +237,7 @@ def ldmatrix_usage(gmem_in: f32[16, 16] @ CudaGmemLinear, gmem_out: f16[16, 16] 
                                 gmem_out[mT_st + 8 * mR_st,
                                          2 * kT_st + 8 * kR_st:2 + 2 * kT_st + 8 * kR_st],
                                 # TeX: color line *
-                                #                                yyy
+                                #    ggggg  bbbbb                yyy
                                 rmem[mT_st, kT_st, mR_st, kR_st, 0:2])
             Fence(cuda_in_order, cuda_in_order)
 # TeX: end ldmatrix_usage[0]
