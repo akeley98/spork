@@ -186,3 +186,58 @@ Write out C
 
 # TeX: end cutlass_pseudocode[0]
 """
+
+
+# TeX: version ldmatrix_usage 1
+# TeX: begin ldmatrix_usage[0]
+# Copies a $16 \times 16$ tile from gmem_in to gmem_out in an overly complicated way.
+def ldmatrix_usage(gmem_in: f32[16, 16] @ CudaGmemLinear, gmem_out: f16[16, 16] @ CudaGmemLinear):
+    with CudaDeviceFunction(blockDim=32):
+        for task in cuda_tasks(0, 1):
+            # Load GMEM $16 \times 16$ into SMEM
+            src: f16[16, 16] @ CudaSmemLinear
+            for m_ld in cuda_threads(0, 16, unit=cuda_thread):
+                for k_ld in seq(0, 16):
+                    src[m_ld, k_ld] = gmem_in[m_ld, k_ld]
+            Fence(cuda_in_order, cuda_in_order)
+            # Load SMEM $16 \times 16$ (four $8 \times 8$ L-matrices) into 32-bit packed RMEM.
+            # TeX: color line *
+            #                  g          b
+            # Warp cut up into 8 $\times$ 4 tile of threads (first 2 dims).
+            # Each holds a fragment of the $2 \times 2$ grid of L-matrices
+            # TeX: color line *
+            #      y
+            # Last 2 corresponds to the 2 f16 values packed per register.
+            # TeX: color line *
+            #         g  b        y
+            rmem: f16[8, 4, 2, 2, 2] @ CudaRmemPacked32
+            # TeX: color line *
+            #                  ggg  bbb
+            ldmatrix_test(rmem[0:8, 0:4, 0:2, 0:2, 0:2],
+                          src[0:16, 0:16],
+                          nmat0=2,
+                          nmat1=2)
+            Fence(cuda_in_order, cuda_in_order)
+            # Write RMEM back to GMEM, $16 \times 16$.
+            # Note, the loops here teach the compiler that dimension 0 of rmem
+            # has thread pitch 4, and dimension 1 of rmem has thread pitch 1.
+            # But the ldmatrix_test instr also has to have its coll_units set correctly,
+            # so the deduced ldmatrix_test usage is consistent with this below.
+            for mR_st in seq(0, 2):
+                # TeX: color line *
+                #   ggggg                       gggggggggggggggggggg
+                for mT_st in cuda_threads(0, 8, unit=4 * cuda_thread):
+                    for kR_st in seq(0, 2):
+                        # TeX: color line *
+                        #   bbbbb                       bbbbbbbbbbbbbbbb
+                        for kT_st in cuda_threads(0, 4, unit=cuda_thread):
+                            # You don't write this instr. It's in the latest akeley98/spork26
+                            # Each thread writes out two f16 values at a time.
+                            cuda_packed_store_f16(
+                                gmem_out[mT_st + 8 * mR_st,
+                                         2 * kT_st + 8 * kR_st:2 + 2 * kT_st + 8 * kR_st],
+                                # TeX: color line *
+                                #                                yyy
+                                rmem[mT_st, kT_st, mR_st, kR_st, 0:2])
+            Fence(cuda_in_order, cuda_in_order)
+# TeX: end ldmatrix_usage[0]

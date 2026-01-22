@@ -82,6 +82,18 @@ The Exo params for the gemm are \lighttt{A[M, K], B[N, K]}.
 So you can use \lighttt{ldmatrix} without the transpose (\lighttt{.trans}).
 For the B matrix, when \lighttt{ldmatrix} loads an L-row, it's really a column of 16 bytes (8 float16 values).
 
+%% \begin{figure}
+%% \input{f16_gemm/ldmatrix_usage.0.tex}
+%% \caption{\texttt{ldmatrix\_test} should be written so this program works.}
+%% \label{fig:ldmatrix_usage}
+%% \end{figure}
+
+\subsection{ldmatrix usage}
+
+You should be able to compile and run this program if you write \lighttt{ldmatrix\_test} correctly.
+
+\input{f16_gemm/ldmatrix_usage.0.tex}
+
 \section{MMA}
 
 \web{docs.nvidia.com/cuda/parallel-thread-execution/\#warp-level-matrix-fragment-mma-16816-float}
