@@ -535,7 +535,7 @@ Multiple levels of partial functional specs for an assignment:
 \end{centering}
 
 \begin{itemize}
-  \item None: we don't believe anything about the contents of \texttt{A}
+  \item None: we're too lazy to claim anything about the contents of \texttt{A}
   \item Hope: we believe without proof that \texttt{A} will hold ...
   \item Proof: prove, given \texttt{B}'s partial functional spec, that \texttt{A} will hold ...
   \item Testing: middle ground like Chexo?
@@ -645,7 +645,7 @@ What everyone wants to talk about
 \mySub{Expressivity for non-affine / data-dependent indexing}
 
 Indexing restrictions greatly shrink the set of applications.
-It's not like the ``just generate CUDA C++'' crowd cares if everything is not proven airtight; we just have to do better.
+It's not like the ``just generate CUDA C++'' crowd cares if everything is not proven airtight; we have to do strictly better
 
 \mySub{Expressivity beyond kernel programming}
 
@@ -659,6 +659,56 @@ Nice to have, but miserable humans will deal with MPICH if AI won't
 
 We don't have to do the engineering to implement all of the goals, but these concerns influence my thinking on PL design.
 
+}
+
+\newpage
+\myBiggerTitle{16-bit MMA}
+
+{\LARGE
+
+Motivating example of issues with Exo
+
+float16 Ampere MMA: logically simple MMA with
+\begin{itemize}
+  \item $16 \times 16$ $A$
+  \item $16 \times 8$ $B$
+  \item $16 \times 8$ $C$
+\end{itemize}
+
+}
+
+{\large
+\input{nexo/logical_mma.0.tex}
+}
+
+\newpage
+\myBiggerTitle{16-bit MMA}
+
+{\LARGE
+
+We need to divide the dimensions of \texttt{A} (\texttt{B} and \texttt{C} too).
+This expresses the different modes in which values are strided; from outer-to-inner:
+\begin{itemize}
+    \item \greenBox{M:} 2 registers, 8 groups of 4 threads per warp
+    \item \blueBox{K:} 2 registers, 1 thread per 4, 2 \texttt{f16} packed per 32-bit register
+\end{itemize}
+
+This is not explicitly visible in the source code due to the deductions.
+
+}
+
+{\large
+\input{nexo/mma.0.tex}
+}
+
+{\LARGE
+
+Context: the declaration for \texttt{A} in CUDA will be something like\\
+
+}
+
+{\large
+\texttt{\_\_half2 A[\yellowBox{2}][\yellowBox{2}];} \codecomment{// The \redBox{thread} and \violetBox{bit-packing} dimensions aren't explicit in CUDA.}
 }
 
 \end{document}

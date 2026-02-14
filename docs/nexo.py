@@ -64,18 +64,13 @@ Top-level goals
   * Many levels of parallelism
     - Abstracting them is one thing, harder to do the engineering effort
 
-A. Algebraic number system
-B. Typed strides
-C. IR data structure and functional specification
-    * Partial proof
+MMA problems
 
-> Digress about instr woes in Exo
-    > MMA example with / and %
-    > cudaMemcpy mess
-    > TMA mess
-
-D. Instr with input buffers
-E. Loop iterators ``rich type''
+A. Algebraic Number System
+B. Typed Strides
+C. IR basics
+D. Instr Substitution
+E. Rich Loop Iterators
 
 IR design [skip this]
   * Flat list of stmts: Alloc, Free, SyncStmt, Mutate (WindowStmt)
@@ -99,6 +94,7 @@ Bonus: structured programming is bad
 from __future__ import annotations
 from exo import *
 from exo.platforms.cuda import *
+from exo.stdlib.scheduling import *
 
 # TeX: version gemm 4
 M_tile, N_tile, K_tile = 128, 256, 32
@@ -172,3 +168,74 @@ def histogram(num_bins: size, bins: i32[num_bins], K: size, data: i32[K]):
       #           yyyyyyyyyyy
         bins[b] = tmp_bins[b]
 # TeX: end histogram
+
+
+# TeX: version logical_mma 1
+# TeX: begin logical_mma
+# TeX: color line *
+#                gg  bb            v  bb            gg  v
+def mma(A: [f16][16, 16], B: [f16][8, 16], C: [f16][16, 8]):
+    # TeX: color line *
+    #   g
+    for m in seq(0, 16):
+        # TeX: color line *
+        #   v
+        for n in seq(0, 8):
+            # TeX: color line *
+            #   b
+            for k in seq(0, 16):
+                # TeX: color line *
+                # g  v       g  b      v  b
+                C[m, n] += A[m, k] * B[n, k]  # NB, (n, k) ordering matches PTX better
+# TeX: end logical_mma
+
+# A = mma.find_alloc_or_arg("A")
+# mma = divide_dim(mma, A, 1, 2)
+# mma = divide_dim(mma, A, 1, 4)
+# mma = divide_dim(mma, A, 0, 8)
+# mma = rearrange_dim(mma, A, [1, 3, 0, 2, 4])
+# mma = simplify(mma)
+# # print(mma)
+
+# TeX: version mma 2
+if False:
+# TeX: begin mma
+# TeX: color line *
+#                rrrr  yyyy  v      rrrrrrrrrrrrrrrrrrrrr  yyyyyyyyyyy  vvvvvvvvvvv
+                [8, 4, 2, 2, 2]  #  distributed (threads), register ID, bit-packing
+
+# TeX: end mma
+@proc
+# TeX: begin mma
+# TeX: color line *
+#                g  b  g  b  b                               .....            .....
+def mma(A: [f16][8, 4, 2, 2, 2] @ CudaRmemPacked32, B: [f16][8, 16], C: [f16][16, 8]):
+    for m in seq(0, 16):
+        for n in seq(0, 8):
+            for k in seq(0, 16):
+                # TeX: color line mma[0]
+                # ....       g      b          g      b      b          ....
+                # TeX: color line mma[1]
+                #                              yyyyyyyyyyyy
+                C[m, n] += A[m % 8, k / 2 % 4, m / 8, k / 8, k % 2] * B[n, k]
+# TeX: end mma
+
+mma = divide_loop(mma, "m", 8, ("mR", "mT"), perfect=True)
+mma = divide_loop(mma, "k", 2, ("k", "kP"), perfect=True)
+mma = divide_loop(mma, "k", 4, ("kR", "kT"), perfect=True)
+mma = simplify(mma)
+print(mma)
+
+del mma
+
+# TeX: version mma_fixed 1
+# TeX: begin mma_fixed[0]
+def mma(A : [f16][8, 4, 2, 2, 2] @ CudaRmemPacked32, B : [f16][8, 16], C : [f16][16, 8]):
+  for mR in seq(0, 2):
+    for mT in seq(0, 8):
+      for n in seq(0, 8):
+        for kR in seq(0, 2):
+          for kT in seq(0, 4):
+            for kP in seq(0, 2):
+              C[mT + 8 * mR, n] += A[mT, kT, mR, kR, kP] * B[n, kP + 2 * kT + 8 * kR]
+# TeX: end mma_fixed[0]
