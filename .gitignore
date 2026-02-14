@@ -44,6 +44,8 @@ docs/f16_gemm_samples
 docs/f16_gemm_todo.pdf
 docs/spork_b_old.tex
 docs/spork_b_old.pdf
+docs/nexo.pdf
+docs/nexo/
 gemm/gemm
 attn
 libattn.so

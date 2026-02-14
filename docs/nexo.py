@@ -67,8 +67,12 @@ Top-level goals
 A. Algebraic number system
 B. Typed strides
 C. IR data structure and functional specification
+    * Partial proof
 
 > Digress about instr woes in Exo
+    > MMA example with / and %
+    > cudaMemcpy mess
+    > TMA mess
 
 D. Instr with input buffers
 E. Loop iterators ``rich type''

@@ -479,4 +479,186 @@ My intermediate reasoning on \texttt{A\_tile} and \texttt{B\_tile} informs my be
 
 }
 
+\newpage
+\myBiggerTitle{Top-Level Idea: Imperative\texttt{++}}
+
+{\LARGE
+
+Enhance imperative program with:
+
+\vfill
+
+Optional \myKeyA{partial functional spec} for each write statement\\
+Our belief of the value written as a function of the
+\begin{itemize}
+\item full program functional spec
+\item control variable values
+\end{itemize}
+
+\vfill
+
+Ideally, more efficient/query-able IR than syntax tree
+\begin{itemize}
+\item Handwavey goal, maybe learn from databases or something
+\end{itemize}
+
+\vfill
+Immediate result: non-myopic scheduling (as long as scheduling ops intelligently update the partial functional spec)
+
+}
+
+\newpage
+\myBiggerTitle{Top-Level Idea: Imperative\texttt{++}}
+
+{\LARGE
+
+Sorry, but why laboriously analyze a complicated imperative program when you could just know what it computes in the first place?
+
+\vspace{20mm}
+
+You wrote the program.
+You must have a mental model of what the pieces \emph{inside} are doing (either by reasoning, or due to the provenance of scheduling operators that created those pieces).
+
+}
+
+\newpage
+\myBiggerTitle{Top-Level Idea: Imperative\texttt{++}}
+
+{\LARGE
+
+Multiple levels of partial functional specs for an assignment:
+
+\begin{centering}
+
+    After the assignment \texttt{A[...] = f(B[...])},
+
+\end{centering}
+
+\begin{itemize}
+  \item None: we don't believe anything about the contents of \texttt{A}
+  \item Hope: we believe without proof that \texttt{A} will hold ...
+  \item Proof: prove, given \texttt{B}'s partial functional spec, that \texttt{A} will hold ...
+  \item Testing: middle ground like Chexo?
+\end{itemize}
+
+\vfill
+
+``Unsafe by default'': none of this is required to use the language
+
+\vfill
+
+BUT NOTE a proof for \texttt{A} can rely on hope for \texttt{B}, so you can take ``leaps of logic'' without abandoning all reasoning.
+
+}
+
+\newpage
+\myBiggerTitle{Goals}
+
+{\LARGE
+
+\mySub{LLM Support}
+
+\mySub{Expressivity for non-affine / data-dependent indexing}
+
+\mySub{Expressivity beyond kernel programming}
+
+}
+
+\newpage
+\myBiggerTitle{Goals}
+
+{\LARGE
+
+\mySub{LLM Support}
+
+\begin{itemize}
+  \item High-quality ``pinpoint'' error messages
+  \begin{itemize}
+    \item Proof of concept: sync errors are like this already, write \textbf{here} conflicted with read/write \textbf{there}
+    \item Future, value written \textbf{here} violates partial functional spec?
+    \item Stretch goal: perf information inline (5000 cycle stall \textbf{here})
+  \end{itemize}
+  \item Compiler performance will matter \emph{a lot} in the tight loop
+  \item Query \& Rewrite API (Exo has this; be inspired to improve more)
+  \begin{itemize}
+    \item Optional: we shouldn't rely on this for functional correctness
+  \end{itemize}
+\end{itemize}
+
+\mySub{Expressivity for non-affine / data-dependent indexing}
+
+\mySub{Expressivity beyond kernel programming}
+
+}
+
+\newpage
+\myBiggerTitle{Goals}
+
+{\LARGE
+
+\mySub{LLM Support}
+
+\mySub{Expressivity for non-affine / data-dependent indexing}
+
+\begin{itemize}
+  \item Sync check: abstract machine already has no indexing restrictions
+  (but no static analysis yet, so this is a bit of a BS claim)
+  \item Value check: partial functional spec idea should at least be more amenable to weird usage patterns than rigid rewrite rules
+  \item LLMs might be willing to write a lot of tedious proofs/tests that humans won't
+\end{itemize}
+
+\mySub{Expressivity beyond kernel programming}
+
+}
+
+\newpage
+\myBiggerTitle{Goals}
+
+{\LARGE
+
+\mySub{LLM Support}
+
+\mySub{Expressivity for non-affine / data-dependent indexing}
+
+\mySub{Expressivity beyond kernel programming}
+
+\begin{itemize}
+  \item Kernels aren't everything!
+  \item Optimize usage across kernels, kernel fusion
+  \item Support many levels of parallelism (multi GPU, multi node)
+  \item Compiler performance will reaaaaallly matter for big systems. Scanning the whole AST 100,000 times will not fly.
+\end{itemize}
+
+}
+
+\newpage
+\myBiggerTitle{Goals}
+
+{\LARGE
+
+There's a lot of goals here, roughly in high-to-low priority order.
+
+\mySub{LLM Support}
+
+What everyone wants to talk about
+
+\mySub{Expressivity for non-affine / data-dependent indexing}
+
+Indexing restrictions greatly shrink the set of applications.
+It's not like the ``just generate CUDA C++'' crowd cares if everything is not proven airtight; we just have to do better.
+
+\mySub{Expressivity beyond kernel programming}
+
+Nice to have, but miserable humans will deal with MPICH if AI won't
+
+\vfill
+
+\hrule
+
+\vfill
+
+We don't have to do the engineering to implement all of the goals, but these concerns influence my thinking on PL design.
+
+}
+
 \end{document}
