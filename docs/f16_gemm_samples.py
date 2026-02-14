@@ -75,8 +75,9 @@ class ldmatrix_test(InstrInfo):
         registers = [
             args.rmem.index(i // args.nmat1, i % args.nmat1, ptx_data=True) for i in range(4)
         ]
-        matrix0_index = args.exo_wrap_cir(f"threadIdx.x % 32 / 8 / {args.nmat1}")
-        matrix1_index = args.exo_wrap_cir(f"threadIdx.x % 32 / 8 % {args.nmat1}")
+        matrix_index = args.exo_wrap_cir(f"threadIdx.x") % 32 / 8
+        matrix0_index = matrix_index / args.nmat1
+        matrix1_index = matrix_index % args.nmat1
         l_row_index = args.exo_wrap_cir("threadIdx.x % 8")
         smem_expr = args.src.index_ptr(8 * matrix0_index + l_row_index, 8 * matrix1_index)
         ptx.add_arg(registers, constraint="=r", log_as=None)
@@ -87,7 +88,7 @@ class ldmatrix_test(InstrInfo):
 def p(gmem: f32[16, 16] @ CudaGmemLinear, out: f16[16, 16] @ CudaGmemLinear):
     with CudaDeviceFunction(blockDim=32):
         for task in cuda_tasks(0, 1):
-            src: f16[160, 160] @ CudaSmemLinear
+            src: f16[16, 16] @ CudaSmemLinear
             for m_ld in cuda_threads(0, 16):
                 for k_ld in seq(0, 16):
                     src[m_ld, k_ld] = gmem[m_ld, k_ld]
