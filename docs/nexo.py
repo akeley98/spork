@@ -66,14 +66,19 @@ Top-level goals
 
 MMA problems
 
-A. Algebraic Number System
-B. Typed Strides
-C. IR basics
+A. IR basics
+  - For loops, If guard, Async block
+  - Alloc, Free, SyncStmt, Mutate, WindowStmt
+  - Partial functional spec
+  - Partial sync spec
+  - None/Hope/Proof/Testing
+B. Algebraic Number System
+C. Typed Strides
 D. Instr Substitution
 E. Rich Loop Iterators
 
 IR design [skip this]
-  * Flat list of stmts: Alloc, Free, SyncStmt, Mutate (WindowStmt)
+  * Flat list of stmts: Alloc, Free, SyncStmt, Mutate, WindowStmt
   * Loop nest per-statement, if-guards, "async annotation"
   * Assignment includes functional annotation
   * Stitched together to form program
@@ -197,14 +202,14 @@ def mma(A: [f16][16, 16], B: [f16][8, 16], C: [f16][16, 8]):
 # mma = simplify(mma)
 # # print(mma)
 
-# TeX: version mma 2
+# TeX: version mma 3
 if False:
-# TeX: begin mma
+# TeX: begin mma[:2]
 # TeX: color line *
 #                rrrr  yyyy  v      rrrrrrrrrrrrrrrrrrrrr  yyyyyyyyyyy  vvvvvvvvvvv
                 [8, 4, 2, 2, 2]  #  distributed (threads), register ID, bit-packing
 
-# TeX: end mma
+# TeX: end mma[:2]
 @proc
 # TeX: begin mma
 # TeX: color line *
@@ -216,7 +221,9 @@ def mma(A: [f16][8, 4, 2, 2, 2] @ CudaRmemPacked32, B: [f16][8, 16], C: [f16][16
                 # TeX: color line mma[0]
                 # ....       g      b          g      b      b          ....
                 # TeX: color line mma[1]
-                #                              yyyyyyyyyyyy
+                # ....                         yyyyy  yyyyy             ....
+                # TeX: color line mma[2]
+                # ....         r      r   r      r      r      r        ....
                 C[m, n] += A[m % 8, k / 2 % 4, m / 8, k / 8, k % 2] * B[n, k]
 # TeX: end mma
 
@@ -230,12 +237,16 @@ del mma
 
 # TeX: version mma_fixed 1
 # TeX: begin mma_fixed[0]
+# TeX: color line *
+#                                                              .....             .....
 def mma(A : [f16][8, 4, 2, 2, 2] @ CudaRmemPacked32, B : [f16][8, 16], C : [f16][16, 8]):
   for mR in seq(0, 2):
     for mT in seq(0, 8):
-      for n in seq(0, 8):
+      for n in seq(0, 8):  # TODO n has to be split too.
         for kR in seq(0, 2):
           for kT in seq(0, 4):
             for kP in seq(0, 2):
+              # TeX: color line *
+              # ..............                               .......................
               C[mT + 8 * mR, n] += A[mT, kT, mR, kR, kP] * B[n, kP + 2 * kT + 8 * kR]
 # TeX: end mma_fixed[0]

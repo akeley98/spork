@@ -662,7 +662,7 @@ We don't have to do the engineering to implement all of the goals, but these con
 }
 
 \newpage
-\myBiggerTitle{16-bit MMA}
+\myBiggerTitleExtra{Fluff: 16-bit MMA}
 
 {\LARGE
 
@@ -682,7 +682,7 @@ float16 Ampere MMA: logically simple MMA with
 }
 
 \newpage
-\myBiggerTitle{16-bit MMA}
+\myBiggerTitleExtra{Fluff: 16-bit MMA}
 
 {\LARGE
 
@@ -690,7 +690,7 @@ We need to divide the dimensions of \texttt{A} (\texttt{B} and \texttt{C} too).
 This expresses the different modes in which values are strided; from outer-to-inner:
 \begin{itemize}
     \item \greenBox{M:} 2 registers, 8 groups of 4 threads per warp
-    \item \blueBox{K:} 2 registers, 1 thread per 4, 2 \texttt{f16} packed per 32-bit register
+    \item \blueBox{K:} 2 registers, 4 threads, 2 \texttt{f16} packed per 32-bit register
 \end{itemize}
 
 This is not explicitly visible in the source code due to the deductions.
@@ -709,6 +709,147 @@ Context: the declaration for \texttt{A} in CUDA will be something like\\
 
 {\large
 \texttt{\_\_half2 A[\yellowBox{2}][\yellowBox{2}];} \codecomment{// The \redBox{thread} and \violetBox{bit-packing} dimensions aren't explicit in CUDA.}
+}
+
+\newpage
+\myBiggerTitleExtra{Fluff: 16-bit MMA}
+
+{\LARGE
+
+Note, the \redBox{threads} dimension is to the left despite that the \yellowBox{register ID} dimension is the logical outer dimension.
+
+}
+
+{\large
+\input{nexo/mma.1.tex}
+}
+
+{\LARGE
+
+Language-level binary classification of dimensions:
+
+\begin{itemize}
+  \item Distributed: strided by threads.
+    Built-in handling in Exo-GPU.
+    Must be to the LEFT.
+  \item Non-distributed: anything else.
+    Externalized (in this case to \texttt{CudaRmemPacked32}) with ad-hoc handling for special cases (bit-packing here).
+    Must be to the RIGHT.
+\end{itemize}
+
+}
+
+\newpage
+\myBiggerTitleExtra{Fluff: 16-bit MMA}
+
+{\LARGE
+
+\myKeyA{Wall-of-text History Lesson:} Why this strict left/right split?
+
+}
+
+{\large
+\input{nexo/mma.1.tex}
+}
+
+{\LARGE
+
+I needed a beautiful indexing abstraction for threads without breaking the rest of Exo.
+But really, we need a CuTe-like unified indexing abstraction for EVERYTHING.
+
+Implicit distributed memory deduction easier this way (bad reason)
+
+Exo calculates memory strides right-to-left in the FRONTEND of all places, and distributed dimensions anywhere but to the left would screw this up.
+
+}
+
+\newpage
+\myBiggerTitleExtra{Fluff: 16-bit MMA}
+
+{\LARGE
+
+It gets worse.
+Actually, the real Exo-GPU MMA isn't like this, because Exo forbids \texttt{/} and \texttt{\%} inside instrs.
+
+}
+
+{\large
+\input{nexo/mma.2.tex}
+}
+
+{\LARGE
+
+This is because the ``quasi-'' part of the ``quasi-affine'' escape hatch is crazy hard to analyze in the general case.
+
+This could be avoided if we have a ``structured'' language-level way to express tiling, like CuTe natural coordinates, instead of freeform formulas where \texttt{/} and \texttt{\%} could appear anywhere.
+
+}
+
+\newpage
+\myBiggerTitleExtra{Fluff: 16-bit MMA}
+
+{\LARGE
+
+Solution, we have to divide the loops to give separate variables for each dimension:
+
+}
+
+{\large
+\input{nexo/mma_fixed.0.tex}
+}
+
+{\LARGE
+
+\textbf{We're not done yet}, because \texttt{B} and \texttt{C} also require dividing the \texttt{n} loop.
+Also, the tiling for \texttt{C} is incompatible with \texttt{A} and \texttt{B}, so that requires even more splits on the \texttt{m} and \texttt{n} dimensions.
+
+\vfill
+
+But I think I've made my point.
+
+}
+
+\newpage
+\myBiggerTitleExtra{Fluff: 16-bit MMA}
+
+{\LARGE
+
+At this point, the core idea of ``this is a $16 \times 8 \times 16$ MMA'' is completely obscured.
+Not to mention the esoteric sequence of \texttt{divide\_loop}, \texttt{rearrange\_dim} needed to prepare your code to actually be replaced by this instruction:
+
+}
+
+{\large
+\input{nexo/mma_fixed.0.tex}
+}
+
+{\LARGE
+
+Root cause: Exo's conception of imperative code is too ding dang darn literal.
+\myKeyA{I care about:} ``will the instruction have the effect I want given data tiled these ways?''
+\myKeyA{NOT:} ``is the instruction literally syntactically equivalent to my program subtree here?''
+
+}
+
+\newpage
+\myBiggerTitle{Feature Wishlist}
+
+{\LARGE
+
+Imperative IR with
+\begin{itemize}
+  \item Per-assignment annotation: partial functional spec
+  \item Query-optimized in-memory representation
+\end{itemize}
+
+Algebraic number system  % Talk about rewrites for parameter sweep being special case
+
+Typed strides
+
+Better instruction substitution
+
+Typed loop iterators (complementary to typed strides)
+
 }
 
 \end{document}
