@@ -11,10 +11,10 @@ It returns a list of lines of C/C++ code (strings with no indentation expected),
 \end{itemize}
 with each attribute \texttt{args.$x$} being one of the following:
 \begin{itemize}
-  \item If $x$ names a template parameter (def~\ref{sec:gInstrTemplateParameter}), then \lighttt{args.$x$} is the literal Python object passed as that parameter.
-  \item If $x$ names a scalar, non-template parameter, then \lighttt{args.$x$} is an object of type \lighttt{exo.core.instr\_class.InstrNonWindowArg} that encodes the actual parameter passed as $x$.
+  \item If $x$ names a control value template parameter or extra template parameter (def~\ref{sec:gInstrTemplateParameter}), then \lighttt{args.$x$} is the literal Python object passed as that parameter.
+  \item If $x$ names a scalar, runtime parameter (def~\ref{sec:gRuntimeParameter}), then \lighttt{args.$x$} is an object of type \lighttt{exo.core.instr\_class.InstrNonWindowArg} that encodes the actual parameter passed as $x$.
   For most use cases, just pass this to \lighttt{str(...)}.
-  \item If $x$ names a tensor/window, non-template parameter, then \lighttt{args.$x$} is an object of type \lighttt{exo.core.instr\_class.InstrWindowArg} that encodes the actual parameter passed as $x$.
+  \item If $x$ names a tensor/window, runtime parameter, then \lighttt{args.$x$} is an object of type \lighttt{exo.core.instr\_class.InstrWindowArg} that encodes the actual parameter passed as $x$.
   This case is more interesting to discuss.
 \end{itemize}
 Each tensor or window is internally modelled as a collection of ``window features''\\

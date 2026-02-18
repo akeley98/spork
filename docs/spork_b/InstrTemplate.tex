@@ -3,22 +3,32 @@
 The new way to define functions in Exo-GPU is using classes, instead of functions.
 These class-based instructions define ``instruction templates''.
 The call operator of an instruction template returns an Exo-GPU instruction (\lighttt{exo.Procedure}).
-The call takes \myKeyA{instruction template parameter} (def~\ref{sec:gInstrTemplateParameter}) values as keyword arguments only.
+The call takes \myKeyA{instruction template parameter} (def~\ref{sec:gInstrTemplateParameter}) values as keyword arguments only; these can be
+\begin{itemize}
+  \item Control value template parameters\lighttt{: int}
+  \item Precision template parameters\footnote{These may be converted implicitly from strings, e.g. \texttt{"f32"}.}\lighttt{: exo.prelude.ScalarInfo}
+  \item Extra template parameters\lighttt{: object}
+\end{itemize}
+The set of expected template parameters is defined by the contents of the instr class.
 
 An instruction template should\footnote{If you look at the codebase you will see that there's a lot of alternative legacy pathways, hence the ``should'' instead of ``must''.}
 \begin{itemize}
    \item be a subclass of \lighttt{InstrInfo} (\lighttt{exo.core.instr\_info.InstrInfo}).
-   \item have a \lighttt{behavior} function (Section~\ref{sec:InstrBehavior}), which is \emph{parsed} as Exo code, not executed as Python code.
    \item have an \lighttt{instance} member function, which is called to generate an Exo-GPU instruction.
      The first (\lighttt{self}) parameter is an \lighttt{InstrInfo} instance, which must be initialized by this function.
-     The other parameters are \myKeyA{instruction template parameters}.
-   \item initialize the \lighttt{AccessInfo} (\lighttt{exo.core.instr\_info.AccessInfo}) for each non-template (def~\ref{sec:gInstrTemplateParameter}), non-control-value parameter (def~\ref{sec:gMathbbY}).
+     The other parameters are \myKeyA{control value template parameters} (before the optional \lighttt{*}) and \myKeyA{extra template parameters} (after the optional \lighttt{*}).
+   \item have a \lighttt{behavior} function (Section~\ref{sec:InstrBehavior}), which is \emph{parsed} as Exo code, not executed as Python code.
+     A formal parameters of base type \lighttt{R} (generic number) defines a \myKeyA{precision template parameter} of the same name as the formal parameter; this substitutes for \lighttt{R}.
+     All formal parameters not matching a control value template parameter in name are \myKeyA{runtime parameters}.
+   \item initialize the \lighttt{AccessInfo} (\lighttt{exo.core.instr\_info.AccessInfo}) for each runtime parameter (def~\ref{sec:gInstrTemplateParameter}) that is not of control type (def~\ref{sec:gMathbbY}).
    \item have a \lighttt{codegen} member function (Section~\ref{sec:InstrCodegen}).
 \end{itemize}
-Any function may be defined through inheritance.
+Any function may be defined through inheritance, although defining \lighttt{behavior} in parent classes won't pick up locals correctly because it'll be parsed ``at the wrong time''.
+
+For scheduling, instruction templates (\lighttt{exo.core.instr\_class.InstrTemplate} objects) can be passed to \lighttt{replace} (in place of an \lighttt{exo.Procedure}), which makes a best-effort attempt to fill in the template parameters for you.
 
 In the frontend language for Exo-GPU, an instruction template may be ``called'' directly.
-Non-template parameters (as defined by the \lighttt{behavior} function) are passed in order as positional arguments, and template parameters are passed as keyword arguments.
+Runtime parameters (as defined by the \lighttt{behavior} function) are passed in order as positional arguments, and template parameters are passed as keyword arguments.
 For example,\\
 \texttt{MyInstrClass(a, b, tparam=c)}\\
 where \texttt{a} and \texttt{b} are not template parameters, and \texttt{c} is.
