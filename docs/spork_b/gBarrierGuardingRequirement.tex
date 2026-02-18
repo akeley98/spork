@@ -36,9 +36,10 @@ Let $z_a$ be a barrier variable subject to the barrier guarding requirement, and
 \codehrule
 \end{figure}
 
-\mainKey{Requirement 2/3:} Each collective indexing pair (Section~\ref{sec:CollIndexingPairs}) collected from \lighttt{Await} statements for $z_g$ must pass the base threads requirement (Section~\ref{sec:DistributedMemoryBaseThreads}) with each collective index expression collected from \lighttt{Arrive} statements for $z_a$.
+\mainKey{Requirement 2/3:} Each collective indexing pair (Section~\ref{sec:CollIndexingPairs}) collected from \lighttt{Await} statements for $z_g$ must pass the base threads requirement (Section~\ref{sec:DistributedMemoryBaseThreads}) with each collective indexing pair collected from \lighttt{Arrive} statements for $z_a$.
+Furthermore, the thread pitch tuple (Section~\ref{sec:DistributedMemoryThreadPitch}) deduced from the \lighttt{Await} statements for $z_g$ must be equal to the thread pitch tuple deduced from the \lighttt{Arrive} statements for $z_a$.
+
 This ensures the set of threads executing the matched \lighttt{Await} and \lighttt{Arrive} statements are the same.
-TODO not really, we need to check the thread pitch.
 
 \mainKey{Requirement 3/3:} This enforces the requirement that trailing barrier expressions don't reference any barrier array element not referenced in the \lighttt{Arrive} statement:
 

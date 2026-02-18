@@ -8,3 +8,9 @@ Distributed memory analysis for a variable is based on the collective tiling $\o
   \item The collective indexing expressions collected from instruction calls are described in Section~\ref{sec:InstrDistributedMemory}.
 \end{itemize}
 
+\mainKey{Data:} For data allocations, distributed memory analysis runs once, with the ``input set'' (of collective indexing pairs) gathered as described above.
+
+\mainKey{Barrier:} For barrier allocations with \lighttt{different\_arrive\_await\_threads=False}, distributed memory analysis runs once, like for data variables.\\
+For barrier allocations with \lighttt{different\_arrive\_await\_threads=True} (mbarriers, Section~\ref{sec:MbarrierUsage}), distributed memory analysis runs twice, once with the input set being collective indexing pairs gathered from \lighttt{Arrive} statements, and once with the input set being collective indexing pairs gathered from \lighttt{Await} statements.
+In this case, two different thread pitch tuples may be deduced.
+

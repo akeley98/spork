@@ -1,8 +1,8 @@
 \magicSubsection{Thread Pitch Requirement}{sec:DistributedMemoryThreadPitch}
 
-For each collective indexing pair $(\omega_0, e^*)$, we deduce a thread pitch tuple.
+For each collective indexing pair $(\omega_0, e^*)$, we deduce a \myKeyA{thread pitch tuple}.
 The deduced number of distributed dimensions ($R$) is the length of this tuple.
-All collective indexing pairs must lead to the same deduced tuple.
+All collective indexing pairs in the input set must lead to the same deduced tuple.
 
 We will soon define what a \myKeyA{required iterator} is separately for data and barriers.
 A \myKeyA{required index expression} is a plain read of a required iterator.

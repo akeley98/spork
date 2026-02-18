@@ -28,9 +28,8 @@ For TMA-to-SMEM instructions, use a trailing barrier expression for the instruct
   \item Barrier expressions (def~\ref{sec:gBarrierExpr}) must meet the barrier multicast requirements (Section~\ref{sec:BarrierMulticast}).
   \item Each \lighttt{Await} for a given variable $z_a$ must have the same $n$ value, and $n < 0$, i.e. this is an await-indexed barrier (Section~\ref{sec:ArriveAwaitPairing}, Section~\ref{sec:AwaitSemantics}).
   \item Distributed memory analysis (Section~\ref{sec:DistributedMemory}) must be able to map each barrier array element into only a single CTA (TODO, explain how?).
-  \item Each \lighttt{Arrive} for a given barrier array element must be executed by the same \myKeyA{thread collective} (def~\ref{sec:gThreadCollective}).
-    This is enforced by requiring base thread equality (Section~\ref{sec:DistributedMemoryBaseThreads}) between collective indexing pairs collected both from all \lighttt{Arrive} statements for $z_a$.
-  \item The above requirement applies separately for all \lighttt{Await} statements for $z_a$.
+  \item Each \lighttt{Arrive} for a given barrier array element must be executed by the same \myKeyA{thread collective} (def~\ref{sec:gThreadCollective}); this requirement applies separately for all \lighttt{Await} statements for $z_a$.\\
+    This is enforced by distributed memory analysis (Section~\ref{sec:DistributedMemory}) with\\ \lighttt{different\_arrive\_await\_threads=True}.
   \item The deduced ring buffer size must be positive (def~\ref{sec:gMbarrierRingBuffer}).
 \end{itemize}
 

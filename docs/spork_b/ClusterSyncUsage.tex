@@ -17,7 +17,7 @@ The valid synchronization timelines (def~\ref{sec:gSyncTL}) for the \lighttt{Arr
   \item \lighttt{Await} must have $n=0$.
   \item \lighttt{Arrive} and \lighttt{Await} must be at \lighttt{cuda\_cluster}-scope (def~\ref{sec:gCollUnit}).
   \item The \lighttt{Arrive} and \lighttt{Await} statements for a given barrier array element must be executed by the same \myKeyA{thread collective} (def~\ref{sec:gThreadCollective}).
-    This is enforced by requiring base thread equality (Section~\ref{sec:DistributedMemoryBaseThreads}) between collective indexing pairs collected both from \lighttt{Arrive} and \lighttt{Await} statements for $z$.
+    This is enforced by distributed memory analysis (Section~\ref{sec:DistributedMemory}) with \lighttt{different\_arrive\_await\_threads=False}.
 \end{itemize}
 
 % solitary, sync-exempt, barrier variable vs CUDA implicit state

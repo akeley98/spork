@@ -21,9 +21,6 @@ Base offset equivalence means that the linear offset computed for two collective
 
 \mainKey{Base Box Equivalence:} Given collective tilings $\omega_1$ and $\omega_2$ with base boxes $\textit{BB}_1$ and $\textit{BB}_2$ respectively, the two collective tilings have equivalent base boxes when $\delta_1 = \delta_2$ given $(\delta_1, \delta_2) = \mathsf{domainCompletionTypeOnly}((\omega_1.D, \textit{BB}_1), (\omega_2.D, \textit{BB}_2))$ (def~\ref{sec:gDomainCompletionTypeOnly}).
 
-\mainKey{Barrier Requirements:} The base threads requirement is met for two collective indexing pairs when their two collective tilings satisfy base offset equivalence and base box equivalence.
-The specific pairs that must satisfy this requirement varies depending on the barrier mechanism (def~\ref{sec:gBarrierMechanism}).
-
-\mainKey{Data Requirements:} Any two collective indexing pairs for a given data variable must have their two collective tilings satisfy base offset equivalence and base box equivalence.
+\mainKey{Requirement:} Any two collective indexing pairs in the input set must pass the base threads requirement: their collective tilings must satisfy base offset equivalence and base box equivalence.
 
 

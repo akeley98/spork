@@ -9,10 +9,8 @@ For data allocations, the memory type specifies a collective unit (the \myKeyA{n
 Exo-GPU then deduces a certain number of distributed dimensions (say, $R$) so that each shard (def~\ref{sec:gShard}) $x[c_0,...,c_{R-1},:,...,:]$ is allocated on a different thread collective, all of which are instances of $\delta_0$ (Section~\ref{sec:CollTypeThreadCollective}).
 The distributed dimensions are always to the left of non-distributed dimensions.
 
-During codegen (Section~\ref{sec:InstrCodegen}), Exo-GPU erases indicies and array extents corresponding to distributed dimensions.
+During codegen for data variables (Section~\ref{sec:InstrCodegen}), Exo-GPU erases indicies and array extents corresponding to distributed dimensions.
 The codegen functions for memory and instructions only see indices and extents corresponding to non-distributed dimensions.
-
-Distributed memory analysis runs independently for each data variable and barrier variable, with the following rules.
 
 \input{spork_b/CollIndexingPairs.tex}
 \input{spork_b/DistributedMemoryThreadPitch.tex}
