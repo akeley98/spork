@@ -1,0 +1,135 @@
+% xelatex hamster.tex </dev/null
+\input{whitepaper_common.tex}
+
+\tikzstyle{arrow} = [thick,->,>=stealth]
+\tikzstyle{line} = [thick]
+
+\tikzstyle{redstyle} = [draw=redBoxFg, fill=redBoxBg, text=redBoxFg]
+\tikzstyle{yellowstyle} = [draw=yellowBoxFg, fill=yellowBoxBg, text=yellowBoxFg]
+\tikzstyle{greenstyle} = [draw=greenBoxFg, fill=greenBoxBg, text=greenBoxFg]
+\tikzstyle{bluestyle} = [draw=blueBoxFg, fill=blueBoxBg, text=blueBoxFg]
+\tikzstyle{violetstyle} = [draw=violetBoxFg, fill=violetBoxBg, text=violetBoxFg]
+\tikzstyle{nRedstyle} = [draw=nRedBoxFg, fill=nRedBoxBg, text=nRedBoxFg]
+\tikzstyle{nGoldstyle} = [draw=nGoldBoxFg, fill=nGoldBoxBg, text=nGoldBoxFg]
+\tikzstyle{nGreenstyle} = [draw=nGreenBoxFg, fill=nGreenBoxBg, text=nGreenBoxFg]
+\tikzstyle{nBluestyle} = [draw=nBlueBoxFg, fill=nBlueBoxBg, text=nBlueBoxFg]
+\tikzstyle{nPurplestyle} = [draw=nPurpleBoxFg, fill=nPurpleBoxBg, text=nPurpleBoxFg]
+
+\tikzstyle{CollTypeExampleStyle} = [rectangle, draw=black, text centered, text width=23mm]
+\tikzstyle{CollTilingExampleStyle} = [rectangle, draw=black, text centered, text width=12.5mm]
+
+\newcommand{\qc}[1]{\left\llbracket#1\right\rrbracket}
+
+\begin{document}
+
+\myTitle{Hamster}
+
+\magicSection{Basic Idea}{sec:BasicIdea}
+
+Managed ring buffer: new \lighttt{CudaSmemLinearRing(RING)}, \lighttt{Sm90\_SmemSwizzledRing(swizzle, RING)}, \lighttt{CudaMbarrierRing(RING, pre\_arrive)} memwin types.
+The left-most \emph{non-distributed} extent is transparently rewritten to \lighttt{RING}, and the left-most \emph{non-distributed} indexing expression \lighttt{e} is transparently rewritten to \lighttt{(e + \emph{consumption}) \% RING}.
+
+\magicSection{MemWin}{sec:MemWin}
+
+Add \lighttt{MemWin.managed\_ring\_buffer\_depth -> Optional[int]}, defaults to \lighttt{None}, enable \lighttt{RING: int} return to enable managed ring buffer feature.
+
+Add \lighttt{native\_unit}, \lighttt{arrive\_coll\_unit}, \lighttt{await\_coll\_unit} for \lighttt{CudaBarrierMechanism}.
+
+\redBox{Document: special distributed memory analysis for barriers goes away.}
+
+\redBox{Only all \texttt{Arrive} need the same collective tiling.}
+
+\redBox{Replace equivalent \texttt{CollTiling} requirement with \texttt{arrive\_coll\_unit}, \texttt{await\_coll\_unit} requirement}.
+
+Replace \lighttt{CudaCommitGroup} with \lighttt{Sm80\_CommitGroup}, \lighttt{Sm90\_TmaCommitGroup}, \lighttt{Sm90\_WgmmaCommitGroup}.
+
+Forbid barrier arrays for solitary barriers.
+
+\redBox{Document: new commit groups}.
+
+\magicSection{Barrier Mechanism Traits}{sec:BarrierMechanismTraits}
+
+Remove \lighttt{negative\_await\_N, uniform\_await\_N}. $N \ge 0$ always now.
+
+\redBox{Document: no await-indexed anymore}
+
+Remove everything related to guarding.
+
+\redBox{Document: no guarding}
+
+Remove \lighttt{different\_arrive\_await\_threads}.
+
+Add \lighttt{one\_shot\_arrive}: exactly one executed arrive per barrier (applies to mbarrier, cluster sync)
+
+Add \lighttt{one\_shot\_await}: exactly one executed await per barrier (applies to cluster sync only)
+
+\magicSection{LoopIR / Codegen}{sec:Codegen}
+
+Add expr \lighttt{LoopIR.ManagedRingIdx(expr arg, expr modulus, str c\_consumption)}.\\
+Lowered by CIR:
+
+\begin{itemize}
+  \item \lighttt{access\_str} (used for WindowIndexer), lower to \lighttt{(arg + c\_consumption) \% modulus}.
+\end{itemize}
+
+Update SMEM allocator.
+Factor out allocation pattern in preparation for new TMEM.
+Managed ring buffer SMEM allocations are now persistent.
+
+{\raggedright
+
+\lighttt{cuda\_backend} will substitute in \lighttt{LoopIR.ManagedRingIdx} with an updated \lighttt{remove\_distributed\_idx} and rewrite ring buffer dimension extent for \lighttt{Alloc} and \lighttt{Free}.
+
+}
+
+\lighttt{cuda\_sync\_state} builder needs to add consumption variable for each managed ring buffer.
+Implement \lighttt{pre\_arrive} in \lighttt{exo\_deviceInit}.
+
+Get rid of \lighttt{codegen\_slices\_to\_root} and replace with indices from \lighttt{e.idx} in \lighttt{add\_mbarrier.codegen} (for \lighttt{slice} argument).
+Also get rid of \lighttt{initial\_skips}.
+
+To do the above, \lighttt{add\_mbarrier} needs to know the array \lighttt{hi} (without distributed dimensions).
+\lighttt{codegen} needs to know the non-distributed indices of the home barrier expr, wrapped as CIR.
+Need to use \lighttt{LoopIR\_Compare} in the home barrier expression.
+
+Remove barrier guarding static analysis \redBox{(Document this)}.
+Get rid of all the old guarding stuff entirely from \lighttt{LoopIR} and \lighttt{BarrierUsageAnalysis}.
+\lighttt{LoopIR.Tensor} now includes \lighttt{guarded\_by: Sym}, frontend syntax \lighttt{T[hi].guarded\_by(guarded\_by)}.
+
+\magicSection{Sync Check}{sec:SyncCheck}
+
+Each managed ring buffer alloc \lighttt{x} must be guarded by exactly one \lighttt{z: barrier}, except that managed ring buffer \lighttt{barrier} types \textit{may} be not guarded by another barrier; if so, they are self-guarded barriers.
+
+Define later what multicast group is.
+Let \lighttt{d$^*$} be distributed indices, \lighttt{k} the index on the managed ring buffer dimension, and \lighttt{e$^*$} the other indices.
+For self-guarded barriers \lighttt{z[d$^*$, k, e$^*$]}, you have to wait for any barrier in the multicast group of \lighttt{z[d$^*$, k-RING, e$^*$]}, unless \lighttt{k < RING}. (This unless is a bit of a blind spot in the checking).
+For non-self-guarded managed ring buffer allocations \lighttt{x[d$^*$, k, e$^*$]}, you have to wait for any barrier in the multicast group of \lighttt{z[d$^*$, k, e$^*$]}; truncate $e^*$ if needed.
+
+Remove await-indexed barrier as specified earlier.
+Actually just remove all old barrier code.
+
+\lighttt{VisRecord}: \lighttt{visibility\_set}, strong ref to \lighttt{HamsterVisBarriers}, strong ref \lighttt{free\_on\_arrive: HamsterBarrier}, \lighttt{not\_yet\_alloc}, \lighttt{freed} flags.
+
+\lighttt{AssignmentRecord}: now has \lighttt{free\_on\_arrive: HamsterBarrier} as well, initialized upon allocation.
+All \lighttt{VisRecord} instances added to the \lighttt{AssignmentRecord} will have this \lighttt{free\_on\_arrive}.
+Create/memoize the new \lighttt{VisRecord} list in \lighttt{extend\_vis\_records} now instead of one-time caching.
+
+\lighttt{HamsterBarrier}: \lighttt{arrive\_count}, weak back-references to \lighttt{HamsterVisBarriers}.
+
+\lighttt{HamsterVisBarriers}: weak back-references to \lighttt{VisRecord}, weak references to \lighttt{HamsterBarriers} associated with min \lighttt{arrive\_count}.
+
+On \lighttt{Arrive}, copy-on-write \lighttt{HamsterVisBarriers} of modified \lighttt{VisRecord} objects.
+Cache before/after ID of \lighttt{HamsterVisBarriers} in \lighttt{HamsterArriveUpdateCommand}.
+Additionally, if the \lighttt{free\_on\_arrive} of the updated \lighttt{VisRecord} matches one of the barriers, clear the \lighttt{visibility\_set}.
+This is an optimization to reduce memoization pressure.
+
+\lighttt{Await} should basically be the same.
+
+On allocation, add needed pending awaits based on rules.
+
+On free, check for needed pending awaits.
+
+Change WAR/WAW/RAW hazard text for use-after-free, use-before-alloc???
+
+\end{document}
+
