@@ -26,12 +26,13 @@
 
 \magicSection{Basic Idea}{sec:BasicIdea}
 
-Managed ring buffer: new \lighttt{CudaSmemLinearRing(RING)}, \lighttt{Sm90\_SmemSwizzledRing(swizzle, RING)}, \lighttt{CudaMbarrierRing(RING, pre\_arrive)} memwin types.
-The left-most \emph{non-distributed} extent is transparently rewritten to \lighttt{RING}, and the left-most \emph{non-distributed} indexing expression \lighttt{e} is transparently rewritten to \lighttt{(e + \emph{consumption}) \% RING}.
+Managed ring buffer: One non-distributed dimension of the allocation is marked to be ring buffered by an integer \lighttt{ring\_depth}.
+This is by extending \lighttt{LoopIR.Size} to have a \lighttt{SizeAnnotation?} member.
+The extent of the managed ring-buffer dimension is transparently rewritten to \lighttt{ring\_depth}, and any corresponding indexing expression \lighttt{e} is transparently rewritten to \lighttt{(e + \emph{consumption}) \% ring\_depth}.
 
 \magicSection{MemWin}{sec:MemWin}
 
-Add \lighttt{MemWin.managed\_ring\_buffer\_depth -> Optional[int]}, defaults to \lighttt{None}, enable \lighttt{RING: int} return to enable managed ring buffer feature.
+% Add \lighttt{MemWin.supports\_managed\_ring\_buffer -> bool}, defaults to \lighttt{False}.
 
 Add \lighttt{native\_unit}, \lighttt{arrive\_coll\_unit}, \lighttt{await\_coll\_unit} for \lighttt{CudaBarrierMechanism}.
 
@@ -45,6 +46,8 @@ Replace \lighttt{CudaCommitGroup} with \lighttt{Sm80\_CommitGroup}, \lighttt{Sm9
 
 Forbid barrier arrays for solitary barriers.
 
+\blueBox{Test barrier array rule}
+
 \redBox{Document: new commit groups}.
 
 \magicSection{Barrier Mechanism Traits}{sec:BarrierMechanismTraits}
@@ -57,11 +60,15 @@ Remove everything related to guarding.
 
 \redBox{Document: no guarding}
 
+\blueBox{Test: abstract machine guarding test}
+
 Remove \lighttt{different\_arrive\_await\_threads}.
 
 Add \lighttt{one\_shot\_arrive}: exactly one executed arrive per barrier (applies to mbarrier, cluster sync)
 
 Add \lighttt{one\_shot\_await}: exactly one executed await per barrier (applies to cluster sync only)
+
+\blueBox{Test: one shot arrive/await}
 
 \magicSection{LoopIR / Codegen}{sec:Codegen}
 
@@ -76,6 +83,8 @@ Update SMEM allocator.
 Factor out allocation pattern in preparation for new TMEM.
 Managed ring buffer SMEM allocations are now persistent.
 
+\blueBox{Somehow test the allocator behaves as expected.}
+
 {\raggedright
 
 \lighttt{cuda\_backend} will substitute in \lighttt{LoopIR.ManagedRingIdx} with an updated \lighttt{remove\_distributed\_idx} and rewrite ring buffer dimension extent for \lighttt{Alloc} and \lighttt{Free}.
@@ -85,16 +94,32 @@ Managed ring buffer SMEM allocations are now persistent.
 \lighttt{cuda\_sync\_state} builder needs to add consumption variable for each managed ring buffer.
 Implement \lighttt{pre\_arrive} in \lighttt{exo\_deviceInit}.
 
+\blueBox{Inspect consumption in test}
+
 Get rid of \lighttt{codegen\_slices\_to\_root} and replace with indices from \lighttt{e.idx} in \lighttt{add\_mbarrier.codegen} (for \lighttt{slice} argument).
 Also get rid of \lighttt{initial\_skips}.
 
 To do the above, \lighttt{add\_mbarrier} needs to know the array \lighttt{hi} (without distributed dimensions).
 \lighttt{codegen} needs to know the non-distributed indices of the home barrier expr, wrapped as CIR.
 Need to use \lighttt{LoopIR\_Compare} in the home barrier expression.
+Also, we need common code for \lighttt{codegen\_cta\_mask} and \lighttt{cta\_xor\_list} where we
+\begin{enumerate}
+  \item Correctly multicast on multicasted distributed dimensions
+  \item Ensure only points or \lighttt{0:1} intervals for non-distributed dimensions
+  \item Ensure only \lighttt{0:hi} intervals.
+\end{enumerate}
+
+\redBox{TODO multicast group definition and requirements}
+
+\blueBox{Test intervals, distributed and non-distributed dimensions}
+
+\blueBox{Test home barrier expression}
 
 Remove barrier guarding static analysis \redBox{(Document this)}.
 Get rid of all the old guarding stuff entirely from \lighttt{LoopIR} and \lighttt{BarrierUsageAnalysis}.
 \lighttt{LoopIR.Tensor} now includes \lighttt{guarded\_by: Sym}, frontend syntax \lighttt{T[hi].guarded\_by(guarded\_by)}.
+
+\blueBox{Test error checking for this, \texttt{expand\_dim}, \texttt{reorder\_dim}, \texttt{split\_dim}}
 
 \magicSection{Sync Check}{sec:SyncCheck}
 
