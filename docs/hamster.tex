@@ -92,21 +92,30 @@ Managed ring buffer SMEM allocations are now persistent.
 }
 
 \lighttt{cuda\_sync\_state} builder needs to add consumption variable for each managed ring buffer.
-Implement \lighttt{pre\_arrive} in \lighttt{exo\_deviceInit}.
 
 \blueBox{Inspect consumption in test}
 
 Get rid of \lighttt{codegen\_slices\_to\_root} and replace with indices from \lighttt{e.idx} in \lighttt{add\_mbarrier.codegen} (for \lighttt{slice} argument).
 Also get rid of \lighttt{initial\_skips}.
 
-To do the above, \lighttt{add\_mbarrier} needs to know the array \lighttt{hi} (without distributed dimensions).
-\lighttt{codegen} needs to know the non-distributed indices of the home barrier expr, wrapped as CIR.
+To do the above, \lighttt{add\_mbarrier} needs to know
+\begin{itemize}
+  \item array \lighttt{hi} (without distributed dimensions).
+  \item Implement \lighttt{pre\_arrive} in \lighttt{exo\_deviceInit}.
+  \item \blueBox{Test \texttt{pre\_arrive} with different orderings of barrier dimensions.}
+\end{itemize}
+\lighttt{codegen} needs to know
+\begin{itemize}
+  \item the non-distributed indices of the home barrier expr, wrapped as CIR.
+  \item raw managed ring buffer index, to compute parity.
+  \item \blueBox{Test missing managed ring buffer dimension for mbarrier}
+\end{itemize}
 Need to use \lighttt{LoopIR\_Compare} in the home barrier expression.
 Also, we need common code for \lighttt{codegen\_cta\_mask} and \lighttt{cta\_xor\_list} where we
 \begin{enumerate}
   \item Correctly multicast on multicasted distributed dimensions
   \item Ensure only points or \lighttt{0:1} intervals for non-distributed dimensions
-  \item Ensure only \lighttt{0:hi} intervals.
+  \item Ensure only \lighttt{0:hi} intervals [actually already done, \redBox{documented?}, \blueBox{tested?}]
 \end{enumerate}
 
 \redBox{TODO multicast group definition and requirements}
@@ -121,40 +130,99 @@ Get rid of all the old guarding stuff entirely from \lighttt{LoopIR} and \lightt
 
 \blueBox{Test error checking for this, \texttt{expand\_dim}, \texttt{reorder\_dim}, \texttt{split\_dim}}
 
+Still have to ensure TMA mbarrier multicast\_flags is subset of multicasts.
+Otherwise, checking is now based on sync check.
+
+Add \lighttt{exo\_deviceShutdown} and \lighttt{CudaDeviceFunction.unsafe\_shutdown\_cluster\_sync}.
+
+\newpage
 \magicSection{Sync Check}{sec:SyncCheck}
 
-Each managed ring buffer alloc \lighttt{x} must be guarded by exactly one \lighttt{z: barrier}, except that managed ring buffer \lighttt{barrier} types \textit{may} be not guarded by another barrier; if so, they are self-guarded barriers.
+Get rid of \lighttt{arrive\_count == await\_count} requirement \redBox{document}.
 
-Define later what multicast group is.
-Let \lighttt{d$^*$} be distributed indices, \lighttt{k} the index on the managed ring buffer dimension, and \lighttt{e$^*$} the other indices.
-For self-guarded barriers \lighttt{z[d$^*$, k, e$^*$]}, you have to wait for any barrier in the multicast group of \lighttt{z[d$^*$, k-RING, e$^*$]}, unless \lighttt{k < RING}. (This unless is a bit of a blind spot in the checking).
-For non-self-guarded managed ring buffer allocations \lighttt{x[d$^*$, k, e$^*$]}, you have to wait for any barrier in the multicast group of \lighttt{z[d$^*$, k, e$^*$]}; truncate $e^*$ if needed.
+Each managed ring buffer alloc \lighttt{x} must be guarded by exactly one \lighttt{z: barrier}, except that managed ring buffer \lighttt{barrier} types \textit{may} be not guarded by another barrier; if so, they are self-guarded barriers.
 
 Remove await-indexed barrier as specified earlier.
 Actually just remove all old barrier code.
 
-\lighttt{VisRecord}: \lighttt{visibility\_set}, strong ref to \lighttt{HamsterVisBarriers}, strong ref \lighttt{free\_on\_arrive: HamsterBarrier}, \lighttt{not\_yet\_alloc}, \lighttt{freed} flags.
+\lighttt{VisRecord}: \lighttt{visibility\_set}, strong ref to \lighttt{HamsterVisBarriers}; strong ref \lighttt{free\_on\_arrive: HamsterBarrierState}; flags \lighttt{not\_yet\_alloc}, \lighttt{freed}.
 
-\lighttt{AssignmentRecord}: now has \lighttt{free\_on\_arrive: HamsterBarrier} as well, initialized upon allocation.
+\lighttt{AssignmentRecord}: now has \lighttt{free\_on\_arrive: HamsterBarrierState} as well, initialized upon allocation.
 All \lighttt{VisRecord} instances added to the \lighttt{AssignmentRecord} will have this \lighttt{free\_on\_arrive}.
 Create/memoize the new \lighttt{VisRecord} list in \lighttt{extend\_vis\_records} now instead of one-time caching.
 
-\lighttt{HamsterBarrier}: \lighttt{arrive\_count}, weak back-references to \lighttt{HamsterVisBarriers}.
+\lighttt{HamsterBarrierState}: \lighttt{arrive\_count}, \lighttt{await\_count},\\
+weak back-references to \lighttt{HamsterPendingAwaitSet}, \lighttt{one\_shot\_arrive}, \lighttt{one\_shot\_await}.
 
-\lighttt{HamsterVisBarriers}: weak back-references to \lighttt{VisRecord}, weak references to \lighttt{HamsterBarriers} associated with min \lighttt{arrive\_count}.
+\lighttt{HamsterPendingAwaitSet}: weak back-references to \lighttt{VisRecord},\\
+strong references to \lighttt{HamsterBarrierState} objects associated with min \lighttt{arrive\_count}.
+Could be weak, but this would complicate memoization.
 
-On \lighttt{Arrive}, copy-on-write \lighttt{HamsterVisBarriers} of modified \lighttt{VisRecord} objects.
-Cache before/after ID of \lighttt{HamsterVisBarriers} in \lighttt{HamsterArriveUpdateCommand}.
-Additionally, if the \lighttt{free\_on\_arrive} of the updated \lighttt{VisRecord} matches one of the barriers, clear the \lighttt{visibility\_set}.
-This is an optimization to reduce memoization pressure.
+\magicSubsection{Alloc}{sec:Alloc}
 
-\lighttt{Await} should basically be the same.
+Add \lighttt{flags} to allocation statements.
+For now, only meaningful for \lighttt{BarrierEnvAlloc}, for one-shot arrive, one-shot await flags.
 
-On allocation, add needed pending awaits based on rules.
+Add new\\
+\lighttt{SetupSelfGuardedRingBuffer(e, e\_depth, managed\_ring\_buffer\_dim\_idx, barrier\_multicasts)},\\ \lighttt{SetupGuardedRingBuffer(g, e, e\_depth, managed\_ring\_buffer\_dim\_idx, barrier\_multicasts)}.
 
-On free, check for needed pending awaits.
+\begin{enumerate}
+  \item Check \lighttt{g} size is prefix (or bigger) of \lighttt{e} size.
+  \item Set \lighttt{free\_on\_arrive} for assignment record. \textbf{Require} that assignment record was null before.
+  \item Add a new write visibility record with \lighttt{vis\_record\_before\_alloc\_flag} set and \lighttt{free\_on\_arrive}, initialized as follows:
+  \item For self-guarded, \lighttt{e[..., k, ...]} has pending awaits for the multicast group of \lighttt{e[..., k - e\_depth, ...]}, and \lighttt{free\_on\_arrive} for the multicast group of itself, where \lighttt{...} are corresponding indices on non-managed-ring-buffer dimensions.
+  \item For non-self-guarded, \lighttt{e[..., k, ...]} has pending awaits for the multicast group of \lighttt{g[..., k, ...]}, and \lighttt{free\_on\_arrive} for the multicast group of \lighttt{g[..., k + e\_depth, ...]}, where \lighttt{...} are corresponding indices on non-managed-ring-buffer dimensions.
+\end{enumerate}
 
-Change WAR/WAW/RAW hazard text for use-after-free, use-before-alloc???
+\magicSubsection{Arrive}{sec:Arrive}
+
+Look up the barrier and increment its arrive count. If one-shot, check arrive count was 0.
+
+Find all \lighttt{VisRecord} that sync-with the Arrive, then copy-on-write \lighttt{HamsterPendingAwaitSet} of modified \lighttt{VisRecord} objects.
+Cache before/after ID of \lighttt{HamsterPendingAwaitSet} in \lighttt{HamsterArriveUpdateCommand}.
+Note, don't modify a \lighttt{HamsterPendingAwaitSet} that already references the barrier.
+
+For each sync-with \lighttt{VisRecord}, if \lighttt{free\_on\_arrive} matches one of the barriers, clear the visibility set and set \lighttt{vis\_record\_freed\_flag}.
+
+\magicSubsection{Trailing Barrier}{sec:TrailingBarrier}
+
+Rely on previous static analysis for barrier multicasting.
+
+If one-shot arrive, check \lighttt{arrive\_count} is 0.
+
+\magicSubsection{Await}{sec:Await}
+
+Look up the barrier and increment the await count. If one-shot, check await count was 0.
+
+Reference all linked \lighttt{HamsterPendingAwaitSet} and conditionally augment linked \lighttt{VisRecord} (based on \lighttt{arrive\_count}).
+
+Check forward progress.
+
+\magicSubsection{Free}{sec:Free}
+
+On free of barriers, check one-shot requirements.
+
+Change WAR/WAW/RAW hazard text into
+\begin{itemize}
+  \item \lighttt{use\_before\_alloc} (\lighttt{vis\_record\_before\_alloc\_flag} violation)
+  \item \lighttt{use\_after\_free} (\lighttt{vis\_record\_freed\_flag} violation)
+  \item \lighttt{free\_missing\_sync} (change message for existing free shard)
+\end{itemize}
+
+Note, we actually don't have to check the arrive(s) have happened since for now, one-shot arrive requirements have us covered.
+
+\blueBox{test only require temporal sync for free}
+
+\magicSubsection{Check Access}{sec:CheckAccess}
+
+Now new \lighttt{VisRecord} must inherit the \lighttt{free\_on\_arrive}.
+
+We no longer set up the \lighttt{new\_vis\_record\_list} ahead of time.
+Instead, \lighttt{extend\_vis\_records} takes an added \lighttt{free\_on\_arrive} parameter, and we make the \lighttt{VisRecord} list and add to \lighttt{AssignmentRecord} just in time.
+
+\magicSubsection{Misc}{sec:Misc}
+
+Go through the headers for excut and history logging and make sure each thing is called.
 
 \end{document}
 
