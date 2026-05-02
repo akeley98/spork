@@ -133,30 +133,30 @@ if False:
 
 # TeX: version OverviewSyncExample 1
 @proc
-def overview_sync_example(num_tasks: size):
+def overview_sync_example(num_tasks: size, num_iters: size):
     # TeX: begin OverviewSyncExample[0]
     with CudaDeviceFunction(clusterDim=2, blockDim=384):
         for task_id in cuda_tasks(0, num_tasks):
-            # Cluster scope.
-            # TeX: color line *
-            #                                                                                  .
-            # Distributed memory (Section $\ref{sec:DistributedMemory}$): each element of mbar[.] allocated into its own CTA.
-            mbar: barrier[2] @ CudaMbarrier
-            for cta in cuda_threads(0, 2, unit=cuda_cta_in_cluster):
-                # CTA scope.
-                # cuda_in_order is a SyncTL,
-                # indicates only non-async instrs' effects are synchronized.
-                Fence(cuda_in_order, cuda_in_order)  # __syncthreads-equivalent
-                for w in cuda_threads(0, 12, unit=cuda_warp):
-                    # Warp scope.
-                    Fence(cuda_in_order, cuda_in_order)  # __syncwarp-equivalent
-                # Example of Arrive/Await using mbarrier mechanism
-                # (because mbar was annotated with @CudaMbarrier, Section $\ref{sec:MbarrierUsage}$).
-                Arrive(cuda_in_order) >> mbar[cta]
-                # ...
-                Await(mbar[cta], cuda_in_order, ~0)
-                # Section $\ref{sec:ArriveAwaitPairing}$ explains n=~0.
-                # TeX: end OverviewSyncExample[0]
+            for k in seq(0, num_iters):
+                # Cluster scope.
+                # TeX: color line *
+                #                                                                                  .
+                # Distributed memory (Section $\ref{sec:DistributedMemory}$): each shard mbar[cta, :] allocated into its own CTA.
+                mbar: barrier[2, num_iters @ ring_buffer_by(4)] @ CudaMbarrier
+                for cta in cuda_threads(0, 2, unit=cuda_cta_in_cluster):
+                    # CTA scope.
+                    # cuda_in_order is a SyncTL,
+                    # indicates only non-async instrs' effects are synchronized.
+                    Fence(cuda_in_order, cuda_in_order)  # __syncthreads-equivalent
+                    for w in cuda_threads(0, 12, unit=cuda_warp):
+                        # Warp scope.
+                        Fence(cuda_in_order, cuda_in_order)  # __syncwarp-equivalent
+                    # Example of Arrive/Await using mbarrier mechanism
+                    # (because mbar was annotated with @CudaMbarrier, Section $\ref{sec:MbarrierUsage}$).
+                    Arrive(cuda_in_order) >> mbar[cta, k]
+                    # ...
+                    Await(mbar[cta, k], cuda_in_order, 0)
+                    # TeX: end OverviewSyncExample[0]
 
 
 # TeX: version OverviewCollTiling 1
@@ -228,7 +228,7 @@ if False:
             for task_id in cuda_tasks(0, 1):
                 # TeX: version BadMulticastExample 1
                 # TeX: begin BadMulticastExample[0]
-                z: barrier[2, 2] @ CudaMbarrier
+                z: barrier[2, 2, NUM_ITERS] @ CudaMbarrier
                 for m in cuda_threads(0, 2, unit=2 * cuda_cta_in_cluster):
                     # TeX: color line *
                     #  ......
@@ -240,53 +240,16 @@ if False:
                             #  ......
                             if n == 0:  # Invalid if statement underneath n loop
                                 # TeX: color line *
-                                #                             v          v
-                                Arrive(cuda_in_order) >> z[m, n] >> z[m, :]  # n is multicast
+                                #                             v             v
+                                Arrive(cuda_in_order) >> z[m, n, k] >> z[m, :, k]  # n is multicast
                                 # TeX: end BadMulticastExample[0]
-                                Await(z[m, n], cuda_in_order, ~0)
+                                Await(z[m, n, k], cuda_in_order, 0)
     # TeX: version multicast_flags_example 1
     # TeX: begin multicast_flags_example[0]
-    Arrive(cuda_in_order) >> z[m, n] >> z[m, :]   # (False, False), (False, True)
+    Arrive(cuda_in_order) >> z[m, n] >> z[m, :] # (False, False), (False, True)
     Arrive(cuda_in_order) >> z[:, n] >> z[m, :]   # (True, False), (False, True)
     Arrive(cuda_in_order) >> z[m, n, k]           # (False, False, False),
     # TeX: end multicast_flags_example[0]
-
-
-@proc
-def mbarrier_2_cycle(num_tasks: size):
-    with CudaDeviceFunction(warp_config=[  # blockDim = $384$ = $32\times(1+3+8)$
-            CudaWarpConfig("producer", 1, setmaxnreg_dec=40),
-            CudaWarpConfig("unused", 3, setmaxnreg_dec=40),
-            # TeX: color line *
-            #               rrrrrrrr
-            CudaWarpConfig("consumer", 8, setmaxnreg_inc=232), # prefix = 4 warps (128 threads)
-    ]):
-        for task_id in cuda_tasks(0, num_tasks):
-            # TeX: version mbarrier_2_cycle 1
-            # TeX: begin mbarrier_2_cycle[0]
-        # TeX: color line *
-        #   bb                                                          rr
-            z0: barrier @ CudaMbarrier          # Implicitly guarded-by z1
-        # TeX: color line *
-        #   rr          bb                                              bb
-            z1: barrier(z0) @ CudaMbarrier      # Explicitly guarded-by z0
-            with CudaWarps(name="producer"):
-                # TeX: color line *
-                #     rr  .............
-                Await(z1, cuda_in_order, ~4)
-                # ...instr calls with trailing barrier expressions involving z0 may appear here
-                # TeX: color line *
-                #      .............     bb
-                Arrive(cuda_in_order) >> z0
-            with CudaWarps(name="consumer"):
-                # TeX: color line *
-                #     bb  .............
-                Await(z0, cuda_in_order, ~0)
-                # ...instr calls with trailing barrier expressions involving z1 may appear here
-                # TeX: color line *
-                #      .............     rr
-                Arrive(cuda_in_order) >> z1
-            # TeX: end mbarrier_2_cycle[0]
 
 
 if False:
@@ -315,38 +278,41 @@ if False:
   # TeX: color line *
   #            gggggg  vvvvvv        rrrrrr  bbbbbb                      yyy
   B_smem : f32[ncta_M, ncta_N, RING, smem_N, smem_K] @ Sm90_SmemSwizzled(128)
-  # length-2 barrier guard cycle {raw, war} (def $\ref{sec:gBarrierGuardCycle}$)
-  raw : barrier[ncta_M, ncta_N] @ CudaMbarrier
-  war : barrier(raw)[ncta_M, ncta_N] @ CudaMbarrier
-  # TeX: color line *
-  #                   ..........
-  with CudaWarps(name="producer"):  # Not shown: referenced warp variable (def $\ref{sec:gWarpVariable}$) is 1 warp
-    for cta_m in cuda_threads(0, ncta_M, unit=ncta_N * cuda_cta_in_cluster):
-      for cta_n in cuda_threads(0, ncta_N, unit=cuda_cta_in_cluster):
-        Await(war[cta_m,cta_n], cuda_temporal, ~(RING-1))
-    # ...
-    for cta_n in cuda_threads(0, ncta_N,
+  # RING, NUM_ITERS are placeholder variables
+  raw: barrier[ncta_M, ncta_N, NUM_ITERS @ ring_buffer_by(RING)
+    ] @ CudaMbarrierPreArrive(0)
+  war: barrier[ncta_M, ncta_N, (NUM_ITERS + RING) @ ring_buffer_by(RING)
+    ] @ CudaMbarrierPreArrive(RING)
+  for k in seq(0, NUM_ITERS):
     # TeX: color line *
-    #        gggggg                               vvvvvv
-        unit=ncta_M * cuda_cta_in_cluster_strided(ncta_N)
-    ):
+    #                   ..........
+    with CudaWarps(name="producer"):  # Not shown: referenced warp variable (def $\ref{sec:gWarpVariable}$) is 1 warp
+      for cta_m in cuda_threads(0, ncta_M, unit=ncta_N * cuda_cta_in_cluster):
+        for cta_n in cuda_threads(0, ncta_N, unit=cuda_cta_in_cluster):
+          Await(war[cta_m, cta_n, k], cuda_temporal, 0)
+      # ...
+      for cta_n in cuda_threads(0, ncta_N,
       # TeX: color line *
-      #                                                                           yyyyyyyyyyy
-      # Rightmost extent is smem_K=32, times 4 bytes per element (f32) $\implies$ swizzle=128
-      Sm90_multicast_copy_tensor_to_smem_swizzled_2f32(
+      #        gggggg                               vvvvvv
+          unit=ncta_M * cuda_cta_in_cluster_strided(ncta_N)
+      ):
         # TeX: color line *
-        #      g                     r b                       gggggg  rrrrrr  bbbbbb
-        B_smem[:,cta_n,iter_k % RING,:,:],  # Window extents:  ncta_M, smem_N, smem_K
-        B_tensorMap[                                     # smem_box coordinates required:
-          batch,                                                            # 1 (point expr)
-          (ncta_N*task_n+cta_n) * smem_N: (ncta_N*task_n+cta_n+1) * smem_N, # smem_N // ncta_M
-          task_k,                                                           # 1 (point expr)
-          iter_k * smem_K: iter_k * smem_K + smem_K],                       # smem_K
-        # TeX: color line *
-        #    gggggg             vvvvvv        rrrrrr        bbbbbb
-        ncta=ncta_M, cta_stride=ncta_N, size0=smem_N, size1=smem_K, smem_box=smem_box_B
-      ) >> raw[:,cta_n]
-      for cta_m in cuda_threads(0, ncta_M, unit=cuda_cta_in_cluster):
-        # Await/TMA/Arrive structure satisfies guarding requirement (Section $\ref{sec:BarrierGuarding}$)
-        Arrive(cuda_temporal) >> raw[cta_m,:] >> raw[:,cta_n]
-    # TeX: end multicast_tma_excerpt[0]
+        #                                                                           yyyyyyyyyyy
+        # Rightmost extent is smem_K=32, times 4 bytes per element (f32) $\implies$ swizzle=128
+        Sm90_tma_load_multicast_2d(
+          # TeX: color line *
+          #      g                     r b                       gggggg  rrrrrr  bbbbbb
+          B_smem[:,cta_n,iter_k % RING,:,:],  # Window extents:  ncta_M, smem_N, smem_K
+          B_tensorMap[                                 # smem_box coordinates required:
+            batch,                                                            # 1 (point expr)
+            (ncta_N*task_n+cta_n) * smem_N: (ncta_N*task_n+cta_n+1) * smem_N, # smem_N // ncta_M
+            task_k,                                                           # 1 (point expr)
+            iter_k * smem_K: iter_k * smem_K + smem_K],                       # smem_K
+          # TeX: color line *
+          #    gggggg             vvvvvv        rrrrrr        bbbbbb
+          ncta=ncta_M, cta_stride=ncta_N, size0=smem_N, size1=smem_K, smem_box=smem_box_B,
+          dst=f32, src=f32,
+        ) >> raw[:, cta_n, k]
+        for cta_m in cuda_threads(0, ncta_M, unit=cuda_cta_in_cluster):
+          Arrive(cuda_temporal) >> raw[cta_m, :, k] >> raw[:, cta_n, k]
+      # TeX: end multicast_tma_excerpt[0]
