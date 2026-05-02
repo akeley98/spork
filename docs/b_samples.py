@@ -246,9 +246,9 @@ if False:
                                 Await(z[m, n, k], cuda_in_order, 0)
     # TeX: version multicast_flags_example 1
     # TeX: begin multicast_flags_example[0]
-    Arrive(cuda_in_order) >> z[m, n] >> z[m, :] # (False, False), (False, True)
-    Arrive(cuda_in_order) >> z[:, n] >> z[m, :]   # (True, False), (False, True)
-    Arrive(cuda_in_order) >> z[m, n, k]           # (False, False, False),
+    Arrive(cuda_in_order) >> z[m, n, k] >> z[m, :, k] # (False, False, False), (False, True, False)
+    Arrive(cuda_in_order) >> z[:, n, k] >> z[m, :, k] # (True, False, False), (False, True, False)
+    Arrive(cuda_in_order) >> z[m, n, k, ping]         # (False, False, False, False),
     # TeX: end multicast_flags_example[0]
 
 
