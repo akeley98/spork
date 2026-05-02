@@ -1,16 +1,17 @@
 \magicSection{Distributed Memory}{sec:DistributedMemory}
 
-Both barrier and data allocations in CUDA scope are subject to distributed memory analysis, which deduces a certain number of distributed dimensions (def~\ref{sec:gDistributedDimension}), and properties of those dimensions.
-All other allocations have 0 distributed dimensions.
+Each data or barrier\footnote{i.e. control variables (def~\ref{sec:gMathbbY}) are excluded. In the past data and barriers had different rules, but the special rules for barriers were dropped.} variable allocated in CUDA scope is subject to distributed memory analysis, which deduces a certain number of distributed dimensions (def~\ref{sec:gDistributedDimension}), and properties of those dimensions.
+All other variables have 0 distributed dimensions.
 
-The rules are somewhat different for the two cases.
-For barrier allocations, all dimensions are distributed.
-For data allocations, the memory type specifies a collective unit (the \myKeyA{native unit}, def~\ref{sec:gNativeUnit}) from which a collective type $\delta_0$ is unpacked with alignment and 1-padding (def~\ref{sec:gCollUnit}); this must not be agnostic (def~\ref{sec:gAgnostic}).
+The memory type or barrier mechanism (def~\ref{sec:gBarrierMechanism}) specifies a collective unit (the \myKeyA{native unit}, def~\ref{sec:gNativeUnit}) from which a collective type $\delta_0$ is unpacked with alignment and 1-padding (def~\ref{sec:gCollUnit}); this must not be agnostic (def~\ref{sec:gAgnostic}).
 Exo-GPU then deduces a certain number of distributed dimensions (say, $R$) so that each shard (def~\ref{sec:gShard}) $x[c_0,...,c_{R-1},:,...,:]$ is allocated on a different thread collective, all of which are instances of $\delta_0$ (Section~\ref{sec:CollTypeThreadCollective}).
 The distributed dimensions are always to the left of non-distributed dimensions.
 
 During codegen for data variables (Section~\ref{sec:InstrCodegen}), Exo-GPU erases indicies and array extents corresponding to distributed dimensions.
 The codegen functions for memory and instructions only see indices and extents corresponding to non-distributed dimensions.
+
+The \textbf{intent} of this analysis is to statically partition shards of the allocation to different owner thread collectives, and enforce that only the owner accesses the shard (except for multicast and warp shuffle instructions: Section \ref{sec:InstrDistributedMemory}).
+The rest of the section is just to describe the algorithmic details (and limitations) of how Exo-GPU does this deduction.
 
 \input{spork_b/CollIndexingPairs.tex}
 \input{spork_b/DistributedMemoryThreadPitch.tex}
