@@ -11,7 +11,7 @@
 See the \lighttt{exo.platforms.Sm90.Sm90\_tma} module for polymorphic TMA instructions.
 
 Copies from GMEM to SMEM use the \lighttt{CudaMbarrier} barrier mechanism (Section~\ref{sec:MbarrierUsage}) with a trailing barrier expression (Section~\ref{sec:InstrTrailingBarrierExpr}).
-Copies from SMEM to GMEM use the \lighttt{CudaCommitGroup} barrier mechanism (Section~\ref{sec:CommitGroupUsage}).
+Copies from SMEM to GMEM use the \lighttt{Sm90\_TmaCommitGroup} barrier mechanism (Section~\ref{sec:CommitGroupUsage}).
 
 The actual GMEM parameter must be a window expression that indexes a ``special window'' variable $x_w$ constructed from a GMEM tensor $x_g$ with this window statement:
 \begin{gather*}

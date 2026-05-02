@@ -3,7 +3,7 @@
 If two barrier variables with the same barrier mechanism (def~\ref{sec:gBarrierMechanism}) are used in the same proc, and the barrier mechanism is subject to the solitary barrier requirement, then the two variables must not be live in the same scope.
 Furthermore, each shard (def~\ref{sec:gShard}) must contain only 1 barrier array element.
 
-Additionally, a \lighttt{Fence} statement (Section~\ref{sec:FenceUsage}) at \lighttt{cuda\_cluster} scope, but not at \lighttt{cuda\_cta\_in\_cluster} scope (def~\ref{sec:gCollUnit}), must not appear in a scope with a live barrier variable with \lighttt{CudaCommitGroup} mechanism.
+Additionally, a \lighttt{Fence} statement (Section~\ref{sec:FenceUsage}) at \lighttt{cuda\_cluster} scope, but not at \lighttt{cuda\_cta\_in\_cluster} scope (def~\ref{sec:gCollUnit}), must not appear in a scope with a live barrier variable with \lighttt{CudaClusterSync} mechanism.
 
 \FloatBarrier
 \newpage
