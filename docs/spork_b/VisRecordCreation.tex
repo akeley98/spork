@@ -26,15 +26,18 @@ The new visibility records $r^*$ are initialized based on
   \item the set of barrier array elements referenced by the trailing barrier expression (Section~\ref{sec:InstrTrailingBarrierExpr}); this is empty for non-instr accesses or instrs without a trailing barrier expression.
 \end{itemize}
 
-Define $\mathsf{NewVisRecord}(g^*)$ as having a visibility set that is the union of
+Define $r = \mathsf{NewVisRecord}(g^*)$ as having a visibility set $r.s$ that is the union of
 \begin{itemize}
     \item $g^* \times \{ q \} \times \{ \mathsf{VF_{issue}} \}$
     \item $g^* \times \{ q \} \times \{ \mathsf{VF_{atom}}, \mathsf{VF_{temp}}, \mathsf{VF_{full}} \}$, only added if the access is \emph{not} out-of-order (Section~\ref{sec:InstrOOO})
     \item $\mathbb{G} \times Q_a \times \{ \mathsf{VF_{atom}} \}$, only added if the access defines a nonempty atomic qualitative timeline set $Q_a$ (Section~\ref{sec:AtomicInstr}).
 \end{itemize}
-and a pending await set that is based off the arrive count (Section~\ref{sec:SyncEnv}) of each referenced barrier array element:
+and a pending await function $r.p$ that is based off the arrive count (Section~\ref{sec:SyncEnv}) of each referenced barrier array element:
 \begin{equation*}
-    \{ (z, n^*, \rho(z, n^*).b.a) \mid \text{ for each $z[n^*]$ referenced (def~\ref{sec:gBarrierExpr}) in the trailing barrier expression} \}
+    r.p(z, n^*) = \begin{cases}
+      \rho(z, n^*).b.a & \text{ if } z[n^*] \text{ is referenced (def~\ref{sec:gBarrierExpr}) in the trailing barrier expression } \\
+      \infty & \text{ otherwise (always the case, if there's no trailing barrier expression)}
+    \end{cases}
 \end{equation*}
 
 If the access is convergent (Section~\ref{sec:InstrConvergentAccess}), $r^*$ contains a single visibility record:
