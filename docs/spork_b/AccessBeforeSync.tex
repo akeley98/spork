@@ -9,7 +9,7 @@ The synchronization timeline $\tau_s^\mathrm{pre}$ (def~\ref{sec:gSyncTL}) and b
 \begin{itemize}
   \item For non-async cuda instructions, use \lighttt{cuda\_in\_order} and a \lighttt{Fence} (Section~\ref{sec:FenceUsage}) or mbarrier (Section~\ref{sec:MbarrierUsage}).
   \item For sm\_80 non-bulk \lighttt{cp.async} instructions (Ampere), use \lighttt{Sm80\_cp\_async} and a commit group (Section~\ref{sec:CommitGroupUsage}) or mbarrier (Section~\ref{sec:MbarrierUsage}).
-  \item For TMA instructions copying into SMEM, use mbarriers (Section~\ref{sec:MbarrierUsage}).
+  \item For TMA instructions copying into SMEM, use mbarriers (Section~\ref{sec:MbarrierUsage}; Section~\ref{sec:Tma}).
   \item For wgmma instructions and TMA instructions copying out of SMEM, use commit groups (Section~\ref{sec:CommitGroupUsage}).
 \end{itemize}
 This pattern is implemented by storing a new \textsf{VisRecord} (Section~\ref{sec:VisRecordCreation}) containing a timeline signature with one of the executing threads, the initial qualitative timeline $q$, and visibility flag $\mathsf{VF_{issue}}$.

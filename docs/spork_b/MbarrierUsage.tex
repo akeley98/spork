@@ -1,12 +1,10 @@
 \magicSubsection{Mbarrier Usage}{sec:MbarrierUsage}
 
-A barrier variable $z_a$ with mbarrier barrier mechanism may be declared with
+A barrier variable $z$ with mbarrier barrier mechanism may be declared with
 
-\texttt{$z_a$: barrier[$e^*$] @ CudaMbarrier}
+\texttt{$z$: barrier[$e^*$] @ CudaMbarrierPreArrive(\codecomment{...})}
 
-\texttt{insert\_barrier\_alloc(\codecomment{...}, $z_a$, None, [$e^*$], CudaMbarrier)}
-
-where the array size $e^*$ is subject to distributed memory analysis (Section~\ref{sec:DistributedMemory}) using native unit \lighttt{cuda\_cta\_in\_cluster}.
+\texttt{insert\_barrier\_alloc(\codecomment{...}, $z$, [$e^*$], CudaMbarrierPreArrive(\codecomment{...}), \codecomment{...})}
 
 The first synchronization timeline (def~\ref{sec:gSyncTL}) $\tau_s^\mathrm{pre}$ for the \lighttt{Arrive} should be \lighttt{cuda\_in\_order}, \lighttt{Sm80\_cp\_async}, or \lighttt{cuda\_temporal}.
 The second synchronization timeline $\tau_s^\mathrm{post}$ for the \lighttt{Await} should be \lighttt{cuda\_in\_order}, \lighttt{cuda\_generic\_or\_async\_proxy}, or \lighttt{cuda\_temporal}.
@@ -17,11 +15,17 @@ For TMA-to-SMEM instructions, use a trailing barrier expression for the instruct
 \begin{itemize}
   \item Split barrier basic requirements (Section~\ref{sec:SplitBarrierBasic}).
   \item Barrier expressions (def~\ref{sec:gBarrierExpr}) must meet the barrier multicast requirements (Section~\ref{sec:BarrierMulticast}).
-  \item Each \lighttt{Await} for a given variable $z_a$ must have the same $n$ value, and $n < 0$, i.e. this is an await-indexed barrier (Section~\ref{sec:ArriveAwaitPairing}, Section~\ref{sec:AwaitSemantics}).
-  \item Distributed memory analysis (Section~\ref{sec:DistributedMemory}) must be able to map each barrier array element into only a single CTA (TODO, explain how?).
-  \item Each \lighttt{Arrive} for a given barrier array element must be executed by the same \myKeyA{thread collective} (def~\ref{sec:gThreadCollective}); this requirement applies separately for all \lighttt{Await} statements for $z_a$.\\
-    This is enforced by distributed memory analysis (Section~\ref{sec:DistributedMemory}) with\\ \lighttt{different\_arrive\_await\_threads=True}.
+  \item \lighttt{Await} must use $n = 0$.
+  \item The barrier allocation must pass distributed memory analysis (Section~\ref{sec:DistributedMemory}) with native unit \lighttt{cuda\_cta\_in\_cluster}.
+  \item Each \lighttt{Arrive} statement for a given variable $z$ must have the same number of threads in its executing thread collective (def~\ref{sec:gThreadCollective}).
 \end{itemize}
+
+\mainKey{Abstract Machine Requirements:}
+\begin{itemize}
+  \item One-shot arrive: arrive count for each barrier element must be 1 at the end of its lifetime.
+\end{itemize}
+
+\redBox{TODO} need to talk about managed ring buffers.
 
 % multicast, guarding, hidden ring buffer & why ...
 
