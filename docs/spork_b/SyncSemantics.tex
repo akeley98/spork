@@ -15,7 +15,7 @@ Specifically, the state of an interpreted abstract machine program consists of
 
 When a \myKeyA{non-sync-exempt} (def~\ref{sec:gSyncExempt}) array element is read or mutated, a new visibility record (\textsf{VisRecord}) gets added to the synchronization environment for that element (Section~\ref{sec:VisRecordCreation}).
 Each interpreted \lighttt{Fence} (Section~\ref{sec:FenceSemantics}), \lighttt{Arrive} (Section~\ref{sec:ArriveSemantics}), and \lighttt{Await} statement (Section~\ref{sec:AwaitSemantics}) conditionally modifies all visibility records in the \emph{entire environment}, via lifting (Section~\ref{sec:Lifting}) and augment (Section~\ref{sec:Augment}).
-\lighttt{Arrive} and \lighttt{Await} statements may also modify the arrive and await count.
+\lighttt{Arrive} and \lighttt{Await} statements also modify the arrive and await count.
 Finally, the abstract machine specifies correctness checks for each read to (Section~\ref{sec:ChecksOnRead}), mutate of (Section~\ref{sec:ChecksOnMutate}), or free of (Section~\ref{sec:ChecksOnFree}) an array element; these checks are a function of the synchronization environment state for said array element.
 
 For this informal documentation, we will skip the translation step and summarize the effects of relevant Exo-GPU statements upon the above state directly.

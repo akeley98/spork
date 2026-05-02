@@ -4,14 +4,15 @@ Each runtime (def~\ref{sec:gRuntimeParameter}), non-control-value (def~\ref{sec:
 The corresponding actual parameter passed must reference a variable that is annotated with a \lighttt{MemWin} type that is a subclass of the formal parameter's \lighttt{MemWin} type.
 This is only checked at the time the fully-scheduled Exo-GPU proc is lowered, not throughout the scheduling process.
 
-For the purposes of adding \textsf{VisRecord} instances in the abstract machine (Section~\ref{sec:VisRecordCreation}), when a call to an instruction is interpreted, for each runtime, non-control-value parameter, we take one action from the following list for each array element that is in-bounds of the scalar, tensor, or window expression of the actual parameter.
+For the purposes of checking and adding \textsf{VisRecord} instances in the abstract machine (Section~\ref{sec:VisRecordCreation}), when a call to an instruction is interpreted, for each runtime, non-control-value parameter (including any trailing barrier expression), we take one action from the following list for each array element that is in-bounds of the scalar, tensor, window expression, or barrier expression of the actual parameter.
 If the access is through a window (including a special window, Section~\ref{sec:Tma}), the array elements accessed are those from the underlying tensor.
 Note that the contents of the \lighttt{behavior} function (Section~\ref{sec:InstrBehavior}) have no impact on the set of array elements read or mutated for the purposes of the abstract machine.
 \begin{itemize}
-  \item nothing is done, if the actual parameter's \lighttt{Memory} type is sync-exempt (def~\ref{sec:gSyncExempt}); otherwise,
-  \item one read is generated, if the corresponding formal parameter is never written or reduced in the instruction's \lighttt{behavior} function; otherwise,
-  \item one write-only mutate is generated, if the corresponding formal parameter is never read or reduced in the instruction's \lighttt{behavior} function; otherwise,
-  \item a read-write mutate is generated.
+  \item nothing is done, if the actual parameter's \lighttt{MemWin} type is sync-exempt (def~\ref{sec:gSyncExempt}); otherwise,
+  \item one read is checked (Section~\ref{sec:ChecksOnRead}) and generated (Section~\ref{sec:VisRecordCreation}), if this parameter is a trailing barrier expression (def~\ref{sec:gTrailingBarrierExpr}); otherwise,
+  \item one read is checked and generated, if the corresponding formal parameter is never written or reduced in the instruction's \lighttt{behavior} function; otherwise,
+  \item one write-only mutate is checked (Section~\ref{sec:ChecksOnMutate}) and generated (Section~\ref{sec:VisRecordCreation}), if the corresponding formal parameter is never read or reduced in the instruction's \lighttt{behavior} function; otherwise,
+  \item a read-write mutate is checked and generated.
 \end{itemize}
 
 Each memory access performed has these attributes, which are defined separately for accesses through instruction calls and for scalar code:

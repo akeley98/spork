@@ -1,10 +1,10 @@
 \magicSubsection{Checks on Read, Arrive, Await}{sec:ChecksOnRead}
 
-Read-like accesses only impose requirements on the mutate visibility record set.
+Read-like accesses only impose requirements on the mutate visibility record set, and on the arrive/await count.
 
-For each array element $x[n^*]$ referenced by a read within a statement, an \lighttt{Arrive} statement, or an \lighttt{Await} statement,
+For each array element $x[n^*]$ referenced by a read within a statement, a trailing barrier expression of a statement (def~\ref{sec:gTrailingBarrierExpr}), an \lighttt{Arrive} statement, or an \lighttt{Await} statement,
 \begin{itemize}
-  \item let $g^* = g_{s^\#}(\iota, \sigma)$ be the thread collective assigned to execute the statement (Section~\ref{sec:SyncSemanticsThreadMapping})
+  \item let $g^* = g_{s^\#}(\iota, \sigma)$ be the thread collective assigned to execute the statement instance (Section~\ref{sec:SyncSemanticsThreadMapping})
   \item let $q^*$ be the \myKeyA{extended timeline set} (Section~\ref{sec:InstrTL})
   \item let $t$ be the convergence flag (Section~\ref{sec:InstrConvergentAccess})
 \end{itemize}
@@ -14,4 +14,16 @@ Require that
 \end{equation*}
 If the above is not true, the abstract machine enters the error condition.
 Otherwise, this step causes no state changes, but the abstract machine continues on to the changes specified in Section~\ref{sec:VisRecordCreation}.
+
+Furthermore, if the access is to a barrier array element,
+\begin{itemize}
+  \item If the one-shot arrive requirement applies and the access is due to an \lighttt{Arrive} statement or a trailing barrier expression, then the arrive count of the barrier array element must be 0 (Section~\ref{sec:SyncEnv}).
+  \item If the one-shot await requirement applies and the access is due to an \lighttt{Await} statement, then the await count of the barrier array element must be 0 (Section~\ref{sec:SyncEnv}).
+\end{itemize}
+
+\redBox{Logic gap:} the trailing barrier expression is for TMA-to-SMEM instructions (Section~\ref{sec:Tma}), and this feature is a wrapper around the expect-tx mechanism.
+The valid usage pattern of this is to handle the expect-tx strictly before doing the actual arrive on the mbarrier.
+However, we don't really enforce this; the \texttt{arrive\_count=0} requirement only enforces the happens-before in the sequential semantics ordering of the program, and not the underlying parallel execution.
+We also fail to account for multicasting here.
+This gap was actually correctly handled with the barrier guarding static analysis done in the version of Exo-GPU submitted to PLDI, but this checking got lost when I lifted the static analysis requirements in favor of abstract machine checking.
 
