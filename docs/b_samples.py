@@ -310,8 +310,8 @@ if False:
             iter_k * smem_K: iter_k * smem_K + smem_K],                       # smem_K
           # TeX: color line *
           #    gggggg             vvvvvv        rrrrrr        bbbbbb
-          ncta=ncta_M, cta_stride=ncta_N, size0=smem_N, size1=smem_K, smem_box=smem_box_B,
-          dst=f32, src=f32,
+          ncta=ncta_M, cta_stride=ncta_N, size0=smem_N, size1=smem_K,
+          smem_box=smem_box_B, dst=f32, src=f32,
         ) >> raw[:, cta_n, k]
         for cta_m in cuda_threads(0, ncta_M, unit=cuda_cta_in_cluster):
           Arrive(cuda_temporal) >> raw[cta_m, :, k] >> raw[:, cta_n, k]

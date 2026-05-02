@@ -1,7 +1,14 @@
 \magicSubsection{TMA Usage}{sec:Tma}
 
-Note, the library of Exo-GPU CUDA instructions is highly incomplete.
-This section gives the guidelines for the expected interface of added TMA instructions.
+\begin{figure}[b!]
+\codehrule
+\input{b_samples/multicast_tma_excerpt.0.tex}
+\caption{Exo-GPU sm\_90a (Hopper) GEMM kernel excerpts showing multicast TMA usage}
+\label{fig:multicast_tma_excerpt}
+\codehrule
+\end{figure}
+
+See the \lighttt{exo.platforms.Sm90.Sm90\_tma} module for polymorphic TMA instructions.
 
 Copies from GMEM to SMEM use the \lighttt{CudaMbarrier} barrier mechanism (Section~\ref{sec:MbarrierUsage}) with a trailing barrier expression (Section~\ref{sec:InstrTrailingBarrierExpr}).
 Copies from SMEM to GMEM use the \lighttt{CudaCommitGroup} barrier mechanism (Section~\ref{sec:CommitGroupUsage}).
@@ -46,19 +53,11 @@ Second, the window expression $x_w[e^*]$ passed as the actual GMEM parameter mus
 
 See Figure~\ref{fig:multicast_tma_excerpt} for example correct usage of a TMA instruction.
 
-\begin{figure}[b!]
+\begin{figure}[h!]
 \codehrule
 \input{b_samples/multicast_pseudocode.0.tex}
 \caption{Multicast TMA pseudocode}
 \label{fig:multicast_pseudocode}
-\codehrule
-\end{figure}
-
-\begin{figure}[t!]
-\codehrule
-\input{b_samples/multicast_tma_excerpt.0.tex}
-\caption{Exo-GPU sm\_90a (Hopper) GEMM kernel excerpts showing multicast TMA usage}
-\label{fig:multicast_tma_excerpt}
 \codehrule
 \end{figure}
 
