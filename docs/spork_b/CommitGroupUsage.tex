@@ -18,13 +18,6 @@ where \texttt{\textit{mechanism}} is from one of the rows of this table:
 In CUDA, the commit group is implicit state local to a thread, warp, or warpgroup; however in Exo-GPU we explicitly shard this barrier state onto the implicit thread state with distributed memory analysis.
 This motivates the solitary barrier requirement (Section~\ref{sec:SolitaryBarrier}).
 
-\begin{tabular}{|r|r|r|}
-$\tau_s^\mathrm{pre}$ & $\tau_s^\mathrm{post}$ & $\tau_u$ \\
-\texttt{Sm80\_cp\_async} & \texttt{cuda\_in\_order} & \texttt{cuda\_thread} \\
-\texttt{tma\_to\_gmem\_async} (Section~\ref{sec:Tma}) & \texttt{cuda\_generic\_or\_async\_proxy} & \texttt{cuda\_warp} \\
-\texttt{wgmma\_async} & \texttt{cuda\_generic\_or\_async\_proxy} & \texttt{cuda\_warpgroup}
-\end{tabular}
-
 \mainKey{Statically-checked Requirements:}
 \begin{itemize}
   \item Split barrier basic requirements (Section~\ref{sec:SplitBarrierBasic})
