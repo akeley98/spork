@@ -14,10 +14,13 @@ Exo-GPU handles this problem by introducing ``managed ring buffers'', where the 
 There is a hidden \lighttt{consumption} variable for each managed ring buffer that coordinates the handoff between subsequent users of the buffer.
 
 An allocation is a managed ring buffer iff one dimension is annotated with \lighttt{ring\_buffer\_by}.
+This is the \myKeyA{managed ring buffer dimension}.
 Currently, these allocations must be CUDA SMEM or mbarrier allocations.
 
 To make this safe, we ``guard'' each managed ring buffer using mbarriers (Section~\ref{sec:MbarrierUsage}).
 Data allocations require an explicit \lighttt{.ring\_guarded\_by} annotation; barriers do not (they guard themselves).
+The intent of this is to establish an implicit contract between the programmer and the underlying SMEM allocator.
+The requirements of Section~\ref{sec:ManagedRingBufferSync} enforce that the program arrives on an mbarrier to relinquish usage of a certain ring buffer slot, then awaits on the same physical mbarrier to gain permission to use another ring buffer slot aliased to the one previously relinquished.
 
 \mainKey{Scheduling Functions:}
 
@@ -28,14 +31,6 @@ Data allocations require an explicit \lighttt{.ring\_guarded\_by} annotation; ba
 \texttt{insert\_barrier\_alloc(\codecomment{...}, CudaMbarrierPreArrive(\codecomment{...}), ring\_dim\_idx, ring\_depth)}
 
 \input{spork_b/ManagedRingBufferIndexing.tex}
-
-\begin{figure}[t!]
-\codehrule
-\input{b_samples/managed_ring_buffer.0.tex}
-\label{fig:managed_ring_buffer}
-\caption{Minimal example of managed ring buffer usage}
-\codehrule
-\end{figure}
 
 \input{spork_b/ManagedRingBufferSync.tex}
 

@@ -12,9 +12,35 @@ During codegen, we do the following rewrites:
   \item Rewrite the physical extent of the managed ring buffer dimension to \lighttt{ring\_depth}.
   \item Rewrite values \lighttt{idx} that index the managed ring buffer dimension to \lighttt{offset\_idx \% ring\_depth},
     with \lighttt{offset\_idx = idx + consumption - pre\_arrive}.
+    This is the mapping from the \myKeyA{logical ring buffer slot index} to the \myKeyA{physical ring buffer slot index}.
   \item Insert \lighttt{consumption += ring\_logical\_extent - pre\_arrive} immediately after the free.
   \item For mbarriers, the parity for the \lighttt{Await} is given by \lighttt{offset\_idx / ring\_depth \% 2}.
-  \item Skip Arrive/Await for mbarriers where \lighttt{offset\_idx < 0}.
+  \item Awaits for mbarriers where \lighttt{offset\_idx < 0} are no-ops.
 \end{itemize}
 
 Extents and indices on other dimensions are not modified.
+
+The intention of these rules is to make it so
+\begin{itemize}
+  \item For a given data allocation $x$, assume that the index of the last logical slot used is \lighttt{ring\_logical\_extent - 1}.
+    Then, the $0^{th}$ logical ring buffer slot of the next $x$ allocation on the same CTA will be mapped to the physical ring buffer slot subsequent to the last physical ring buffer slot used by the previous $x$ allocation.
+  \item For a given mbarrier variable $z$, the initial allocation of $z$ on a given CTA will have \lighttt{Await} be no-ops for barriers in the first \lighttt{pre\_arrive}-many logical ring buffer slots.
+  \item For a given mbarrier variable $z$, consider two consecutive allocations $z_0$ and $z_1$ (disjoint in time) of $z$ on a given CTA.
+    The same physical mbarriers will be used for arrives on the last \lighttt{pre\_arrive}-many logical ring buffer slots of $z_0$ and the first \lighttt{pre\_arrive}-many logical ring buffer slots of $z_1$.
+    This is what makes sharing SMEM across device tasks safe: the tasks covertly communicate using two different logical allocations of the $z$ variable that are aliased to the same physical state.
+  \item The parity of all \lighttt{Await} statement instances executed for a physical mbarrier will alternate.
+  \item We rely on the one-shot arrive requirement for mbarriers (Section~\ref{sec:MbarrierUsage}) to ensure the parity actually flips as expected.
+    Otherwise, the \lighttt{consumption} update will skip over logical ring buffer slots that were not actually used.
+    Futhermore, this requirement is what makes the \lighttt{pre\_arrive} work.
+    We statically assume the arrive actually happened on a previous allocation.
+\end{itemize}
+
+See Figure~\ref{fig:managed_ring_buffer} for example code.
+
+\begin{figure}[t!]
+\codehrule
+\input{b_samples/managed_ring_buffer.0.tex}
+\caption{Minimal example of managed ring buffer usage}
+\label{fig:managed_ring_buffer}
+\codehrule
+\end{figure}

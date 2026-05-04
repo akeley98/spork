@@ -21,7 +21,7 @@ For example, an allocation\\
 (with \blacktt{z: barrier[A + ring\_depth, B]})\\
 will have for each \blacktt{x[a, b, c]}
 \begin{itemize}
-  \item guard barriers being the multicast group of \blacktt{z[a, b]} (if no multicasting, the group is \blacktt{z[a, b]} alone)
+  \item guard barriers being the multicast group of \blacktt{z[a, b]} (No multicasting? This is \blacktt{z[a, b]} alone)
   \item free-on-arrive barrier \blacktt{z[a + ring\_depth, b]}.
 \end{itemize}
 

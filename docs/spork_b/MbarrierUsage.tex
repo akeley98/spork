@@ -11,7 +11,7 @@ The second synchronization timeline $\tau_s^\mathrm{post}$ for the \lighttt{Awai
 (Avoid using \lighttt{cuda\_generic\_or\_async\_proxy} unless required; in particular guarding against write-after-read (WAR) hazards for a producer warp using TMA requires only \lighttt{cuda\_temporal} for the producer warp's \lighttt{Await}).
 For TMA-to-SMEM instructions, use a trailing barrier expression for the instruction directly (Section~\ref{sec:Tma}).
 
-An implicit \lighttt{Arrive(empty\_sync\_tl)} occurs immediately after allocation for each barrier array element whose index on the managed ring buffer dimension (def~\ref{gManagedRingBuffer}) is less than \lighttt{pre\_arrive}.
+An implicit \lighttt{Arrive(empty\_sync\_tl)} occurs immediately after allocation for each barrier array element whose index on the managed ring buffer dimension (def~\ref{sec:gManagedRingBuffer}) is less than \lighttt{pre\_arrive}.
 For the base class \lighttt{CudaMbarrier}, \lighttt{pre\_arrive=0}.
 
 \mainKey{Statically-checked Requirements:}
@@ -28,8 +28,6 @@ For the base class \lighttt{CudaMbarrier}, \lighttt{pre\_arrive=0}.
 \begin{itemize}
   \item One-shot arrive: arrive count for each barrier element must be 1 at the end of its lifetime.
 \end{itemize}
-
-\redBox{TODO} need to talk about managed ring buffers.
 
 % multicast, guarding, hidden ring buffer & why ...
 
