@@ -40,9 +40,9 @@ This means the last few barrier array elements may have no free-on-arrive barrie
 \redBox{Note:} this introduces a blind spot where mbarrier usage may be unsafe due to interactions across different device tasks, due to usage patterns that are not problematic when analyzing device tasks in isolation.
 
 \mainKey{Await Requirement:} Must await for at least one of the guard barriers of $x[j^*]$ before any reads, mutates, or sync statement instances referencing $x[j^*]$, unless there are no guard barriers.
-This is enforced in the abstract machine by adding a special \textsf{VisRecord} upon allocation (Section~\ref{sec:SyncSemanticsManagedRingBuffer}).
+This is enforced in the abstract machine by adding a special \textsf{VisRecord} upon allocation, with an empty visibility set (Section~\ref{sec:SyncSemanticsManagedRingBuffer}).
 
-\mainKey{Arrive Requirement:} If a free-on-arrive barrier exists for $x[j^*]$, must arrive on the free-on-arrive barrier after all reads, mutates, and sync statement instances referencing $x[j^*]$.
+\mainKey{Arrive Requirement:} If a free-on-arrive barrier exists for $x[j^*]$, the program must arrive on the free-on-arrive barrier after all reads, mutates, and sync statement instances referencing $x[j^*]$.
 Executed statements must not reference $x[j^*]$ after the arrive.
-This is enforced in sync-check by abstract machine semantics upon free (Section~\ref{sec:ChecksOnFree}).
+This is enforced by the abstract machine semantics upon free (Section~\ref{sec:ChecksOnFree}).
 The abstract machine checks for a mandatory pending await (def~\ref{sec:gPendingAwait}) referencing the free-on-arrive barrier, which will be missing for any reads or mutates that were not guaranteed to retire before the \lighttt{Arrive} in question.

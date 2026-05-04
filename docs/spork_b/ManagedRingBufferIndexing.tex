@@ -12,7 +12,7 @@ During codegen, we do the following rewrites:
   \item Rewrite the physical extent of the managed ring buffer dimension to \lighttt{ring\_depth}.
   \item Rewrite values \lighttt{idx} that index the managed ring buffer dimension to \lighttt{offset\_idx \% ring\_depth},
     with \lighttt{offset\_idx = idx + consumption - pre\_arrive}.
-  \item Insert \lighttt{consumption += ring\_logical\_extent - pre\_arrive} immediately after the free
+  \item Insert \lighttt{consumption += ring\_logical\_extent - pre\_arrive} immediately after the free.
   \item For mbarriers, the parity for the \lighttt{Await} is given by \lighttt{offset\_idx / ring\_depth \% 2}.
   \item Skip Arrive/Await for mbarriers where \lighttt{offset\_idx < 0}.
 \end{itemize}

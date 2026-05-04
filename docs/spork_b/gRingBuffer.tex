@@ -1,3 +1,9 @@
 \magicSubsection{Ring Buffer}{sec:gRingBuffer}
 
-TODO
+We have two ways to implement ring buffering in Exo-GPU.
+
+The standard way is to set the extent of the ring buffered dimension to some constant \lighttt{ring\_depth}, and index that dimension with \lighttt{iter \% ring\_depth}.
+
+A new way is to use managed ring buffers (Section~\ref{sec:ManagedRingBuffers}).
+This makes the modular arithmetic no longer explicit.
+This was introduced to allow graceful re-use of ring buffers between subsequent device tasks mapped to the same CUDA cluster for execution.
