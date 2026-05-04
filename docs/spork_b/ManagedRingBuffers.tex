@@ -1,6 +1,6 @@
 \magicSection{Managed Ring Buffers}{sec:ManagedRingBuffers}
 
-In general, the mapping between device tasks and CUDA clusters (Section~\ref{sec:gCluster}) is unpredictable.
+In general, the mapping between device tasks (def~\ref{sec:gDeviceTask}) and CUDA clusters (def~\ref{sec:gCluster}) is unpredictable.
 This poses difficulties for expressing ring buffer usage, and more generally, coordinating shared memory usage between subsequent device tasks assigned to the same CUDA cluster (persistent kernel).
 
 Frequently, the last ring buffer slot used for a given device task may not be the last physical slot.
