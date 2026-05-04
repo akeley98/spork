@@ -1,14 +1,14 @@
 \magicSubsection{Managed Ring Buffer Allocation}{sec:SyncSemanticsManagedRingBuffer}
 
-Upon allocating a managed ring buffer, for each array element $x[j^*]$ with a non-empty guard barriers set $G$ (Section~\ref{sec:ManagedRingBufferSync}), create a new \textsf{VisRecord} $r$ (Section~\ref{sec:VisRecordState}) with
+Upon allocating a managed ring buffer, for each array element $x[j^*]$ with a non-empty guard barriers set $G$ (Section~\ref{sec:ManagedRingBufferSync}), and with $Q$ being the qualitative timeline mask of $x$'s memory type or barrier mechanism, create a new \textsf{VisRecord} $r$ (Section~\ref{sec:VisRecordState}) with
 \begin{align*}
   & r.s = \{\} \\
   & r.p(z, k^*) = \begin{cases}
     0 & \text{ if } z[k^*] \in G \\
     \infty & \text{ otherwise}
-  \end{cases}
+  \end{cases} \\
+  & r.Q = Q
 \end{align*}
-
 Then, update the synchronization environment (Section~\ref{sec:SyncEnv}) by adding $r$ to the mutate visibility records of $x[j^*]$.
 
 Since the visibility set $r.s$ is empty, this has the effect of forbidding any usage of $x[j^*]$ in mutates, reads, and sync statements, until an await on one of the barriers in $G$ is executed.

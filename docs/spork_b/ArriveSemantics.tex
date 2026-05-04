@@ -11,7 +11,7 @@ For a given statement \texttt{Arrive($\tau_s^\mathrm{post}$) >> $e^*$}, with
 define $\lambda_\mathrm{Arrive}: \mathsf{VisRecord} \to \mathsf{VisRecord}$ as
 \begin{equation*}
     \lambda_\mathrm{Arrive}(r) = \begin{cases}
-        (r.s, \textrm{min}(r.p,\, p')
+        (r.s, \textrm{min}(r.p,\, p'), r.Q)
         & \text{ if } \mathcal{W}(g^*, \tau_s^\mathrm{pre}.\mathrm{full}, r) \\
         r & \text{ otherwise }
     \end{cases}

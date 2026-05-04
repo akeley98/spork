@@ -1,12 +1,13 @@
 \magicSubsection{VisRecord State}{sec:VisRecordState}
 
-Each visibility record $r$ is a pair of type $\mathcal{P}(\mathsf{TlSig}) \times \mathcal{P}(\mathbb{P})$, with the two elements being
+Each visibility record $r$ is a tuple of type $\mathcal{P}(\mathsf{TlSig}) \times \mathcal{P}(\mathbb{P}) \times \mathcal{P}(\textsf{QualTL})$, with the elements being
 \begin{itemize}
   \item The \myKeyA{visibility set} (def~\ref{sec:gVisSet}), denoted $r.s$, which is a set of timeline signatures $\mathsf{TlSig} \Coloneqq \mathbb{G} \times \mathsf{QualTL} \times \mathsf{VF}$; these being a global thread ID (def~\ref{sec:gGlobalThreadID}), a qualitative timeline (def~\ref{sec:gQualTL}), and a \myKeyA{visibility flag} (def~\ref{sec:gVisFlag}), which is one of $\mathsf{VF_{atom}}$ (atomic-only), $\mathsf{VF_{temp}}$ (temporal), $\mathsf{VF_{full}}$, or $\mathsf{VF_{issue}}$.
   The visibility set is conditionally augmented (Section~\ref{sec:Augment}) with more timeline signatures as a result of \lighttt{Fence} and \lighttt{Await} statements.
   \item The \myKeyA{pending await} function (def~\ref{sec:gPendingAwait}), denoted $r.p$.
   This is a function of type $\mathbb{B} \times \mathbb{Z}^* \to \mathbb{Z} \cup \{\infty\}$, which maps barrier array elements to a ``minimum arrive count''.
   This mediates the interaction between paired \lighttt{Arrive} statement instances (Section~\ref{sec:ArriveSemantics}) and \lighttt{Await} statement instances (Section~\ref{sec:AwaitSemantics}).
+  \item The \myKeyA{qualitative timeline mask}, denoted $r.Q$, which comes from the memory type or barrier mechanism.
 \end{itemize}
 
 This is a different formulation than the PLDI paper; see the reference section (def~\ref{sec:gVisSet}, def~\ref{sec:gPendingAwait}) for more information.

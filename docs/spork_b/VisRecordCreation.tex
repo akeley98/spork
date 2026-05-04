@@ -26,6 +26,7 @@ The new visibility records $r^*$ are initialized based on
   \item the out-of-order flag (Section~\ref{sec:InstrOOO})
   \item the initial qualitative timeline $q$ (Section~\ref{sec:InstrTL}) of the access.
   \item the set of barrier array elements referenced by the trailing barrier expression (Section~\ref{sec:InstrTrailingBarrierExpr}); this is empty for non-instr accesses or instrs without a trailing barrier expression.
+  \item the qualitative timeline mask $Q$, queried from the memory type or barrier mechanism of the array element referenced.
 \end{itemize}
 
 Define $r = \mathsf{NewVisRecord}(g^*)$ as having a visibility set $r.s$ that is the union of
@@ -41,6 +42,7 @@ and a pending await function $r.p$ that is based off the arrive count (Section~\
       \infty & \text{ otherwise (always the case, if there's no trailing barrier expression)}
     \end{cases}
 \end{equation*}
+and qualitative timeline mask $r.Q = Q$.
 
 If the access is convergent (Section~\ref{sec:InstrConvergentAccess}), $r^*$ contains a single visibility record:
 \begin{equation*}
