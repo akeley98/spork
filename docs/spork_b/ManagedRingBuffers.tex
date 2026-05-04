@@ -1,0 +1,43 @@
+\magicSection{Managed Ring Buffers}{sec:ManagedRingBuffers}
+
+In general, the mapping between device tasks and CUDA clusters is unpredictable.
+This poses difficulties for expressing ring buffer usage, and more generally, coordinating shared memory usage between subsequent device tasks assigned to the same CUDA cluster (persistent kernel).
+
+Frequently, the last ring buffer slot used for a given device task may not be the last physical slot.
+To minimize latency, the next device task will start off using the least-recently-used ring buffer slot, instead of physical slot 0.
+
+For example, if a kernel uses 5 ring buffer slots, and the ring buffer has depth 3, then the first device task on a CUDA cluster will use ring buffer slots in sequence \texttt{[0, 1, 2, 0, 1]}.
+The next device task on the cluster will use ring buffer slots in sequence \texttt{[2, 0, 1, 2, 0]}.
+
+We cannot express this within the limitations of Exo's indexing restrictions, since the device task / cluster mapping relies on runtime values.
+Exo-GPU handles this problem by introducing ``managed ring buffers'', where the modular arithmetic for the ring buffering is hidden in the implementation, rather than explicitly in the object language.
+There is a hidden \lighttt{consumption} variable for each managed ring buffer that coordinates the handoff between subsequent users of the buffer.
+
+An allocation is a managed ring buffer iff one dimension is annotated with \lighttt{ring\_buffer\_by}.
+Currently, these allocations must be CUDA SMEM or mbarrier allocations.
+
+To make this safe, we ``guard'' each managed ring buffer using mbarriers (Section~\ref{sec:MbarrierUsage}).
+Data allocations require an explicit \lighttt{.ring\_guarded\_by} annotation; barriers do not (they guard themselves).
+
+\mainKey{Scheduling Functions:}
+
+\texttt{set\_dim\_size\_annotation(\codecomment{...}, dim\_idx, ring\_buffer\_by(\codecomment{...}))}
+
+\texttt{set\_ring\_guarded\_by(\codecomment{...}, modify\_cursor, guarded\_by\_cursor)}
+
+\texttt{insert\_barrier\_alloc(\codecomment{...}, CudaMbarrierPreArrive(\codecomment{...}), ring\_dim\_idx, ring\_depth)}
+
+\input{spork_b/ManagedRingBufferIndexing.tex}
+
+\begin{figure}[t!]
+\codehrule
+\input{b_samples/managed_ring_buffer.0.tex}
+\label{fig:managed_ring_buffer}
+\caption{Minimal example of managed ring buffer usage}
+\codehrule
+\end{figure}
+
+\input{spork_b/ManagedRingBufferSync.tex}
+
+\newpage
+\FloatBarrier

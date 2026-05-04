@@ -1,6 +1,7 @@
 from __future__ import annotations
 from exo import *
 from exo.platforms.cuda import *
+from exo.platforms.Sm90 import *
 
 M = 13
 N = 37
@@ -316,3 +317,50 @@ if False:
         for cta_m in cuda_threads(0, ncta_M, unit=cuda_cta_in_cluster):
           Arrive(cuda_temporal) >> raw[cta_m, :, k] >> raw[:, cta_n, k]
       # TeX: end multicast_tma_excerpt[0]
+
+
+ring_depth = 4
+
+
+@proc
+def managed_ring_buffer(num_tasks: size, num_iters: size):
+    with CudaDeviceFunction(blockDim=256):
+        # TeX: version managed_ring_buffer 1
+        # TeX: begin managed_ring_buffer[0]
+        for task in cuda_tasks(0, num_tasks):
+            # Write-after-read barrier (allow safe aliasing of ring buffer)
+            # TeX: color line *
+          # bbb                       gggggggggg                   gggggggggg
+            war: barrier[(num_iters + ring_depth) @ ring_buffer_by(ring_depth)
+            # TeX: color line *
+            #                             gggggggggg
+                ] @ CudaMbarrierPreArrive(ring_depth)
+            # TeX: color line *
+            #                                     gggggggggg
+            smem: bf16[num_iters @ ring_buffer_by(ring_depth), 256, 64
+            # TeX: color line *
+            #                     bbb
+                ].ring_guarded_by(war) @ Sm90_SmemSwizzled(128)
+
+            for iter in seq(0, num_iters):
+                # This passes when iter < ring_depth despite no explicit Arrive
+                # on war[iter] due to CudaMbarrierPreArrive(ring_depth).
+                # NOTE: it's not always the case that pre_arrive=ring_depth.
+                # Often, pre_arrive=0. In the gemm ping-pong epilogue, pre_arrive=1.
+                Await(war[iter], cuda_in_order, 0)
+                # Placeholder SMEM usage; must be executed between suitable Await/Arrive.
+                for tid in cuda_threads(0, 256):
+                    # TeX: color line *
+                    #          ...  .    .
+                    smem[iter, tid, 0] = 0
+                # iter + ring_depth: release smem[iter, :, :] for use as
+                # physical memory of iteration (iter + ring_depth).
+                # NOTE: no Arrive executed for war[0] ... war[ring_depth - 1]
+                # TeX: color line *
+                #           ggggggggggggggggggggggggggggggggg
+                # hence the CudaMbarrierPreArrive(ring_depth) barrier mechanism.
+                Arrive(cuda_in_order) >> war[iter + ring_depth]
+                # TeX: end managed_ring_buffer[0]
+
+
+managed_ring_buffer.sync_check(num_tasks=20, num_iters=11)

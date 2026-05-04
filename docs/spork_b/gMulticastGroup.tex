@@ -1,0 +1,14 @@
+\magicSubsection{Multicast Group}{sec:gMulticastGroup}
+
+For a given barrier array element $z[j^*]$, suppose that it is the home barrier (def~\ref{sec:gHomeBarrier}) of an instance of an \lighttt{Arrive} statement.
+Then the \myKeyA{multicast group} of that barrier array element is the set of all barrier array elements referenced by that statement instance.
+
+For example, if the multicasts of $z$ are \lighttt{((True, False, False), (False, True, False))}, as would be the case if an \lighttt{Arrive} statement using $z$ looks like
+
+\texttt{~~~~Arrive(\codecomment{...}) >> z[:, n\_cta, k] >> z[m\_cta, :, k]}
+
+and the extents of $z$ are \texttt{[2, 4, 8]}, then the multicast group of $z$\texttt{[0, 1, 7]} is
+
+$z$\texttt{[0, 1, 7]}, $z$\texttt{[1, 1, 7]}, $z$\texttt{[0, 0, 7]}, $z$\texttt{[0, 2, 7]}, $z$\texttt{[0, 3, 7]}.
+
+This is uniquely defined, given the multicasts (def~\ref{sec:gMulticasts}) of a given split barrier in well-defined (Section~\ref{sec:SplitBarrierBasic}).

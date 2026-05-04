@@ -1,0 +1,48 @@
+\magicSubsection{Managed Ring Buffer Sync}{sec:ManagedRingBufferSync}
+
+Each element of a managed ring buffer has associated \myKeyA{guard barriers} and an optional \myKeyA{free-on-arrive} barrier.
+These respectively describe the awaits and arrives expected.
+
+\mainKey{SMEM Data Allocations:} Let $x[j^*]$ be an element of the managed ring buffer data allocation.
+Let $z$ be the barrier variable named by the \lighttt{.ring\_guarded\_by($z$)} of the $x$ allocation.
+
+With $Z$ being the dimensionality of $z$, let $j_z^*$ be the first $Z$ coordinates of $j^*$.
+Let $\widehat{u}$ be a $Z$-dimensional unit vector with 1 on the managed ring buffer dimension.
+This managed ring buffer dimension must agree between $x$ and $z$.
+Then $x[j^*]$ has
+\begin{itemize}
+  \item guard barriers being the multicast group of $z[j_z^*]$ (def~\ref{sec:gMulticastGroup})
+  \item free-on-arrive barrier $z[j_z^* + (\texttt{ring\_depth}) \widehat{u}]$.
+\end{itemize}
+
+
+For example, an allocation\\
+\blacktt{x: dtype[A.ring\_buffer\_by(ring\_depth), B, C].ring\_guarded\_by(z)}\\
+(with \blacktt{z: barrier[A + ring\_depth, B]})\\
+will have for each \blacktt{x[a, b, c]}
+\begin{itemize}
+  \item guard barriers being the multicast group of \blacktt{z[a, b]} (if no multicasting, the group is \blacktt{z[a, b]} alone)
+  \item free-on-arrive barrier \blacktt{z[a + ring\_depth, b]}.
+\end{itemize}
+
+There must be no out-of-range barrier array elements referenced in the above calculations.
+
+\mainKey{mbarrier Allocations:} Let $z[j^*]$ be an element of a managed ring buffer barrier allocation.
+With $Z$ being the dimensionality of $z$, let $\widehat{u}$ be a $Z$-dimensional unit vector with 1 on the managed ring buffer dimension.
+Then $z[j^*]$ has
+\begin{itemize}
+  \item guard barriers being the multicast group of $z[j^* - (\texttt{ring\_depth}) \widehat{u}]$ (def~\ref{sec:gMulticastGroup})
+  \item free-on-arrive barrier $z[j^* + (\texttt{ring\_depth}) \widehat{u}]$.
+\end{itemize}
+
+Out-of-range array elements are removed in the above calculations.
+This means the last few barrier array elements may have no free-on-arrive barrier.
+\redBox{Note:} this introduces a blind spot where mbarrier usage may be unsafe due to interactions across different device tasks, due to usage patterns that are not problematic when analyzing device tasks in isolation.
+
+\mainKey{Await Requirement:} Must await for at least one of the guard barriers of $x[j^*]$ before any reads, mutates, or sync statement instances referencing $x[j^*]$, unless there are no guard barriers.
+This is enforced in the abstract machine by adding a special \textsf{VisRecord} upon allocation (Section~\ref{sec:SyncSemanticsManagedRingBuffer}).
+
+\mainKey{Arrive Requirement:} If a free-on-arrive barrier exists for $x[j^*]$, must arrive on the free-on-arrive barrier after all reads, mutates, and sync statement instances referencing $x[j^*]$.
+Executed statements must not reference $x[j^*]$ after the arrive.
+This is enforced in sync-check by abstract machine semantics upon free (Section~\ref{sec:ChecksOnFree}).
+The abstract machine checks for a mandatory pending await (def~\ref{sec:gPendingAwait}) referencing the free-on-arrive barrier, which will be missing for any reads or mutates that were not guaranteed to retire before the \lighttt{Arrive} in question.

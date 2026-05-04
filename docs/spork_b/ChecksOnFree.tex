@@ -1,6 +1,6 @@
 \magicSubsection{Checks on Free}{sec:ChecksOnFree}
 
-Variables stored in shared memory that are not managed rign buffers (def~\ref{sec:gManagedRingBuffer}) must currently be allocated and freed at \lighttt{cuda\_cluster} scope (def~\ref{sec:gCollUnit}).
+\mainKey{SMEM, not managed ring buffer:} Variables stored in shared memory that are not managed ring buffers (def~\ref{sec:gManagedRingBuffer}) must currently be allocated and freed at \lighttt{cuda\_cluster} scope (def~\ref{sec:gCollUnit}).
 For such variables, upon free, we perform the same checks as for a non-atomic write-only access (Section~\ref{sec:ChecksOnMutate}) with
 \begin{itemize}
   \item $g^* = g_{s^\#}(\iota, \sigma)$ being the thread collective assigned to execute the free statement (Section~\ref{sec:SyncSemanticsThreadMapping})
@@ -8,8 +8,16 @@ For such variables, upon free, we perform the same checks as for a non-atomic wr
   \item the convergence flag $t$ being false
 \end{itemize}
 
-When barrier variables are freed, the arrive count (Section~\ref{sec:SyncEnv}) must be 1 if the barrier mechanism has the one-shot arrive requirement (e.g. \lighttt{CudaClusterSync}, Section~\ref{sec:ClusterSyncUsage}).
-Similarly, the await count must be 1 for the one-shot await requirement.
+\mainKey{Managed Ring Buffer:} When managed ring buffers are freed, for each array element $x[j^*]$ that has a free-on-arrive barrier $z[k^*]$ (Section~\ref{sec:ManagedRingBufferSync}), check that the pending await function (Section~\ref{sec:VisRecordState}) of each read and mutate \textsf{VisRecord} has a non-infinity pending await referencing $z[k^*]$.
+i.e., require
+\begin{align*}
+  & \forall r \in \rho(x, j^*).r, r.p(z, k^*) \ne \infty \\
+  & \forall r \in \rho(x, j^*).m, r.p(z, k^*) \ne \infty
+\end{align*}
+Note, camspork additionally clears the visibility set and pending awaits of each \textsf{VisRecord} of $x[j^*]$ immediately after the \lighttt{Arrive} on $z[k^*]$ is executed.
+This is to issue the error message earlier, closer to the source of the issue.
 
-\FloatBarrier
-\newpage
+\mainKey{Barrier:} When barrier variables are freed, the arrive count (Section~\ref{sec:SyncEnv}) must be 1 if the barrier mechanism has the one-shot arrive requirement (e.g. \lighttt{CudaClusterSync}, Section~\ref{sec:ClusterSyncUsage}).
+Similarly, the await count must be 1 for the one-shot await requirement.
+For mbarriers, this is in addition to the managed ring buffer free checks.
+

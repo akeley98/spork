@@ -46,6 +46,10 @@ Sharding tensor and barrier allocations onto different groups of threads.
 
 \lighttt{Fence}, \lighttt{Arrive}, \lighttt{Await}, barrier mechanisms, home barrier, guarding, timelines.
 
+\myChapterLink{sec:ManagedRingBuffers}{Managed Ring Buffers}
+
+``Implicit'' ring buffering, \lighttt{@ ring\_buffer\_by}, \lighttt{ring\_guarded\_by}
+
 \myChapterLink{sec:SyncSemantics} {Synchronization Semantics}
 
 Abstract machine semantics, how to read sync-check (\lighttt{camspork}) errors.
@@ -63,6 +67,7 @@ Instruction templates, timelines, atomic instructions, TMA, special window (\lig
 \input{spork_b/CollTiling.tex}
 \input{spork_b/DistributedMemory.tex}
 \input{spork_b/SyncUsage.tex}
+\input{spork_b/ManagedRingBuffers.tex}
 \input{spork_b/SyncSemantics.tex}
 \input{spork_b/Instr.tex}
 \input{spork_b/Glossary.tex}

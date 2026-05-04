@@ -4,12 +4,15 @@ A barrier variable $z$ with mbarrier barrier mechanism may be declared with
 
 \texttt{$z$: barrier[$e^*$] @ CudaMbarrierPreArrive(\codecomment{...})}
 
-\texttt{insert\_barrier\_alloc(\codecomment{...}, $z$, [$e^*$], CudaMbarrierPreArrive(\codecomment{...}), \codecomment{...})}
+\texttt{insert\_barrier\_alloc(\codecomment{...}, $z$, [$e^*$], CudaMbarrierPreArrive(pre\_arrive), \codecomment{...})}
 
 The first synchronization timeline (def~\ref{sec:gSyncTL}) $\tau_s^\mathrm{pre}$ for the \lighttt{Arrive} should be \lighttt{cuda\_in\_order}, \lighttt{Sm80\_cp\_async}, or \lighttt{cuda\_temporal}.
 The second synchronization timeline $\tau_s^\mathrm{post}$ for the \lighttt{Await} should be \lighttt{cuda\_in\_order}, \lighttt{cuda\_generic\_or\_async\_proxy}, or \lighttt{cuda\_temporal}.
 (Avoid using \lighttt{cuda\_generic\_or\_async\_proxy} unless required; in particular guarding against write-after-read (WAR) hazards for a producer warp using TMA requires only \lighttt{cuda\_temporal} for the producer warp's \lighttt{Await}).
 For TMA-to-SMEM instructions, use a trailing barrier expression for the instruction directly (Section~\ref{sec:Tma}).
+
+An implicit \lighttt{Arrive(empty\_sync\_tl)} occurs immediately after allocation for each barrier array element whose index on the managed ring buffer dimension (def~\ref{gManagedRingBuffer}) is less than \lighttt{pre\_arrive}.
+For the base class \lighttt{CudaMbarrier}, \lighttt{pre\_arrive=0}.
 
 \mainKey{Statically-checked Requirements:}
 \begin{itemize}
@@ -18,6 +21,7 @@ For TMA-to-SMEM instructions, use a trailing barrier expression for the instruct
   \item \lighttt{Await} must use $n = 0$.
   \item The barrier allocation must pass distributed memory analysis (Section~\ref{sec:DistributedMemory}) with native unit \lighttt{cuda\_cta\_in\_cluster}.
   \item Each \lighttt{Arrive} statement for a given variable $z$ must have the same number of threads in its executing thread collective (def~\ref{sec:gThreadCollective}).
+  \item Must be a managed ring buffer (Section~\ref{sec:ManagedRingBuffers})
 \end{itemize}
 
 \mainKey{Abstract Machine Requirements:}

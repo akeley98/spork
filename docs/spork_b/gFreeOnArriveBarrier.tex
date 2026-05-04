@@ -1,0 +1,10 @@
+\magicSubsection{Free-on-arrive Barrier}{sec:FreeOnArriveBarrier}
+
+Barrier array element associated with elements of managed ring buffers, as described by Section~\ref{sec:ManagedRingBufferSync}.
+
+The abstract machine requires that all reads and mutates eventually synchronize-with the \lighttt{Arrive} on the free-on-arrive barrier, thus causing a pending await (def~\ref{sec:gPendingAwait}) referencing the free-on-arrive barrier to be added.
+This is checked on free (Section~\ref{sec:ChecksOnFree}).
+This, along with the ``Await on guard barrier'' requirement, is to make aliasing different logical array elements to the same physical ring buffer memory safe.
+
+% >G
+

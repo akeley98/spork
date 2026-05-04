@@ -1,0 +1,20 @@
+\magicSubsection{Managed Ring Buffer Indexing}{sec:ManagedRingBufferIndexing}
+
+The \lighttt{consumption} value for a managed ring buffer is tracked per-CTA, and persists for the lifetime of the kernel.
+It is initially 0, and not reset for each new device task.
+
+Let \lighttt{ring\_logical\_extent @ ring\_buffer\_by(ring\_depth)} be the extent of the managed ring buffer dimension.
+For data allocations, let \lighttt{pre\_arrive = 0}.
+For mbarrier allocations, \lighttt{pre\_arrive} is the parameter to \lighttt{CudaMbarrierPreArrive}.
+During codegen, we do the following rewrites:
+
+\begin{itemize}
+  \item Rewrite the physical extent of the managed ring buffer dimension to \lighttt{ring\_depth}.
+  \item Rewrite values \lighttt{idx} that index the managed ring buffer dimension to \lighttt{offset\_idx \% ring\_depth},
+    with \lighttt{offset\_idx = idx + consumption - pre\_arrive}.
+  \item Insert \lighttt{consumption += ring\_logical\_extent - pre\_arrive} immediately after the free
+  \item For mbarriers, the parity for the \lighttt{Await} is given by \lighttt{offset\_idx / ring\_depth \% 2}.
+  \item Skip Arrive/Await for mbarriers where \lighttt{offset\_idx < 0}.
+\end{itemize}
+
+Extents and indices on other dimensions are not modified.

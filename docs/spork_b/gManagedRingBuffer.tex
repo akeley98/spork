@@ -1,3 +1,16 @@
-\magicSubsection{Managed Ring Buffer}{sec:gManagedRingBuffer}
+\magicSubsection{Managed Ring Buffer (Dimension)}{sec:gManagedRingBuffer}
 
-TODO
+See Section~\ref{sec:ManagedRingBuffers}.
+
+An allocation that has a single dimension annotated with \lighttt{@ring\_buffer\_by(ring\_depth)}.
+That dimension is the \myKeyA{managed ring buffer dimension}.
+The implementation implicitly rewrites that dimension to have physical extent \lighttt{ring\_depth}, and aliases different elements of the allocation into the same physical memory.
+Currently, such allocations require awaiting and arriving on mbarriers (Section~\ref{sec:MbarrierUsage}) to make this aliasing safe.
+
+Scheduling functions:
+
+\texttt{set\_dim\_size\_annotation(\codecomment{...}, dim\_idx, ring\_buffer\_by(\codecomment{...}))}
+
+\texttt{set\_ring\_guarded\_by(\codecomment{...}, modify\_cursor, guarded\_by\_cursor)}
+
+\texttt{insert\_barrier\_alloc(\codecomment{...}, CudaMbarrierPreArrive(\codecomment{...}), ring\_dim\_idx, ring\_depth)}

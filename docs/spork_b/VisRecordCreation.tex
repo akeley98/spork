@@ -1,5 +1,7 @@
 \magicSubsection{VisRecord Creation}{sec:VisRecordCreation}
 
+(For the special \textsf{VisRecord} created for managed ring buffers, see Section~\ref{sec:SyncSemanticsManagedRingBuffer})
+
 Each read, mutate, \lighttt{Arrive}, or \lighttt{Await} statement instance that references an array element $x[n^*]$ or $z[n^*]$ in non-sync-exempt (def~\ref{sec:gSyncExempt}) memory causes a new set of visibility records $r^*$ (to be defined) to be associated with $\rho(x, n^*)$ or $\rho(z, n^*)$.
 Instruction call instances (Section~\ref{sec:InstrMemoryAccess}) are decomposed to separate read and mutate effects.
 For brevity we will omit the $z$ case in the following description.
