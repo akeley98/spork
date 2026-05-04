@@ -10,5 +10,4 @@ The augment function $\mathcal{A}: \mathsf{VisRecord} \to \mathcal{P}(\mathbb{G}
     \mathcal{A}(r, g^*, \tau_s^\mathrm{post}.\mathrm{full}, \tau_s^\mathrm{post}.\mathrm{temp}) = (r.s\cup \mathcal{A}_\mathrm{full} \cup \mathcal{A}_\mathrm{temp}, r.p, r.Q)
 \end{equation*}
 
-The purpose of the qual-tl mask $r.Q$ is to avoid adding qualitative timelines (def~\ref{sec:gQualTL}) that are not relevant for the memory type.
-If this masking isn't done, unintended transitive synchronzation may occur (this is particularly a danger for \lighttt{cuda\_mbarrier\_qual}).
+The purpose of the qual-tl mask $r.Q$ (def~\ref{sec:gQualTLMask}) is to avoid adding qualitative timelines (def~\ref{sec:gQualTL}) that are not relevant for the memory type.

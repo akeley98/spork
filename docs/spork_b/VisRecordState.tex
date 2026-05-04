@@ -7,7 +7,7 @@ Each visibility record $r$ is a tuple of type $\mathcal{P}(\mathsf{TlSig}) \time
   \item The \myKeyA{pending await} function (def~\ref{sec:gPendingAwait}), denoted $r.p$.
   This is a function of type $\mathbb{B} \times \mathbb{Z}^* \to \mathbb{Z} \cup \{\infty\}$, which maps barrier array elements to a ``minimum arrive count''.
   This mediates the interaction between paired \lighttt{Arrive} statement instances (Section~\ref{sec:ArriveSemantics}) and \lighttt{Await} statement instances (Section~\ref{sec:AwaitSemantics}).
-  \item The \myKeyA{qualitative timeline mask}, denoted $r.Q$, which comes from the memory type or barrier mechanism.
+  \item The \myKeyA{qualitative timeline mask} (def~\ref{sec:gQualTLMask}), denoted $r.Q$, which comes from the memory type or barrier mechanism.
 \end{itemize}
 
 This is a different formulation than the PLDI paper; see the reference section (def~\ref{sec:gVisSet}, def~\ref{sec:gPendingAwait}) for more information.

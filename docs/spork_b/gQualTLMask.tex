@@ -1,0 +1,8 @@
+\magicSubsection{Qualitative Timeline Mask}{sec:gQualTLMask}
+
+Set of \textsf{QualTL} (def~\ref{sec:gQualTL}) queried from a memory type or barrier mechanism (def~\ref{sec:gBarrierMechanism}).
+The purpose of this is to prevent qualitative timelines that are not relevant for the memory type to be associated with visibility records (Section~\ref{sec:VisRecordState}) associated with array elements stored in that memory type.
+We need this to avoid unintentional transitive synchronization (Section~\ref{sec:Transitivity}) caused by synchronization that does not actually have effect on certain memory types.
+This is particularly a danger for \lighttt{cuda\_mbarrier\_qual}.
+
+This restriction is implemented in the augment step (Section~\ref{sec:Augment}).
