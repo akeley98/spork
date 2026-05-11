@@ -1,13 +1,5 @@
 \magicSubsection{TMA Usage}{sec:Tma}
 
-\begin{figure}[b!]
-\codehrule
-\input{b_samples/multicast_tma_excerpt.0.tex}
-\caption{Exo-GPU sm\_90a (Hopper) GEMM kernel excerpts showing multicast TMA usage}
-\label{fig:multicast_tma_excerpt}
-\codehrule
-\end{figure}
-
 See the \lighttt{exo.platforms.Sm90.Sm90\_tma} module for polymorphic TMA instructions.
 
 Copies from GMEM to SMEM use the \lighttt{CudaMbarrier} barrier mechanism (Section~\ref{sec:MbarrierUsage}) with a trailing barrier expression (Section~\ref{sec:InstrTrailingBarrierExpr}).
@@ -31,6 +23,21 @@ The instruction template parameters (def~\ref{sec:gInstrTemplateParameter}) are
 The multicast versions of TMA instructions involve \lighttt{ncta}-many CTAs, with the sequence of involved CTAs' \lighttt{cluster\_ctarank} values (def~\ref{sec:gCluster}) incrementing by \lighttt{cta\_stride}.
 They cooperate to copy a tile from GMEM into each involved CTA's SMEM, as if by the pseudocode in Figure~\ref{fig:multicast_pseudocode}.
 
+\begin{figure}[h!]
+\codehrule
+\input{b_samples/multicast_pseudocode.0.tex}
+\caption{Multicast TMA pseudocode}
+\label{fig:multicast_pseudocode}
+\codehrule
+\end{figure}
+\begin{figure}[t!]
+\codehrule
+\input{b_samples/multicast_tma_excerpt.0.tex}
+\caption{Exo-GPU sm\_90a (Hopper) GEMM kernel excerpts showing multicast TMA usage}
+\label{fig:multicast_tma_excerpt}
+\codehrule
+\end{figure}
+
 If an instruction variant without swizzling is used, then \lighttt{swizzle} must be 0.
 Otherwise, \lighttt{swizzle} must be one of 32, 64, or 128; and the product of the copied element size (in bytes) and the highest-index \lighttt{size$*$} template parameter must equal \lighttt{swizzle}.
 
@@ -52,13 +59,3 @@ Second, the window expression $x_w[e^*]$ passed as the actual GMEM parameter mus
 \end{itemize}
 
 See Figure~\ref{fig:multicast_tma_excerpt} for example correct usage of a TMA instruction.
-
-\begin{figure}[h!]
-\codehrule
-\input{b_samples/multicast_pseudocode.0.tex}
-\caption{Multicast TMA pseudocode}
-\label{fig:multicast_pseudocode}
-\codehrule
-\end{figure}
-
-\newpage
