@@ -1,3 +1,4 @@
+% exocc nexo.py && python3 code_to_tex.py nexo.py nexo && xelatex </dev/null nexo.tex
 
 \input{slides_common.tex}
 
@@ -83,7 +84,7 @@ We reason about split barriers and async instrs -- not all PLs can
 \begin{itemize}
   \item Write whatever you want, even if we can't statically analyze it
   \item Sound and complete(-ish), we give yes/no will-it-work for concrete sizes
-  \item \myKeyA{If we implement Blackwell}, I'll have more confidence this is a reasonable ``bottom level'' abstraction.
+  \item \myKeyA{If we had implemented Blackwell}, I'd have more confidence this is a reasonable ``bottom level'' abstraction.
 \end{itemize}
 
 \vfill
@@ -154,6 +155,47 @@ Implicit deductions for distributed memory and \texttt{cuda\_threads} loops
   \item Good intentions: less cognitive load when scheduling
 \end{itemize}
 
+}
+
+\newpage
+\myBiggerTitle{Exo-GPU: The Really Bad Stuff}
+
+{\LARGE
+
+Real disaster: excessive pointer/address calculations
+\begin{itemize}
+  \item Competes with actual work (15\% - 30\% perf loss)
+  \item Also costs register spilling (not 100\% sure of this accusation)
+  \item \texttt{WindowStmt} exists but is poorly implemented and solves only a subset of issues.
+  \item We need mutable pointers (e.g. \texttt{++iterator} each loop iteration)
+\end{itemize}
+
+\vspace{6mm}
+
+Scheduling not really designed for use case of \myKeyA{mutable pointers}
+\begin{itemize}
+  \item \textbf{Expectation:} optimal dataflow + accelerator instrs = perf!
+  \item \textbf{Reality:} \textit{EVERYTHING} has a cost
+\end{itemize}
+
+}
+
+\newpage
+\includegraphics[width=\linewidth]{cutlass_Sm80_sass.png}
+
+{\LARGE
+\textbf{Orange: Useful work} (MMA, GMEM$\to$SMEM$\to$RMEM copy)
+
+\textbf{Blue: Overhead} (IADD3, IMAD, LOP3, LEA = ptr calculation)
+}
+
+\newpage
+\includegraphics[width=\linewidth]{exo_Sm80_sass.png}
+
+{\LARGE
+\textbf{Orange: Useful work} (MMA, GMEM$\to$SMEM$\to$RMEM copy)
+
+\textbf{Blue: Overhead} (IADD3, IMAD, LOP3, LEA = ptr calculation)
 }
 
 \newpage
@@ -272,6 +314,61 @@ Invest in imperative IRs \& static analysis on imperative programs
 }
 
 \newpage
+\myBiggerTitle{Ex-Post Facto (2026) Justification for Exo}
+
+{\LARGE
+
+High level languages are \myKeyA{risky business} now.
+
+\vfill
+
+Let's say I'll spend 2 years as a human writing a high-level DSL:
+\begin{itemize}
+  \item write a bunch of heuristics on how to maximize perf
+  \item write a bunch of lowering rules to generate low-level code
+\end{itemize}
+
+\vfill
+
+Give an LLM a goal, a feedback loop, and C-like output language:
+\begin{itemize}
+  \item can't it also figure out those heuristics?
+  \item can't it also figure out those low-level codegen rules?
+\end{itemize}
+and also further \myKeyA{micro-optimize} from there?
+
+\vfill
+
+}
+
+\newpage
+\myBiggerTitle{Ex-Post Facto (2026) Justification for Exo}
+
+{\LARGE
+\textbf{BUT}
+\begin{itemize}
+  \item Will it be understandable? (For human/AI co-design)
+  \item Will it be correct? (Everyone and their mother asks this)
+  \item Even for AI alone, will this scale to complex programs? (context)
+\end{itemize}
+
+\vfill
+
+Goal: prototype how to be this ``\myKeyA{C-like output language}''
+
+``gold standard'' would be annotated asm, but I think that's too hard.
+
+\vfill
+
+Exo provides a bunch of ideas how to be this representation.
+
+But, I'm not convincted verified rewrites are the right approach.
+
+\vfill
+
+}
+
+\newpage
 \myBiggerTitle{``Myopic'' Scheduling Operators}
 
 {\LARGE
@@ -294,6 +391,8 @@ Next scheduling operator starts with NO USEFUL INFORMATION
 \vfill
 
 We do this back-to-back hundreds or thousands of times
+
+\vfill
 
 }
 
@@ -494,16 +593,13 @@ Our belief of the value written as a function of the
 \item full program functional spec
 \item control variable values
 \end{itemize}
-
-\vfill
-
-Ideally, more efficient/query-able IR than syntax tree
-\begin{itemize}
-\item Handwavey goal, maybe learn from databases or something
-\end{itemize}
+Further annotate \myKeyA{which tensor elements} will be read and modified
+(this would be useful to help clarify mutable pointers)
 
 \vfill
 Immediate result: non-myopic scheduling (as long as scheduling ops intelligently update the partial functional spec)
+
+\vfill
 
 }
 
@@ -519,6 +615,57 @@ Sorry, but why laboriously analyze a complicated imperative program when you cou
 You wrote the program.
 You must have a mental model of what the pieces \emph{inside} are doing (either by reasoning, or due to the provenance of scheduling operators that created those pieces).
 
+}
+
+\newpage
+\myBiggerTitle{Top-Level Idea: Imperative\texttt{++}}
+
+{\LARGE
+
+Having as much information as possible available \myKeyA{locally},\\
+presented in-context with the source code, will be crucial!
+\begin{itemize}
+  \item Maintenance programmers \& new AI session have \myKeyA{no context}
+  \item \myKeyA{Why} does the code work: partial spec = ``verified comments''
+  \item \myKeyA{What} went wrong \& \myKeyA{how} (rich error messages)
+\end{itemize}
+
+\vfill
+
+Exo proofs of concept:
+\begin{itemize}
+  \item Sync-check errors
+  \begin{itemize}
+    \item write \textbf{here} conflicted with read/write \textbf{there} on iteration xyz
+  \end{itemize}
+  \item Action, inspection, reference (rebrand to ``tool use'')
+  \begin{itemize}
+    \item Extend to semantic inspection: proof info, runtime results
+  \end{itemize}
+\end{itemize}
+
+\vfill
+
+}
+
+\newpage
+\myBiggerTitle{Top-Level Idea: Imperative\texttt{++}}
+
+{\LARGE
+Multiple ``ways of knowing'' including proofs
+\begin{itemize}
+  \item Runtime testing (numeric values)
+  \item Symbolic evaluation
+  \item Exo sync-check w/ concrete problem sizes
+  \item Proof (wrt value semantics or abstract machine semantics)
+\end{itemize}
+Empower tool use to run the program with deep inspection of resulting evaluated semantics.
+
+\vfill
+
+Even with proof-based approach: symbolic evaluation, sync-check (abstract machine) evaluation, counterexamples presented in-context can help inspire AI/human on how to do the proof.
+
+\vfill
 }
 
 \newpage
@@ -549,115 +696,32 @@ Multiple levels of partial functional specs for an assignment:
 
 BUT NOTE a proof for \texttt{A} can rely on hope for \texttt{B}, so you can take ``leaps of logic'' without abandoning all reasoning.
 
-}
-
-\newpage
-\myBiggerTitle{Goals}
-
-{\LARGE
-
-\mySub{LLM Support}
-
-\mySub{Expressivity for non-affine / data-dependent indexing}
-
-\mySub{Expressivity beyond kernel programming}
+\vfill
 
 }
 
 \newpage
-\myBiggerTitle{Goals}
+\myBiggerTitle{Top-Level Idea: Imperative\texttt{++}}
 
 {\LARGE
 
-\mySub{LLM Support}
+This is just the seed of an idea
 
-\begin{itemize}
-  \item High-quality ``pinpoint'' error messages
-  \begin{itemize}
-    \item Proof of concept: sync errors are like this already, write \textbf{here} conflicted with read/write \textbf{there}
-    \item Future, value written \textbf{here} violates partial functional spec?
-    \item Stretch goal: perf information inline (5000 cycle stall \textbf{here})
-  \end{itemize}
-  \item Compiler performance will matter \emph{a lot} in the tight loop
-  \item Query \& Rewrite API (Exo has this; be inspired to improve more)
-  \begin{itemize}
-    \item Optional: we shouldn't rely on this for functional correctness
-  \end{itemize}
-\end{itemize}
-
-\mySub{Expressivity for non-affine / data-dependent indexing}
-
-\mySub{Expressivity beyond kernel programming}
-
-}
-
-\newpage
-\myBiggerTitle{Goals}
-
-{\LARGE
-
-\mySub{LLM Support}
-
-\mySub{Expressivity for non-affine / data-dependent indexing}
-
-\begin{itemize}
-  \item Sync check: abstract machine already has no indexing restrictions
-  (but no static analysis yet, so this is a bit of a BS claim)
-  \item Value check: partial functional spec idea should at least be more amenable to weird usage patterns than rigid rewrite rules
-  \item LLMs might be willing to write a lot of tedious proofs/tests that humans won't
-\end{itemize}
-
-\mySub{Expressivity beyond kernel programming}
-
-}
-
-\newpage
-\myBiggerTitle{Goals}
-
-{\LARGE
-
-\mySub{LLM Support}
-
-\mySub{Expressivity for non-affine / data-dependent indexing}
-
-\mySub{Expressivity beyond kernel programming}
-
-\begin{itemize}
-  \item Kernels aren't everything!
-  \item Optimize usage across kernels, kernel fusion
-  \item Support many levels of parallelism (multi GPU, multi node)
-  \item Compiler performance will reaaaaallly matter for big systems. Scanning the whole AST 100,000 times will not fly.
-\end{itemize}
-
-}
-
-\newpage
-\myBiggerTitle{Goals}
-
-{\LARGE
-
-There's a lot of goals here, roughly in high-to-low priority order.
-
-\mySub{LLM Support}
-
-What everyone wants to talk about
-
-\mySub{Expressivity for non-affine / data-dependent indexing}
-
-Indexing restrictions greatly shrink the set of applications.
-It's not like the ``just generate CUDA C++'' crowd cares if everything is not proven airtight; we have to do strictly better
-
-\mySub{Expressivity beyond kernel programming}
-
-Nice to have, but miserable humans will deal with MPICH if AI won't
+If I'm serious about this, I should learn Rocq or Lean
 
 \vfill
 
-\hrule
+\begin{itemize}
+  \item But, for Exo-like affine indexing programs, annotations + simple loop invariants may be enough?
+  \item Supervise Claude Code prototyping this language and I learn Rocq/Lean while I wait?
+  \item I should probably learn about Opti-trust also.
+\end{itemize}
 
 \vfill
 
-We don't have to do the engineering to implement all of the goals, but these concerns influence my thinking on PL design.
+I'm hoping to prioritize intuition / accessibility for now
+
+\vfill
 
 }
 
@@ -666,7 +730,7 @@ We don't have to do the engineering to implement all of the goals, but these con
 
 {\LARGE
 
-Motivating example of issues with Exo
+\myKeyA{Motivating example of issues with Exo}
 
 float16 Ampere MMA: logically simple MMA with
 \begin{itemize}
@@ -830,6 +894,366 @@ Root cause: Exo's conception of imperative code is too ding dang darn literal.
 \myKeyA{NOT:} ``is the instruction literally syntactically equivalent to my program subtree here?''
 
 }
+
+\newpage
+\myBiggerTitleExtra{Fluff: 16-bit MMA}
+
+{\LARGE
+\myKeyA{Wider Issue}:\\
+non-trivial re-ordering and latency hiding hard to schedule
+}
+
+{
+\input{nexo/cutlass_pseudocode.0.tex}
+}
+
+\newpage
+\myBiggerTitle{First \& Second-Order Goals}
+
+{\LARGE
+First-order goal: build a \myKeyA{successful artifact} conveying a subset of good Exo-GPU ideas.
+
+Second-order goal: \myKeyA{don't follow the crowd} too much.
+
+}
+
+\newpage
+\myBiggerTitle{First-Order Goal}
+
+{\LARGE
+What Exo-GPU ideas are nice?
+
+\begin{itemize}
+  \item Big assumption: \myKeyA{internal determinism} is acceptable\footnote{escape hatch: atomic re-ordering is acceptable. Could add more escape hatches?}
+  \item Break correctness into two orthogonal questions
+  \item \myKeyA{Value Correctness:} if we serialize all parallel loops \& async instrs, will the program compute the right value?
+  \begin{itemize}
+    \item Checked by chain of verified rewrites from original program
+    \item Hoping to replace this with something else
+  \end{itemize}
+  \item \myKeyA{Sync Correctness:} is the synchronization of the real parallel program sufficient to guarantee as-if serialized results?
+  \begin{itemize}
+    \item Checked by abstract machine sync check
+  \end{itemize}
+\end{itemize}
+
+}
+
+\newpage
+\myBiggerTitle{First-Order Goal}
+
+{\LARGE
+In support of this, Exo-GPU has
+\begin{itemize}
+  \item Language-level reasoning of \myKeyA{parallel loop nests}
+  (each stmt statically known to be executed by thread/warp/warpgroup etc.)
+  \item Careful cataloging of \myKeyA{hardware instruction} attributes
+  \begin{itemize}
+    \item Value semantics. In Exo, this is imperative code in \texttt{behavior()}, checked by \texttt{replace()}.
+    \item Expected memory type (RMEM, SMEM, GMEM, CPU etc.)
+    \item Expected collective unit (thread, warp, etc.) of execution
+    \item Expected strides
+    \item Sync semantics (qualitative timeline, out-of-order)
+  \end{itemize}
+\end{itemize}
+These concepts will be \myKeyA{very useful} for a new PL
+
+}
+
+\newpage
+\myBiggerTitle{First-Order Goal}
+
+{\LARGE
+Exo-GPU = proof-of-concept of \myKeyA{idiot-proof}, low-level-ish CUDA
+
+\vfill
+
+Idiot-proof: not ``easy'', but we don't have to trust the programmer if the proc was
+\begin{itemize}
+  \item scheduled (\myKeyA{value correctness})\\
+    ... fine print: \texttt{unsafe\_remove\_if} needed for TMA
+  \item passed sync-check (\myKeyA{sync correctness})\\
+    ... for a concrete problem size
+\end{itemize}
+
+\vfill
+
+Low-level-ish: Exo-GPU not all the way there
+\begin{itemize}
+  \item Want true asm-like instr-by-instr control \& pointers
+  \item Except maybe control flow (still \texttt{if}/\texttt{for}: goto is too hard)
+\end{itemize}
+
+\vfill
+
+}
+
+\newpage
+\myBiggerTitle{Second-Order Goal}
+
+{\LARGE
+Try not to do what everyone is doing.
+
+\vfill
+
+Lots of verification people hitching their wagon to LLMs
+\begin{itemize}
+  \item Mitigation: leverage Exo-GPU expertise in GPU programming
+  \item I expect this from a minimum viable product
+\end{itemize}
+
+\vfill
+
+Surely a lot of interest in GPU kernel PL \& AI self-improvement loop
+\begin{itemize}
+  \item Mitigation: Expressivity beyond kernels \& AI/tensor stuff?
+  \item Not expected from day 1
+  \item Think about \myKeyA{unusual patterns} to support?
+\end{itemize}
+
+\vfill
+
+}
+
+\newpage
+\myBiggerTitle{Second-Order Goal: Opportunistic work re-use}
+
+{\LARGE
+
+Read a value that may or may not be ready
+\begin{itemize}
+  \item not ready? (re-)compute needed value
+  \item ready? re-use
+\end{itemize}
+
+\vfill
+Examples
+\begin{itemize}
+  \item dynamic programming
+  \item KV cache eviction
+  \item decoupled look-back (use partial sum if already computed)
+\end{itemize}
+
+\vfill
+
+Boolean ``escape hatch'' from internal determinism\\
+(analyze both cases)
+
+\vfill
+
+}
+
+\newpage
+\myBiggerTitle{Second-Order Goal: Multi-device, multi-node}
+
+{\LARGE
+Matters a lot in practice; mostly ignored for kernel programming.
+
+\vfill
+
+Example complexity: CUDA \texttt{multimem} addresses
+
+\begin{itemize}
+  \item Single virtual address aliased to \myKeyA{multiple physical addresses}
+  \item Write = broadcast value to all physical memory
+  \item Read = \myKeyA{implicitly reduce} all physical memory values
+\end{itemize}
+
+\vfill
+
+Multi-device = another level of parallel for loop
+
+\vfill
+
+}
+
+\newpage
+\myBiggerTitle{Second-Order Goal: Ragged Arrays}
+
+{\LARGE
+
+Logical arrays \texttt{A[x, y]}\\
+where the valid range of \texttt{y}-dimension depends on \texttt{x}
+
+\vfill
+
+Likely uses pointer-to-pointer (strict aliasing complications?)
+
+\vfill
+
+Example: PagedAttention,\\
+variable sequence-length algorithms in general
+
+\vfill
+
+Requires fine-grained iteration counts
+
+\vfill
+
+}
+
+\newpage
+\myBiggerTitle{Second-Order Goal: Data-Dependent Iteration Count}
+
+{\LARGE
+
+Harder version of ragged arrays: iterate-until-convergence
+
+\vfill
+
+Uncommon in AI, but common in scientific computing
+
+\begin{itemize}
+  \item partial differential equation solvers
+  \item numerical optimization
+  \item Las Vegas algorithms in general
+\end{itemize}
+
+\vfill
+
+}
+
+\newpage
+\myBiggerTitle{Second-Order Goal}
+
+{\LARGE
+Minimum viable product should be H100 \myKeyA{flash attention}, \myKeyA{gemm}, maybe block-sparse, maybe gemm for Ampere or Blackwell
+
+But extensibility should be considered for PL design, even if not implemented.
+
+\vfill
+
+Possible nitch: massively parallel numerical computing
+\begin{itemize}
+  \item AI kernels were going to be fully optimized anyway
+  \item Could deliver value optimizing scientific programming
+\end{itemize}
+
+\vfill
+
+Proof assisstant maybe is our friend
+
+Less faith in rigid language-level rules for expressivity
+
+\vfill
+
+
+}
+
+
+\newpage
+\myBiggerTitle{OLD}
+
+\newpage
+\myBiggerTitle{Goals}
+
+{\LARGE
+
+\mySub{LLM Support}
+
+\mySub{Expressivity for non-affine / data-dependent indexing}
+
+\mySub{Expressivity beyond kernel programming}
+
+}
+
+\newpage
+\myBiggerTitle{Goals}
+
+{\LARGE
+
+\mySub{LLM Support}
+
+\begin{itemize}
+  \item High-quality ``pinpoint'' error messages
+  \begin{itemize}
+    \item Proof of concept: sync errors are like this already, write \textbf{here} conflicted with read/write \textbf{there}
+    \item Future, value written \textbf{here} violates partial functional spec?
+    \item Stretch goal: perf information inline (5000 cycle stall \textbf{here})
+  \end{itemize}
+  \item Compiler performance will matter \emph{a lot} in the tight loop
+  \item Query \& Rewrite API (Exo has this; be inspired to improve more)
+  \begin{itemize}
+    \item Optional: we shouldn't rely on this for functional correctness
+  \end{itemize}
+\end{itemize}
+
+\mySub{Expressivity for non-affine / data-dependent indexing}
+
+\mySub{Expressivity beyond kernel programming}
+
+}
+
+\newpage
+\myBiggerTitle{Goals}
+
+{\LARGE
+
+\mySub{LLM Support}
+
+\mySub{Expressivity for non-affine / data-dependent indexing}
+
+\begin{itemize}
+  \item Sync check: abstract machine already has no indexing restrictions
+  (but no static analysis yet, so this is a bit of a BS claim)
+  \item Value check: partial functional spec idea should at least be more amenable to weird usage patterns than rigid rewrite rules
+  \item LLMs might be willing to write a lot of tedious proofs/tests that humans won't
+\end{itemize}
+
+\mySub{Expressivity beyond kernel programming}
+
+}
+
+\newpage
+\myBiggerTitle{Goals}
+
+{\LARGE
+
+\mySub{LLM Support}
+
+\mySub{Expressivity for non-affine / data-dependent indexing}
+
+\mySub{Expressivity beyond kernel programming}
+
+\begin{itemize}
+  \item Kernels aren't everything!
+  \item Optimize usage across kernels, kernel fusion
+  \item Support many levels of parallelism (multi GPU, multi node)
+  \item Compiler performance will reaaaaallly matter for big systems. Scanning the whole AST 100,000 times will not fly.
+\end{itemize}
+
+}
+
+\newpage
+\myBiggerTitle{Goals}
+
+{\LARGE
+
+There's a lot of goals here, roughly in high-to-low priority order.
+
+\mySub{LLM Support}
+
+What everyone wants to talk about
+
+\mySub{Expressivity for non-affine / data-dependent indexing}
+
+Indexing restrictions greatly shrink the set of applications.
+It's not like the ``just generate CUDA C++'' crowd cares if everything is not proven airtight; we have to do strictly better
+
+\mySub{Expressivity beyond kernel programming}
+
+Nice to have, but miserable humans will deal with MPICH if AI won't
+
+\vfill
+
+\hrule
+
+\vfill
+
+We don't have to do the engineering to implement all of the goals, but these concerns influence my thinking on PL design.
+
+}
+
 
 \newpage
 \myBiggerTitle{Feature Wishlist}

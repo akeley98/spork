@@ -1,6 +1,4 @@
 """
-exocc nexto.py && python3 code_to_tex.py nexto.py nexto && xelatex </dev/null nexto.tex
-
 Good things about Exo
 - Imperative mental model
 - Explicit instruction selection, with valid usage checks
@@ -250,3 +248,57 @@ def mma(A : [f16][8, 4, 2, 2, 2] @ CudaRmemPacked32, B : [f16][8, 16], C : [f16]
               # ..............                               .......................
               C[mT + 8 * mR, n] += A[mT, kT, mR, kR, kP] * B[n, kP + 2 * kT + 8 * kR]
 # TeX: end mma_fixed[0]
+
+
+"""
+# TeX: version cutlass_pseudocode 1
+RING = get_pipeline_depth()  # Some tuning constant
+M_cta, N_cta, K_cta = cta_tile_size() # Some tuning constants
+# Create ring buffers. $k^{th}$ tile goes to ring buffer slot k % RING
+A_smem: f16[RING, M_cta, K_cta]  # Row major
+B_smem: f16[RING, N_cta, K_cta]  # Column major
+# Register tile, split into 2 logical halves.
+# This is used to hide latency of SMEM to RMEM loads.
+# TeX: color line *
+#              .
+A_rmem: f16[2, x]  # Figure out exact size yourself (warp tiles within CTA tiles)
+# TeX: color line *
+#              .
+B_rmem: f16[2, x]  # NB the 2 halves don't have to be explicit, just shown here for clarity.
+# For the real code, guard cp.async calls so they don't read out of bounds.
+# TeX: begin cutlass_pseudocode[0]
+for k in seq(0, RING - 1):  # SMEM is like a skewed sliding window
+    cp.async tile k of A and B into SMEM  # Pre-populate first few sliding window entries
+    cp.async.commit_group  # Not sure of any scheduling op that allows this skewed stage_mem
+cp.async.wait_group RING-2
+__syncthreads()
+# TeX: color line *
+#                                                                                    rrrr
+Ld low half of tile 0 of A, B from SMEM into A_rmem[0,:], B_rmem[0,:]  # Consumed at (s0)
+C = 0  # MMA accumulators
+# The $k^{th}$ iteration of the loop accumulates the $k^{th}$ tiles of A and B into C,
+# and starts GMEM $\to$ SMEM, SMEM $\to$ RMEM loads needed for future iterations.
+for k in seq(0, K / K_cta):
+# TeX: color line *
+#                                                                                         bbbb
+    Ld high half of tile k of A, B from SMEM into A_rmem[1,:], B_rmem[1,:]  # Consumed at (s1)
+# TeX: color line *
+#                                     rrrr
+    C += A_rmem[0,:] @ B_rmem[0,:]  # (s0), using mma.sync
+
+    cp.async tile (k + RING - 1) of A and B into SMEM
+    cp.async.commit_group
+    cp.async.wait_group RING-2
+    __syncthreads()
+
+# TeX: color line *
+#                                                                                            rrrr
+    Ld low half of tile (k+1) of A, B from SMEM into A_rmem[0,:], B_rmem[0,:]  # Consumed at (s0)
+# TeX: color line *
+#                                     bbbb
+    C += A_rmem[1,:] @ B_rmem[1,:]  # (s1), using mma.sync
+# TeX: end cutlass_pseudocode[0]
+cp.async.wait_group 0
+__syncthreads()
+Write out C
+"""

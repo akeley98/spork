@@ -1,0 +1,13 @@
+What do we like about Exo-GPU?
+  Starting assumption: we can live with internal determinism, subject to some escape hatches
+    e.g. non-deterministic re-ordering of float atomic ops
+    Factor correctness checking into two steps
+      Value correctness
+      Sync correctness
+  Value correctness through scheduling
+  Sync correctness using sync-check
+  Instructions are carefully catalogued to facilitate the above.
+    behavior(): value checking (scheduling)
+    instructions issue reads/mutates to windows, using certain thread(s) and qualitative timelines
+    instructions expect data strided in certain ways
+  Language-level support for parallel-for loops and analysis
