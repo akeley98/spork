@@ -60,6 +60,8 @@ Explicit instruction selection + valid usage checks (threads \& mem)
 
 Rewrite operations \myKeyA{as a convenience}
 
+\vfill
+
 }
 
 \newpage
@@ -98,9 +100,9 @@ Orthogonal: ``dataflow/algorithm correct?'' and ``sync correct?''
 
 {\LARGE
 
-It's \emph{too} ``literally'' imperative (\myKeyA{recurring theme}, to be elaborated)
+%% It's \emph{too} ``literally'' imperative (\myKeyA{recurring theme}, to be elaborated)
 
-\vfill
+%% \vfill
 
 Terrible user experience for error messages
 \begin{itemize}
@@ -126,6 +128,8 @@ Control/data separation is a bummer
   \item Affine indexing too
 \end{itemize}
 
+\vfill
+
 }
 
 \newpage
@@ -133,7 +137,7 @@ Control/data separation is a bummer
 
 {\LARGE
 
-We are not CuTe (\myKeyA{recurring theme 2}, to be elaborated on)
+We are not CuTe (\myKeyA{recurring theme}, to be elaborated on)
 \begin{itemize}
   \item Limited indexing abstraction, except for threads
   \item Number 1 emotional frustration with Exo codebase: deeply entrenched assumption that ``everything is a C pointer + strides''
@@ -314,7 +318,7 @@ Invest in imperative IRs \& static analysis on imperative programs
 }
 
 \newpage
-\myBiggerTitle{Ex-Post Facto (2026) Justification for Exo}
+\myBiggerTitle{Ex Post Facto (2026) Justification for Exo}
 
 {\LARGE
 
@@ -342,7 +346,7 @@ and also further \myKeyA{micro-optimize} from there?
 }
 
 \newpage
-\myBiggerTitle{Ex-Post Facto (2026) Justification for Exo}
+\myBiggerTitle{Ex Post Facto (2026) Justification for Exo}
 
 {\LARGE
 \textbf{BUT}
@@ -587,17 +591,20 @@ Enhance imperative program with:
 
 \vfill
 
-Optional \myKeyA{partial functional spec} for each write statement\\
-Our belief of the value written as a function of the
+Optional \myKeyA{partial functional spec} for each assign/reduce stmt\\
+Our belief of the lhs value written and rhs value(s) read as a fn of
 \begin{itemize}
 \item full program functional spec
 \item control variable values
 \end{itemize}
+
+\vfill
+
 Further annotate \myKeyA{which tensor elements} will be read and modified
 (this would be useful to help clarify mutable pointers)
 
-\vfill
-Immediate result: non-myopic scheduling (as long as scheduling ops intelligently update the partial functional spec)
+% \vfill
+% Immediate result: non-myopic scheduling (as long as scheduling ops intelligently update the partial functional spec)
 
 \vfill
 
@@ -711,17 +718,17 @@ If I'm serious about this, I should learn Rocq or Lean
 
 \vfill
 
-\begin{itemize}
-  \item But, for Exo-like affine indexing programs, annotations + simple loop invariants may be enough?
-  \item Supervise Claude Code prototyping this language and I learn Rocq/Lean while I wait?
-  \item I should probably learn about Opti-trust also.
-\end{itemize}
+%% \begin{itemize}
+%%   \item But, for Exo-like affine indexing programs, annotations + simple loop invariants may be enough?
+%%   \item Supervise Claude Code prototyping this language and I learn Rocq/Lean while I wait?
+%%   \item I should probably learn about Opti-trust also.
+%% \end{itemize}
 
-\vfill
+%% \vfill
 
-I'm hoping to prioritize intuition / accessibility for now
+%% I'm hoping to prioritize intuition / accessibility for now
 
-\vfill
+%% \vfill
 
 }
 
