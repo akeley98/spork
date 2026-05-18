@@ -48,6 +48,8 @@ docs/spork_b_old.pdf
 docs/spork_b.tgz
 docs/nexo.pdf
 docs/nexo/
+docs/ultraspork.pdf
+docs/ultraspork_samples/
 gemm/gemm
 attn
 libattn.so

@@ -1,0 +1,111 @@
+\magicSection{The Landscape}{sec:Landscape}
+
+If we want to continue working as programming language designers in the face of the LLM-apocalypse, I think we need to pivot towards working on low-level languages tuned for AI tool use and AI/Human co-design.
+William Brandon will argue our best bet as humans is to step out of the way, but for now I'll accept as a postulate (i.e. without proof) that AI/Human co-design will be a reasonable use case at least for the next 2 years.
+
+The problem with high-level lanugages is, suppose I spend the next two years as a human typing up a bunch of heuristics and code-lowering passes for generating low-level output code from a high-level spec.
+Then, if we give an LLM a low-level output language, and a feedback loop (tests, etc.),
+\begin{itemize}
+  \item Can't it also figure out those heuristics?
+  \item Can't it also figure out the lowering strategies needed?
+\end{itemize}
+...and then from there, the LLM may further micro-optimize the low-level code in ways a static compiler cannot.
+
+Although (ostensibly) I'll be working on Halide stuff at Adobe, in the long run, I don't think this is the right approach (too high level).
+So the goal of the project is to prototype ideas for that low-level representation.
+In the immortal words of Rachit in PLR 2026,
+
+\begin{center}
+  \Large
+  ``Abstractions are \emph{BAD}''
+\end{center}
+
+(this quote is definitely remembered correctly and not taken out of context)
+
+What we want out of this representation is
+\begin{itemize}
+  \item Some way to \myKeyA{establish confidence} (not necessarily proof, but proof is ideal) that the low-level code actually implements the high-level spec.
+  \item Want as much \myKeyA{locally-available} information to understand how \& why the code works; this is useful both for compensating for AI context in large systems, and helping humans review AI-generated code.
+\end{itemize}
+
+The locally-available information includes things such as
+\begin{itemize}
+  \item How is computation mapped to space and time (explicit sequential and parallel loop nest)
+  \item How are tensors mapped to memory and sharded across threads?
+  \item What is stored in buffers with respect to time (control variables) and the functional spec?
+  \item Tools for applying local rewrites
+  \item Tools to query information about variable's usage
+  \item Symbolic evaluation, with results presented inline (proof-of-concept: Exo-GPU sync-check tool presents errors, and the history leading up to them, as annotated source)
+\end{itemize}
+LLMs are stuck using stone-age tools like grep and sed to handle code; this needs to change.
+
+Regarding ``establishing confidence'' of correspopndence, there's multiple levels of this, ranging from checking specific cases to general cases:
+
+\clearpage
+
+\begin{verbatim}
+            ...for checking algorithm correct    ...for checking sync correct
+-----------------------------------------------------------------------------------
+Black-box testing
+(runtime tests,         better than a               often hopeless;
+check correct numbers   sharp stick in              potential bugs may
+output)                 the eye                     never affect final output
+-----------------------------------------------------------------------------------
+Runtime
+synchronization         n/a                         weak; relies on race
+linters                                             actually happening
+-----------------------------------------------------------------------------------
+Symbolic evaluation                                 strong-ish for some domains;
+of concrete problem     we'll have to figure        this is Exo-GPU sync check
+sizes                   this out                    (abstract machine interpreter)
+-----------------------------------------------------------------------------------
+Proof                   powerful; needs knowledge   ??? prove loop invariants
+                        I don't know.               of abstract machine
+\end{verbatim}
+
+The prototype should support instrumentation for runtime testing and for symbolic evaluation, and tool use to inspect results with source code context.
+I'd like to think ahead and support compiling programs to a representation for proofs, although unfortunately I'm completely ignorant of formal methods.
+However, as I see it, having strong support for \myKeyA{empirical testing} (as opposed to proofs) is in a sense a positive.
+Surely, both formal verification people and frontier labs will be competing in this space, roughly distributed as follows:
+
+\begin{verbatim}
+                                      |   Regular data          |   Irregular data
+                                      |   access patterns       |   access patterns
+--------------------------------------+-------------------------+--------------------
+                                      |
+Simple hardware parallelism           |
+(multicore CPU, vectorization)        |             Formal verification experts
+                                      |
+--------------------------------------+-------------------------+--------------------
+                                      |                         |
+Difficult hardware parallelism        |   Frontier AI labs      |
+(Async GPU, multi-device, multi-node) |   (AI self-improvement) |        ???
+\end{verbatim}
+
+In the long-run, it'll be most impactful to design systems for programming the last quadrant, i.e.
+\begin{itemize}
+  \item non-CPU hardware
+  \item ...running algorithms with irregular/data-dependent access patterns
+  \item ...extensible to big systems (since brown-field development is where AI suffers most)
+\end{itemize}
+This space (extreme high performance, hard to analyze patterns) is where I'd prioritize expressivity over formalized perfection.
+So the low-level representation should be \myKeyA{unsafe by default}, and allow you to write whatever.
+We will add checkers and eventually proof infrastructure as tools, not the core language.
+
+Nevertheless, out of practicality, the initial prototype will just focus on the first issue, supporting non-CPU hardware (and by that I mean the H100).
+Basically, the project will start out as a vehicle for conveying the successful subset of Exo-GPU ideas, ideally designed with some thought to future extensibility.
+If there's no data-dependent control flow or indexing, this greatly simplifies symbolic evaluation.
+Our initial use cases can be:
+\begin{itemize}
+  \item Ampere gemm
+  \item H100 cooperative gemm
+  \item H100 ping-pong gemm
+  \item H100 flash attention
+  \item Maybe, H100 block-sparse algorithms?
+  \item Maybe, H100 multi-device kernel?
+\end{itemize}
+Even with proofs (which presumably we hope AI will help us write), strong symbolic evaluation support can be useful to debug algorithms and to help hypothesize what loop invariant will be appropriate for the proof, etc.
+
+None of this hides my fundamental ignorance of formal methods.
+This is something that has to be addressed long-term.
+If I'm lucky I'll be smart enough to prompt Claude Code to generate the whole prototype for me while I focus on learning (but don't get your hopes up).
