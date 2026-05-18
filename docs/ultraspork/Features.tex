@@ -1,0 +1,55 @@
+\magicSection{Feature Wishlist}{sec:Features}
+
+As mentioned, the initial project will focus on adapting Exo-GPU ideas into a new form more capable of expressing maximum performance kernels.
+Primarily, this requires adding \myKeyA{mutable pointer} variables, and replacing \emph{checked} rewrites with a new functional checking system.
+The new system needs to be capable of reasoning about mutable pointers, and fine-grained reordering and ring buffering that I was unable to express using Exo rewrites.
+We will retain the ``abstract machine'' synchronization checking from Exo-GPU.
+
+We will still be gambling on \myKeyA{internal determinism}, or ``sequential-parallel equivalence''.
+This factors correctness checking into two problems: \myKeyA{value correctness}, which is whether the algorithm, with all parallel loops and async instructions serialized, will implement the functional specification, and \myKeyA{sync correctness}, which is whether the real parallel algorithm is sufficiently synchronized to be functionally equivalent to the serialized version of the algorithm.
+
+This sets up a chain of equivalence
+
+\begin{center}
+    Functional spec $\xrightarrow{\text{\myKeyA{value correctness}}}$
+    Serialized algorithm $\xrightarrow{\text{\myKeyA{sync correctness}}}$
+    Parallelized algorithm
+\end{center}
+
+Exo-GPU supports one ``escape hatch'' from determinism, which is re-ordering of non-associative floating point atomics.
+In principle, we could support more escape hatches, e.g.
+\begin{itemize}
+  \item Mutex-guarded regions, with commutative operations within (or any operations if we don't care about determinism at all).
+  \item Opportunistic data-reuse: reading a value that may or may not be ready (e.g. dynamic programming, KV cache with eviction, decoupled look-back), which only requires analyzing 2 cases.
+  \item Some opaque spec function \lighttt{reorder(i)} that is an unknown bijection from integers to integers, representing the unknown order that \lighttt{atomicAdd(\&..., 1)} will give unique values to threads.
+\end{itemize}
+
+Anyway, the features I have in mind are
+
+\begin{itemize}
+  \item Retaining Exo-GPU's model of sequential and parallel loops and CUDA kernel launch
+  \begin{itemize}
+    \item Static mapping of parallel ``loop iterations'' to threads
+    \item Static typing of collective units (thread groupings) that execute statements (e.g. thread, warp cooperative, CTA cooperative)
+    \item See \lighttt{spork\_b.pdf} collective tiling chapter
+  \end{itemize}
+  \item Tensor variables with ``typed strides''
+  \begin{itemize}
+    \item Each dimension is annotated with a stride that is in units of threads, CTAs, RAM address, register ID, or bits (for multiple values packed in one word)
+    \item Extends Exo-GPU's binary distinction between distributed dimensions (strided by threads) and non-distributed dimensions (strided by anything else)
+    \item Like in Exo-GPU, thread shards/fragments are explicit, not implicitly duplicated like in CUDA C++.
+  \end{itemize}
+  \item Window references (mutable ``pointer'' variables)
+  \item Polynomial-based functional specifications
+  \item Annotations on assignment statements that specify, as a function of control variables and the functional specification
+  \begin{itemize}
+    \item which tensor elements are read (not obvious due to mutable window references)
+    \item which tensor element is modified
+    \item what values are read
+    \item what value is written
+  \end{itemize}
+  This is just a seed idea to start on pragmatic functional correctness checking; as I mentioned, I don't know much about formal methods
+  \item Value correctness checking for concrete problem sizes
+  \item Sync correctness checking like in Exo-GPU
+  \item Explicit instruction and procedure calls
+\end{itemize}
