@@ -1,0 +1,41 @@
+\magicSection{Polynomial Specification}{sec:PolynomialSpec}
+
+We saw in Section~\ref{sec:Tensors} that tensor strides imply a polynomial function parameterized over free variables and an opaque function \texttt{DivAndMod(x, D, M)} $= \frac{x}{D} \% M$.
+We can stick with the polynomial theme for specifying the high-level algorithm.
+
+To have polynomials, we only need to have the data type satisfy semi-ring axioms (of course floats actually don't satisfy this, but it's customary to ignore this), with a
+\begin{itemize}
+  \item ring addition operator
+  \item ring multiplication operator
+\end{itemize}
+Commonly, these are regular addition and multiplication, but the tropical semi-ring is also frequently used, with minimum or maximum being the ring addition operator, and regular addition being the ring multiplication operator.
+
+An \myKeyA{extended polynomial function} is defined to use some semi-ring, and is one of the cases
+\begin{itemize}
+  \item A constant integer or variable ($N = \sum_{i=1}^N 1$ where $1$ is the multiplicative identity)
+  \item Sum of two extended polynomial functions using the same semi-ring
+  \item Product of two extended polynomial functions using the same semi-ring
+  \item Finite sum $\sum_{k=0}^{B(...)} A(...)$ where $k$ is a new variable and $A$ and $B$ are extended polynomial functions whose parameters are also extended polynomial functions, all using the same semi-ring.
+  \item An \myKeyA{opaque function} whose parameters are extended polynomial functions.
+    The opaque function may be used to represent indexing and reading an input tensor, transcendental functions, or extended polynomial functions that need not use the same semi-ring.
+  \item Reciprocal of such an opaque function (useful for online softmax adjustment)
+\end{itemize}
+The opaque function and reciprocal are what makes this ``extended''.
+Without them, the polynomial function equality problem is decidable, by using Faulhaber's formula for the finite sum, and expanding recursive polynomial functions.
+For the prototype, a lot of symbolic evaluation will come down to checking equality of these extended polynomial functions, which represent either addresses or data values.
+
+I am not sure if the added opaque function makes this undecidable.
+But pragmatically, we can approximate the equality problem by generating new free variables for each unique opaque function and substituting a non-linear polynomial for each opaque function, e.g.
+\begin{equation*}
+    A(x_1, x_2, x_3, ...) = \sum_{i} A_i (x_i) (x_i + 1) \text{  where $A_i$ are the generated free variables}
+\end{equation*}
+For algorithms without data-dependent indexing or branching, it should be possible to specify the expected output buffer values an extended polynomial function of the input buffers.
+For example, dual-gemm $C = A(B_1 + B_2)$ would be specified as
+\begin{equation*}
+    C(m, n) = \sum_{k=0}^{K-1} A(m, k)(B_1(k, n) B_2(k, n))
+\end{equation*}
+where $A$, $B_1$, $B_2$ are opaque functions.
+
+As mentioned, I'd like to keep an eye out for the future and consider irregular data access.
+This polynomial stuff is just a seed idea to get started on thinking.
+I don't know if this is really a good approach.
