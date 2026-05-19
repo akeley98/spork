@@ -8,7 +8,7 @@ Anyway a tensor has
   \item Allocator (e.g. stack vs malloc allocation. Merged into memory type in Exo, but fundamentally separate).
     This may impose synchronization requirements upon alloc and free, in particular for shared memory (not further discussed here).
   \item Per-dimension \myKeyA{extent} and \myKeyA{stride}
-  \item Opaque swizzle function for shared memory allocations (TODO discuss)
+  \item Opaque swizzle function for shared memory allocations (Section~\ref{sec:StridingAndSwizzling})
 \end{itemize}
 The strides are the interesting part.
 Each stride is a multiple of a certain ``stride base unit''

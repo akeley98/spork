@@ -1,0 +1,44 @@
+\magicSection{Window References}{sec:Windows}
+
+As mentioned, there needs to be a way to bind a view of part of a tensor into a variable.
+These ``window references'' have logical attributes
+\begin{itemize}
+  \item Base address; what \lighttt{window[0, 0, ...]} refers to
+  \item Per-dimension minimum valid coordinate (often 0)
+  \item Per-dimension maximum valid coordinate
+  \item Per-dimension typed stride
+\end{itemize}
+The window reference also has a physical form, which may vary depending on the instruction it's intended for (e.g. wgmma descriptor, TMA tensor map).
+The logical attributes might not be queryable from the physical form.
+
+\magicSubsection{Dimension Reshape}{sec:Dimension Reshape}
+
+Something really important that's missing from Exo is the ability to use instructions that are meant for a different dimensionality by joining or splitting dimensions at runtime.
+For example, it would be nice to be able to copy a tensor of dimensions \lighttt{[L, M, N]} using a 1D cudaMemcpy.
+This is currently possible using hacky multi-dimensional Exo instructions, which have incomplete stride checking.
+
+The real requirement for joining multiple dimensions $d_0, d_1, ...$ each with extents $x_0, x_1, ...$ and strides $s_0, s_1, ...$ is that
+\begin{equation*}
+    \forall d_i \in d_1, d_2, ... \, . s_i = s_{i-1}x_{i-1}  \codecomment{ (Note this implies all strides use the same stride base unit)}
+\end{equation*}
+The window reference would behave something like
+\begin{verbatim}
+    window[M * N * l + N * m + n] = tensor[l, m, n]
+    window[i] = tensor[i / (M * N), i / N % M, i % N]
+\end{verbatim}
+
+\magicSubsection{Striding \& Swizzling}{sec:StridingAndSwizzling}
+
+In general, it's useful to adjust a window reference by striding it along a certain dimension.
+This becomes more difficult for swizzled pointers, since after swizzling, in general there isn't a well-defined stride per dimension anymore.
+
+Nevertheless, for efficiency, one crucial physical form for window references is a pre-swizzled pointer.
+We can rely on two properties of swizzle functions $S$:
+\begin{itemize}
+  \item Atomicity $A$. Aligned groups of $A$ bytes will still be contiguous after swizzling, i.e. $\forall y \in [0, A-1].\, S(Ax + y) = S(Ax) + y$
+  \item Period $P$. Swizzle pattern repeats every $P$ bytes, i.e. $S(Px + y) = Px + S(y)$.
+\end{itemize}
+This allows commuting the swizzle function and linear striding, for restricted cases (checked).
+
+The common 128-byte swizzle function works by XOR-ing bits 4, 5, and 6 of a physical SMEM address with bits 7, 8, 9.
+This pattern has atomicity of 16 bytes, and a period of 1024 bytes.
