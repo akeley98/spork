@@ -167,3 +167,84 @@ def annotation_example():
           # ggggggggggggggg
             gmem_ref[k_thr] = gmem_ref[0:, K_TILE:]
     # TeX: end ann
+
+"""
+# TeX: version mod_heuristic 1
+# TeX: begin mod_heuristic[0]
+# LHS known from window reference annotation; RHS known from write annotation
+smem_a[k_iter % RING, m, k_thr] = gmem_a(m_offset + m,
+                                         k_iter*K_TILE + k_thr) * a_scale
+# Want to rewrite as some function f
+smem_a[_0, _1, _2] = f(_0, _1, _2)
+# Trivially,
+m = _1, k_thr = _2
+# For k_iter, use the identity
+k_iter = (k_iter // RING) * RING + k_iter % RING  # // is floor division
+# Therefore,
+k_iter = (k_iter // RING) * RING + _0
+smem_a[_0, _1, _2] = gmem_a(m_offset + _1,
+                            (k_iter // RING * RING + _0)*K_TILE + _2) * a_scale
+# All variables other than the following would get substituted with concrete values:
+_0, _1, _2, a_scale
+# If there were another tensor coordinate _3 indexed with
+k_iter // RING
+# as would occur with tiling, then the dependence on the
+# concrete value of k_iter would be eliminated, as
+k_iter = _3 * RING + _0
+# TeX: end mod_heuristic[0]
+"""
+
+
+"""
+# TeX: version cutlass_pseudocode 1
+RING = get_pipeline_depth()  # Some tuning constant
+M_cta, N_cta, K_cta = cta_tile_size() # Some tuning constants
+# Create ring buffers. $k^{th}$ tile goes to ring buffer slot k % RING
+A_smem: f16[RING, M_cta, K_cta]  # Row major
+B_smem: f16[RING, N_cta, K_cta]  # Column major
+# Register tile, split into 2 logical halves.
+# This is used to hide latency of SMEM to RMEM loads.
+# TeX: color line *
+#              .
+A_rmem: f16[2, x]  # Figure out exact size yourself (warp tiles within CTA tiles)
+# TeX: color line *
+#              .
+B_rmem: f16[2, x]  # NB the 2 halves don't have to be explicit, just shown here for clarity.
+# For the real code, guard cp.async calls so they don't read out of bounds.
+# TeX: begin cutlass_pseudocode[0]
+for k in seq(0, RING - 1):  # SMEM is like a skewed sliding window
+    cp.async tile k of A and B into SMEM  # Pre-populate first few sliding window entries
+    cp.async.commit_group  # Not sure of any scheduling op that allows this skewed stage_mem
+cp.async.wait_group RING-2
+__syncthreads()
+# TeX: color line *
+#                                                                                    rrrr
+Ld low half of tile 0 of A, B from SMEM into A_rmem[0,:], B_rmem[0,:]  # Consumed at (s0)
+C = 0  # MMA accumulators
+# The $k^{th}$ iteration of the loop accumulates the $k^{th}$ tiles of A and B into C,
+# and starts GMEM $\to$ SMEM, SMEM $\to$ RMEM loads needed for future iterations.
+for k in seq(0, K / K_cta):
+# TeX: color line *
+#                                                                                         bbbb
+    Ld high half of tile k of A, B from SMEM into A_rmem[1,:], B_rmem[1,:]  # Consumed at (s1)
+# TeX: color line *
+#                                     rrrr
+    C += A_rmem[0,:] @ B_rmem[0,:]  # (s0), using mma.sync
+
+    cp.async tile (k + RING - 1) of A and B into SMEM
+    cp.async.commit_group
+    cp.async.wait_group RING-2
+    __syncthreads()
+
+# TeX: color line *
+#                 rrrr
+    # Consumed at (s0) of the NEXT iteration
+    Ld low half of tile (k+1) of A, B from SMEM into A_rmem[0,:], B_rmem[0,:]
+# TeX: color line *
+#                                     bbbb
+    C += A_rmem[1,:] @ B_rmem[1,:]  # (s1), using mma.sync
+# TeX: end cutlass_pseudocode[0]
+cp.async.wait_group 0
+__syncthreads()
+Write out C
+"""

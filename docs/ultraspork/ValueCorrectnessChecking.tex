@@ -1,0 +1,76 @@
+\magicSection{Value Correctness Checking}{sec:ValueCorrectnessChecking}
+
+Given annotations on the values read and written (as extended polynomial functions), it should be possible to statically verify that the write annotation follows from the read annotations.
+Otherwise, my initial approach would be to symbolically evaluate the entire program for a concrete problem size, due to the difficulty of reasoning about programs with mutable array accesses.
+
+As I mentioned, it'd be great if this project were a springboard for me to actually learn formal reasoning.
+For me to be interested, the reasoning has to be sophisticated enough to, at a minimum, prove that the standard Ampere gemm below is value-correct (i.e. ignore synchronization issues).
+The gemm kernel already displays aggressive re-ordering to hide memory latency (in particular the division of registers into 2 banks, to hide SMEM$\to$RMEM latency).
+
+\begin{samepage}
+{\small
+
+\input{ultraspork_samples/cutlass_pseudocode.0.tex}
+
+}
+\end{samepage}
+
+\magicSubsection{Value Environment}{sec:ValueEnv}
+
+For symbolic evaluation, each tensor element stores an extended polynomial function (Section~\ref{sec:PolynomialSpec}) that takes as inputs the coordinates of the tensor element.
+For example, in a gemm $C = AB$, an accumulator \lighttt{C\_tile[M\_tile, N\_tile]} intended to calculate the $C$ tile at offset \lighttt{[m\_offset, n\_offset]} may store for each element, after accumulating $K$ elements,
+\begin{equation*}
+    C(m, n) = \sum_{k=0}^{K-1} A(\texttt{m\_offset} + m, k) B(k, \texttt{n\_offset} + n)
+\end{equation*}
+Since \lighttt{m, n} are in fact constants, it's possible to store literal polynomials.
+The reason to store them as functions is for de-duplication: we can summarize entire tiles with a single object.
+Furthermore, this is the format by which the output buffers are specified.
+
+\magicSubsection{Assignment Checks}{sec:AssignmentChecks}
+
+For each assignment statement (or at least a spot-checked subset):
+\begin{itemize}
+  \item Check the window reference annotations are correct (Section~\ref{sec:WindowAnnotation}).
+  \item Check the read annotations are correct (Section~\ref{sec:ReadAnnotation}).
+  \item Given correct read annotations, that the write annotation (Section~\ref{sec:WriteAnnotation}) is correct follows from static analysis.
+    Store the polynomial to the tensor element in the environment.
+    Note since we're trusting the annotation, the polynomial written may be in much simpler form than if we literally accumulated everything.
+\end{itemize}
+We also check the output buffers at the end.
+
+\magicSubsection{Polynomial Translation}{sec:PolynomialTranslation}
+
+The checking process requires translating between extended polynomial functions parameterized over control variables (what the annotations give) and parameterized over tensor coordinates (what the environment stores).
+We need heuristics for this.
+If the translated polynomial matches, we accept.
+If they don't match, a much more expensive check is required where we substitute concrete values for the variables, so we don't false-reject due to the heuristic failing.
+
+The main heuristic needed is to deal with modular arithmetic, which results from ring buffering and dimension reshapes (Section~\ref{sec:DimensionReshape}), using the rule
+\begin{equation*}
+    x = \lfloor x / M \rfloor M + x \% M
+\end{equation*}
+If we apply this to the example in Section~\ref{sec:WriteAnnotation},
+
+\input{ultraspork_samples/mod_heuristic.0.tex}
+
+Although the final output check is between two extended polynomial functions parameterized on tensor coordinates, we may still need to substitute concrete values, since a symbolic mismatch may be due to previous heuristic failures.
+
+\magicSubsection{Scattered Thoughts}{sec:ScatteredThoughts}
+
+In reality, the annotations are all unnecessary at this stage, because all we really have to check is the equality between the output buffers' polynomials, and the specified extended polynomial function for the output buffer.
+However, this fits with the theme of local information; I'd like to have errors diagnosed at the location where it actually happened (e.g. an indexing mistake when loading a tile to SMEM will be diagnosed at the time of that load).
+Furthermore, for a probabilistic approach, we can spot check only a small subset of assignment statements, and trust the annotations are correct in most other cases to speed up the analysis.
+
+I'm not really sure whether this supports my goal of ``analyze unusual programs''.
+This is pending me hypothetically improving my program analysis knowledge while working on the minimum viable product that only analyzes Exo-style programs.
+If I had to give a naive initial suggestion, we can handle data-dependent branching and indexing by
+\begin{itemize}
+  \item Adding Kronecker delta as a magical opaque function for specification.
+    Reducing to a single array element \lighttt{arr[k] += e} is equivalent to reducing to all array elements \lighttt{arr[j] += e * $\delta_{jk}$}.
+  \item Keeping things symbolic as much as possible, substituting concrete values only when needed to evaluate a branch condition or array index, or when we are unable to prove extended polynomial functions equal without substituting concrete values. This is a better experience than just getting something like \lighttt{assertion failed, 5186.156 != 180.9154} after testing.
+  \item Maintaining a ``superposition'' of both branch evaluation possibilities, and compress common state of the two.
+    Randomly delete states if too many arise.
+    Have to be careful not to simulate states that are impossible.
+\end{itemize}
+This would be a value-add over black box numerical testing, and would still be compatible with synchronization checking (also a value add over black box testing, probably much more so than value checking).
+However, there will be blind spots without a large corpus of test cases, and the performance of symbolic evaluation will compare very poorly compared to running those cases natively on hardware.

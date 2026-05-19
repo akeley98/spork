@@ -29,7 +29,7 @@ But pragmatically, we can approximate the equality problem by generating new fre
 \begin{equation*}
     A(x_1, x_2, x_3, ...) = \sum_{i} A_i (x_i) (x_i + 1) \text{  where $A_i$ are the generated free variables}
 \end{equation*}
-For algorithms without data-dependent indexing or branching, it should be possible to specify the expected output buffer values as an extended polynomial function of the input buffers.
+For algorithms without data-dependent indexing or branching, it should be possible to specify the expected output buffer values as an extended polynomial function of coordinates and the input buffers (opaque functions).
 For example, dual-gemm $C = A(B_1 + B_2)$ would be specified as
 \begin{equation*}
     C(m, n) = \sum_{k=0}^{K-1} A(m, k)(B_1(k, n) + B_2(k, n))
@@ -91,5 +91,3 @@ The annotation for the value written is also an extended polynomial function of 
 \input{ultraspork_samples/ann.3.tex}
 
 \end{samepage}
-
-\magicSubsection{Value Correctness Checking}{sec:ValueCorrectnessChecking}
