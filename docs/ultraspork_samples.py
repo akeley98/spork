@@ -93,7 +93,7 @@ def mma_example():
 def annotation_example():
     # TeX: version ann 4
     # TeX: begin ann[0]
-    # Control variable from unseed cuda_tasks loop $\mathrm{(Section~\ref{sec:SeqPar})}$
+    # Control variable from unseen cuda_tasks loop $\mathrm{(Section~\ref{sec:SeqPar})}$
     m_offset: index
     # Unseen input parameters to the proc
     gmem_a: f32[M, K]  # Strides not given (compiler should auto-fill "obvious" strides)
