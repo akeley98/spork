@@ -88,3 +88,82 @@ def mma_example():
         (base_thread + DivAndMod(m, 1, 8) * 4 + DivAndMod(k, 2, 4)) * thread_id +
         DivAndMod(k, 1, 2) * 16 * bit)
     # TeX: end mma_a[5]
+
+
+def annotation_example():
+    # TeX: version ann 4
+    # TeX: begin ann[0]
+    # Control variable from unseed cuda_tasks loop $\mathrm{(Section~\ref{sec:SeqPar})}$
+    m_offset: index
+    # Unseen input parameters to the proc
+    gmem_a: f32[M, K]  # Strides not given (compiler should auto-fill "obvious" strides)
+    a_scale: f32
+
+    smem_a: f32[RING, M_TILE, K_TILE]
+    # Each thread has its own window references, so "stride" 1 thread between array entries.
+    # No real syntax for this yet (array of window references).
+    # TeX: begin ann[1]
+    gmem_ref[K_TILE @ thread]: GmemWindowExpr
+    smem_ref[K_TILE @ thread]: SmemWindowExpr
+
+    for k_thr in cuda_threads(0, K_TILE, unit=cuda_thread):
+        # Initialize per-thread GMEM pointers. These will be incremented each k iteration.
+        # TeX: color line ann[1]
+      # ggggggggggggggg
+        gmem_ref[k_thr] = gmem_a[m_offset:, k_thr:]
+    # TeX: end ann[0] ann[1]
+    # TeX: begin ann
+    for k_iter in seq(0, K_ITERS):
+        for k_thr in cuda_threads(0, K_TILE, unit=cuda_thread):
+            # Each thread will be assigned to fill one column of one ring buffer entry of smem_a.
+          # TeX: color line ann[1]
+          # rrrrrrrrrrrrrrr
+            smem_ref[k_thr] = smem_a[k_iter % RING, 0:, k_thr]
+            for m in seq(0, M_TILE):
+                # TeX: end ann
+                """
+                annotation: smem_ref[k_thr] = smem_a[k_iter % RING, 0:, k_thr]
+                deduced:    smem_ref[k_thr][m] = smem_a[k_iter % RING, m, k_thr]
+                annotation: gmem_ref[k_thr] = gmem_a[m_offset:, k_iter*K_TILE + k_thr:]
+                deduced:    gmem_ref[k_thr][m, 0] = gmem_a[m_offset + m, k_iter*K_TILE + k_thr]
+                read gmem_ref[k_thr][m, 0]: gmem_a(m_offset + m, k_iter*K_TILE + k_thr)
+                read a_scale: a_scale
+                write: gmem_a(m_offset + m, k_iter*K_TILE + k_thr) * a_scale
+                """
+                # TeX: begin ann
+                # TeX: color remark ann[0]
+              # bbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+                # This stmt will be annotated
+              # TeX: color remark ann[1]
+            # bbbbbbbbbbbbbbbrrrrrrrrrrrrrrrbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+              # annotation:  smem_ref[k_thr] = smem_a[k_iter % RING, 0:, k_thr]
+                # TeX: color remark ann[1]
+            # bbbbbbbbbbbbbbbrrrrrrrrrrrrrrrbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+              # auto-deduce: smem_ref[k_thr][m] = smem_a[k_iter % RING, m, k_thr]
+              # TeX: color remark ann[1]
+            # bbbbbbbbbbbbbbbgggggggggggggggbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+              # annotation:  gmem_ref[k_thr] = gmem_a[m_offset:, k_iter*K_TILE + k_thr:]
+                # TeX: color remark ann[1]
+            # bbbbbbbbbbbbbbbgggggggggggggggbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+              # auto-deduce: gmem_ref[k_thr][m, 0] = gmem_a[m_offset + m, k_iter*K_TILE + k_thr]
+              # TeX: color remark ann[2]
+            # bbbbbbbgggggggggggggggbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+              # read gmem_ref[k_thr][m, 0] = gmem_a(m_offset + m, k_iter*K_TILE + k_thr)
+              # TeX: color remark ann[2]
+            # bbbbbbbbbbbbbbbbbbbbbbbb
+              # read a_scale = a_scale
+              # TeX: color remark ann[3]
+            # bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+              # write: gmem_a(m_offset + m, k_iter*K_TILE + k_thr) * a_scale
+                # TeX: color line ann[1] ann[3]
+              # rrrrrrrrrrrrrrr
+                smem_ref[k_thr][m] = (
+                    # TeX: color line ann[1] ann[2]
+                  # ggggggggggggggg
+                    gmem_ref[k_thr][m, 0]
+                    * a_scale)
+            # Increment gmem_ref by K_TILE on the K dimension.
+            # TeX: color line ann[1]
+          # ggggggggggggggg
+            gmem_ref[k_thr] = gmem_ref[0:, K_TILE:]
+    # TeX: end ann

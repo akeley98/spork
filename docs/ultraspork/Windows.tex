@@ -11,7 +11,7 @@ These ``window references'' have logical attributes
 The window reference also has a physical form, which may vary depending on the instruction it's intended for (e.g. wgmma descriptor, TMA tensor map).
 The logical attributes might not be queryable from the physical form.
 
-\magicSubsection{Dimension Reshape}{sec:Dimension Reshape}
+\magicSubsection{Dimension Reshape}{sec:DimensionReshape}
 
 Something really important that's missing from Exo is the ability to use instructions that are meant for a different dimensionality by joining or splitting dimensions at runtime.
 For example, it would be nice to be able to copy a tensor of dimensions \lighttt{[L, M, N]} using a 1D cudaMemcpy.

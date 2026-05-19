@@ -27,28 +27,28 @@ In principle, we could support more escape hatches, e.g.
 Anyway, the features I have in mind are
 
 \begin{itemize}
-  \item Retaining Exo-GPU's model of sequential and parallel loops and CUDA kernel launch
+  \item Retaining Exo-GPU's model of sequential and parallel loops and CUDA kernel launch (Section~\ref{sec:SeqPar})
   \begin{itemize}
     \item Static mapping of parallel ``loop iterations'' to threads
     \item Static typing of collective units (thread groupings) that execute statements (e.g. thread, warp cooperative, CTA cooperative)
     \item See \lighttt{spork\_b.pdf} collective tiling chapter
   \end{itemize}
-  \item Tensor variables with ``typed strides''
+  \item Tensor variables with ``typed strides'' (Section~\ref{sec:Tensors})
   \begin{itemize}
     \item Each dimension is annotated with a stride that is in units of threads, CTAs, RAM address, register ID, or bits (for multiple values packed in one word)
     \item Extends Exo-GPU's binary distinction between distributed dimensions (strided by threads) and non-distributed dimensions (strided by anything else)
     \item Like in Exo-GPU, thread shards/fragments are explicit, not implicitly duplicated like in CUDA C++.
   \end{itemize}
-  \item Window references (mutable ``pointer'' variables)
-  \item Polynomial-based functional specifications
-  \item Annotations on assignment statements that specify, as a function of control variables and the functional specification
+  \item Window references (mutable ``pointer'' variables) (Section~\ref{sec:Windows})
+  \item Polynomial-based functional specifications (Section~\ref{sec:PolynomialSpec})
+  \item Annotations on assignment statements that specify, as a function of control variables and the functional specification (Section~\ref{sec:AssignmentAnnotation})
   \begin{itemize}
-    \item the tensor elements referenced by any window references used
-    \item what values are read
-    \item what value is written
+    \item the tensor elements referenced by any window references used (Section~\ref{sec:WindowAnnotation})
+    \item what values are read (Section~\ref{sec:ReadAnnotation})
+    \item what value is written (Section~\ref{sec:WriteAnnotation})
   \end{itemize}
   This is just a seed idea to start on pragmatic functional correctness checking; as I mentioned, I don't know much about formal methods
-  \item Value correctness checking for concrete problem sizes
+  \item Value correctness checking for concrete problem sizes (Section~\ref{sec:ValueCorrectnessChecking})
   \item Sync correctness checking like in Exo-GPU
   \item Explicit instruction and procedure calls
 \end{itemize}

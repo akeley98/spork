@@ -39,3 +39,57 @@ where $A$, $B_1$, $B_2$ are opaque functions.
 As mentioned, I'd like to keep an eye out for the future and consider irregular data access.
 This polynomial stuff is just a seed idea to get started on thinking.
 I don't know if this is really a good approach.
+
+\magicSubsection{Assignment Annotation}{sec:AssignmentAnnotation}
+
+We want each assignment statement $e_\mathrm{lhs} = e_\mathrm{rhs}$ to be annotated with
+
+\begin{itemize}
+    \item the tensor elements referenced by any window references used (Section~\ref{sec:WindowAnnotation})
+    \item what values are read in the read sub-expressions of $e_\mathrm{rhs}$ (Section~\ref{sec:ReadAnnotation})
+    \item what value is written through $e_\mathrm{lhs}$ (Section~\ref{sec:WriteAnnotation})
+\end{itemize}
+
+We'll look at a minified example of threads loading \lighttt{[M\_TILE, K\_TILE]}-sized tiles from global memory into a shared memory ring buffer of depth \lighttt{RING}, where the tile is scaled by \lighttt{a\_scale}.
+
+\begin{samepage}  % Doesn't seem to work as I expected but better than nothing.
+
+\input{ultraspork_samples/ann.0.tex}
+
+\end{samepage}
+\begin{samepage}
+\magicSubsection{Window Reference Annotation}{sec:WindowAnnotation}
+
+Each window reference used (in this case \lighttt{smem\_ref} and \lighttt{gmem\_ref}) is annotated with the underlying tensor elements referenced.
+This is probably really tedious and verbose to do, so some tools or automation will be nice.
+In this case, \lighttt{smem\_ref} is pretty obvious since it was set in the previous line, but \lighttt{gmem\_ref} is a loop-carry dependency.
+
+\input{ultraspork_samples/ann.1.tex}
+
+\end{samepage}
+\begin{samepage}
+\magicSubsection{Read Annotation}{sec:ReadAnnotation}
+
+The two operands of the multiply are each annotated with the value read.\\
+In this case, this relies on
+\begin{itemize}
+  \item free variable \lighttt{a\_scale}
+  \item opaque function \lighttt{gmem\_a(...)} representing loading proc input values
+\end{itemize}
+and the resulting extended polynomial function is a function of control variables \lighttt{m}, \lighttt{m\_offset} (from unseen \lighttt{cuda\_tasks} loop, Section~\ref{sec:SeqPar}), \lighttt{k\_iter}, and \lighttt{k\_thr}.
+
+As before, consider automating extremely obvious cases.
+
+\input{ultraspork_samples/ann.2.tex}
+
+\end{samepage}
+\begin{samepage}
+\magicSubsection{Write Annotation}{sec:WriteAnnotation}
+
+The annotation for the value written is also an extended polynomial function of of control variables \lighttt{m}, \lighttt{m\_offset}, \lighttt{k\_iter}, and \lighttt{k\_thr}.
+
+\input{ultraspork_samples/ann.3.tex}
+
+\end{samepage}
+
+\magicSubsection{Value Correctness Checking}{sec:ValueCorrectnessChecking}
