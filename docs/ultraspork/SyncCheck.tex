@@ -1,0 +1,56 @@
+\magicSection{Sync Check}{sec:SyncCheck}
+
+I won't try to explain the whole scheme, which is adapted from Exo-GPU.
+The question is, is the ``abstract machine'' approach actually extensible to static analysis?
+
+I need to do what I can to summarize what we have.
+In the abstract machine, each tensor element stores a history of how it was read and written.
+Each element contains a set of \myKeyA{read visibility records} (one added for each read of that element done) and a set of \myKeyA{mutate visibility records} (one added for each assignment executed to that element).
+Each visibility record $r$ contains
+
+\begin{itemize}
+  \item visibility set $r.s$: set of \myKeyA{timeline signatures} (thread id, qualitative timeline, visibility flag); these vary based on what thread \& instruction performed the read/mutate.
+  \item pending await function $r.p$: set of \myKeyA{pending awaits} (barrier id, arrive count). Used to handle interactions with split barriers.\footnote{In Exo-GPU, it's really a function $p:$ barrier$\to$minimum-arrive-count. View it as a set of $(b, a)$ where $a \ge p(b)$.}
+\end{itemize}
+
+I will say that $r'$ is \myKeyA{at least as permissive as} $r$ (denoted $r \leq r'$) when
+\begin{equation*}
+    r.s \subseteq r'.s \land r.p \subseteq r'.p
+\end{equation*}
+The visibility record may be modified by the effect of synchronization.
+Let $f_\mathrm{sync}(s, r)$ be $r$ modified by the effect of synchronization statement instance $s$.
+The three cases are
+\begin{itemize}
+  \item (Fence) if $r.s$ has a nonempty intersection with some test set $v$ (not defined here), then $r$ is returned with $r.s$ unioned with additional timeline signatures. Otherwise, $r$ is returned unchanged.
+  \item (Arrive) if $r.s$ has a nonempty intersection with some test set $v$ (not defined here), then $r$ is returned with  
+  $r.p$ (pending awaits) unioned with additional pending awaits. Otherwise, $r$ is returned unchanged.
+  \item (Await) if $r.p$ contains a certain pending await (not defined here), then $r$ is returned with $r.s$ unioned with additional timeline signatures. Otherwise, $r$ is returned unchanged.
+\end{itemize}
+In all cases $r.s$ and $r.p$ can only grow. Therefore, $r \leq f_\mathrm{sync}(s, r)$.
+
+Furthermore, if $r.s \cap v$ is non-empty, so is $r'.s \cap v$ if $r.s \subseteq r'.s$.\\
+This makes $f_\mathrm{sync}$ an increasing function:
+\begin{equation*}
+  r \leq r' \implies f_\mathrm{sync}(s, r) \leq f_\mathrm{sync}(s, r')
+\end{equation*}
+Upon a read or mutate (or other circumstances like alloc/free, not discussed here), the safety check will either
+\begin{itemize}
+  \item check that all mutate visibility records of the referenced tensor element satisfy a certain condition, or,
+  \item check that all read visibility records and all mutate visibility records of the referenced tensor element satisfy a certain condition,
+\end{itemize}
+where that condition may be checking that a certain timeline signature exists in $r.s$ or that a certain pending await exists in $r.p$.
+Note that in this formulation, a tensor element containing no visibility records is the most permissive.
+
+This justifies the \myKeyA{at least as permissive as} reading of $r \leq r'$; if $r$ satisfies the safety condition, then so will $r'$.
+Also, as $f_\mathrm{sync}$ is increasing, if $f_\mathrm{sync}(s, r)$ satisfies the safety condition, so does $f_\mathrm{sync}(s, r')$.
+This allows us to use a ``least permissive'' $r$ as a pre-condition, regardless of the synchronization contained within the block of code with the pre-condition.
+
+If it's known that a block of code will function correctly given the input tensors have all mutate visibility records (and possibly all read visibility records) at least as permissive as $r$, and we prove that the code functions correctly with exactly $r$ as the input visibility records, then the code will function correctly for whatever actual visibility records $r'$ exist as long as $r \leq r'$.
+
+For example, if a block of code performs CTA-wide reads (but not mutates) to a tensor without synchronization, then the precondition is that each mutate visibility record of the input tensor is at least as permissive as a visibility record $r$ containing a visibility set $r.s$ encompassing all threads in the CTA. (Ignore qualitative timeline and visibility flag for the purposes of this document).
+
+Instead of a single precondition visibility record $r$, the precondition may also be that the input visibility records must be at least as permissive as some $r \in R$, i.e.
+\begin{equation*}
+    \forall r' \in \text{\{input visibility records...\}}. \exists r \in R. r \leq r'
+\end{equation*}
+For example, if a block of code synchronizes the CTA, then performs CTA-wide reads and mutates to a tensor, then the precondition is that each mutate visibility record and each read visibility record of the input tensor is at least as permissive as one of $r_0, r_1, r_2, ...$; where $r_i$ is a visibility record containing a visibility set $r_i.s$ encompassing just the $i^{th}$ thread of the CTA.
