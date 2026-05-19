@@ -1,0 +1,25 @@
+\magicSection{Sequential \& Parallel Loops}{sec:SeqPar}
+
+The sequential and parallel loops, and CUDA device function (kernel) launch, will be very similar to Exo-GPU.
+The syntax may change but I summarize with respect to current Exo syntax.
+
+\begin{itemize}
+  \item Everything is CPU-scope by default, transitioned to CUDA-scope inside device function.
+  \begin{itemize}
+    \item TODO would actually be great to have CUDA-scope sub-proc.
+  \end{itemize}
+  \item \myKeyA{Collective unit} = typed grouping of threads without concrete coordinates. e.g. single thread, warp, CTA, cluster.
+  \item \myKeyA{Thread collective} = instance of a collective unit, e.g. ``warp 4 in CTA 9''
+  \item \lighttt{CudaDeviceFunction} launch gives \lighttt{clusterDim} (CTAs per cluster) and \lighttt{blockDim} (threads per CTA). We also support warp specialization, not important here.
+  \item \lighttt{seq} loops are sequential.
+  \item \lighttt{cuda\_tasks} loops inside the kernel launch spawn a grid of abstract tasks, each assigned to a cluster for execution. TODO need to support more than static persistent kernel.
+  \item Each statement will be executed cooperatively by instances of a certain collective unit $\tau_u$; we say the statement is at $\tau_u$-scope.
+    The top-level task is at cluster-scope.
+    The $\tau_u$-scope statically enforces convergence requirements, e.g. warp-sync instrs may only appear at warp-scope.
+  \item \lighttt{cuda\_threads} loops subdivide the executing threads collective into disjoint subsets, all instances of the \lighttt{unit} collective unit parameter (e.g. \lighttt{cuda\_thread}, \lighttt{cuda\_warp}).
+  Each subset executes one loop iteration. 
+\end{itemize}
+
+This static analysis gives rise to a \myKeyA{thread mapping function}, which maps the values of loop iterators to the set of active threads.
+
+\input{ultraspork_samples/OverviewThreads.0.tex}
