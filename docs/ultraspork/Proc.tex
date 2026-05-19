@@ -1,0 +1,26 @@
+\magicSection{Procedures \& Instructions}{sec:Proc}
+
+Each procedure (including instructions) takes control variables and window references (Section~\ref{sec:Windows}) as parameters.
+
+For static safety checking, the sub-procedure has
+\begin{itemize}
+  \item a required device scope, CPU or CUDA (Section~\ref{sec:SeqPar})
+  \item a collective unit $\tau_u$ (e.g. warp); calls to the proc must appear at $\tau_u$-scope (Section~\ref{sec:SeqPar})
+  \item memory types for each window reference (Section~\ref{sec:Tensors})
+  \item typed strides for each dimension of each window reference; the real window references passed must have the expected strides (Section~\ref{sec:Windows}) and also swizzle function
+\end{itemize}
+
+Certain instructions may require window references to be passed in a special binary format (e.g. CUtensorMap, wgmma SMEM descriptor).
+
+For what will initially be dynamic safety checking, the sub-procedure has
+\begin{itemize}
+  \item Value specification: each modified window has the expected output given as an extended polynomial function (Section~\ref{sec:PolynomialSpec}) of index coordinates and input buffers
+  \item Pre-conditions and post-conditions of some sort on the synchronization environment (Section~\ref{sec:SyncCheck})
+\end{itemize}
+
+The sub-procedure call will have to have each window expression annotated in some way similar to assignment statements (Section~\ref{sec:AssignmentAnnotation}).
+
+Unlike Exo-GPU, we should allow non-instruction procs that require CUDA scope.
+This is because breaking giant kernels into sub-procedures may be very useful to cut down the complexity of proofs and provide a natural boundary of where to declare pre-conditions and post-conditions.
+We will NOT translate these to CUDA C++ \lighttt{\_\_device\_\_} functions; instead, we should inline all such function calls inside the compiler so we don't have to trust the downstream compiler.
+This is especially important for register windows, so we don't have to try to pass pointers/references to values that fundamentally are not stored in RAM.

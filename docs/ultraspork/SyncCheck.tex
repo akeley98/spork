@@ -4,7 +4,7 @@ I won't try to explain the whole scheme, which is adapted from Exo-GPU.
 The question is, is the ``abstract machine'' approach actually extensible to static analysis?
 
 I need to do what I can to summarize what we have.
-In the abstract machine, each tensor element stores a history of how it was read and written.
+In the abstract machine's \myKeyA{synchronization environment}, each tensor element stores a history of how it was read and written.
 Each element contains a set of \myKeyA{read visibility records} (one added for each read of that element done) and a set of \myKeyA{mutate visibility records} (one added for each assignment executed to that element).
 Each visibility record $r$ contains
 
