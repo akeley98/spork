@@ -54,7 +54,7 @@ We'll look at a minified example of threads loading \lighttt{[M\_TILE, K\_TILE]}
 
 \begin{samepage}  % Doesn't seem to work as I expected but better than nothing.
 
-\input{ultraspork_samples/ann.0.tex}
+\input{ultraspork/ann.0.tex}
 
 \end{samepage}
 \begin{samepage}
@@ -64,7 +64,7 @@ Each window reference used (in this case \lighttt{smem\_ref} and \lighttt{gmem\_
 This is probably really tedious and verbose to do, so some tools or automation will be nice.
 In this case, \lighttt{smem\_ref} is pretty obvious since it was set in the previous line, but \lighttt{gmem\_ref} is a loop-carry dependency.
 
-\input{ultraspork_samples/ann.1.tex}
+\input{ultraspork/ann.1.tex}
 
 \end{samepage}
 \begin{samepage}
@@ -80,7 +80,7 @@ and the resulting extended polynomial function is a function of control variable
 
 As before, consider automating extremely obvious cases.
 
-\input{ultraspork_samples/ann.2.tex}
+\input{ultraspork/ann.2.tex}
 
 \end{samepage}
 \begin{samepage}
@@ -88,6 +88,6 @@ As before, consider automating extremely obvious cases.
 
 The annotation for the value written is also an extended polynomial function of of control variables \lighttt{m}, \lighttt{m\_offset}, \lighttt{k\_iter}, and \lighttt{k\_thr}.
 
-\input{ultraspork_samples/ann.3.tex}
+\input{ultraspork/ann.3.tex}
 
 \end{samepage}

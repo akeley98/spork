@@ -24,35 +24,35 @@ using temporary syntax \lighttt{extent @ stride} for each dimension.
 
 The base case is a single 32-bit word packing 2 16-bit floats
 
-\input{ultraspork_samples/mma_a.0.tex}
+\input{ultraspork/mma_a.0.tex}
 
 A single row contains 8 16-bit floats.
 This is sharded across 4 threads, with 2 packed values per thread.
 
-\input{ultraspork_samples/mma_a.1.tex}
+\input{ultraspork/mma_a.1.tex}
 
 From there, a whole warp (32 threads) stores a single $8 \times 8$ matrix.
 Each group of 4 threads stores one row.
 
-\input{ultraspork_samples/mma_a.2.tex}
+\input{ultraspork/mma_a.2.tex}
 
 Thus far only a single register ID was consumed.
 The full instruction takes a $16 \times 16$ $A$ matrix, split into 4 registers.
 Each register stores a single $8 \times 8$ matrix, with adjacent matrices on the $M$ dimension having adjacent registers.
 
-\input{ultraspork_samples/mma_a.3.tex}
+\input{ultraspork/mma_a.3.tex}
 
 i.e., the stride on the $M$ register dimension is 1 register ID, and on the $K$ register dimension, 2 register IDs.
 
 This implies a polynomial indexing function mapping tensor coordinates to an ``address'' (I need an abstract term for a hardware location that is not necessarily a pointer).
 There are free variables for the unknown base of the allocation, and the stride base units.
 
-\input{ultraspork_samples/mma_a.4.tex}
+\input{ultraspork/mma_a.4.tex}
 
 For clarity we should consider CuTe-style hierarchical coordinates (tuple of tuples).
 In this example, group the $M$ and $K$ coordinates separately.
 We can use lexicographical ordering to implement what CuTe calls ``natural coordinates'' where a single coordinate is auto-decomposed to a coordinate tuple.
 The implied indexing function is now polynomial, with the addition of an opaque function \texttt{DivAndMod(x, D, M) = $\frac{x}{D} \% M$}.
 
-\input{ultraspork_samples/mma_a.5.tex}
+\input{ultraspork/mma_a.5.tex}
 

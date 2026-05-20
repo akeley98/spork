@@ -10,7 +10,7 @@ The gemm kernel already displays aggressive re-ordering to hide memory latency (
 \begin{samepage}
 {\small
 
-\input{ultraspork_samples/cutlass_pseudocode.0.tex}
+\input{ultraspork/cutlass_pseudocode.0.tex}
 
 }
 \end{samepage}
@@ -55,7 +55,7 @@ The main heuristic needed is to deal with modular arithmetic, which results from
 \end{equation*}
 If we apply this to the example in Section~\ref{sec:WriteAnnotation},
 
-\input{ultraspork_samples/mod_heuristic.0.tex}
+\input{ultraspork/mod_heuristic.0.tex}
 
 Although the final output check is between two extended polynomial functions parameterized on tensor coordinates, we may still need to substitute concrete values, since a symbolic mismatch may be due to previous heuristic failures.
 

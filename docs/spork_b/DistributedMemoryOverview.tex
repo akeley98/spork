@@ -2,7 +2,7 @@
 
 \begin{figure}[b!]
 \codehrule
-\input{b_samples/OverviewDistributedMemory.0.tex}
+\input{spork_b/OverviewDistributedMemory.0.tex}
 \caption{Distributed Memory Example Code}
 \label{fig:OverviewDistributedMemory}
 \codehrule
@@ -24,7 +24,7 @@ A reasonable alternative design could have the user make explicit per-dimension 
 
 \begin{figure*}[!h]
 \codehrule
-\input{b_samples/why_dist.0.tex}
+\input{spork_b/why_dist.0.tex}
 \caption{\textbf{Optional reading:} counterexample for sequential-parallel equivalence for a hypothetical design where variables are implicitly duplicated across threads.
 Note: in general we cannot fuse the \lighttt{tid} loops or sink the allocation of \lighttt{x} into the loop scope, since there may be required synchronization or other warp/CTA-uniform code between them.}
 \label{fig:why_dist}
