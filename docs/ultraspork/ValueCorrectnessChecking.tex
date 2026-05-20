@@ -26,9 +26,9 @@ For example, in a gemm $C = AB$, an accumulator \lighttt{C\_tile[M\_tile, N\_til
 \begin{equation*}
     C(m, n) = \sum_{k=0}^{K-1} A(\texttt{m\_offset} + m, k) B(k, \texttt{n\_offset} + n)
 \end{equation*}
-Since \lighttt{m, n} are in fact constants, it's possible to store literal polynomials.
+Since we store a polynomial for each tensor element, \lighttt{m, n} are in fact constants here, and it's possible to store literal polynomials.
 The reason to store them as functions is for de-duplication: we can summarize entire tiles with a single object.
-Furthermore, this is the format by which the output buffers are specified.
+Furthermore, this will match the format by which the output buffers are specified (function of output buffer coordinates to values).
 
 \magicSubsection{Assignment Checks}{sec:AssignmentChecks}
 
