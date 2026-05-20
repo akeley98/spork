@@ -163,9 +163,10 @@ def annotation_example():
                     gmem_ref[k_thr][m, 0]
                     * a_scale)
             # Increment gmem_ref by K_TILE on the K dimension.
+            # The first [] selects a window reference from the array, and the second [] dereferences it.
             # TeX: color line ann[1]
           # ggggggggggggggg
-            gmem_ref[k_thr] = gmem_ref[0:, K_TILE:]
+            gmem_ref[k_thr] = gmem_ref[k_thr][0:, K_TILE:]
     # TeX: end ann
 
 """

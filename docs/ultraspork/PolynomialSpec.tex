@@ -27,7 +27,7 @@ For the prototype, a lot of symbolic evaluation will come down to checking equal
 I am not sure if the added opaque function makes this undecidable.
 But pragmatically, we can approximate the equality problem by generating new free variables for each unique opaque function and substituting a non-linear polynomial for each opaque function, e.g.
 \begin{equation*}
-    A(x_1, x_2, x_3, ...) = \sum_{i} A_i (x_i) (x_i + 1) \text{  where $A_i$ are the generated free variables}
+    A(x_1, x_2, x_3, ...) = \sum_{i} (x_i + A_i)^2 \text{  (where $A_i$ are the generated free variables)}
 \end{equation*}
 For algorithms without data-dependent indexing or branching, it should be possible to specify the expected output buffer values as an extended polynomial function of coordinates and the input buffers (opaque functions).
 For example, dual-gemm $C = A(B_1 + B_2)$ would be specified as

@@ -1,7 +1,7 @@
 \magicSection{Window References}{sec:Windows}
 
 As mentioned, there needs to be a way to bind a view of part of a tensor into a variable.
-These ``window references'' have logical attributes
+These variables are ``window references'', which have logical attributes
 \begin{itemize}
   \item Base address; what \lighttt{window[0, 0, ...]} refers to
   \item Per-dimension minimum valid coordinate (often 0)
@@ -40,5 +40,8 @@ We can rely on two properties of swizzle functions $S$:
 \end{itemize}
 This allows commuting the swizzle function and linear striding, for restricted cases (checked).
 
-The common 128-byte swizzle function works by XOR-ing bits 4, 5, and 6 of a physical SMEM address with bits 7, 8, 9.
-This pattern has atomicity of 16 bytes, and a period of 1024 bytes.
+The common 128-byte swizzle function works like this (using Verilog syntax)
+\begin{verbatim}
+        address[6:4] ^= address[9:7]
+\end{verbatim}
+This pattern has an atomicity of 16 bytes, and a period of 1024 bytes.

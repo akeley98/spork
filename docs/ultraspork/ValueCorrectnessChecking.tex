@@ -1,7 +1,7 @@
 \magicSection{Value Correctness Checking}{sec:ValueCorrectnessChecking}
 
 Given annotations on the values read and written (as extended polynomial functions), it should be possible to statically verify that the write annotation follows from the read annotations.
-Otherwise, my initial approach would be to symbolically evaluate the entire program for a concrete problem size, due to the difficulty of reasoning about programs with mutable array accesses.
+Other that that, my initial approach is dynamic: symbolically evaluate the entire program for a concrete problem size, due to the difficulty of reasoning about programs with mutable array accesses.
 
 As I mentioned, it'd be great if this project were a springboard for me to actually learn formal reasoning.
 For me to be interested, the reasoning has to be sophisticated enough to, at a minimum, prove that the standard Ampere gemm below is value-correct (i.e. ignore synchronization issues).
@@ -14,6 +14,10 @@ The gemm kernel already displays aggressive re-ordering to hide memory latency (
 
 }
 \end{samepage}
+
+\textbf{\redBox{IMPORTANT:}} More than anything, I need to know \textbf{DOES SUCH SAFETY ANALYSIS ALREADY EXIST} before I commit to a worse approach!!!
+Supposedly polyhedral model is this but I'm quickly warned that modulo and temporary buffers break it ... I asked Claude Opus 4.6 if either polyhedral model or separation logic will solve it and Claude said no, with fairly low confidence after some prodding.
+(i.e. I didn't put that much effort to investigate this; I want to give you this doc ASAP for now).
 
 \magicSubsection{Value Environment}{sec:ValueEnv}
 

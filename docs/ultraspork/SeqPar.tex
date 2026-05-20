@@ -10,7 +10,7 @@ The syntax may change but I summarize with respect to current Exo syntax.
   \end{itemize}
   \item \myKeyA{Collective unit} = typed grouping of threads without concrete coordinates. e.g. single thread, warp, CTA, cluster.
   \item \myKeyA{Thread collective} = instance of a collective unit, e.g. ``warp 4 in CTA 9''
-  \item \lighttt{CudaDeviceFunction} launch gives \lighttt{clusterDim} (CTAs per cluster) and \lighttt{blockDim} (threads per CTA). We also support warp specialization, not important here.
+  \item \lighttt{CudaDeviceFunction} launch specifies \lighttt{clusterDim} (CTAs per cluster) and \lighttt{blockDim} (threads per CTA). We also support warp specialization, not important here.
   \item \lighttt{seq} loops are sequential.
   \item \lighttt{cuda\_tasks} loops inside the kernel launch spawn a grid of abstract \myKeyA{device tasks}, each assigned to a cluster for execution. TODO need to support more than static persistent kernel.
   \item Each statement will be executed cooperatively by instances of a certain collective unit $\tau_u$; we say the statement is at $\tau_u$-scope.
