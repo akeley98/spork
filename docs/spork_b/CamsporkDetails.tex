@@ -1,0 +1,10 @@
+\magicSubsection{Camspork Implementation Details And Deviations}{sec:CamsporkDetails}
+
+The implementation deviates from the described semantics:
+
+\begin{itemize}
+  \item The free-on-arrive barrier (def~\ref{sec:gFreeOnArriveBarrier}) gets propagated deep into the system, along with status flags associated with managed ring buffers (Section~\ref{sec:ManagedRingBuffers}).
+  This is to more eagerly issue ``use before allocate'' and ``use after free'' diagnostics, closer to the actual code that triggered the problem.
+  \item The \lighttt{JoinThreads} node (def~\ref{sec:gJoinThreads}).
+  \item Out-of-order Non-convergent Abstract Machine Optimization (def~\ref{sec:gOooOpt}).
+\end{itemize}

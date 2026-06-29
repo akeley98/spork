@@ -4,5 +4,7 @@
 The threads are indexed lexicographically by (CTA index, thread index in CTA).
 The closed-form equation is \lighttt{cluster\_ctarank * blockDim.x + threadIdx.x}
 
+When paired with a task ID $\iota$ (def~\ref{sec:gLocalThreadIndex}), this forms a global thread ID $(\iota, n) \in \mathbb{G}$ (def~\ref{sec:gGlobalThreadID}).
+
 Note, not to be confused with linear thread IDs (tid) in camspork, which also encodes the task index (Section~\ref{sec:SyncSemanticsThreadMapping}).
 

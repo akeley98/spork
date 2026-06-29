@@ -1,0 +1,30 @@
+\magicSubsection{JoinThreads}{sec:gJoinThreads}
+
+Not-so-disciplined change to abstract machine semantics (Section~\ref{sec:SyncSemantics}) for the real camspork implementation (def~\ref{sec:gCamspork}), which reduces the number of unique visibility records (def~\ref{sec:gVisRecord}) jamming up the memoization table.
+
+After a device task terminates, it's no longer observable which specific threads performed an operation, as all device-task-to-device-task (i.e. inter-cluster (def~\ref{sec:gCluster}) synchronization cannot distinguish between threads in a cluster).
+A similar argument holds for CUDA inter-grid synchronization.
+
+Therefore we drop this information at the end of device tasks and CUDA kernel launches.
+A \lighttt{JoinThreads} at the end of the executed \myKeyA{device task} applies lifting (Section~\ref{sec:Lifting}) to the synchronization environment (Section~\ref{sec:SyncEnv}) using the visibility record lambda (def~\ref{sec:gVisRecord}) $\lambda_\mathrm{JoinTask}: \textsf{VisRecord} \to \textsf{VisRecord}$:
+
+\begin{align*}
+    & \lambda_\mathrm{JoinTask}(r.s) = r.s \cup \bigcup_{((\iota', n'), q, v) \in r.s}
+      \begin{cases}
+        (\{\iota'\} \times [0, N-1]_\mathbb{N}) \times \{q\} \times \{v\} \text{ if $\iota = \iota'$ } \\
+        \{\} \text{ otherwise}
+      \end{cases} \\
+    & \text{ where $\iota$ is the device task ID (def~\ref{sec:gIota}) of the just-finished device task} \\
+    & \text{ where $N$ is the number of threads per cluster (Section~\ref{sec:CudaDeviceFunction})} \\
+\end{align*}
+
+Basically, this replaces each timeline signature (def~\ref{sec:gTlSig}) associated with any thread of the device task with a group of equivalent timeline signatures that encompass the entire device task.
+
+Similarly, a \lighttt{JoinThreads} at the end of the executed \myKeyA{CUDA device function} (Section~\ref{sec:CudaDeviceFunction}) performs lifting with
+
+\begin{align*}
+    & \lambda_\mathrm{JoinGrid}(r.s) = r.s \cup \bigcup_{((\iota', n'), q, v) \in r.s}
+      \mathbb{G} \times \{q\} \times \{v\}
+\end{align*}
+
+TODO if we model turnstiles implemented with atomics using acquire/release semantics, this whole argument falls apart because these can genuinely synchronize any thread on the system with any other thread on the system.
