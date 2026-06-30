@@ -54,6 +54,9 @@ The \lighttt{lo}, \lighttt{hi}, and \lighttt{index} coordinate values must have 
 The latter type is used for almost all window features, and can be created from a string of C++ code with the \lighttt{args.exo\_wrap\_cir} function.
 The resulting object can be used with arithmetic operators (e.g. \texttt{*}) to construct more complex C++ expressions with correct parenthesization.
 
+\mainKey{NOTE:} The \lighttt{exo\_} prefix is reserved for your use in temporary variables;
+these variables will never collide with compiler-generated names for LoopIR variables.
+
 Most \lighttt{codegen} functions generate PTX code that's wrapped as CUDA C++ inline assembly.
 You are strongly advised to use \lighttt{exo.spork.excut.simple\_ptx\_c\_lines} or \lighttt{exo.spork.excut.InlinePtxGen} to do this (both also available in \lighttt{exo.platforms.cuda}).
 The former wraps PTX assembly with no arguments, and the latter
