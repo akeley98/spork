@@ -1,0 +1,17 @@
+\magicSubsection{Swizzle Period}{sec:gSwizzlePeriod}
+
+A \lighttt{sm\_90} swizzle function (all we support for now) works by XOR-ing certain bits in the pointer with other bits in the pointer.
+The common 128-byte swizzle function works like this (using Verilog syntax)
+\begin{verbatim}
+        address[6:4] ^= address[9:7]
+\end{verbatim}
+
+In general, once a pointer is swizzled, it cannot be adjusted with pointer arithmetic anymore.
+The exception: there exists a minimal swizzle period $P$ such that adjustments that are multiples of $P$ bytes can be done after the swizzling.
+i.e., the swizzle pattern of the swizzle function $S$ repeats every $P$ bytes:
+\begin{equation*}
+    \forall x, y \in \mathbb{Z}. S(Px + y) = Px + S(y)
+\end{equation*}
+The 128-byte swizzle function, for example, has a swizzle period of 1024 bytes.
+
+Non-swizzled memory may be viewed as having an identity swizzle function with period $P = 1$.
