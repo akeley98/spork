@@ -1,0 +1,183 @@
+\input{whitepaper_common.tex}
+
+\tikzstyle{arrow} = [thick,->,>=stealth]
+\tikzstyle{line} = [thick]
+
+\tikzstyle{redstyle} = [draw=redBoxFg, fill=redBoxBg, text=redBoxFg]
+\tikzstyle{yellowstyle} = [draw=yellowBoxFg, fill=yellowBoxBg, text=yellowBoxFg]
+\tikzstyle{greenstyle} = [draw=greenBoxFg, fill=greenBoxBg, text=greenBoxFg]
+\tikzstyle{bluestyle} = [draw=blueBoxFg, fill=blueBoxBg, text=blueBoxFg]
+\tikzstyle{violetstyle} = [draw=violetBoxFg, fill=violetBoxBg, text=violetBoxFg]
+\tikzstyle{nRedstyle} = [draw=nRedBoxFg, fill=nRedBoxBg, text=nRedBoxFg]
+\tikzstyle{nGoldstyle} = [draw=nGoldBoxFg, fill=nGoldBoxBg, text=nGoldBoxFg]
+\tikzstyle{nGreenstyle} = [draw=nGreenBoxFg, fill=nGreenBoxBg, text=nGreenBoxFg]
+\tikzstyle{nBluestyle} = [draw=nBlueBoxFg, fill=nBlueBoxBg, text=nBlueBoxFg]
+\tikzstyle{nPurplestyle} = [draw=nPurpleBoxFg, fill=nPurpleBoxBg, text=nPurpleBoxFg]
+
+\tikzstyle{CollTypeExampleStyle} = [rectangle, draw=black, text centered, text width=23mm]
+\tikzstyle{CollTilingExampleStyle} = [rectangle, draw=black, text centered, text width=12.5mm]
+
+\newcommand{\qc}[1]{\left\llbracket#1\right\rrbracket}
+
+\begin{document}
+
+\magicSection{Roadmap}{sec:Roadmap}
+
+The bottleneck for the thesis-writing effort is feedback, because I'm (for now) bad at figuring out how to empathize with my audience and put together something concise that actually makes sense to someone else.
+
+\begin{itemize}
+
+\item So many Exo-GPU features are hard to explain since they all rely on each other in a web of concepts.
+Top-priority item is for me to figure out a ``minimal skeleton'' of low-detail Exo-GPU concepts to bootstrap the reader's understanding.
+
+\item Convert the skeleton to prose, then grow detail.
+
+\item I need to figure out what to deliver to jrk each week to get the most valuable feedback possible.
+In the end, I probably have to write a lot of low-confidence prose and figure out what I really should have done after the fact from feedback.
+
+\item Language changed a huge amount since PLDI, so I have to redo all the results.
+Ideally, add ping-pong gemm, Sm80 gemm, causal attention (these are all cases illuminating flaws in Exo-GPU).
+
+\item Probably add boilerplate like intro/related work last.
+
+\end{itemize}
+
+\magicSection{Exo-GPU Concepts}{sec:Concepts}
+
+\magicSubsection{Parallelism}{sec:Parallelism}
+
+\begin{itemize}
+  \item \lighttt{with CudaDeviceFunction(...)} launches CUDA kernel (CUDA scope inside, CPU scope outside),
+    and assigns each warp in a CTA to a named specialization (e.g. first 4 ``producer'', last 8 ``consumer'').
+  \item \lighttt{for cuda\_tasks} loops assign each ``iteration'' to a CUDA cluster.
+  \item \lighttt{for cuda\_threads} loops assign each ``iteration'' to a different set of threads in the cluster.
+    This is parameterized with a ``collective unit'' (e.g. \lighttt{cuda\_thread}, \lighttt{cuda\_warp}).
+  \item \lighttt{with CudaWarps(name=...)} restricts execution of the body only to the named specialization.
+  \item Each thread is identified by a pair of task ID (manipulated by \lighttt{cuda\_tasks} loops)
+    and local thread index (manipulated with \lighttt{for cuda\_threads} and \lighttt{with CudaWarps}).
+  \item Key end result: each statement is either CPU scope, or CUDA scope with a ``thread mapping function''.
+    This maps control variables to the set of local thread indices of threads assigned to execute an instance of that statement.
+\end{itemize}
+
+\magicSubsection{Distributed Memory}{sec:DistributedMemory}
+
+Explain how tensors are sharded into different threads.
+
+%% \begin{itemize}
+%%   \item Each tensor allocation's dimensions break down into distributed, array, and packed dimensions.
+%%   \item Each tensor's memory type specifies the expected extents of its packed dimensions,
+%%     which are always the right-most dimensions.
+%%     This is a bit of a hack for opaque types, like ThunderKittens tiles.
+%%   \item Only GPU allocations can have distributed dimensions.
+%%     These are always the left-most dimensions.
+%% \end{itemize}
+
+\magicSubsection{Instructions \& Synchronization}{sec:InstrSync}
+
+\begin{itemize}
+  \item Each instruction effect (read/write) is performed with a certain qualitative timeline and certain group of threads.
+  \item Synchronization statements (Fence, Arrive, Await) are parameterized with timeline signatures: compositions of qualitative timelines.
+  \item Synchronization only waits for certain subsets of effects, filtered by qualitative timeline and threads.
+\end{itemize}
+
+\magicSubsection{Multicast}{sec:Multicast}
+
+Tricky concept 1: arriving on multiple mbarriers in different CTAs. 
+
+\magicSubsection{Managed Ring Buffers}{sec:ManagedRingBuffers}
+
+Tricky concept 2: one dimension may be annotated as being ``ring buffered by'' a certain constant value.
+The implementation hides the resulting modulo operation.
+This is needed due to persistent kernels not meshing well with Exo quasi-affine indexing.
+
+\magicSubsection{Synchronization Checking}{sec:SyncCheck}
+
+Will be a huge challenge to explain.
+
+\magicSection{Collective Algebra}{sec:CollAlgebra}
+
+\magicSubsection{Local Thread Index}{sec:LocalThreadIndex}
+
+0-based integer index uniquely identifying a thread within a cluster.
+The threads are indexed lexicographically by (CTA index, thread index in CTA).
+The closed-form equation is \lighttt{cluster\_ctarank * blockDim.x + threadIdx.x}
+
+\magicSubsection{$\mathbb{G}$ (Global Thread ID)}{sec:GlobalThreadID}
+
+$\mathbb{G}$, pair of task ID $\iota: \mathbb{I}$ and local thread index $n \in \mathbb{N}$.
+
+\magicSubsection{Domain, toLocal}{sec:Domain}
+
+In most contexts, we will view the threads within a cluster as arranged into an $M$-dimensional grid whose extents are given by some domain $D: \mathbb{N}^M = (D_0, ..., D_{M-1})$.
+The function
+\begin{equation}
+    \mathsf{toLocal}_D: [0, D_0-1]_\mathbb{N} \times ... \times [0, D_{m-1} - 1]_\mathbb{N} \to \mathbb{N}
+\end{equation}
+translates multidimensional coordinates in this grid to local thread indices, in lexicographical order.
+
+\magicSubsection{Thread Collective}{sec:ThreadCollective}
+
+A set of threads assigned to cooperatively execute a statement instance (including the base case of 1 thread).
+
+\magicSubsection{Collective Type}{sec:CollType}
+
+Pair of domain $D: \mathbb{N}^M$ and box $B: \mathbb{N}_\top^M$, both of some dimension $M$.
+This is used to type match thread collectives with notions like ``one warp'' or ``one CTA''.
+This is unpacked from the syntactic collective unit, with substitution for \lighttt{clusterDim} and \lighttt{blockDim} (and other magic).
+
+A thread collective matches a collective type $(D, B)$ when
+\begin{itemize}
+  \item all threads in the thread collective have the same task ID
+  \item the local thread indices of the threads, when mapped by the inverse of $\mathsf{toLocal}_D$, form a cuboid $I_0 \times ... \times I_{M-1}$, each $I_m$ being an interval of natural numbers.
+  \item for all $I_m$, $I_m = B_m$ or $B_m = \top$ (box size match).
+\end{itemize}
+
+\magicSubsection{cuda\_threads}{sec:CudaThreads}
+
+A \lighttt{cuda\_threads} loop is executed by a certain thread collective, subdivides that thread collective into disjoint subsets, and assigns each subset a different iteration of the loop.
+This will be done by splitting the ``cuboid of threads'' along a certain dimension of the grid implied by the domain unpacked from the collective unit of the \lighttt{cuda\_threads} loop.
+
+Behind-the-scenes, a \lighttt{with CudaWarps} statement is a magic 1-iteration \lighttt{cuda\_threads} loop.
+
+\magicSubsection{Collective Tiling}{sec:CollTiling}
+
+Data structure used to encode the state needed to determine the thread mapping function.
+
+The collective tiling contains a domain $D: \mathbb{N}^M$ arranging the cluster's threads into an $M$-dimensional grid.
+Each dimension contains a list of collective dimension operators, which will be used by the thread mapping function.
+Each collective dimension operator contains
+\begin{itemize}
+  \item iter: variable name ($\mathbb{Y}$)
+  \item offset: $\mathbb{N}$
+  \item box: $\mathbb{N}$
+  \item tileCount: $\mathbb{N}$
+\end{itemize}
+this will be consumed by an affine function that selects an active interval on each dimension.
+
+Typically, a \lighttt{cuda\_threads} loop annotates its child statements with its own collective tiling, modified to contain another collective dimension operator.
+
+\magicSubsection{Thread Mapping Function}{sec:ThreadMappingFunction}
+
+Per-CUDA-statement annotation of type $\Sigma \to \mathcal{P}(\mathbb{N})$, where $\Sigma \equiv \mathbb{Y} \to \mathbb{N}$.
+This gives the set of local thread indices of the threads in the thread collective that executes an instance of the statement, given the control environment during that instance execution (we only really need the \lighttt{cuda\_threads} iterator values).
+
+This is compiled from the statement's collective tiling.
+
+Let $D: \mathbb{N}^M$ be the domain of the collective tiling.
+The $m^{th}$ dimension contains collective dimension operators $\mathcal{O}_{m,0}, \mathcal{O}_{m,1}, ...$ (length not identical across dimensions).
+
+With $\sigma$ being the passed environment, the interval $I_m$ is defined inductively by
+\begin{align}
+  & I_{m,0} = [0, D_m - 1]_\mathbb{N} \\
+  & I_{m,j+1} = [x_j, x_j + \mathcal{O}_{m,j}.\text{box} - 1]_\mathbb{N} \\
+  & \text{  with } x_j = I_{m,j}.lo + \mathcal{O}_{m,j}.\text{offset} + \sigma(\mathcal{O}_{m,j}.\text{iter}) \mathcal{O}_{m,j}.\text{box}
+\end{align}
+with $I_m$ being the last defined $I_{m,j+1}$.
+The local thread indices are the image of the cuboid $I_0 \times ... \times I_{M-1}$ under $\mathsf{toLocal}_D$.
+
+The actual threads executing the statement instance are identified by a certain task ID and the local thread indices given above.
+
+There's a final hidden step where the task ID is reduced to an actual cluster index in the implementation.
+This is currently just by \lighttt{task\_id \% number\_of\_clusters} (persistent kernel with round-robin scheduling).
+
+\end{document}
