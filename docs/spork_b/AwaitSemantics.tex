@@ -8,11 +8,11 @@ For a given statement instance of \texttt{Await}($e, \tau_s^\mathrm{post}, n$) w
   \item $z[j^*]$ being the barrier array element referenced by $e$ (def~\ref{sec:gBarrierExpr})
   \item $a$ being the arrive count of the referenced barrier array element (i.e. $\rho(z, j^*).b.a$)
 \end{itemize}
-define $\lambda_\mathrm{Await}: \mathsf{VisRecord} \to \mathsf{VisRecord}$ (based on the pending await function $r.s$) as
+define $\lambda_\mathrm{Await}: \mathsf{VisRecord} \to \mathsf{VisRecord}$ (based on the pending await function $r.p$) as
 \begin{equation*}
     \lambda_\mathrm{Await}(r) = \begin{cases}
         \mathcal{A}(r, g^*, \tau_s^\mathrm{post}.\mathrm{full}, \tau_s^\mathrm{post}.\mathrm{temp}) & \text{ if }
-        r.s(z, j^*) < (a - n) \\
+        r.p(z, j^*) < (a - n) \\
         r & \text{ otherwise }
     \end{cases}
 \end{equation*}

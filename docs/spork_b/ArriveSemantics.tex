@@ -2,7 +2,7 @@
 
 An \lighttt{Arrive} statement updates pending await(s) (def~\ref{sec:gPendingAwait}) of all visibility records (Section~\ref{sec:VisRecordState}) that it witnesses (Section~\ref{sec:Witness}), and increments the arrive count of a barrier array element.
 
-For a given statement \texttt{Arrive($\tau_s^\mathrm{post}$) >> $e^*$}, with
+For a given statement \texttt{Arrive($\tau_s^\mathrm{pre}$) >> $e^*$}, with
 \begin{itemize}
   \item $g^* = g_{s^\#}(\iota, \sigma)$ assigned to execute it (Section~\ref{sec:SyncSemanticsThreadMapping})
   \item $z[j_h^*]$ being the home barrier of $e^*$ (def~\ref{sec:gHomeBarrier})
