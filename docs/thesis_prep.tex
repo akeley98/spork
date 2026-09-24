@@ -44,55 +44,129 @@ Ideally, add ping-pong gemm, Sm80 gemm, causal attention (these are all cases il
 
 \magicSection{Exo-GPU Concepts}{sec:Concepts}
 
-\magicSubsection{Parallelism}{sec:Parallelism}
+\magicSubsection{Basic Language}{sec:BasicLanguage}
 
-\begin{itemize}
-  \item \lighttt{with CudaDeviceFunction(...)} launches CUDA kernel (CUDA scope inside, CPU scope outside),
-    and assigns each warp in a CTA to a named specialization (e.g. first 4 ``producer'', last 8 ``consumer'').
-  \item \lighttt{for cuda\_tasks} loops assign each ``iteration'' to a CUDA cluster.
-  \item \lighttt{for cuda\_threads} loops assign each ``iteration'' to a different set of threads in the cluster.
-    This is parameterized with a ``collective unit'' (e.g. \lighttt{cuda\_thread}, \lighttt{cuda\_warp}).
-  \item \lighttt{with CudaWarps(name=...)} restricts execution of the body only to the named specialization.
-  \item Each thread is identified by a pair of task ID (manipulated by \lighttt{cuda\_tasks} loops)
-    and local thread index (manipulated with \lighttt{for cuda\_threads} and \lighttt{with CudaWarps}).
-  \item Key end result: each statement is either CPU scope, or CUDA scope with a ``thread mapping function''.
-    This maps control variables to the set of local thread indices of threads assigned to execute an instance of that statement.
-\end{itemize}
+Sequential language with extensions for launching CUDA kernels and parallelizing loops.
 
-\magicSubsection{Distributed Memory}{sec:DistributedMemory}
+\mainKey{Typing:}
+Control and data types, tensors, windows, resident in some memory type.
 
-Explain how tensors are sharded into different threads.
+\mainKey{Familiar stuff:} Sequencing, sequential loop, if/else, read, write, reduce (\lighttt{+=})
 
-%% \begin{itemize}
-%%   \item Each tensor allocation's dimensions break down into distributed, array, and packed dimensions.
-%%   \item Each tensor's memory type specifies the expected extents of its packed dimensions,
-%%     which are always the right-most dimensions.
-%%     This is a bit of a hack for opaque types, like ThunderKittens tiles.
-%%   \item Only GPU allocations can have distributed dimensions.
-%%     These are always the left-most dimensions.
-%% \end{itemize}
+\mainKey{Cuda Device Function Launch:} \lighttt{with CudaDeviceFunction(...)}.
+CUDA scope inside; CPU scope outside
 
-\magicSubsection{Instructions \& Synchronization}{sec:InstrSync}
+\mainKey{Parallel Loops:} \lighttt{for \_ in cuda\_tasks(\_, \_)} assigns iterations to clusters.
+\lighttt{for \_ in cuda\_threads(\_, \_, unit)} assigns iterations to threads within a cluster.
+A typed group of threads (e.g. 1 thread, 1 warp, 1 warpgroup) may be assigned per iteration, as defined by \lighttt{unit}.
 
-\begin{itemize}
-  \item Each instruction effect (read/write) is performed with a certain qualitative timeline and certain group of threads.
-  \item Synchronization statements (Fence, Arrive, Await) are parameterized with timeline signatures: compositions of qualitative timelines.
-  \item Synchronization only waits for certain subsets of effects, filtered by qualitative timeline and threads.
-\end{itemize}
+\mainKey{Data Allocation:} Name, base type, extents of tensor, memory type.
+Memory type fuses together issues of physical memory type (RMEM, SMEM, GMEM), allocation method, data layout/swizzling.
+Future work may orthogonalize these concerns.
 
-\magicSubsection{Multicast}{sec:Multicast}
+\mainKey{Instr Call:} Function-like wrapper around PTX instructions.
 
-Tricky concept 1: arriving on multiple mbarriers in different CTAs. 
+\mainKey{Omit:} CPU procs. Distraction from instrs with subtly different semantics.
 
-\magicSubsection{Managed Ring Buffers}{sec:ManagedRingBuffers}
+\mainKey{Difficult Concepts:}
+Atomics, split barrier (arrive/await), SMEM allocation details, multicast, TMA/SpecialWindow, warp specialization.
+Defer discussion of these features until additional sections at the end of paper.
 
-Tricky concept 2: one dimension may be annotated as being ``ring buffered by'' a certain constant value.
-The implementation hides the resulting modulo operation.
-This is needed due to persistent kernels not meshing well with Exo quasi-affine indexing.
+\mainKey{Window Statement:} (defer)
+
+\mainKey{with CudaWarps:} (defer)
+
+\mainKey{Synchronization:} Barrier allocation, Fence, Arrive, Await (defer)
+
+\magicSubsection{CUDA Kernel Form}{sec:CudaKernelForm}
+
+The body of a \lighttt{CudaDeviceFunction} must be a single \lighttt{cuda\_tasks} loop.
+Each \lighttt{cuda\_tasks} loop must have either one \lighttt{cuda\_tasks} loop nested inside,
+or contain the GPU code to be executed per-cluster: the \myKeyA{device task}.
+\lighttt{cuda\_threads} loops may only appear in a device task.
+\lighttt{cuda\_tasks} loops may not appear anywhere other than as defined above.
+
+\magicSubsection{Thread Mapping}{sec:ThreadMapping}
+
+\mainKey{Thread ID:} Pair of task ID and local thread index.
+Task ID distinguishes threads in different clusters
+(abstractly, assigned to different device task instances).
+Local thread index is \lighttt{cluster\_ctarank * blockDim.x + threadIdx.x}.
+
+\mainKey{Thread Collective:} Set of thread IDs,
+representing a set of threads assigned to cooperatively execute some
+statement. Note, this cooperation does not imply lockstep / implicit synchronization.
+
+\mainKey{Collective Types:} Thread, warp, warpgroup, etc.;
+each thread collective may match 0 or more collective types.
+
+\mainKey{Thread Mapping Function:} Annotates each statement in a device task
+(statements within an innermost \lighttt{cuda\_tasks} loop).
+Gives the thread collective assigned to execute an instance of a statement
+as a function of the environment (specifically, the parallel loop iterator variables).
+
+In principle, each live allocation should also be considered annotated with a similar thread mapping function,
+this one mapping tensor coordinates to the thread(s) that own the physical memory for storing the identified tensor element.
+
+\magicSubsection{Accelerator Instructions \& Effects}{sec:Instr}
+
+\magicSubsection{Static Correctness Checks}{sec:StaticCorrectness}
 
 \magicSubsection{Synchronization Checking}{sec:SyncCheck}
 
-Will be a huge challenge to explain.
+Reason about the execution traces.
+
+%% \magicSubsection{Parallelism}{sec:Parallelism}
+
+%% \begin{itemize}
+%%   \item \lighttt{with CudaDeviceFunction(...)} launches CUDA kernel (CUDA scope inside, CPU scope outside),
+%%     and assigns each warp in a CTA to a named specialization (e.g. first 4 ``producer'', last 8 ``consumer'').
+%%   \item \lighttt{for cuda\_tasks} loops assign each ``iteration'' to a CUDA cluster.
+%%   \item \lighttt{for cuda\_threads} loops assign each ``iteration'' to a different set of threads in the cluster.
+%%     This is parameterized with a ``collective unit'' (e.g. \lighttt{cuda\_thread}, \lighttt{cuda\_warp}).
+%%   \item \lighttt{with CudaWarps(name=...)} restricts execution of the body only to the named specialization.
+%%   \item Each thread is identified by a pair of task ID (manipulated by \lighttt{cuda\_tasks} loops)
+%%     and local thread index (manipulated with \lighttt{for cuda\_threads} and \lighttt{with CudaWarps}).
+%%   \item Key end result: each statement is either CPU scope, or CUDA scope with a ``thread mapping function''.
+%%     This maps control variables to the set of local thread indices of threads assigned to execute an instance of that statement.
+%% \end{itemize}
+
+%% \magicSubsection{Distributed Memory}{sec:DistributedMemory}
+
+%% Explain how tensors are sharded into different threads.
+
+%% %% \begin{itemize}
+%% %%   \item Each tensor allocation's dimensions break down into distributed, array, and packed dimensions.
+%% %%   \item Each tensor's memory type specifies the expected extents of its packed dimensions,
+%% %%     which are always the right-most dimensions.
+%% %%     This is a bit of a hack for opaque types, like ThunderKittens tiles.
+%% %%   \item Only GPU allocations can have distributed dimensions.
+%% %%     These are always the left-most dimensions.
+%% %% \end{itemize}
+
+%% \magicSubsection{Instructions \& Synchronization}{sec:InstrSync}
+
+%% \begin{itemize}
+%%   \item Each instruction effect (read/write) is performed with a certain qualitative timeline and certain group of threads.
+%%   \item Synchronization statements (Fence, Arrive, Await) are parameterized with timeline signatures: compositions of qualitative timelines.
+%%   \item Synchronization only waits for certain subsets of effects, filtered by qualitative timeline and threads.
+%% \end{itemize}
+
+%% \magicSubsection{Multicast}{sec:Multicast}
+
+%% Tricky concept 1: arriving on multiple mbarriers in different CTAs.
+
+%% \magicSubsection{Managed Ring Buffers}{sec:ManagedRingBuffers}
+
+%% Tricky concept 2: one dimension may be annotated as being ``ring buffered by'' a certain constant value.
+%% The implementation hides the resulting modulo operation.
+%% This is needed due to persistent kernels not meshing well with Exo quasi-affine indexing.
+
+%% \magicSubsection{Synchronization Checking}{sec:SyncCheck}
+
+%% Will be a huge challenge to explain.
+
+
 
 \magicSection{Collective Algebra}{sec:CollAlgebra}
 

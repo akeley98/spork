@@ -1,0 +1,46 @@
+Introduction
+
+    Lift from paper
+
+Key mental model
+
+    Imperative program representation
+        Control values vs. data values
+        Data Allocation / Declaration
+            Base type
+            Dimensions
+            Memory type
+            Additional stuff for SMEM
+        Barrier allocation
+        Loops, sequential and parallel (next section)
+
+    Thread Mapping Function
+        Thread collective
+        Typing: collective type
+        CudaDeviceFunction
+        cuda_threads
+        Later: warp specialization
+        Later: distributed memory
+
+    Effect: reads and writes
+        Reads or writes a certain value
+        Using a certain thread collective
+        Using a certain qualitative timeline (distinguish instr parameters)
+        In-order or out-of-order
+        Atomic or not atomic
+        Read is an effect, will matter for synchronization checking.
+
+    Instructions
+
+    Bugs and sequential parallel equivalence
+        Rewrites
+        Bug: dataflow logic bugs
+        Bug: instruction logic bugs
+        Bug: inter-thread synchronization
+        Bug: intra-thread synchronization
+
+Advanced Topics
+    Warp specialization
+    Instr distributed memory
+    Trailing barrier expression
+    Multicasting
