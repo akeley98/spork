@@ -1,0 +1,26 @@
+\begin{tabular}{|r|cc|ccc|ccc|cccc|c|}
+\hline
+$\tau_s$ & cpu & strm & cuda1 & cuda2 & mbar & Sm80 & g2s & s2g & wgA & wgD & wgF & wgS & async \\
+\hline
+\texttt{empty\_sync\_tl} &  &  &  &  &  &  &  &  &  &  &  &  & \\
+\hline
+\texttt{cpu\_in\_order} & $\bullet$ &  &  &  &  &  &  &  &  &  &  &  & \\
+\hline
+\texttt{cuda\_stream\_sync} &  & $\bullet$ & $\bullet$ & $\bullet$ & $\bullet$ & $\bullet$ & $\bullet$ & $\bullet$ & $\bullet$ & $\bullet$ &  & $\bullet$ & $\bullet$\\
+\texttt{cuda\_in\_order} &  &  & $\bullet$ & $\bullet$ & $\bullet$ &  &  &  &  &  &  &  & \\
+\texttt{cuda\_mbarrier\_only} &  &  &  &  & $\bullet$ &  &  &  &  &  &  &  & \\
+\texttt{cuda\_async\_proxy\_retired} &  &  &  &  & $\bullet$ &  &  &  &  &  &  &  & $\bullet$\\
+\texttt{cuda\_generic\_and\_async\_proxy} &  &  & $\bullet$ & $\bullet$ & $\bullet$ &  &  &  &  &  &  &  & $\bullet$\\
+\hline
+\texttt{Sm80\_cp\_async} &  &  &  &  & $\bullet$ & $\bullet$ &  &  &  &  &  &  & \\
+\texttt{Sm80\_generic} &  &  & $\bullet$ & $\bullet$ & $\bullet$ & $\bullet$ &  &  &  &  &  &  & \\
+\hline
+\texttt{tma\_to\_smem\_async} &  &  &  &  &  &  & $\bullet$ &  &  &  &  &  & \\
+\texttt{tma\_to\_gmem\_async} &  &  &  &  &  &  &  & $\bullet$ &  &  &  &  & \\
+\hline
+\texttt{wgmma\_async\_smem} &  &  &  &  &  &  &  &  &  &  &  & $\bullet$ & \\
+\texttt{wgmma\_fence\_1} &  &  & $\bullet$ &  &  &  &  &  & $\bullet$ & $\bullet$ & $\bullet$ &  & \\
+\texttt{wgmma\_fence\_2} &  &  &  &  &  &  &  &  &  &  & $\bullet$ &  & \\
+\texttt{wgmma\_async} &  &  &  &  &  &  &  &  & $\bullet$ & $\bullet$ &  & $\bullet$ & \\
+\hline
+\end{tabular}

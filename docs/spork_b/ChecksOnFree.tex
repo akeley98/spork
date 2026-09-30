@@ -1,4 +1,6 @@
 \magicSubsection{Checks on Free}{sec:ChecksOnFree}
+% no-VF: no write-only/temporal distinction; q* = {cuda_in_order_ram_qual}.
+% no-VF: document the pragmatic exception (plan_proxy_fence_rules.md, Known exception: SMEM free): in persistent kernels, a generic read in task t followed by a TMA write in task t+1 to re-allocated SMEM is accepted without fence.proxy.async, contradicting the proxy fence rule.
 
 \mainKey{SMEM, not managed ring buffer:} Variables stored in shared memory that are not managed ring buffers (def~\ref{sec:gManagedRingBuffer}) must currently be allocated and freed at \lighttt{cuda\_cluster} scope (def~\ref{sec:gCollUnit}).
 For such variables, upon free, we perform the same checks as for a non-atomic write-only access (Section~\ref{sec:ChecksOnMutate}) with

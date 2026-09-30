@@ -1,4 +1,6 @@
 \magicSubsection{Extended Qualitative Timelines (Set)}{sec:gExtQualTL}
+% no-VF: rename to precondition timeline set; it no longer includes the initial qual-tl when that is out-of-order (out-of-order qual-tl never appear in any precondition set). Atomic accesses add their atomic qual-tl.
+% no-VF: vocab split: in Python, InstrQuals.precondition_bits (core/memory.py, per MemWin x InstrTL) never contains atomic qual-tl (asserted). sync_check.py ORs in AccessInfo.atomicity qual-tl for atomic instr args, and only that OR'd set is camspork's precondition_qual_bits (the set actually checked; shown after "qual-tl:" in the missing tl-sig error). Define "precondition timeline set" as the camspork (OR'd) set; call the Python one something like the memory's base precondition set.
 
 Set of qualitative timelines (def~\ref{sec:gQualTL}) associated with each read/mutate memory access.
 This varies depending on the memory type accessed and the instruction used (Section~\ref{sec:InstrTL}).

@@ -1,4 +1,6 @@
 \magicSubsection{VisRecord Synchronizes-with (Witness)}{sec:Witness}
+% no-VF: witness is exists (g, q) in r.s with g in g*, q in L1; no visibility flags (the TODO about VF_full is moot).
+% no-VF: consider naming g* x tau_pre the "first visibility set" of the statement instance (a set of tl-sig, like r.s); then W(g*, tau_pre, r) = (r.s intersect (g* x tau_pre) != empty). camspork comments already use this term. Also consider preferring "synchronizes-with" over "witness", which has more established unrelated meanings.
 
 Given a first synchronization timeline $\tau_s^\mathrm{pre}$ (def~\ref{sec:gSyncTL}) and a thread collective $g^*$ mapped to execute (Section~\ref{sec:SyncSemanticsThreadMapping}) a certain \lighttt{Fence} or \lighttt{Arrive} statement instance, the statement instance ``witnesses'', or ``synchronizes-with'' a visibility record (Section~\ref{sec:VisRecordState}) when its visibility set contains a timeline signature (def~\ref{sec:gTlSig}) of the form $(g, q, \mathsf{VF_{issue}})$ with $g \in g^*$ and $q \in \tau_s^\mathrm{pre}.\mathrm{full}$.
 

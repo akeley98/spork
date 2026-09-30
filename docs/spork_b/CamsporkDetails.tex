@@ -1,4 +1,5 @@
 \magicSubsection{Camspork Implementation Details And Deviations}{sec:CamsporkDetails}
+% no-VF: camspork receives qual-tl implementation class bitmasks (out-of-order, atomic) when the ProgramEnv/SyncvTable is constructed, and REQUIREs the class rules (no out-of-order qual-tl in precondition sets, no atomic qual-tl in any sync-tl or as initial qual-tl). The out-of-order access flag is gone; the non-convergent optimization (gOooOpt) applies iff the initial qual-tl is out-of-order. Memoization hashing excludes tl-sig intervals holding only atomic qual-tl (sound since atomic qual-tl are never in a first sync-tl).
 
 The implementation deviates from the described semantics:
 

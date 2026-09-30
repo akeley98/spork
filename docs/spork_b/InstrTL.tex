@@ -1,4 +1,5 @@
 \magicSubsection{Instruction Timeline (InstrTL)}{sec:InstrTL}
+% no-VF: extended qual-tl set is renamed precondition qual-tl set (InstrQuals in code); out-of-order initial qual-tl are excluded from it.
 
 The initial qualitative timeline and the extended qualitative timelines are a function of the \lighttt{Memory} type of the accessed array elements and the instruction timeline (\textsf{InstrTL}) of the instruction performing the reads or mutates.
 This is based on the \lighttt{exo.memory.AllocableMemWin.qual\_tl\_dict} attribute, which is effectively a function of type

@@ -1,4 +1,5 @@
 \magicSubsection{Intended Usage Patterns -- Access After Synchronization}{sec:AccessAfterSync}
+% no-VF: sync-tl is a single timeline set; temporal-only synchronization and cuda_temporal are removed (use cuda_mbarrier_only as first sync-tl, cuda_async_proxy_retired as second sync-tl before TMA overwrites). Proxy fence rule: fence.proxy.async iff first sync-tl has generic RAM qual-tl and second sync-tl has async RAM qual-tl.
 
 \begin{equation*}
     \texttt{Await(\codecomment{...}, $\tau_s^\mathrm{post}$, \codecomment{...})|Fence(\codecomment{...}, $\tau_s^\mathrm{post}$)} \to \texttt{Read|Mutate}

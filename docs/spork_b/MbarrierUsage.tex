@@ -1,4 +1,5 @@
 \magicSubsection{Mbarrier Usage}{sec:MbarrierUsage}
+% no-VF: cuda_temporal is removed: use cuda_mbarrier_only for the "data ready" Arrive after TMA with trailing barriers, and cuda_async_proxy_retired for the consumer "buffer free" Arrive and producer Await before TMA overwrites.
 
 A barrier variable $z$ with mbarrier barrier mechanism may be declared with
 
@@ -7,6 +8,7 @@ A barrier variable $z$ with mbarrier barrier mechanism may be declared with
 \texttt{insert\_barrier\_alloc(\codecomment{...}, $z$, [$e^*$], CudaMbarrierPreArrive(pre\_arrive), \codecomment{...})}
 
 The first synchronization timeline (def~\ref{sec:gSyncTL}) $\tau_s^\mathrm{pre}$ for the \lighttt{Arrive} should be \lighttt{cuda\_in\_order}, \lighttt{Sm80\_cp\_async}, or \lighttt{cuda\_temporal}.
+% no-VF: typo, not VF-related: cuda_generic_or_async_proxy should be cuda_generic_and_async_proxy (the name in the code).
 The second synchronization timeline $\tau_s^\mathrm{post}$ for the \lighttt{Await} should be \lighttt{cuda\_in\_order}, \lighttt{cuda\_generic\_or\_async\_proxy}, or \lighttt{cuda\_temporal}.
 (Avoid using \lighttt{cuda\_generic\_or\_async\_proxy} unless required; in particular guarding against write-after-read (WAR) hazards for a producer warp using TMA requires only \lighttt{cuda\_temporal} for the producer warp's \lighttt{Await}).
 For TMA-to-SMEM instructions, use a trailing barrier expression for the instruction directly (Section~\ref{sec:Tma}).

@@ -1,4 +1,6 @@
 \magicSubsection{VisRecord Augment}{sec:Augment}
+% no-VF: augment adds g* x (L2 intersect r.Q); no full/temp distinction.
+% no-VF: consider naming g* x tau_post the "second visibility set" of the statement instance (see Witness); then A(r, g*, tau_post) = (r.s union ((g* x tau_post) intersect (G x r.Q)), r.p, r.Q).
 
 Given a second synchronization timeline $\tau_s^\mathrm{post}$ (def~\ref{sec:gSyncTL}) and a thread collective $g^*$ mapped to execute (Section~\ref{sec:SyncSemanticsThreadMapping}) a certain \lighttt{Fence} or \lighttt{Await} statement instance, the statement instance ``augments'' a visibility record $r$ (Section~\ref{sec:VisRecordState}) by adding the following sets of timeline signatures (def~\ref{sec:gTlSig}) to the visibility set $r.s$:
 \begin{align*}

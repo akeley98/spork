@@ -1,4 +1,6 @@
 \magicSubsection{Atomic Instructions}{sec:AtomicInstr}
+% no-VF: atomic qual-tl are a separate implementation class (cuda_generic_atomic_qual, tma_to_gmem_atomic_qual), never in any sync-tl; generic and async proxy atomics must not be mixed.
+% no-VF: the atomic qual-tl joins the access's precondition timeline set only in sync_check.py (precondition_qual_bits | atomic_qual_bits); InstrQuals.precondition_bits in Python excludes it. See gExtQualTL.
 
 Mutates issued to the actual parameters of an instruction call are atomic whenever the corresponding formal parameter has a non-empty \lighttt{exo.core.instr\_tl.AccessInfo.atomicity.qual\_tl\_list}.
 Although we use the shorthand ``atomic instruction'', in reality atomicity is a per-formal-parameter property, not a per-instruction property.

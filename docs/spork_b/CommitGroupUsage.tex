@@ -11,6 +11,7 @@ where \texttt{\textit{mechanism}} is from one of the rows of this table:
 \begin{tabular}{|l|l|l|l|}
 \texttt{\textit{mechanism}} (def~\ref{sec:gBarrierMechanism}) & $\tau_s^\mathrm{pre}$ (def~\ref{sec:gFirstSyncTL}) & $\tau_s^\mathrm{post}$ (def~\ref{sec:gSecondSyncTL}) & $\tau_u$ (def~\ref{sec:gNativeUnit}) \\
 \texttt{Sm80\_CommitGroup} & \texttt{Sm80\_cp\_async} & \texttt{cuda\_in\_order} & \texttt{cuda\_thread} \\
+% no-VF: typo, not VF-related: cuda_generic_or_async_proxy should be cuda_generic_and_async_proxy (the name in the code).
 \texttt{Sm90\_TmaCommitGroup} & \texttt{tma\_to\_gmem\_async} & \texttt{cuda\_generic\_or\_async\_proxy} & \texttt{cuda\_warp} \\
 \texttt{Sm90\_WgmmaCommitGroup} & \texttt{wgmma\_async} & \texttt{cuda\_generic\_or\_async\_proxy} & \texttt{cuda\_warpgroup} \\
 \end{tabular}

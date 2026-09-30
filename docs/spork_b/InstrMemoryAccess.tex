@@ -1,4 +1,5 @@
 \magicSubsection{Memory Access}{sec:InstrMemoryAccess}
+% no-VF: write-only mutates and the out-of-order flag (AccessInfo.out_of_order) are removed; out-of-order is derived from the initial qual-tl.
 
 Each runtime (def~\ref{sec:gRuntimeParameter}), non-control-value (def~\ref{sec:gMathbbY}) formal parameter defines an expected \lighttt{MemWin} (memory or special window) type, with special window currently needed only for TMA (Section~\ref{sec:Tma}).
 The corresponding actual parameter passed must reference a variable that is annotated with a \lighttt{MemWin} type that is a subclass of the formal parameter's \lighttt{MemWin} type.

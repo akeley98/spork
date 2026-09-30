@@ -1,4 +1,5 @@
 \magicSection{Synchronization Usage}{sec:SyncUsage}
+% no-VF: sync-tl is a single timeline set (no full/temp); no out-of-order flag (derived from the initial qual-tl); extended -> precondition timeline set.
 
 We view each statement instance (def~\ref{sec:gStmtInstance}) as issuing reads or mutates to a set of array elements; the reads and mutates are executed by a thread collective (def~\ref{sec:gThreadCollective}) with a certain \myKeyA{initial qualitative timeline} (Section~\ref{sec:InstrTL}), which varies based on the issued instruction.
 The purpose of the qualitative timeline is to model that the read or mutate is only synchronized by a subset of possible synchronization statements.

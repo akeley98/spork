@@ -1,4 +1,5 @@
 \magicSubsection{Checks on Mutate}{sec:ChecksOnMutate}
+% no-VF: read-after-write, write-after-write, write-after-read are all the same check with the precondition timeline set; no write-only distinction, no VF_temp/VF_full/VF_atom. Atomic mutates include their atomic qual-tl in the precondition set.
 
 Mutate accesses impose requirements on both the read and mutate visibility record sets, with the requirements conditional on whether the mutate is write-only (Section~\ref{sec:InstrMemoryAccess}) and/or atomic (Section~\ref{sec:AtomicInstr}).
 

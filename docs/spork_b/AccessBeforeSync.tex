@@ -1,4 +1,5 @@
 \magicSubsection{Intended Usage Patterns -- Access Before Synchronization}{sec:AccessBeforeSync}
+% no-VF: no visibility flags; out-of-order is the implementation class of the initial qual-tl.
 
 \begin{equation*}
     \texttt{Read|Mutate} \to \texttt{Arrive(}\tau_s^\mathrm{pre}\texttt{)\codecomment{...} | Fence(}\tau_s^\mathrm{pre},\codecomment{...}\texttt{)}
