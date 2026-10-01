@@ -1,5 +1,4 @@
 \magicSubsection{Intended Usage Patterns -- Access Before Synchronization}{sec:AccessBeforeSync}
-% no-VF: no visibility flags; out-of-order is the implementation class of the initial qual-tl.
 
 \begin{equation*}
     \texttt{Read|Mutate} \to \texttt{Arrive(}\tau_s^\mathrm{pre}\texttt{)\codecomment{...} | Fence(}\tau_s^\mathrm{pre},\codecomment{...}\texttt{)}
@@ -13,6 +12,6 @@ The synchronization timeline $\tau_s^\mathrm{pre}$ (def~\ref{sec:gSyncTL}) and b
   \item For TMA instructions copying into SMEM, use mbarriers (Section~\ref{sec:MbarrierUsage}; Section~\ref{sec:Tma}).
   \item For wgmma instructions and TMA instructions copying out of SMEM, use commit groups (Section~\ref{sec:CommitGroupUsage}).
 \end{itemize}
-This pattern is implemented by storing a new \textsf{VisRecord} (Section~\ref{sec:VisRecordCreation}) containing a timeline signature with one of the executing threads, the initial qualitative timeline $q$, and visibility flag $\mathsf{VF_{issue}}$.
+This pattern is implemented by storing a new \textsf{VisRecord} (Section~\ref{sec:VisRecordCreation}) containing a timeline signature with one of the executing threads and the initial qualitative timeline $q$.
 The later \lighttt{Arrive} or \lighttt{Fence} will witness (Section~\ref{sec:Witness}) this timeline signature.
 

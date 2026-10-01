@@ -1,11 +1,15 @@
 \magicSubsection{Instruction Timeline (InstrTL)}{sec:InstrTL}
-% no-VF: extended qual-tl set is renamed precondition qual-tl set (InstrQuals in code); out-of-order initial qual-tl are excluded from it.
-
 The initial qualitative timeline and the extended qualitative timelines are a function of the \lighttt{Memory} type of the accessed array elements and the instruction timeline (\textsf{InstrTL}) of the instruction performing the reads or mutates.
 This is based on the \lighttt{exo.memory.AllocableMemWin.qual\_tl\_dict} attribute, which is effectively a function of type
 \begin{equation*}
-    \texttt{Type[AllocableMemWin]} \to \mathsf{InstrTL} \to \mathsf{QualTL} \times \mathcal{P}(\mathsf{QualTL})\codecomment{~~(initial qual-tl, extended qual-tl set)}
+    \texttt{Type[AllocableMemWin]} \to \mathsf{InstrTL} \to \mathsf{QualTL} \times \mathcal{P}(\mathsf{QualTL})\codecomment{~~(initial qual-tl, precondition qual-tl set)}
 \end{equation*}
+The qualitative timelines are packed into an \lighttt{InstrQuals} object.
+\textbf{NOTE:} the atomic timelines are not included here, and are defined per-parameter (Section~\ref{sec:AtomicInstr}).
+These are implicitly added to the precondition timeline set for that parameter only.
+
+Instructions that are not implicitly ordered within the same thread (e.g. async copies) define an initial qualitative timeline that is \emph{not} in the precondition timeline set.
+
 Furthermore, the instruction timeline controls
 \begin{itemize}
   \item Whether allocation, special window creation (Section~\ref{sec:Tma}), reads, or mutates are allowed at CPU-scope (def~\ref{sec:gCpuScope}) and/or at CUDA scope (def~\ref{sec:gCudaScope}), via the\\
