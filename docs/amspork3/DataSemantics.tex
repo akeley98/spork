@@ -59,6 +59,33 @@
   \to
   \langle \texttt{$\sporks[\sporkv \sporkWindowSub \sporkwz]$}, \sporksigma \# \sporktr^* \rangle
 }\\
+\inferrule*[right=D-AllocStep]{
+  \langle \sporke_1, \sporksigma \# \sporktr^*_1 \rangle
+  \to
+  \langle \sporke_2, \sporksigma \# \sporktr^*_2 \rangle
+}
+{
+  \langle \texttt{$\sporkv$: $\sporkprim$[$\sporkz^*$, $\sporke_1$, $\sporke^*$] @ $\sporkmem$}, \sigma \# \sporktr^*_1 \rangle
+  \to
+  \langle \texttt{$\sporkv$: $\sporkprim$[$\sporkz^*$, $\sporke_2$, $\sporke^*$] @ $\sporkmem$}, \sigma \# \sporktr^*_2 \rangle
+}\\
+\inferrule*[right=D-Alloc]{
+  \text{$\sporkmem$ is not SMEM \redBox{TODO}}
+}
+{
+  \langle \texttt{$\sporkv$: $\sporkprim$[$\sporkz^*$] @ $\sporkmem$}, \sigma \# \sporktr^* \rangle
+  \to
+  \langle \texttt{pass}, \sigma \# \sporktr^* \rangle
+}
+\inferrule*[right=D-Free]{
+  \text{$\sporkv$ is not in SMEM \redBox{TODO}}
+}
+{
+  \langle \textrm{free}(\sporkv), \sigma \# \sporktr^* \rangle
+  \to
+  \langle \texttt{pass}, \sigma \# \sporktr^* \rangle
+}
+\\
 \inferrule*[right=D-InstrStepParam]{
   \langle \sporkwH_1, \sporksigma \# \sporktr^*_1 \rangle
   \to
