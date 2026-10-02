@@ -1,0 +1,16 @@
+\begin{figure}[h!]
+\sporkGrammarStuff
+\begin{tabular}{rrl}
+\toprule
+  $\sporktr : \sporkTr$ & $\Coloneqq$ &
+        $\sporkTrNewAccess(\sporkmut, \sporkv, z_i^*, \sporkTid_\textrm{new}, \sporkqtlInit, \sporkQtlAtom, XXX)$ \\
+  &$|$& $\sporkTrFence(\sporkTid_\textrm{fence}, \sporkQtl_1, \sporkQtl_2)$ \\
+  &$|$& $\sporkTrArrive(\sporkTid_\textrm{arrive}, \sporkQtl_1, \sporkv, \sporkz_i^*, \sporkz_\textrm{arrive})$ \\
+  &$|$& $\sporkTrAwait(\sporkTid_\textrm{await}, \sporkQtl_2, \sporkv, \sporkz_i^*, \sporkz_\textrm{await})$ \\
+  &$|$& $\sporkTrAssertCanAccess(\sporkmut, \sporkv, z_i^*, \sporkTid_\textrm{assert}, \sporkQtlPre)$ \\
+  &$|$& $\sporkTrAssertPendingAwait(\sporkmut, \sporkv, z_i^*, \sporkv_\textrm{bar}, z_\textrm{bar}^*)$ \\
+\bottomrule
+\end{tabular}
+\caption{Trace Types}
+\label{fig:Traces}
+\end{figure}

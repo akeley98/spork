@@ -6,13 +6,13 @@
         $\text{read}(\sporkwH)$ & scalar read (expects scalar $\sporkwH$) \\
   &$|$& $\sporkr$ & integer/float constant \\
   &$|$& $-\sporke$ & unary negation \\
-  &$|$& $\sporke_1 + \sporke_2 | \sporke_1 - \sporke_2 | \sporke_1 * \sporke_2 | \sporke_1 / \sporke_2 | \sporke_1 \% \sporke_2$ & arithemtic bin-op \\
-  &$|$& $x(e^*)$ & extern call \\
+  &$|$& $\sporke_L \oplus \sporke_R$ & arithemtic bin-op, $\oplus \in \{+,-,*,/,\%\}$ \\
+  &$|$& $\sporkextern(e^*)$ & extern call \\
 \midrule
   $\sporkb : \sporkBoolExpr$ & $\Coloneqq$ &
         $\sporkFalse | \sporkTrue$ & boolean constant \\
-  &$|$& $\sporke_1 == \sporke_2 | \sporke_1 \neq \sporke_2 | \sporke_1 \leq \sporke_2 | \sporke_1 < \sporke_2 | \sporke_1 \ge \sporke_2 | \sporke_1 > \sporke_2$ & comparison bin-op \\
-  &$|$& $\sporkb_1 \land \sporkb_2 | \sporkb_1 \lor \sporkb_2$ & logical bin-op \\
+  &$|$& $\sporke_L \oplus \sporke_R$ & comparison bin-op, $\oplus \in \{\texttt{==}, \texttt{!=}, \texttt{<}, \texttt{<=}, \texttt{>}, \texttt{>=}\}$ \\
+  &$|$& $\sporkb_L \oplus \sporkb_R$ & logical bin-op, $\oplus \in \{\texttt{or}, \texttt{and}\}$ \\
 \bottomrule
 \end{tabular}
 \caption{Expression Grammar}

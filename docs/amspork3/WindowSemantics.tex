@@ -1,0 +1,47 @@
+\begin{figure}[h]
+\sporkSemanticsStuff
+\begin{mathpar}
+\inferrule*[right=W-Empty]{
+}
+{
+    \sporkWunroll{()} = \{\}
+}
+\inferrule*[right=W-Initial]{
+}
+{
+    \sporkv_1[\sporkc_R^*] \to \sporkv_2[][\sporkcz_2^*][\sporkc_R^*]
+}
+\inferrule*[right=W-Point]{
+}
+{
+    \sporkv_2[\sporkc^*][\sporke_L, \sporkc_L^*][\sporkc_R^*]
+    \to
+    \sporkv_2[\sporkc^*, \sporke_L][\sporkc_L^*][\sporkc_R^*]
+}\\
+\inferrule*[right=W-Interval]{
+}
+{
+    \sporkv_2[\sporkc^*][\sporke_\text{Llo}\texttt{:}\sporke_\text{Lhi}, \sporkc_L^*][\sporke_\text{Rlo}\texttt{:}\sporke_\text{Rhi}, \sporkc_R^*]
+    \to
+    \sporkv_2[\sporkc^*, \sporke_\text{Llo}+\sporke_\text{Rlo}\texttt{:}\sporke_\text{Llo}+\sporke_\text{Rhi}][\sporkc_L^*][\sporkc_R^*]
+}\\
+\inferrule*[right=W-IntervalPoint]{
+}
+{
+    \sporkv_2[\sporkc^*][\sporke_\text{Llo}\texttt{:}\sporke_\text{Lhi}, \sporkc_L^*][\sporkc_R, \sporkc_R^*]
+    \to
+    \sporkv_2[\sporkc^*, \sporke_\text{Llo}+\sporkc_R][\sporkc_L^*][\sporkc_R^*]
+}
+\inferrule*[right=W-Done]{
+}
+{
+    \sporkv_2[\sporkc^*][][] \to \sporkv_2[\sporkc^*]
+}
+\\
+\end{mathpar}
+\caption{Window Semantics: window unrolling, window substitution $s[\sporkv_1 \sporkWindowSub \sporkv_2[\sporkcz_2^*]]$.
+Window substitution steps each window $w$ in $s$ fully according to the above rules (with fixed $\sporkv_1,\sporkv_2$).
+These $w$ may be annotated; these are unchanged by the stepping. Note $\sporke_\text{Lhi}$ is discarded; bounds-check is a separate step.
+}
+\label{fig:WindowSemantics}
+\end{figure}

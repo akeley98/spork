@@ -9,7 +9,7 @@
   $\sporkf : \sporkF$ & & & custom instruction \\
 \midrule
   % In the program syntax
-  $\sporkx$ & $\Coloneqq$ & \texttt{sin|cos|tan|exp2|log2}... & extern call \\
+  $\sporkextern$ & $\Coloneqq$ & \texttt{sin|cos|tan|exp2|log2}... & extern call \\
   $\sporkprim$ & $\Coloneqq$ & \texttt{f16|bf16|f32|f64|i8|i16}... & primitive data type \\
   $\sporkmem$ & $\Coloneqq$ & \texttt{CudaRmem|CudaGmemLinear}... & memory type \\
   $\sporkspecialWindow$ & $\Coloneqq$ & \texttt{Sm90\_tensorMap(...)} & special window type \\
@@ -18,8 +18,8 @@
   $\sporkloopMode : \sporkLoopMode$ & $\Coloneqq$ & \texttt{Seq}|\texttt{CudaTasks}|\texttt{CudaThreads}($\sporkcollUnit$) & loop mode \\
   $\sporkwarpName$ & & & warp specialization name \\
   $\sporkwarpConfig$ & $\Coloneqq$ & \texttt{CudaWarpConfig($\sporkwarpName$, $z$)} & $z$-many warps' configuration \\
-  & $|$ & \texttt{CudaWarpConfig($\sporkwarpName$, $z$, setmaxnreg\_dec=$z$)} & (decrease from default reg count) \\
-  & $|$ & \texttt{CudaWarpConfig($\sporkwarpName$, $z$, setmaxnreg\_inc=$z$)} & (increase from default reg count) \\
+  & $|$ & ``\,''\texttt{($\sporkwarpName$, $z$, setmaxnreg\_dec=$z$)} & (decrease from default reg count) \\
+  & $|$ & ``\,''\texttt{($\sporkwarpName$, $z$, setmaxnreg\_inc=$z$)} & (increase from default reg count) \\
 \midrule
   % Behind the scenes
   $\sporkmut : \sporkMut$ & $\Coloneqq$ & $\sporkread|\sporkmutate$ & read/mutate tag \\

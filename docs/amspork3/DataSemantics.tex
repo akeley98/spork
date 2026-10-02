@@ -1,0 +1,23 @@
+\begin{figure}[h]
+\sporkSemanticsStuff
+\begin{mathpar}
+\inferrule*[right=D-WindowStmtStep]{
+  \langle \sporkw_1, \sigma \# \sporktr^*_1 \rangle
+  \to
+  \langle \sporkw_2, \sigma \# \sporktr^*_2 \rangle
+}
+{
+  \langle \texttt{$\sporkv$ = $\sporkw_1$ @ $\sporkspecialWindow$}, \sigma \# \sporktr^*_1 \rangle
+  \to
+  \langle \texttt{$\sporkv$ = $\sporkw_2$ @ $\sporkspecialWindow$}, \sigma \# \sporktr^*_2 \rangle
+}\\
+\inferrule*[right=D-WindowStmtSub]{
+}
+{
+  \langle \texttt{$\sporkv$ = $\sporkwz$ @ $\sporkspecialWindow$ ; $\sporks$}, \sigma \# \sporktr^* \rangle
+  \to
+  \langle \texttt{$\sporks[\sporkv \sporkWindowSub \sporkwz]$}, \sigma \# \sporktr^* \rangle
+}
+\end{mathpar}
+\caption{Data Semantics}
+\end{figure}

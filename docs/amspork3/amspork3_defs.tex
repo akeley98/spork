@@ -4,6 +4,10 @@
     \arraycolsep=1.8pt\def\arraystretch{1.0}
     \setlength{\tabcolsep}{2pt}
 }
+\newcommand{\sporkSemanticsStuff}{
+    \centering
+    \small
+}
 
 \definecolor{textgpucolor}{HTML}{000000}
 \newcommand{\textgpu}[1]{\textsf{\color{textgpucolor}#1}}
@@ -23,7 +27,7 @@
 \newcommand{\sporkR}{\mathord{\hyperref[fig:BasicGrammar]{\mathbb{R}}}}
 \newcommand{\sporkv}{\mathord{\hyperref[fig:BasicGrammar]{v}}}
 \newcommand{\sporkV}{\mathord{\hyperref[fig:BasicGrammar]{\mathbb{V}}}}
-\newcommand{\sporkx}{\mathord{\hyperref[fig:BasicGrammar]{x}}}
+\newcommand{\sporkextern}{\mathord{\hyperref[fig:BasicGrammar]{\textrm{extern}}}}
 \newcommand{\sporkz}{\mathord{\hyperref[fig:BasicGrammar]{z}}}
 \newcommand{\sporkZ}{\mathord{\hyperref[fig:BasicGrammar]{\mathbb{Z}}}}
 \newcommand{\sporkmem}{\mathord{\hyperref[fig:BasicGrammar]{\textrm{mem}}}}
@@ -53,14 +57,15 @@
 \newcommand{\sporkwarpName}{\mathord{\hyperref[fig:BasicGrammar]{\textgpu{warpName}}}}
 \newcommand{\sporkwarpConfig}{\mathord{\hyperref[fig:BasicGrammar]{\textgpu{warpConfig}}}}
 
-%% Windows
+%% Window Grammar
 \newcommand{\sporkc}{\mathord{\hyperref[fig:WindowGrammar]{{c}}}}
 \newcommand{\sporkcz}{\mathord{\hyperref[fig:WindowGrammar]{\overset{z}{c}}}}
 \newcommand{\sporkw}{\mathord{\hyperref[fig:WindowGrammar]{{w}}}}
 \newcommand{\sporkwH}{\mathord{\hyperref[fig:WindowGrammar]{\overset{\#}{w}}}}
 \newcommand{\sporkwz}{\mathord{\hyperref[fig:WindowGrammar]{\overset{z}{w}}}}
 \newcommand{\sporkwzH}{\mathord{\hyperref[fig:WindowGrammar]{\overset{z\#}{w}}}}
-%% Expressions
+
+%% Expression Grammar
 \newcommand{\sporkb}{\mathord{\hyperref[fig:expr]{b}}}
 \newcommand{\sporkBoolExpr}{\mathord{\hyperref[fig:expr]{\textrm{BoolExpr}}}}
 \newcommand{\sporke}{\mathord{\hyperref[fig:expr]{e}}}
@@ -68,8 +73,22 @@
 \newcommand{\sporkeHi}{\mathord{\hyperref[fig:expr]{e_\textrm{hi}}}}
 \newcommand{\sporkExpr}{\mathord{\hyperref[fig:expr]{\textrm{Expr}}}}
 
-%% Statements
+%% Statement Grammar
 \newcommand{\sporks}{\mathord{\hyperref[fig:stmt]{s}}}
 \newcommand{\sporkStmt}{\mathord{\hyperref[fig:stmt]{\textrm{Stmt}}}}
 
+%% Window Semantics
+\newcommand{\sporkWindowSub}{\hyperref[fig:WindowSemantics]{\overset{\textrm{win}}{\mapsto}}}
+\newcommand{\sporkWunroll}{\hyperref[fig:WindowSemantics]{\textrm{Wunroll}}}
+\newcommand{\sporkWvalues}{\hyperref[fig:WindowSemantics]{\textrm{Wvalues}}}
+
+%% Trace Grammar
+\newcommand{\sporktr}{\mathord{\hyperref[fig:Traces]{\textgpu{tr}}}}
+\newcommand{\sporkTr}{\mathord{\hyperref[fig:Traces]{\textgpu{Tr}}}}
+\newcommand{\sporkTrNewAccess}{\mathord{\hyperref[fig:Traces]{\textgpu{TrNewAccess}}}}
+\newcommand{\sporkTrFence}{\mathord{\hyperref[fig:Traces]{\textgpu{TrFence}}}}
+\newcommand{\sporkTrArrive}{\mathord{\hyperref[fig:Traces]{\textgpu{TrArrive}}}}
+\newcommand{\sporkTrAwait}{\mathord{\hyperref[fig:Traces]{\textgpu{TrAwait}}}}
+\newcommand{\sporkTrAssertCanAccess}{\mathord{\hyperref[fig:Traces]{\textgpu{TrAssertCanAccess}}}}
+\newcommand{\sporkTrAssertPendingAwait}{\mathord{\hyperref[fig:Traces]{\textgpu{TrAssertPendingAwait}}}}
 
