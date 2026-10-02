@@ -1,0 +1,41 @@
+Introduction
+
+Basic Language
+    Control/data type separation
+    CudaDeviceFunction, device scope, loop modes
+    Thread map, qualitative timelines
+    Grid constant / sync exempt
+    Basic semantics, sequential-parallel equivalence
+
+(1) Collective types, thread mapping
+    Tid definition
+    Thread collective
+    Semantics 1.
+
+(2) Static Correctness Checks
+    Instruction static attributes (including qual tl from (2))
+        Per-param: memory/SpecialWindow type
+        Per-param: precision
+        Per-param: (Qtl_{pre}, qtl_{init}, Qtl_{atom})
+        Per-param: is-sync-exempt
+        Whole: CollUnit
+        Whole: DeviceScope
+        Whole: Optional barrier mechanism
+
+(3) Accelerator Instructions, Effects, Correctness
+    Qualitative timelines, annotation
+    Trace effects
+    Trace/graph requirements
+    Atomics
+    Semantics 2.
+
+(4) Synchronization Environment
+    Talk about correspondence
+
+Warp Specialization and register count
+
+Split Barrier
+
+SMEM + Mbarrier
+
+Multicast
