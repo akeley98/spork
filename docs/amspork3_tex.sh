@@ -1,8 +1,19 @@
-exocc amspork3_samples.py && python3 code_to_tex.py amspork3_samples.py amspork3/code/ && xelatex amspork3.tex </dev/null || exit 1
+exocc amspork3_samples.py && python3 code_to_tex.py amspork3_samples.py amspork3/code/ || exit 1
+
+has_undefined_refs() {
+    grep -qi "there were undefined references" amspork3.log
+}
+
+xelatex amspork3.tex </dev/null || exit 1
+if has_undefined_refs; then
+    # Often just new labels not yet in the .aux; one more pass resolves those.
+    echo "amspork3_tex.sh: undefined references; re-running xelatex once" >&2
+    xelatex amspork3.tex </dev/null || exit 1
+fi
 
 # Only update the copy that evince watches if the build is clean;
 # evince crashes reloading PDFs with undefined references.
-if grep -qi "there were undefined references" amspork3.log; then
+if has_undefined_refs; then
     echo "amspork3_tex.sh: undefined references; not updating amspork3_copy.pdf" >&2
     exit 1
 fi
