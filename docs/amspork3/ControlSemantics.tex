@@ -1,0 +1,114 @@
+\begin{figure}[h]
+\sporkSemanticsStuff
+\hrule
+\begin{mathpar}
+\inferrule*[right=C-SeqStep]{
+  \langle \sporks_1, \sporksigma_1 \# \sporktr^*_1 \rangle
+  \to
+  \langle \sporks_2, \sporksigma_2 \# \sporktr^*_2 \rangle
+}
+{
+  \langle \texttt{$\sporks_1$;$\sporks$}, \sporksigma_1 \# \sporktr^*_1 \rangle
+  \to
+  \langle \texttt{$\sporks_2$;$\sporks$}, \sporksigma_2 \# \sporktr^*_2 \rangle
+}
+\inferrule*[right=C-SeqDone]{
+}
+{
+  \langle \texttt{pass;$\sporks$}, \sporksigma \# \sporktr^* \rangle
+  \to
+  \langle \sporks, \sporksigma \# \sporktr^* \rangle
+}\\
+\inferrule*[right=C-IfStep]{
+  \langle \sporkb_1, \sporksigma \# \sporktr^*_1 \rangle
+  \to
+  \langle \sporkb_2, \sporksigma \# \sporktr^*_2 \rangle
+}
+{
+  \langle \texttt{if $\sporkb_1$:$s$}, \sporksigma \# \sporktr^*_1 \rangle
+  \to
+  \langle \texttt{if $\sporkb_2$:$s$}, \sporksigma \# \sporktr^*_2 \rangle
+}
+\inferrule*[right=C-IfFalse]{
+}
+{
+  \langle \texttt{if False:$s$}, \sporksigma \# \sporktr^* \rangle
+  \to
+  \langle \texttt{pass}, \sporksigma \# \sporktr^* \rangle
+}\\
+\inferrule*[right=C-IfTrue]{
+}
+{
+  \langle \texttt{if True:$s$}, \sporksigma \# \sporktr^* \rangle
+  \to
+  \langle s, \sporksigma \# \sporktr^* \rangle
+}
+\inferrule*[right=C-With]{
+}
+{
+  \langle \texttt{with ...:$s$}, \sporksigma \# \sporktr^* \rangle
+  \to
+  \langle s, \sporksigma \# \sporktr^* \rangle
+}\\
+\inferrule*[right=C-ForStepLo]{
+  \langle \sporke_1, \sporksigma \# \sporktr^*_1 \rangle
+  \to
+  \langle \sporke_2, \sporksigma \# \sporktr^*_2 \rangle
+}
+{
+  \langle \texttt{for $\sporkv$ in $\sporkloopMode$($\sporke_1,\sporke$):$s$}, \sporksigma \# \sporktr^*_1 \rangle
+  \to
+  \langle \texttt{for $\sporkv$ in $\sporkloopMode$($\sporke_2,\sporke$):$s$}, \sporksigma \# \sporktr^*_2 \rangle
+}\\
+\inferrule*[right=C-ForStepHi]{
+  \langle \sporke_1, \sporksigma \# \sporktr^*_1 \rangle
+  \to
+  \langle \sporke_2, \sporksigma \# \sporktr^*_2 \rangle
+}
+{
+  \langle \texttt{for $\sporkv$ in $\sporkloopMode$($\sporkz,\sporke_1$):$s$}, \sporksigma \# \sporktr^*_1 \rangle
+  \to
+  \langle \texttt{for $\sporkv$ in $\sporkloopMode$($\sporkz,\sporke_2$):$s$}, \sporksigma \# \sporktr^*_2 \rangle
+}\\
+\inferrule*[right=C-ForIter]{
+  \sporkz_\textrm{lo} < \sporkz_\textrm{hi} \\
+  s' = \alpha\textrm{-rename}(s[v \mapsto \sporkz_\textrm{lo}])
+}
+{
+  \langle \texttt{for $\sporkv$ in $\sporkloopMode$($\sporkz_\textrm{lo},\sporkz_\textrm{hi}$):$s$}, \sporksigma \# \sporktr^* \rangle
+  \to
+  \langle s'\texttt{; for $\sporkv$ in $\sporkloopMode$($\sporkz_\textrm{lo} + 1,\sporkz_\textrm{hi}$):$s$}, \sporksigma \# \sporktr^* \rangle
+}\\
+\inferrule*[right=C-ForDone]{
+  \sporkz_\textrm{lo} \ge \sporkz_\textrm{hi}
+}
+{
+  \langle \texttt{for $\sporkv$ in $\sporkloopMode$($\sporkz_\textrm{lo},\sporkz_\textrm{hi}$):$s$}, \sporksigma \# \sporktr^* \rangle
+  \to
+  \langle \texttt{pass}, \sporksigma \# \sporktr^* \rangle
+}\\
+\inferrule*[right=C-AssertStep]{
+  \langle \sporkb_1, \sporksigma \# \sporktr^*_1 \rangle
+  \to
+  \langle \sporkb_2, \sporksigma \# \sporktr^*_2 \rangle
+}
+{
+  \langle \texttt{assert $\sporkb_1$:$s$}, \sporksigma \# \sporktr^*_1 \rangle
+  \to
+  \langle \texttt{assert $\sporkb_2$:$s$}, \sporksigma \# \sporktr^*_2 \rangle
+}
+\inferrule*[right=C-AssertPass]{
+}
+{
+  \langle \texttt{assert $\sporkTrue$}, \sporksigma \# \sporktr \rangle
+  \to
+  \langle \texttt{pass}, \sporksigma \# \sporktr \rangle
+}
+\end{mathpar}
+\label{fig:ControlSemantics}
+\caption{Control Semantics.
+Note that the loops are stepped sequentially regardless of $\sporkloopMode$,
+and that \texttt{with} constructs are equivalent to \texttt{if True:}.
+}
+\hrule
+\end{figure}

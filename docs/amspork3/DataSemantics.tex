@@ -1,23 +1,96 @@
 \begin{figure}[h]
 \sporkSemanticsStuff
+\hrule
 \begin{mathpar}
-\inferrule*[right=D-WindowStmtStep]{
-  \langle \sporkw_1, \sigma \# \sporktr^*_1 \rangle
+\inferrule*[right=D-StepLhs]{
+  \langle \sporkwH_1, \sporksigma \# \sporktr^*_1 \rangle
   \to
-  \langle \sporkw_2, \sigma \# \sporktr^*_2 \rangle
+  \langle \sporkwH_2, \sporksigma \# \sporktr^*_2 \rangle\\
+  \oplus \in \texttt{\{=, +=\}}
 }
 {
-  \langle \texttt{$\sporkv$ = $\sporkw_1$ @ $\sporkspecialWindow$}, \sigma \# \sporktr^*_1 \rangle
+  \langle \sporkwH_1 \oplus \sporke, \sporksigma \# \sporktr^*_1 \rangle
   \to
-  \langle \texttt{$\sporkv$ = $\sporkw_2$ @ $\sporkspecialWindow$}, \sigma \# \sporktr^*_2 \rangle
+  \langle \sporkwH_2 \oplus \sporke, \sporksigma \# \sporktr^*_2 \rangle
+}
+\inferrule*[right=D-StepRhs]{
+  \langle \sporke_1, \sporksigma \# \sporktr^*_1 \rangle
+  \to
+  \langle \sporke_2, \sporksigma \# \sporktr^*_2 \rangle\\
+  \oplus \in \texttt{\{=, +=\}}
+}
+{
+  \langle \sporkwzH \oplus \sporke_1, \sporksigma \# \sporktr^*_1 \rangle
+  \to
+  \langle \sporkwzH \oplus \sporke_2, \sporksigma \# \sporktr^*_2 \rangle
+}\\
+\inferrule*[right=D-Assign]{
+  \sporksigma' = \sporksigma[(\sporkv, \sporkz^*) \mapsto \sporkr]
+}
+{
+  \langle \sporkv[\sporkz^*] \texttt{ = } r, \sporksigma \# \sporktr^* \rangle
+  \to
+  \langle \texttt{pass}, \sporksigma' \# \sporktr^* \rangle
+}
+\inferrule*[right=D-Reduce]{
+  \sporkr' = \sporkr + \sporksigma(\sporkv, \sporkz^*) \\
+  \sporksigma' = \sporksigma[(\sporkv, \sporkz^*) \mapsto \sporkr']
+}
+{
+  \langle \sporkv[\sporkz^*] \texttt{ += } r, \sporksigma \# \sporktr^* \rangle
+  \to
+  \langle \texttt{pass}, \sporksigma' \# \sporktr^* \rangle
+}
+\\
+\inferrule*[right=D-WindowStmtStep]{
+  \langle \sporkw_1, \sporksigma \# \sporktr^*_1 \rangle
+  \to
+  \langle \sporkw_2, \sporksigma \# \sporktr^*_2 \rangle
+}
+{
+  \langle \texttt{$\sporkv$ = $\sporkw_1$ @ $\sporkspecialWindow$}, \sporksigma \# \sporktr^*_1 \rangle
+  \to
+  \langle \texttt{$\sporkv$ = $\sporkw_2$ @ $\sporkspecialWindow$}, \sporksigma \# \sporktr^*_2 \rangle
 }\\
 \inferrule*[right=D-WindowStmtSub]{
 }
 {
-  \langle \texttt{$\sporkv$ = $\sporkwz$ @ $\sporkspecialWindow$ ; $\sporks$}, \sigma \# \sporktr^* \rangle
+  \langle \texttt{$\sporkv$ = $\sporkwz$ @ $\sporkspecialWindow$;$\sporks$}, \sporksigma \# \sporktr^* \rangle
   \to
-  \langle \texttt{$\sporks[\sporkv \sporkWindowSub \sporkwz]$}, \sigma \# \sporktr^* \rangle
+  \langle \texttt{$\sporks[\sporkv \sporkWindowSub \sporkwz]$}, \sporksigma \# \sporktr^* \rangle
+}\\
+\inferrule*[right=D-InstrStepParam]{
+  \langle \sporkwH_1, \sporksigma \# \sporktr^*_1 \rangle
+  \to
+  \langle \sporkwH_2, \sporksigma \# \sporktr^*_2 \rangle \\
+  \texttt{\color{barriercolor}>>$\sporkwH_\textrm{bar}$} \textrm{ may be dropped from the rule. }
+}
+{
+  \langle \texttt{$\sporkf$($\sporkwzH^*$, $\sporkwzH_1$, $\sporkwH^*$){\color{barriercolor}>>$\sporkwH_\textrm{bar}$}}, \sporksigma \# \sporktr^*_1 \rangle
+  \to
+  \langle \texttt{$\sporkf$($\sporkwzH^*$, $\sporkwzH_2$, $\sporkwH^*$){\color{barriercolor}>>$\sporkwH_\textrm{bar}$}}, \sporksigma \# \sporktr^*_2 \rangle
+}\\
+\inferrule*[right=D-InstrStepBarrier]{
+  \langle \sporkwH_1, \sporksigma \# \sporktr^*_1 \rangle
+  \to
+  \langle \sporkwH_2, \sporksigma \# \sporktr^*_2 \rangle
+}
+{
+  \langle \texttt{$\sporkf$($\sporkwzH^*$)>>$\sporkwH_1$}, \sporksigma \# \sporktr^*_1 \rangle
+  \to
+  \langle \texttt{$\sporkf$($\sporkwzH^*$)>>$\sporkwH_2$}, \sporksigma \# \sporktr^*_2 \rangle
+}\\
+\inferrule*[right=D-InstrSub]{
+  \sporkfBehavior = \texttt{def($\sporkv_1$:$\sporkprim_1[\sporke_1^*]$ @ $\sporkmem_1$, $\sporkv_2$:$\sporkprim_2[\sporke_2^*]$ @ $\sporkmem_2, ...$):$\sporks_\textrm{body}$} \\
+  s' = s_\mathrm{body}[\sporkv_1 \sporkWindowSub \sporkwz_1][\sporkv_2 \sporkWindowSub \sporkwz_2][...]
+}
+{
+  \langle \texttt{$\sporkf$($\sporkwz_1$, $\sporkwz_2, ...$)}, \sporksigma \# \sporktr^* \rangle
+  \to
+  \langle s', \sporksigma \# \sporktr^* \rangle
 }
 \end{mathpar}
+\label{fig:DataSemantics}
 \caption{Data Semantics}
+\hrule
 \end{figure}

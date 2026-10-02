@@ -11,6 +11,7 @@
 
 \definecolor{textgpucolor}{HTML}{000000}
 \newcommand{\textgpu}[1]{\textsf{\color{textgpucolor}#1}}
+\definecolor{barriercolor}{HTML}{BB00BB}
 
 %% Convention: sporkSymbolName or sporksymbolName
 %% Capitalization is based on camel case,
@@ -23,6 +24,7 @@
 \newcommand{\sporkFalse}{\mathord{\hyperref[fig:BasicGrammar]{\texttt{False}}}}
 \newcommand{\sporkf}{\mathord{\hyperref[fig:BasicGrammar]{f}}}
 \newcommand{\sporkF}{\mathord{\hyperref[fig:BasicGrammar]{\mathbf{F}}}}
+\newcommand{\sporkfBehavior}{\mathord{\hyperref[fig:BasicGrammar]{f.\textsf{behavior}}}}
 \newcommand{\sporkr}{\mathord{\hyperref[fig:BasicGrammar]{r}}}
 \newcommand{\sporkR}{\mathord{\hyperref[fig:BasicGrammar]{\mathbb{R}}}}
 \newcommand{\sporkv}{\mathord{\hyperref[fig:BasicGrammar]{v}}}
@@ -76,6 +78,10 @@
 %% Statement Grammar
 \newcommand{\sporks}{\mathord{\hyperref[fig:stmt]{s}}}
 \newcommand{\sporkStmt}{\mathord{\hyperref[fig:stmt]{\textrm{Stmt}}}}
+
+%% Procedure Grammar
+\newcommand{\sporkproc}{\mathord{\hyperref[fig:ProcGrammar]{\textrm{proc}}}}
+\newcommand{\sporkProc}{\mathord{\hyperref[fig:ProcGrammar]{\textrm{Proc}}}}
 
 %% Window Semantics
 \newcommand{\sporkWindowSub}{\hyperref[fig:WindowSemantics]{\overset{\textrm{win}}{\mapsto}}}

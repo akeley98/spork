@@ -1,0 +1,112 @@
+\begin{figure}[h]
+\sporkSemanticsStuff
+\hrule
+\begin{mathpar}
+\inferrule*[right=E-Read]{
+  \sporkr = \sporksigma(\sporkv, \sporkz^*)
+}
+{
+  \langle \sporkv[\sporkz^*], \sporksigma \# \sporktr^* \rangle
+  \to
+  \langle r, \sporksigma \# \sporktr^* \rangle
+}
+\inferrule*[right=E-Negate]{
+  \langle \sporke_1, \sporksigma \# \sporktr^*_1 \rangle
+  \to
+  \langle \sporke_2, \sporksigma \# \sporktr^*_2 \rangle
+}
+{
+  \langle -\sporke_1, \sporksigma \# \sporktr^*_1 \rangle
+  \to
+  \langle -\sporke_2, \sporksigma \# \sporktr^*_2 \rangle
+}\\
+\inferrule*[right=E-BinOpLhs]{
+  \langle \sporke_1, \sporksigma \# \sporktr^*_1 \rangle
+  \to
+  \langle \sporke_2, \sporksigma \# \sporktr^*_2 \rangle
+}
+{
+  \langle \sporke_1 \oplus \sporke, \sporksigma \# \sporktr^*_1 \rangle
+  \to
+  \langle \sporke_2 \oplus \sporke, \sporksigma \# \sporktr^*_2 \rangle
+}
+\inferrule*[right=E-BinOpRhs]{
+  \langle \sporke_1, \sporksigma \# \sporktr^*_1 \rangle
+  \to
+  \langle \sporke_2, \sporksigma \# \sporktr^*_2 \rangle
+}
+{
+  \langle \sporkr \oplus \sporke_1, \sporksigma \# \sporktr^*_1 \rangle
+  \to
+  \langle \sporkr \oplus \sporke_2, \sporksigma \# \sporktr^*_2 \rangle
+}\\
+\inferrule*[right=E-LogicLhs]{
+  \langle \sporkb_1, \sporksigma \# \sporktr^*_1 \rangle
+  \to
+  \langle \sporkb_2, \sporksigma \# \sporktr^*_2 \rangle
+}
+{
+  \langle \sporkb_1 \oplus \sporkb, \sporksigma \# \sporktr^*_1 \rangle
+  \to
+  \langle \sporkb_2 \oplus \sporkb, \sporksigma \# \sporktr^*_2 \rangle
+}
+\inferrule*[right=E-LogicRhs]{
+  \langle \sporkb_1, \sporksigma \# \sporktr^*_1 \rangle
+  \to
+  \langle \sporkb_2, \sporksigma \# \sporktr^*_2 \rangle
+}
+{
+  \langle \sporkbool \oplus \sporkb_1, \sporksigma \# \sporktr^*_1 \rangle
+  \to
+  \langle \sporkbool \oplus \sporkb_2, \sporksigma \# \sporktr^*_2 \rangle
+}\\
+\inferrule*[right=E-StepPoint]{
+  \langle \sporke_1, \sporksigma \# \sporktr^*_1 \rangle
+  \to
+  \langle \sporke_2, \sporksigma \# \sporktr^*_2 \rangle
+}
+{
+  \langle \sporkv[\sporkcz^*, \sporke_1, \sporkc^*], \sporksigma \# \sporktr^*_1 \rangle
+  \to
+  \langle \sporkv[\sporkcz^*, \sporke_2, \sporkc^*], \sporksigma \# \sporktr^*_2 \rangle
+}\\
+\inferrule*[right=E-StepLo]{
+  \langle \sporke_1, \sporksigma \# \sporktr^*_1 \rangle
+  \to
+  \langle \sporke_2, \sporksigma \# \sporktr^*_2 \rangle
+}
+{
+  \langle \sporkv[\sporkcz^*, \sporke_1\texttt{:}\sporke, \sporkc^*], \sporksigma \# \sporktr^*_1 \rangle
+  \to
+  \langle \sporkv[\sporkcz^*, \sporke_2\texttt{:}\sporke, \sporkc^*], \sporksigma \# \sporktr^*_2 \rangle
+}\\
+\inferrule*[right=E-StepHi]{
+  \langle \sporke_1, \sporksigma \# \sporktr^*_1 \rangle
+  \to
+  \langle \sporke_2, \sporksigma \# \sporktr^*_2 \rangle
+}
+{
+  \langle \sporkv[\sporkcz^*, \sporkz\texttt{:}\sporke_1, \sporkc^*], \sporksigma \# \sporktr^*_1 \rangle
+  \to
+  \langle \sporkv[\sporkcz^*, \sporkz\texttt{:}\sporke_2, \sporkc^*], \sporksigma \# \sporktr^*_2 \rangle
+}\\
+\inferrule*[right=E-StepAnn]{
+  \langle \sporkw_1, \sporksigma \# \sporktr^*_1 \rangle
+  \to
+  \langle \sporkw_2, \sporksigma \# \sporktr^*_2 \rangle \\
+  \textsf{ann} = (\sporktidMap, \sporkQtlPre, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask)
+}
+{
+  \langle \sporkw_1 \# \textsf{ann}, \sporksigma \# \sporktr^*_1 \rangle
+  \to
+  \langle \sporkw_2 \# \textsf{ann}, \sporksigma \# \sporktr^*_2 \rangle
+}
+\end{mathpar}
+\caption{Expression Semantics.
+``Read only'' expressions must be carefully stepped to preserve trace effects.
+We assume constant arithmetic/logic, including externs, e.g. $\frac{}{2+2 \to 4}$, $\frac{}{\texttt{exp2}(3) \to 8}$.
+TODO link to tracing annotated reads.
+}
+\label{fig:ExprSemantics}
+\hrule
+\end{figure}

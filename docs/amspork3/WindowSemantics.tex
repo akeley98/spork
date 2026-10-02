@@ -1,5 +1,6 @@
 \begin{figure}[h]
 \sporkSemanticsStuff
+\hrule
 \begin{mathpar}
 \sporkWunroll: \overset{c}{W}^* \to \mathcal{P}(\sporkV \times \sporkZ^*) \quad
 \textrm{Wrange}(z) = \{z\} \quad
@@ -7,60 +8,60 @@
 \inferrule*[right=W-Empty]{
 }
 {
-    \sporkWunroll() = \{\}
+  \sporkWunroll() = \{\}
 }
 \inferrule*[right=W-Union]{
-    \textrm{lhs} = \sporkWunroll(\sporkwz) \\
-    \textrm{rhs} = \sporkWunroll(\sporkwz^*)
+  \textrm{lhs} = \sporkWunroll(\sporkwz) \\
+  \textrm{rhs} = \sporkWunroll(\sporkwz^*)
 }
 {
-    \sporkWunroll(\sporkwz, \sporkwz^*) = \textrm{lhs} \cup \textrm{rhs}
+  \sporkWunroll(\sporkwz, \sporkwz^*) = \textrm{lhs} \cup \textrm{rhs}
 }\\
 \inferrule*[right=W-Range]{
-    \forall i \in 1..n. Z_i = \textrm{Wrange}(\sporkcz_i)
+  \forall i \in 1..n. Z_i = \textrm{Wrange}(\sporkcz_i)
 }
 {
-    \sporkWunroll(\sporkv[\sporkcz_1, ..., \sporkcz_n]) = \{\sporkv\} \times (Z_1 \times ... \times Z_n)
+  \sporkWunroll(\sporkv[\sporkcz_1, ..., \sporkcz_n]) = \{\sporkv\} \times (Z_1 \times ... \times Z_n)
 }
 \quad
 \sporkWvalues: \overset{c}{W}^* \to \sporkSigma \to \mathcal{P}(\sporkV \times \sporkZ^* \times \mathbb{R}) \\
 \inferrule*[right=W-Values]{
-    \{ (\sporkv_1, \sporkz_1^*) ... (\sporkv_n, \sporkz_n^*) \} = \sporkWunroll(\sporkwz) \\
-    \forall i \in 1..n. r_i = \sporksigma(\sporkv_i, \sporkz_i^*)
+  \{ (\sporkv_1, \sporkz_1^*) ... (\sporkv_n, \sporkz_n^*) \} = \sporkWunroll(\sporkwz) \\
+  \forall i \in 1..n. r_i = \sporksigma(\sporkv_i, \sporkz_i^*)
 }
 {
-    \sporkWvalues(\sporkwz, \sporksigma) = \{ (\sporkv_1, \sporkz_1^*, r_1) ... (\sporkv_n, \sporkz_n^*, r_n) \}
+  \sporkWvalues(\sporkwz, \sporksigma) = \{ (\sporkv_1, \sporkz_1^*, r_1) ... (\sporkv_n, \sporkz_n^*, r_n) \}
 }\\
 \inferrule*[right=W-SubInitial]{
 }
 {
-    \mathbf{\sporkv_1}[\sporkc_R^*] \to \mathbf{\sporkv_2}[][\sporkcz_2^*][\sporkc_R^*]
+  \mathbf{\sporkv_1}[\sporkc_R^*] \to \mathbf{\sporkv_2}[][\sporkcz_2^*][\sporkc_R^*]
 }
 \inferrule*[right=W-SubPoint]{
 }
 {
-    \sporkv[\sporkc^*][\sporke_L, \sporkc_L^*][\sporkc_R^*]
-    \to
-    \sporkv[\sporkc^*, \sporke_L][\sporkc_L^*][\sporkc_R^*]
+  \sporkv[\sporkc^*][\sporke_L, \sporkc_L^*][\sporkc_R^*]
+  \to
+  \sporkv[\sporkc^*, \sporke_L][\sporkc_L^*][\sporkc_R^*]
 }\\
 \inferrule*[right=W-SubInterval]{
 }
 {
-    \sporkv[\sporkc^*][\sporke_\text{Llo}\texttt{:}\sporke_\text{Lhi}, \sporkc_L^*][\sporke_\text{Rlo}\texttt{:}\sporke_\text{Rhi}, \sporkc_R^*]
-    \to
-    \sporkv[\sporkc^*, \sporke_\text{Llo}+\sporke_\text{Rlo}\texttt{:}\sporke_\text{Llo}+\sporke_\text{Rhi}][\sporkc_L^*][\sporkc_R^*]
+  \sporkv[\sporkc^*][\sporke_\text{Llo}\texttt{:}\sporke_\text{Lhi}, \sporkc_L^*][\sporke_\text{Rlo}\texttt{:}\sporke_\text{Rhi}, \sporkc_R^*]
+  \to
+  \sporkv[\sporkc^*, \sporke_\text{Llo}+\sporke_\text{Rlo}\texttt{:}\sporke_\text{Llo}+\sporke_\text{Rhi}][\sporkc_L^*][\sporkc_R^*]
 }\\
 \inferrule*[right=W-SubMixed]{
 }
 {
-    \sporkv[\sporkc^*][\sporke_\text{Llo}\texttt{:}\sporke_\text{Lhi}, \sporkc_L^*][\sporkc_R, \sporkc_R^*]
-    \to
-    \sporkv[\sporkc^*, \sporke_\text{Llo}+\sporkc_R][\sporkc_L^*][\sporkc_R^*]
+  \sporkv[\sporkc^*][\sporke_\text{Llo}\texttt{:}\sporke_\text{Lhi}, \sporkc_L^*][\sporkc_R, \sporkc_R^*]
+  \to
+  \sporkv[\sporkc^*, \sporke_\text{Llo}+\sporkc_R][\sporkc_L^*][\sporkc_R^*]
 }
 \inferrule*[right=W-SubDone]{
 }
 {
-    \mathbf{\sporkv_2}[\sporkc^*][][] \to \mathbf{\sporkv_2}[\sporkc^*]
+  \mathbf{\sporkv_2}[\sporkc^*][][] \to \mathbf{\sporkv_2}[\sporkc^*]
 }
 \\
 \end{mathpar}
@@ -69,4 +70,5 @@ Window substitution steps each window $w$ in $s$ fully according to the \textsc{
 These $w$ may be annotated; these are unchanged by the stepping. Note $\sporke_\text{Lhi}$ is discarded; bounds-check is a separate step.
 }
 \label{fig:WindowSemantics}
+\hrule
 \end{figure}
