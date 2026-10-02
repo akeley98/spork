@@ -1,0 +1,33 @@
+\begin{figure}[h!]
+\sporkGrammarStuff
+\begin{tabular}{rrll}
+\toprule
+  $\sporkbool : \sporkBool$ & $\Coloneqq$ & $\sporkFalse | \sporkTrue$ & boolean \\
+  $\sporkz : \sporkZ$ & & & integer \\
+  $\sporkr : \sporkR$ & & & real number \\
+  $\sporkv : \sporkV$ & & & variable name \\
+  $\sporkf : \sporkF$ & & & custom instruction \\
+\midrule
+  % In the program syntax
+  $\sporkx$ & $\Coloneqq$ & \texttt{sin|cos|tan|exp2|log2}... & extern call \\
+  $\sporkprim$ & $\Coloneqq$ & \texttt{f16|bf16|f32|f64|i8|i16}... & primitive data type \\
+  $\sporkmem$ & $\Coloneqq$ & \texttt{CudaRmem|CudaGmemLinear}... & memory type \\
+  $\sporkspecialWindow$ & $\Coloneqq$ & \texttt{Sm90\_tensorMap(...)} & special window type \\
+  $\sporkbarrierMechanism$ & $\Coloneqq$ & \texttt{CudaMbarrier|CudaClusterSync}... & barrier mechanism type \\
+  $\sporkcollUnit : \sporkCollUnit$ & $\Coloneqq$ & \texttt{cuda\_thread}|\texttt{cuda\_warp}... & collective unit \\
+  $\sporkloopMode : \sporkLoopMode$ & $\Coloneqq$ & \texttt{Seq}|\texttt{CudaTasks}|\texttt{CudaThreads}($\sporkcollUnit$) & loop mode \\
+  $\sporkwarpName$ & & & warp specialization name \\
+  $\sporkwarpConfig$ & $\Coloneqq$ & \texttt{CudaWarpConfig($\sporkwarpName$, $z$)} & $z$-many warps' configuration \\
+  & $|$ & \texttt{CudaWarpConfig($\sporkwarpName$, $z$, setmaxnreg\_dec=$z$)} & (decrease from default reg count) \\
+  & $|$ & \texttt{CudaWarpConfig($\sporkwarpName$, $z$, setmaxnreg\_inc=$z$)} & (increase from default reg count) \\
+\midrule
+  % Behind the scenes
+  $\sporkmut : \sporkMut$ & $\Coloneqq$ & $\sporkread|\sporkmutate$ & read/mutate tag \\
+  $\sporksigma : \sporkSigma$ & & $\sporkSigma \equiv \sporkV \to \mathbb{N}^* \to \sporkR$ & value environment \\
+  $\sporktid : \sporkTid$ & & & thread ID \\
+  $\sporktidMap : \sporkTidMap$ & & $\sporkTidMap \equiv \sporkSigma \to \mathcal{P}({\sporkTid})$ & thread map \\
+\bottomrule
+\end{tabular}
+\caption{Basic Grammar and Types}
+\label{fig:BasicGrammar}
+\end{figure}

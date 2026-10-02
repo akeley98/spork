@@ -1,0 +1,33 @@
+\begin{figure}[h!]
+\sporkGrammarStuff
+\begin{tabular}{rrll}
+\toprule
+  % Control flow
+  $\sporks : \sporkStmt$ & $\Coloneqq$ &
+    \texttt{$\sporks_1$;$\sporks_2$} & sequencing \\
+  &$|$& \texttt{pass} & pass (skip, no-op) \\
+  &$|$& \texttt{if $\sporkb$:$\sporks$} & guard \\
+  &$|$& \texttt{for $\sporkv$ in $\sporkloopMode$($\sporkeLo,\sporkeHi$):$s$} & loop (sequential or parallel) \\
+  &$|$& \texttt{with CudaWarps($z$, $z$, name=$\sporkwarpName$): $s$} & warp specialization block \\
+  &$|$& \texttt{with CudaDeviceFunction(clusterDim=$z$,} & cuda device function launch \\
+  &   & \texttt{~~~~~~~warp\_config=$\sporkwarpConfig^*$): $s$} & \\
+\midrule
+  % Data
+  &$|$& \texttt{$\sporkv$ = $\sporkw$ @ $\sporkspecialWindow$} & window statement \\
+  &$|$& \texttt{$\sporkwH$ = $\sporke$} & scalar assignment (expects scalar $\sporkwH$) \\
+  &$|$& \texttt{$\sporkwH$ += $\sporke$} & scalar reduction (expects scalar $\sporkwH$) \\
+  &$|$& \texttt{$\sporkv$: $\sporkprim$[$\sporke^*$] @ $\sporkmem$} & data allocation \\
+  &$|$& free($\sporkv$) & free \\
+  &$|$& \texttt{$\sporkf$($\sporkwH^*$)} & instruction call, no trailing barrier expr \\
+  &$|$& \texttt{$\sporkf$($\sporkwH^*$) >> $\sporkwH$} & instruction call, trailing barrier expr \\
+\midrule
+  % Barriers
+  &$|$& \texttt{$\sporkv$: barrier[$\sporke^*$] @ $\sporkbarrierMechanism$} & barrier allocation \\
+  &$|$& \texttt{Fence($\sporkQtl_1, \sporkQtl_2$)} $\#\sporktidMap$ & fence synchronization statement \\
+  &$|$& \texttt{Arrive($\sporkQtl_1$) >> $\sporkwH^*$} $\#\sporktidMap$ & arrive synchronization statement \\
+  &$|$& \texttt{Await($\sporkwH$, $\sporkQtl_2$)} $\#\sporktidMap$ & await synchronization statement \\
+\bottomrule
+\end{tabular}
+\caption{Statement Grammar}
+\label{fig:stmt}
+\end{figure}

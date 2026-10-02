@@ -1,0 +1,75 @@
+\newcommand{\sporkGrammarStuff}{
+    \footnotesize
+    \centering
+    \arraycolsep=1.8pt\def\arraystretch{1.0}
+    \setlength{\tabcolsep}{2pt}
+}
+
+\definecolor{textgpucolor}{HTML}{000000}
+\newcommand{\textgpu}[1]{\textsf{\color{textgpucolor}#1}}
+
+%% Convention: sporkSymbolName or sporksymbolName
+%% Capitalization is based on camel case,
+%% except the first character case must match the actual text case exactly.
+
+%% Basic Grammar
+\newcommand{\sporkbool}{\mathord{\hyperref[fig:BasicGrammar]{\textrm{bool}}}}
+\newcommand{\sporkBool}{\mathord{\hyperref[fig:BasicGrammar]{\textrm{Bool}}}}
+\newcommand{\sporkTrue}{\mathord{\hyperref[fig:BasicGrammar]{\texttt{True}}}}
+\newcommand{\sporkFalse}{\mathord{\hyperref[fig:BasicGrammar]{\texttt{False}}}}
+\newcommand{\sporkf}{\mathord{\hyperref[fig:BasicGrammar]{f}}}
+\newcommand{\sporkF}{\mathord{\hyperref[fig:BasicGrammar]{\mathbf{F}}}}
+\newcommand{\sporkr}{\mathord{\hyperref[fig:BasicGrammar]{r}}}
+\newcommand{\sporkR}{\mathord{\hyperref[fig:BasicGrammar]{\mathbb{R}}}}
+\newcommand{\sporkv}{\mathord{\hyperref[fig:BasicGrammar]{v}}}
+\newcommand{\sporkV}{\mathord{\hyperref[fig:BasicGrammar]{\mathbb{V}}}}
+\newcommand{\sporkx}{\mathord{\hyperref[fig:BasicGrammar]{x}}}
+\newcommand{\sporkz}{\mathord{\hyperref[fig:BasicGrammar]{z}}}
+\newcommand{\sporkZ}{\mathord{\hyperref[fig:BasicGrammar]{\mathbb{Z}}}}
+\newcommand{\sporkmem}{\mathord{\hyperref[fig:BasicGrammar]{\textrm{mem}}}}
+\newcommand{\sporkprim}{\mathord{\hyperref[fig:BasicGrammar]{\textrm{prim}}}}
+\newcommand{\sporkspecialWindow}{\mathord{\hyperref[fig:BasicGrammar]{\textgpu{specialWindow}}}}
+\newcommand{\sporkbarrierMechanism}{\mathord{\hyperref[fig:BasicGrammar]{\textgpu{barrierMechanism}}}}
+\newcommand{\sporkmut}{\mathord{\hyperref[fig:BasicGrammar]{\textgpu{mut?}}}}
+\newcommand{\sporkMut}{\mathord{\hyperref[fig:BasicGrammar]{\textgpu{Mut?}}}}
+\newcommand{\sporkread}{\mathord{\hyperref[fig:BasicGrammar]{\textgpu{read}}}}
+\newcommand{\sporkmutate}{\mathord{\hyperref[fig:BasicGrammar]{\textgpu{mutate}}}}
+\newcommand{\sporksigma}{\mathord{\hyperref[fig:BasicGrammar]{\sigma}}}
+\newcommand{\sporkSigma}{\mathord{\hyperref[fig:BasicGrammar]{\Sigma}}}
+\newcommand{\sporktid}{\mathord{\hyperref[fig:BasicGrammar]{\textgpu{tid}}}}
+\newcommand{\sporkTid}{\mathord{\hyperref[fig:BasicGrammar]{\textgpu{Tid}}}}
+\newcommand{\sporktidMap}{\mathord{\hyperref[fig:BasicGrammar]{\textgpu{tidMap}}}}
+\newcommand{\sporkTidMap}{\mathord{\hyperref[fig:BasicGrammar]{\textgpu{TidMap}}}}
+\newcommand{\sporkqtl}{\mathord{\hyperref[fig:BasicGrammar]{\textgpu{qtl}}}}
+\newcommand{\sporkQtl}{\mathord{\hyperref[fig:BasicGrammar]{\textgpu{Qtl}}}}
+\newcommand{\sporkQtlPre}{\mathord{\hyperref[fig:BasicGrammar]{\textgpu{Qtl}_\textrm{pre}}}}
+\newcommand{\sporkqtlInit}{\mathord{\hyperref[fig:BasicGrammar]{\textgpu{qtl}_\textrm{init}}}}
+\newcommand{\sporkQtlAtom}{\mathord{\hyperref[fig:BasicGrammar]{\textgpu{Qtl}_\textrm{atom}}}}
+\newcommand{\sporkQtlMask}{\mathord{\hyperref[fig:BasicGrammar]{\textgpu{Qtl}_\textrm{mask}}}}
+\newcommand{\sporkloopMode}{\mathord{\hyperref[fig:BasicGrammar]{\textgpu{loopMode}}}}
+\newcommand{\sporkLoopMode}{\mathord{\hyperref[fig:BasicGrammar]{\textgpu{LoopMode}}}}
+\newcommand{\sporkcollUnit}{\mathord{\hyperref[fig:BasicGrammar]{\textgpu{collUnit}}}}
+\newcommand{\sporkCollUnit}{\mathord{\hyperref[fig:BasicGrammar]{\textgpu{CollUnit}}}}
+\newcommand{\sporkwarpName}{\mathord{\hyperref[fig:BasicGrammar]{\textgpu{warpName}}}}
+\newcommand{\sporkwarpConfig}{\mathord{\hyperref[fig:BasicGrammar]{\textgpu{warpConfig}}}}
+
+%% Windows
+\newcommand{\sporkc}{\mathord{\hyperref[fig:WindowGrammar]{{c}}}}
+\newcommand{\sporkcz}{\mathord{\hyperref[fig:WindowGrammar]{\overset{z}{c}}}}
+\newcommand{\sporkw}{\mathord{\hyperref[fig:WindowGrammar]{{w}}}}
+\newcommand{\sporkwH}{\mathord{\hyperref[fig:WindowGrammar]{\overset{\#}{w}}}}
+\newcommand{\sporkwz}{\mathord{\hyperref[fig:WindowGrammar]{\overset{z}{w}}}}
+\newcommand{\sporkwzH}{\mathord{\hyperref[fig:WindowGrammar]{\overset{z\#}{w}}}}
+%% Expressions
+\newcommand{\sporkb}{\mathord{\hyperref[fig:expr]{b}}}
+\newcommand{\sporkBoolExpr}{\mathord{\hyperref[fig:expr]{\textrm{BoolExpr}}}}
+\newcommand{\sporke}{\mathord{\hyperref[fig:expr]{e}}}
+\newcommand{\sporkeLo}{\mathord{\hyperref[fig:expr]{e_\textrm{lo}}}}
+\newcommand{\sporkeHi}{\mathord{\hyperref[fig:expr]{e_\textrm{hi}}}}
+\newcommand{\sporkExpr}{\mathord{\hyperref[fig:expr]{\textrm{Expr}}}}
+
+%% Statements
+\newcommand{\sporks}{\mathord{\hyperref[fig:stmt]{s}}}
+\newcommand{\sporkStmt}{\mathord{\hyperref[fig:stmt]{\textrm{Stmt}}}}
+
+

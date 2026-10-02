@@ -1,0 +1,20 @@
+\begin{figure}[h!]
+\sporkGrammarStuff
+\begin{tabular}{rrll}
+\toprule
+  $\sporke : \sporkExpr$ & $\Coloneqq$ &
+        $\text{read}(\sporkwH)$ & scalar read (expects scalar $\sporkwH$) \\
+  &$|$& $\sporkr$ & integer/float constant \\
+  &$|$& $-\sporke$ & unary negation \\
+  &$|$& $\sporke_1 + \sporke_2 | \sporke_1 - \sporke_2 | \sporke_1 * \sporke_2 | \sporke_1 / \sporke_2 | \sporke_1 \% \sporke_2$ & arithemtic bin-op \\
+  &$|$& $x(e^*)$ & extern call \\
+\midrule
+  $\sporkb : \sporkBoolExpr$ & $\Coloneqq$ &
+        $\sporkFalse | \sporkTrue$ & boolean constant \\
+  &$|$& $\sporke_1 == \sporke_2 | \sporke_1 \neq \sporke_2 | \sporke_1 \leq \sporke_2 | \sporke_1 < \sporke_2 | \sporke_1 \ge \sporke_2 | \sporke_1 > \sporke_2$ & comparison bin-op \\
+  &$|$& $\sporkb_1 \land \sporkb_2 | \sporkb_1 \lor \sporkb_2$ & logical bin-op \\
+\bottomrule
+\end{tabular}
+\caption{Expression Grammar}
+\label{fig:expr}
+\end{figure}
