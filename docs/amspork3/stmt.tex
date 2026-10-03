@@ -17,10 +17,11 @@
   &$|$& \texttt{$\sporkwH$ = $\sporke$} & scalar assignment (expects scalar $\sporkwH$) \\
   &$|$& \texttt{$\sporkwH$ += $\sporke$} & scalar reduction (expects scalar $\sporkwH$) \\
   &$|$& \texttt{$\sporkv$ = $\sporkw$ @ $\sporkspecialWindow$} & window statement \\
-  &$|$& \texttt{$\sporkv$: $\sporkprim$[$\sporke^*$] @ $\sporkmem$} & data allocation \\
-  &$|$& free($\sporkv$) & free \\
   &$|$& \texttt{$\sporkf$($\sporkwH^*$)} & instruction call, no trailing barrier expr \\
   &$|$& \texttt{$\sporkf$($\sporkwH^*$) >> $\sporkwH$} & instruction call, trailing barrier expr \\
+  &$|$& \texttt{$\sporkv$: $\sporkprim$[$\sporke^*$] @ $\sporkmem$} & data allocation \\
+\midrule
+  &$|$& free($\sporkv$) & free \\
 \midrule
   % Barriers
   &$|$& \texttt{$\sporkv$: barrier[$\sporke^*$] @ $\sporkbarrierMechanism$} & barrier allocation \\

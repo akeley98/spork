@@ -43,10 +43,10 @@
   \to
   \langle s, \sporksigma \# \sporktr^* \rangle
 }
-\inferrule*[right=C-With]{
+\inferrule*[right=C-CudaWarps]{
 }
 {
-  \langle \texttt{with ...:$s$}, \sporksigma \# \sporktr^* \rangle
+  \langle \texttt{with CudaWarps(...):$s$}, \sporksigma \# \sporktr^* \rangle
   \to
   \langle s, \sporksigma \# \sporktr^* \rangle
 }\\
@@ -108,7 +108,8 @@
 \label{fig:ControlSemantics}
 \caption{Control Semantics.
 Note that the loops are stepped sequentially regardless of $\sporkloopMode$,
-and that \texttt{with} constructs are equivalent to \texttt{if True:}.
+and that \texttt{with CudaWarps} constructs are equivalent to \texttt{if True:}.
+\texttt{with CudaDeviceFunction} includes implicit ``free'' synchronization (Figure~\ref{fig:SyncTraceSemantics}).
 }
 \hrule
 \end{figure}

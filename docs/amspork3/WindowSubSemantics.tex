@@ -2,36 +2,6 @@
 \sporkSemanticsStuff
 \hrule
 \begin{mathpar}
-\sporkWunroll: \overset{c}{W}^* \to \mathcal{P}(\sporkV \times \sporkZ^*) \quad
-\textrm{Wrange}(z) = \{z\} \quad
-\textrm{Wrange}(z_\textrm{lo}\textrm{:}z_\textrm{hi}) = \{ z \in \mathbb{Z} \mid z_\textrm{lo} \le z < z_\textrm{hi} \}\\
-\inferrule*[right=W-Empty]{
-}
-{
-  \sporkWunroll() = \{\}
-}
-\inferrule*[right=W-Union]{
-  \textrm{lhs} = \sporkWunroll(\sporkwz) \\
-  \textrm{rhs} = \sporkWunroll(\sporkwz^*)
-}
-{
-  \sporkWunroll(\sporkwz, \sporkwz^*) = \textrm{lhs} \cup \textrm{rhs}
-}\\
-\inferrule*[right=W-Range]{
-  \forall i \in 1..n. Z_i = \textrm{Wrange}(\sporkcz_i)
-}
-{
-  \sporkWunroll(\sporkv[\sporkcz_1, ..., \sporkcz_n]) = \{\sporkv\} \times (Z_1 \times ... \times Z_n)
-}
-\quad
-\sporkWvalues: \overset{c}{W}^* \to \sporkSigma \to \mathcal{P}(\sporkV \times \sporkZ^* \times \mathbb{R}) \\
-\inferrule*[right=W-Values]{
-  \{ (\sporkv_1, \sporkz_1^*) ... (\sporkv_n, \sporkz_n^*) \} = \sporkWunroll(\sporkwz) \\
-  \forall i \in 1..n. r_i = \sporksigma(\sporkv_i, \sporkz_i^*)
-}
-{
-  \sporkWvalues(\sporkwz, \sporksigma) = \{ (\sporkv_1, \sporkz_1^*, r_1) ... (\sporkv_n, \sporkz_n^*, r_n) \}
-}\\
 \inferrule*[right=W-SubInitial]{
 }
 {
@@ -63,13 +33,12 @@
 {
   \mathbf{\sporkv_2}[\sporkc^*][][] \to \mathbf{\sporkv_2}[\sporkc^*]
 }
-\\
 \end{mathpar}
-\caption{Window Semantics: window unrolling, window substitution $s[\mathbf{\sporkv_1} \sporkWindowSub \mathbf{\sporkv_2}[\sporkcz_2^*]]$.
+\caption{Window substitution $s[\mathbf{\sporkv_1} \sporkWindowSub \mathbf{\sporkv_2}[\sporkcz_2^*]]$.
 Window substitution steps each window $w$ in $s$ fully according to the \textsc{W-Sub*} rules (with fixed $\mathbf{\sporkv_1},\mathbf{\sporkv_2}$).
 These $w$ may be annotated; the annotation is unchanged by the stepping.
 Note $\sporke_\text{Lhi}$ is discarded; bounds-check is a separate step.
 }
-\label{fig:WindowSemantics}
+\label{fig:WindowSubSemantics}
 \hrule
 \end{figure}

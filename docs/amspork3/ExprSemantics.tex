@@ -59,47 +59,6 @@
   \langle \sporkbool \oplus \sporkb_1, \sporksigma \# \sporktr^*_1 \rangle
   \to
   \langle \sporkbool \oplus \sporkb_2, \sporksigma \# \sporktr^*_2 \rangle
-}\\
-\inferrule*[right=E-StepPoint]{
-  \langle \sporke_1, \sporksigma \# \sporktr^*_1 \rangle
-  \to
-  \langle \sporke_2, \sporksigma \# \sporktr^*_2 \rangle
-}
-{
-  \langle \sporkv[\sporkcz^*, \sporke_1, \sporkc^*], \sporksigma \# \sporktr^*_1 \rangle
-  \to
-  \langle \sporkv[\sporkcz^*, \sporke_2, \sporkc^*], \sporksigma \# \sporktr^*_2 \rangle
-}\\
-\inferrule*[right=E-StepLo]{
-  \langle \sporke_1, \sporksigma \# \sporktr^*_1 \rangle
-  \to
-  \langle \sporke_2, \sporksigma \# \sporktr^*_2 \rangle
-}
-{
-  \langle \sporkv[\sporkcz^*, \sporke_1\texttt{:}\sporke, \sporkc^*], \sporksigma \# \sporktr^*_1 \rangle
-  \to
-  \langle \sporkv[\sporkcz^*, \sporke_2\texttt{:}\sporke, \sporkc^*], \sporksigma \# \sporktr^*_2 \rangle
-}\\
-\inferrule*[right=E-StepHi]{
-  \langle \sporke_1, \sporksigma \# \sporktr^*_1 \rangle
-  \to
-  \langle \sporke_2, \sporksigma \# \sporktr^*_2 \rangle
-}
-{
-  \langle \sporkv[\sporkcz^*, \sporkz\texttt{:}\sporke_1, \sporkc^*], \sporksigma \# \sporktr^*_1 \rangle
-  \to
-  \langle \sporkv[\sporkcz^*, \sporkz\texttt{:}\sporke_2, \sporkc^*], \sporksigma \# \sporktr^*_2 \rangle
-}\\
-\inferrule*[right=E-StepAnn]{
-  \langle \sporkw_1, \sporksigma \# \sporktr^*_1 \rangle
-  \to
-  \langle \sporkw_2, \sporksigma \# \sporktr^*_2 \rangle \\
-  \textsf{ann} = (\sporktidMap, \sporkQtlPre, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask)
-}
-{
-  \langle \sporkw_1 \# \textsf{ann}, \sporksigma \# \sporktr^*_1 \rangle
-  \to
-  \langle \sporkw_2 \# \textsf{ann}, \sporksigma \# \sporktr^*_2 \rangle
 }
 \end{mathpar}
 \caption{Expression Semantics.

@@ -1,0 +1,51 @@
+\begin{figure}[h]
+\sporkSemanticsStuff
+\hrule
+\begin{mathpar}
+\inferrule*[right=W-Point]{
+  \langle \sporke_1, \sporksigma \# \sporktr^*_1 \rangle
+  \to
+  \langle \sporke_2, \sporksigma \# \sporktr^*_2 \rangle
+}
+{
+  \langle \sporkv[\sporkcz^*, \sporke_1, \sporkc^*], \sporksigma \# \sporktr^*_1 \rangle
+  \to
+  \langle \sporkv[\sporkcz^*, \sporke_2, \sporkc^*], \sporksigma \# \sporktr^*_2 \rangle
+}\\
+\inferrule*[right=W-Lo]{
+  \langle \sporke_1, \sporksigma \# \sporktr^*_1 \rangle
+  \to
+  \langle \sporke_2, \sporksigma \# \sporktr^*_2 \rangle
+}
+{
+  \langle \sporkv[\sporkcz^*, \sporke_1\texttt{:}\sporke, \sporkc^*], \sporksigma \# \sporktr^*_1 \rangle
+  \to
+  \langle \sporkv[\sporkcz^*, \sporke_2\texttt{:}\sporke, \sporkc^*], \sporksigma \# \sporktr^*_2 \rangle
+}
+\inferrule*[right=W-Hi]{
+  \langle \sporke_1, \sporksigma \# \sporktr^*_1 \rangle
+  \to
+  \langle \sporke_2, \sporksigma \# \sporktr^*_2 \rangle
+}
+{
+  \langle \sporkv[\sporkcz^*, \sporkz\texttt{:}\sporke_1, \sporkc^*], \sporksigma \# \sporktr^*_1 \rangle
+  \to
+  \langle \sporkv[\sporkcz^*, \sporkz\texttt{:}\sporke_2, \sporkc^*], \sporksigma \# \sporktr^*_2 \rangle
+}\\
+\inferrule*[right=W-Ann]{
+  \langle \sporkw_1, \sporksigma \# \sporktr^*_1 \rangle
+  \to
+  \langle \sporkw_2, \sporksigma \# \sporktr^*_2 \rangle \\
+  \textsf{ann} = (\sporktidMap, \sporkQtlPre, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask)
+}
+{
+  \langle \sporkw_1 \# \textsf{ann}, \sporksigma \# \sporktr^*_1 \rangle
+  \to
+  \langle \sporkw_2 \# \textsf{ann}, \sporksigma \# \sporktr^*_2 \rangle
+}
+\end{mathpar}
+\caption{Window Step Semantics (resolve coordinates to integer constants)
+}
+\label{fig:WindowStepSemantics}
+\hrule
+\end{figure}
