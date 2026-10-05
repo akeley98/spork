@@ -1,0 +1,58 @@
+\begin{figure}[h]
+\sporkSemanticsStuff
+\hrule
+\begin{mathpar}
+\sporkinfPendHelper(\sporkv, \sporkz_i^*, \sporkz_\textsf{await}) =
+\{ \sporkPendingAwait(\sporkv, \sporkz_i^*, \sporkz) \mid \sporkz \ge \sporkz_\textsf{await} \}\\
+\inferrule*[right=Tr-NoAnnotation]{
+}
+{
+  \sporktrAccessHelper(\sporksigma, \sporktr^*, \sporkmut, \sporkwz, \sporkPend_\textsf{bar}) = \sporktr^*
+}\\
+\inferrule*[right=Tr-ConvergentTid]{
+  \sporkqtlConvergent(\sporkqtlInit) \\
+  \{ (v, z_1^*), (v, z_2^*), ... \} = \sporkWunroll(\sporkwz) \\
+  \sporkTid_\textsf{all} = \sporktidMap(\sigma) \\
+  \sporktr^*_\textsf{req} =
+    \sporkTrReqCanAccess(\sporkmut, \sporkv, z_1^*, \sporkTid_\textsf{all}, \sporkQtlPre),
+    \sporkTrReqCanAccess(\sporkmut, \sporkv, z_2^*, \sporkTid_\textsf{all}, \sporkQtlPre), ... \\
+  \sporktr^*_\textsf{new} =
+    \sporkTrNewAccess(\sporkmut, \sporkv, z_1^*, \sporkTid_\textsf{all}, \sporkQtlPre),
+    \sporkTrNewAccess(\sporkmut, \sporkv, z_2^*, \sporkTid_\textsf{all}, \sporkQtlPre), ...
+}
+{
+  \sporktrAccessHelper(\sporksigma, \sporktr^*, \sporkmut,
+  \sporkwz \# (\sporktidMap, \sporkQtlPre, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask),
+  \sporkPend_\textsf{bar})
+  = \sporktr^* \sporkConcatChk \sporktr^*_\textsf{req} \sporkConcatChk \sporktr^*_\textsf{new}
+}\\
+\inferrule*[right=Tr-SeparateTid]{
+  \neg\sporkqtlConvergent(\sporkqtlInit) \\
+  \{ (v, z_1^*), (v, z_2^*), ... \} = \sporkWunroll(\sporkwz) \\
+  \{ \sporktid_1, \sporktid_2 , ... \} = \sporktidMap(\sigma) \\
+  \sporktr^*_\textsf{req} = {\begin{pmatrix}  % brace required so mathpar doesn't eat the \\ inside the pmatrix
+    \sporkTrReqCanAccess(\sporkmut, \sporkv, z_1^*, \sporktid_1, \sporkQtlPre), &
+    \sporkTrReqCanAccess(\sporkmut, \sporkv, z_2^*, \sporktid_1, \sporkQtlPre), & ... \\
+    \sporkTrReqCanAccess(\sporkmut, \sporkv, z_1^*, \sporktid_2, \sporkQtlPre), &
+    \sporkTrReqCanAccess(\sporkmut, \sporkv, z_2^*, \sporktid_2, \sporkQtlPre), & ... \\
+    ... & ... & ...
+  \end{pmatrix}} \\
+  \sporktr^*_\textsf{new} = {\begin{pmatrix}
+    \sporkTrNewAccess(\sporkmut, \sporkv, z_1^*, \sporktid_1, \sporkQtlPre), &
+    \sporkTrNewAccess(\sporkmut, \sporkv, z_2^*, \sporktid_1, \sporkQtlPre), & ... \\
+    \sporkTrNewAccess(\sporkmut, \sporkv, z_1^*, \sporktid_2, \sporkQtlPre), &
+    \sporkTrNewAccess(\sporkmut, \sporkv, z_2^*, \sporktid_2, \sporkQtlPre), & ... \\
+    ... & ... & ...
+  \end{pmatrix}}
+}
+{
+  \sporktrAccessHelper(\sporksigma, \sporktr^*, \sporkmut,
+  \sporkwz \# (\sporktidMap, \sporkQtlPre, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask),
+  \sporkPend_\textsf{bar})
+  = \sporktr^* \sporkConcatChk \sporktr^*_\textsf{req} \sporkConcatChk \sporktr^*_\textsf{new}
+}
+\end{mathpar}
+\caption{Synchronization Trace Helpers: $\sporkinfPendHelper, \sporktrAccessHelper$}
+\label{fig:SyncTraceHelpers}
+\hrule
+\end{figure}

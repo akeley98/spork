@@ -2,8 +2,51 @@
 \sporkSemanticsStuff
 \hrule
 \begin{mathpar}
+\inferrule*[right=S-AllocStep]{
+  \langle \sporke_1, \sporksigma \# \sporktr^*_1 \rangle
+  \to
+  \langle \sporke_2, \sporksigma \# \sporktr^*_2 \rangle
+}
+{
+  \langle \texttt{$\sporkv$: $\texttt{barrier}$[$\sporkz^*$, $\sporke_1$, $\sporke^*$] @ $\sporkbarMech$}, \sigma \# \sporktr^*_1 \rangle
+  \to
+  \langle \texttt{$\sporkv$: $\texttt{barrier}$[$\sporkz^*$, $\sporke_2$, $\sporke^*$] @ $\sporkbarMech$}, \sigma \# \sporktr^*_2 \rangle
+}\\
+\inferrule*[right=S-ZeroArriveCounts]{
+  ((\sporkz_1^*), (\sporkz_2^*), ...) = (0..\sporkz_1-1) \times (0..\sporkz_2-1) \times ... \\
+  \sigma' = \sigma[(\sporkv, \sporkz_1^*) \mapsto 0][(\sporkv, \sporkz_2^*) \mapsto 0][...]
+}
+{
+  \langle \texttt{$\sporkv$: $\texttt{barrier}$[$\sporkz_1, \sporkz_2, ...$] @ $\sporkbarMech$}, \sigma \# \sporktr^* \rangle
+  \to
+  \langle \texttt{pass}, \sigma' \# \sporktr^* \rangle
+}
+\\
+\inferrule*[right=S-ArriveStep]{
+  \langle \sporkwH_1, \sporksigma \# \sporktr^*_1 \rangle
+  \to
+  \langle \sporkwH_2, \sporksigma \# \sporktr^*_2 \rangle
+}
+{
+  \langle \texttt{Arrive($\sporkQtl_1$) >> $\sporkwzH^*,\sporkwH_1,\sporkwH^*$} \#\sporktidMap, \sporksigma \# \sporktr^*_1 \rangle
+  \to
+  \langle \texttt{Arrive($\sporkQtl_1$) >> $\sporkwzH^*,\sporkwH_2,\sporkwH^*$} \#\sporktidMap, \sporksigma \# \sporktr^*_2 \rangle
+}\\
+\inferrule*[right=S-AwaitStep]{
+  \langle \sporkwH_1, \sporksigma \# \sporktr^*_1 \rangle
+  \to
+  \langle \sporkwH_2, \sporksigma \# \sporktr^*_2 \rangle
+}
+{
+  \langle \texttt{Await($\sporkwH_1$, $\sporkQtl_2$)} \#\sporktidMap, \sporksigma \# \sporktr^*_1 \rangle
+  \to
+  \langle \texttt{Arrive($\sporkwH_2$, $\sporkQtl_2$)} \#\sporktidMap, \sporksigma \# \sporktr^*_2 \rangle
+}
 \end{mathpar}
-\caption{Synchronization Structural Semantics}
+\caption{Synchronization Structural Semantics.
+Note, $\sporksigma(\sporkv)$ is used to store ``arrive counts'' for barrier variables $\sporkv$.
+\redBox{TODO} link to prose about commit group and mbarrier.
+}
 \label{fig:SyncStructuralSemantics}
 \hrule
 \end{figure}
