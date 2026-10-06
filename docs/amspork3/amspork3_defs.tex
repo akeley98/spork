@@ -41,6 +41,9 @@
 %%   \sporktr^*_1 is a metavariable name, not \sporktr^* with something substituted.
 %% * Either side may be empty (inserted or deleted syntax); write \sporkSubNothing for the empty side
 %%   so the box doesn't collapse and the gap reads as intentional, e.g. \sporkSub{\sporkSubNothing}{\sporks'\texttt{;}}.
+%% * Prefer duplicating a small unchanged neighbor over an empty side that deletes a suffix/prefix:
+%%   strip annotations as \sporkSub{\sporkwz \# \sporkwinAnn}{\sporkwz}, not \sporkwz\sporkSub{\#\sporkwinAnn}{\sporkSubNothing}.
+%%   Reserve empty sides for inserting/deleting whole syntax units (C-ForIter).
 %% * Don't use empty sides to "unwrap" a child statement to a higher AST level
 %%   (C-IfTrue, C-CudaWarps, C-CudaDeviceFunction): box the whole construct being replaced.
 %%   Un-sequencing counts as lifting too: C-SeqDone boxes all of pass;s, not \sporkSub{pass;}{\sporkSubNothing}s.

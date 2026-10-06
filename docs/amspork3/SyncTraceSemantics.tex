@@ -7,7 +7,7 @@
   \sporktr^*_2 = \sporktrAccessHelper(\sporksigma, \sporktr^*_1, \sporkread, \sporkwz \# \sporkwinAnn, \sporkPend_\textrm{new})
 }
 {
-  \sporkRule{\sporkwz \sporkSub{\#\sporkwinAnn}{\sporkSubNothing}, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
+  \sporkRule{\sporkSub{\sporkwz \# \sporkwinAnn}{\sporkwz}, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 } \\
 \inferrule*[right=\sporkTrMutate]{
   \oplus \in \texttt{\{=, +=\}} \\
@@ -15,7 +15,7 @@
   \sporktr^*_2 = \sporktrAccessHelper(\sporksigma, \sporktr^*_1, \sporkmutate, \sporkwz \# \sporkwinAnn, \sporkPend_\textrm{new})
 }
 {
-  \sporkRule{\sporkwz \sporkSub{\#\sporkwinAnn}{\sporkSubNothing} \oplus \sporkr, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
+  \sporkRule{\sporkSub{\sporkwz \# \sporkwinAnn}{\sporkwz} \oplus \sporkr, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 } \\
 % Ordering of Tr-InstrBarrier and Tr-InstrParam is backwards from Exo sync_check.py as of 2026-10-05
 % but tracing the trailing barrier expr first simplifies the exposition here,
@@ -25,7 +25,7 @@
   \sporktr^*_2 = \sporktrAccessHelper(\sporksigma, \sporktr^*_1, \sporkread, \sporkwz_\textrm{bar} \# \sporkwinAnn, \sporkPend_\textrm{new})
 }
 {
-  \sporkRule{\sporkf(\sporkwzH^*)\texttt{>>$\sporkwz_\textrm{bar} \sporkSub{\#\sporkwinAnn}{\sporkSubNothing}$}, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
+  \sporkRule{\sporkf(\sporkwzH^*)\texttt{>>$\sporkSub{\sporkwz_\textrm{bar} \# \sporkwinAnn}{\sporkwz_\textrm{bar}}$}, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 } \\
 \inferrule*[right=Tr-InstrParam]{
   % TODO how to express \sporkmut here more legitimately without a bunch of auxiliary formalism that obscures the point
@@ -36,7 +36,7 @@
   \sporktr^*_2 = \sporktrAccessHelper(\sporksigma, \sporktr^*_1, \sporkmut, \sporkwz \# \sporkwinAnn, \sporkPend_\textrm{new})
 }
 {
-  \sporkRule{\sporkf(\sporkwz^*, \sporkwz \sporkSub{\#\sporkwinAnn}{\sporkSubNothing}, \sporkwzH^*)\texttt{\color{barriercolor}>>$\sporkwz_\textrm{bar}$}, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
+  \sporkRule{\sporkf(\sporkwz^*, \sporkSub{\sporkwz \# \sporkwinAnn}{\sporkwz}, \sporkwzH^*)\texttt{\color{barriercolor}>>$\sporkwz_\textrm{bar}$}, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 } \\
 \inferrule*[right=Tr-Fence]{
   \sporktr^*_2 = \sporktr^*_1 \sporkConcatChk \sporkTrFence(\sporktidMap(\sporksigma), \sporkQtlArrive, \sporkQtlAwait)
@@ -49,7 +49,7 @@
   \sporktr^*_2 = \sporktrAccessHelper(\sporksigma, \sporktr^*_1, \sporkread, \sporkwz \# \sporkwinAnn, \sporkPend_\textrm{new})
 }
 {
-  \sporkRule{\texttt{Arrive($\sporkQtlArrive$) >> $\sporkwz^*,\sporkwz\sporkSub{\#\sporkwinAnn}{\sporkSubNothing},\sporkwzH^*$} \#\sporktidMap, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
+  \sporkRule{\texttt{Arrive($\sporkQtlArrive$) >> $\sporkwz^*,\sporkSub{\sporkwz \# \sporkwinAnn}{\sporkwz},\sporkwzH^*$} \#\sporktidMap, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 } \\
 \inferrule*[right=Tr-Arrive]{
   \sporktr^*_2 = \sporktr^*_1 \sporkConcatChk \textbf{(}
@@ -64,7 +64,7 @@
   \sporktr^*_2 = \sporktrAccessHelper(\sporksigma, \sporktr^*_1, \sporkread, \sporkwz \# \sporkwinAnn, \sporkPend_\textrm{new})
 }
 {
-  \sporkRule{\texttt{Await($\sporkwz \sporkSub{\#\sporkwinAnn}{\sporkSubNothing}$, $\sporkQtlAwait$, $\sporkz_\textrm{lag}$)} \#\sporktidMap, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
+  \sporkRule{\texttt{Await($\sporkSub{\sporkwz \# \sporkwinAnn}{\sporkwz}$, $\sporkQtlAwait$, $\sporkz_\textrm{lag}$)} \#\sporktidMap, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 } \\
 \inferrule*[right=Tr-Await]{
   \sporkz_\textrm{arrive} = \sporksigma(\sporkv, \sporkz_i^*) \\
