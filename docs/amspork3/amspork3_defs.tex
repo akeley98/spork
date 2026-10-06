@@ -14,8 +14,8 @@
 
 %% "Highlight changes" form of small step semantic rules.
 %% In case of haters, redefine macros so they generate normal verbose rules.
-%% i.e. redefine so \sporkStep generates the \langle ... \rangle \to \langle ... \rangle
-%% rule with the LHS/RHS substitution.
+%% i.e. redefine so \sporkRule generates the \langle ... \rangle \to \langle ... \rangle
+%% rule with the LHS/RHS substitution of each \sporkSub.
 %% Intentionally subdued colors (they are a pure scanning convenience; \blacktriangleright clearly separates).
 %% Reserve more bold colors for more important info.
 %% However, contrast with white background is important
@@ -32,6 +32,23 @@
   \hookrightarrow
   \langle #1 \rangle
 }
+%% \sporkSub usage policy (internal; the reader only gets the definition in Semantics.tex):
+%% * Box only what changes. Unchanged context (operators, statement keywords, siblings)
+%%   stays outside the box, even prefix/postfix context like -\sporkSub{..}{..} or \sporkSub{..}{..}:e.
+%% * Box \sporksigma and \sporktr^* only in rules that can change them;
+%%   an unboxed \sporksigma / \sporktr^* tells the reader the rule cannot change it.
+%% * Substitution is purely syntactic and never reaches inside subscripts/superscripts:
+%%   \sporktr^*_1 is a metavariable name, not \sporktr^* with something substituted.
+%% * Either side may be empty (inserted or deleted syntax); write \sporkSubNothing for the empty side
+%%   so the box doesn't collapse and the gap reads as intentional, e.g. \sporkSub{\sporkSubNothing}{\sporks'\texttt{;}}.
+%% * Don't use empty sides to "unwrap" a child statement to a higher AST level
+%%   (C-IfTrue, C-CudaWarps, C-CudaDeviceFunction): box the whole construct being replaced.
+%%   Un-sequencing counts as lifting too: C-SeqDone boxes all of pass;s, not \sporkSub{pass;}{\sporkSubNothing}s.
+%%   Inserting a sibling before an otherwise-unchanged node is fine (C-ForIter).
+%% * Axioms that replace a construct with something unrelated (C-IfFalse -> pass)
+%%   box the whole construct.
+%% Em-width blank for an empty \sporkSub side.
+\newcommand{\sporkSubNothing}{\quad}
 \newcommand{\sporkSub}[2]{
   {\color{sporkSubBoxColor} \setlength{\fboxrule}{0.75pt}\setlength{\fboxsep}{0.5pt} \boxed{
   {\color{sporkSubLhsColor} #1}

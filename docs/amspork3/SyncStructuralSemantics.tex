@@ -3,44 +3,30 @@
 \hrule
 \begin{mathpar}
 \inferrule*[right=S-AllocStep]{
-  \langle \sporke_1, \sporksigma \# \sporktr^*_1 \rangle
-  \to
-  \langle \sporke_2, \sporksigma \# \sporktr^*_2 \rangle
+  \sporkRule{\sporkSub{\sporke_1}{\sporke_2}, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 {
-  \langle \texttt{$\sporkv$: $\texttt{barrier}$[$\sporkz^*$, $\sporke_1$, $\sporke^*$] @ $\sporkbarMech$}, \sigma \# \sporktr^*_1 \rangle
-  \to
-  \langle \texttt{$\sporkv$: $\texttt{barrier}$[$\sporkz^*$, $\sporke_2$, $\sporke^*$] @ $\sporkbarMech$}, \sigma \# \sporktr^*_2 \rangle
+  \sporkRule{\texttt{$\sporkv$: $\texttt{barrier}$[$\sporkz^*$, $\sporkSub{\sporke_1}{\sporke_2}$, $\sporke^*$] @ $\sporkbarMech$}, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }\\
 \inferrule*[right=S-ZeroArriveCounts]{
   ((\sporkz_1^*), (\sporkz_2^*), ...) = (0..\sporkz_1-1) \times (0..\sporkz_2-1) \times ... \\
-  \sigma' = \sigma[(\sporkv, \sporkz_1^*) \mapsto 0][(\sporkv, \sporkz_2^*) \mapsto 0][...]
+  \sporksigma' = \sporksigma[(\sporkv, \sporkz_1^*) \mapsto 0][(\sporkv, \sporkz_2^*) \mapsto 0][...]
 }
 {
-  \langle \texttt{$\sporkv$: $\texttt{barrier}$[$\sporkz_1, \sporkz_2, ...$] @ $\sporkbarMech$}, \sigma \# \sporktr^* \rangle
-  \to
-  \langle \texttt{pass}, \sigma' \# \sporktr^* \rangle
+  \sporkRule{\sporkSub{\texttt{$\sporkv$: $\texttt{barrier}$[$\sporkz_1, \sporkz_2, ...$] @ $\sporkbarMech$}}{\texttt{pass}}, \sporkSub{\sporksigma}{\sporksigma'} \# \sporktr^*}
 }
 \\
 \inferrule*[right=S-ArriveStep]{
-  \langle \sporkwH_1, \sporksigma \# \sporktr^*_1 \rangle
-  \to
-  \langle \sporkwH_2, \sporksigma \# \sporktr^*_2 \rangle
+  \sporkRule{\sporkSub{\sporkwH_1}{\sporkwH_2}, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 {
-  \langle \texttt{Arrive($\sporkQtlArrive$) >> $\sporkwzH^*,\sporkwH_1,\sporkwH^*$} \#\sporktidMap, \sporksigma \# \sporktr^*_1 \rangle
-  \to
-  \langle \texttt{Arrive($\sporkQtlArrive$) >> $\sporkwzH^*,\sporkwH_2,\sporkwH^*$} \#\sporktidMap, \sporksigma \# \sporktr^*_2 \rangle
+  \sporkRule{\texttt{Arrive($\sporkQtlArrive$) >> $\sporkwzH^*,\sporkSub{\sporkwH_1}{\sporkwH_2},\sporkwH^*$} \#\sporktidMap, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }\\
 \inferrule*[right=S-AwaitStep]{
-  \langle \sporkwH_1, \sporksigma \# \sporktr^*_1 \rangle
-  \to
-  \langle \sporkwH_2, \sporksigma \# \sporktr^*_2 \rangle
+  \sporkRule{\sporkSub{\sporkwH_1}{\sporkwH_2}, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 {
-  \langle \texttt{Await($\sporkwH_1$, $\sporkQtlAwait$, $\sporkz_\textrm{lag}$)} \#\sporktidMap, \sporksigma \# \sporktr^*_1 \rangle
-  \to
-  \langle \texttt{Await($\sporkwH_2$, $\sporkQtlAwait$, $\sporkz_\textrm{lag}$)} \#\sporktidMap, \sporksigma \# \sporktr^*_2 \rangle
+  \sporkRule{\texttt{Await($\sporkSub{\sporkwH_1}{\sporkwH_2}$, $\sporkQtlAwait$, $\sporkz_\textrm{lag}$)} \#\sporktidMap, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 \end{mathpar}
 \caption{Synchronization Structural Semantics.
