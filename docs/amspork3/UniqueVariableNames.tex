@@ -1,0 +1,23 @@
+\magicSubsection{Uniqe Variable Names}{sec:UniqueVariableNames}
+
+Variable names $\sporkv$ are \emph{unique} across all $\sporkproc$s in the program, so no name shadows another.
+
+A $\sporkv$-binder binds the name $\sporkv$ for the remainder of the enclosing block or for the loop body;
+assignment and reduction are not binders.
+If $\sporkv$ appears in $\sporks: \sporkStmt$, then it is \myKeyA{bound} if the $\sporkv$-binder appears in $\sporks$;
+otherwise it is \myKeyA{free}.
+
+Rules that duplicate syntax take care to preserve uniqueness.
+$\sporkalphaRename(\sporks)$ renames every bound variable in $\sporks$ to a fresh name,
+consistently throughout its scope;
+free variables are unchanged.
+
+\textsc{C-ForIter} (Figure~\ref{fig:ControlSemantics}) renames each copy of the loop body,
+so allocations in different iterations get distinct entries in $\sporksigma$,
+while the loop variable itself (free in the body) is still read from $\sporksigma$.
+Likewise, \sporkDInstrSub\ (Figure~\ref{fig:DataSemantics}) renames each inlined copy of $\sporkfBehavior$'s body
+before substituting the instruction's parameters (free in the body) with the argument windows.
+
+Substitution (Figure~\ref{fig:WindowSubSemantics}) never captures a variable,
+and $\sporksigma$, which is keyed by name, needs no scoping:
+loop variables and allocations simply stay in $\sporksigma$ after their scope ends; nothing can observe them.

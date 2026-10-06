@@ -7,7 +7,7 @@
     \texttt{$\sporks_L$;$\sporks_R$} & sequencing \\
   &$|$& \texttt{pass} & pass (skip, no-op) \\
   &$|$& \texttt{if $\sporkb$:$\sporks$} & guard \\
-  &$|$& \texttt{for $\sporkv$ in $\sporkloopMode$($\sporkeLo,\sporkeHi$):$\sporks$} & loop (sequential or parallel) \\
+  &$|$& \texttt{for $\sporkv$ in $\sporkloopMode$($\sporkeLo,\sporkeHi$):$\sporks$} & sequential or parallel loop \sporkbinder \\
   &$|$& \texttt{with CudaWarps($\sporkz$, $\sporkz$, name=$\sporkwarpName$): $\sporks$} & warp specialization block \\
   &$|$& \texttt{with CudaDeviceFunction(clusterDim=$\sporkz$,} & cuda device function launch \\
   &   & \texttt{~~~~~~~warp\_config=$\sporkwarpConfig^*$): $\sporks$} & \\
@@ -16,15 +16,15 @@
   % Data
   &$|$& \texttt{$\sporkwH$ = $\sporke$} & scalar assignment (expects scalar $\sporkwH$) \\
   &$|$& \texttt{$\sporkwH$ += $\sporke$} & scalar reduction (expects scalar $\sporkwH$) \\
-  &$|$& \texttt{$\sporkv$ = $\sporkw$ @ $\sporkspecialWindow$} & window statement \\
+  &$|$& \texttt{$\sporkv$ = $\sporkw$ @ $\sporkspecialWindow$} & window statement \sporkbinder \\
   &$|$& \texttt{$\sporkf$($\sporkwH^*$)} & instruction call, no trailing barrier expr \\
   &$|$& \texttt{$\sporkf$($\sporkwH^*$) >> $\sporkwH$} & instruction call, trailing barrier expr \\
-  &$|$& \texttt{$\sporkv$: $\sporkprim$[$\sporke^*$] @ $\sporkmem$} & data allocation \\
+  &$|$& \texttt{$\sporkv$: $\sporkprim$[$\sporke^*$] @ $\sporkmem$} & data allocation \sporkbinder \\
 \midrule
   &$|$& \texttt{free($\sporkv$)} & free \\
 \midrule
   % Barriers
-  &$|$& \texttt{$\sporkv$: barrier[$\sporke^*$] @ $\sporkbarMech$} & barrier allocation \\
+  &$|$& \texttt{$\sporkv$: barrier[$\sporke^*$] @ $\sporkbarMech$} & barrier allocation \sporkbinder \\
   &$|$& \texttt{Fence($\sporkQtlArrive, \sporkQtlAwait$)} $\#\sporktidMap$ & fence synchronization statement \\
   &$|$& \texttt{Arrive($\sporkQtlArrive$) >> $\sporkwH^*$} $\#\sporktidMap$ & arrive synchronization statement \\
   &$|$& \texttt{Await($\sporkwH$, $\sporkQtlAwait$, $\sporkz_\textrm{lag}$)} $\#\sporktidMap$ & await synchronization statement (expects scalar window) \\
