@@ -3,36 +3,36 @@
 \hrule
 \begin{mathpar}
 \inferrule*[right=C-SeqStep]{
-  \sporkRule{\sporkSub{\sporks_1}{\sporks_2}, \sporkSub{\sporksigma_1}{\sporksigma_2} \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
+  \sporkRule{\sporkSub{\sporks_1}{\sporks_2}, \sporkSub{\sporksigma_1}{\sporksigma_2}, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 {
-  \sporkRule{\texttt{$\sporkSub{\sporks_1}{\sporks_2}$;$\sporks$}, \sporkSub{\sporksigma_1}{\sporksigma_2} \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
+  \sporkRule{\texttt{$\sporkSub{\sporks_1}{\sporks_2}$;$\sporks$}, \sporkSub{\sporksigma_1}{\sporksigma_2}, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 \inferrule*[right=C-SeqDone]{
 }
 {
-  \sporkRule{\sporkSub{\texttt{pass;$\sporks$}}{\sporks}, \sporksigma \# \sporktr^*}
+  \sporkRule{\sporkSub{\texttt{pass;$\sporks$}}{\sporks}, \sporksigma, \sporktr^*}
 }\\
 \inferrule*[right=C-IfStep]{
-  \sporkRule{\sporkSub{\sporkb_1}{\sporkb_2}, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
+  \sporkRule{\sporkSub{\sporkb_1}{\sporkb_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 {
-  \sporkRule{\texttt{if $\sporkSub{\sporkb_1}{\sporkb_2}$:$\sporks$}, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
+  \sporkRule{\texttt{if $\sporkSub{\sporkb_1}{\sporkb_2}$:$\sporks$}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 \inferrule*[right=C-IfFalse]{
 }
 {
-  \sporkRule{\sporkSub{\texttt{if $\sporkFalse$:$\sporks$}}{\texttt{pass}}, \sporksigma \# \sporktr^*}
+  \sporkRule{\sporkSub{\texttt{if $\sporkFalse$:$\sporks$}}{\texttt{pass}}, \sporksigma, \sporktr^*}
 }\\
 \inferrule*[right=C-IfTrue]{
 }
 {
-  \sporkRule{\sporkSub{\texttt{if $\sporkTrue$:$\sporks$}}{\sporks}, \sporksigma \# \sporktr^*}
+  \sporkRule{\sporkSub{\texttt{if $\sporkTrue$:$\sporks$}}{\sporks}, \sporksigma, \sporktr^*}
 }
 \inferrule*[right=C-CudaWarps]{
 }
 {
-  \sporkRule{\sporkSub{\texttt{with CudaWarps(...):$\sporks$}}{\sporks}, \sporksigma \# \sporktr^*}
+  \sporkRule{\sporkSub{\texttt{with CudaWarps(...):$\sporks$}}{\sporks}, \sporksigma, \sporktr^*}
 }\\
 \inferrule*[right=C-CudaDeviceFunction]{
   \redBox{TODO define $\sporkQtlCuda$} \\
@@ -41,19 +41,19 @@
   \sporks_\textrm{fence2} = \texttt{Fence($\sporkQtlCuda$, $\sporkQtlCuda$)} \# \sporktidMap_\textrm{allThreads}
 }
 {
-  \sporkRule{\sporkSub{\texttt{with CudaDeviceFunction(...):} \sporks_\textrm{device}}{\texttt{$\sporks_\textrm{fence1}$;$\sporks_\textrm{device}$;$\sporks_\textrm{fence2}$}}, \sporksigma \# \sporktr^*}
+  \sporkRule{\sporkSub{\texttt{with CudaDeviceFunction(...):} \sporks_\textrm{device}}{\texttt{$\sporks_\textrm{fence1}$;$\sporks_\textrm{device}$;$\sporks_\textrm{fence2}$}}, \sporksigma, \sporktr^*}
 }\\
 \inferrule*[right=C-ForStepLo]{
-  \sporkRule{\sporkSub{\sporke_1}{\sporke_2}, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
+  \sporkRule{\sporkSub{\sporke_1}{\sporke_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 {
-  \sporkRule{\texttt{for $\sporkv$ in $\sporkloopMode$($\sporkSub{\sporke_1}{\sporke_2},\sporke$):$\sporks$}, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
+  \sporkRule{\texttt{for $\sporkv$ in $\sporkloopMode$($\sporkSub{\sporke_1}{\sporke_2},\sporke$):$\sporks$}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }\\
 \inferrule*[right=C-ForStepHi]{
-  \sporkRule{\sporkSub{\sporke_1}{\sporke_2}, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
+  \sporkRule{\sporkSub{\sporke_1}{\sporke_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 {
-  \sporkRule{\texttt{for $\sporkv$ in $\sporkloopMode$($\sporkz,\sporkSub{\sporke_1}{\sporke_2}$):$\sporks$}, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
+  \sporkRule{\texttt{for $\sporkv$ in $\sporkloopMode$($\sporkz,\sporkSub{\sporke_1}{\sporke_2}$):$\sporks$}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }\\
 \inferrule*[right=C-ForIter]{
   \sporkz_\textrm{lo} < \sporkz_\textrm{hi} \\
@@ -62,24 +62,24 @@
   \sporks' = \sporkalphaRename(\sporks)
 }
 {
-  \sporkRule{\sporkSub{\sporkSubNothing}{\texttt{$\sporks'$;}}\texttt{ for $\sporkv$ in $\sporkloopMode$($\sporkSub{\sporkz_\textrm{lo}}{\sporkz_\textrm{next}}$,$\sporkz_\textrm{hi}$):$\sporks$}, \sporkSub{\sporksigma}{\sporksigma'} \# \sporktr^*}
+  \sporkRule{\sporkSub{\sporkSubNothing}{\texttt{$\sporks'$;}}\texttt{ for $\sporkv$ in $\sporkloopMode$($\sporkSub{\sporkz_\textrm{lo}}{\sporkz_\textrm{next}}$,$\sporkz_\textrm{hi}$):$\sporks$}, \sporkSub{\sporksigma}{\sporksigma'}, \sporktr^*}
 }\\
 \inferrule*[right=C-ForDone]{
   \sporkz_\textrm{lo} \ge \sporkz_\textrm{hi}
 }
 {
-  \sporkRule{\sporkSub{\texttt{for $\sporkv$ in $\sporkloopMode$($\sporkz_\textrm{lo},\sporkz_\textrm{hi}$):$\sporks$}}{\texttt{pass}}, \sporksigma \# \sporktr^*}
+  \sporkRule{\sporkSub{\texttt{for $\sporkv$ in $\sporkloopMode$($\sporkz_\textrm{lo},\sporkz_\textrm{hi}$):$\sporks$}}{\texttt{pass}}, \sporksigma, \sporktr^*}
 }\\
 \inferrule*[right=C-AssertStep]{
-  \sporkRule{\sporkSub{\sporkb_1}{\sporkb_2}, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
+  \sporkRule{\sporkSub{\sporkb_1}{\sporkb_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 {
-  \sporkRule{\texttt{assert $\sporkSub{\sporkb_1}{\sporkb_2}$}, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
+  \sporkRule{\texttt{assert $\sporkSub{\sporkb_1}{\sporkb_2}$}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 \inferrule*[right=C-AssertPass]{
 }
 {
-  \sporkRule{\sporkSub{\texttt{assert $\sporkTrue$}}{\texttt{pass}}, \sporksigma \# \sporktr^*}
+  \sporkRule{\sporkSub{\texttt{assert $\sporkTrue$}}{\texttt{pass}}, \sporksigma, \sporktr^*}
 }
 \end{mathpar}
 \caption{Control Semantics.

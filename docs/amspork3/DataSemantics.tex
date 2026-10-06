@@ -3,75 +3,75 @@
 \hrule
 \begin{mathpar}
 \inferrule*[right=D-StepLhs]{
-  \sporkRule{\sporkSub{\sporkwH_1}{\sporkwH_2}, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}\\
+  \sporkRule{\sporkSub{\sporkwH_1}{\sporkwH_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}\\
   \oplus \in \texttt{\{=, +=\}}
 }
 {
-  \sporkRule{\sporkSub{\sporkwH_1}{\sporkwH_2} \oplus \sporke, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
+  \sporkRule{\sporkSub{\sporkwH_1}{\sporkwH_2} \oplus \sporke, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }\\
 \inferrule*[right=D-StepRhs]{
-  \sporkRule{\sporkSub{\sporke_1}{\sporke_2}, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}\\
+  \sporkRule{\sporkSub{\sporke_1}{\sporke_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}\\
   \oplus \in \texttt{\{=, +=\}}
 }
 {
-  \sporkRule{\sporkwzH \oplus \sporkSub{\sporke_1}{\sporke_2}, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
+  \sporkRule{\sporkwzH \oplus \sporkSub{\sporke_1}{\sporke_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }\\
 \inferrule*[right=\sporkDAssign]{
   \sporksigma' = \sporksigma[(\sporkv, \sporkz^*) \mapsto \sporkr]
 }
 {
-  \sporkRule{\sporkSub{\sporkv[\sporkz^*] \texttt{ = } \sporkr}{\texttt{pass}}, \sporkSub{\sporksigma}{\sporksigma'} \# \sporktr^*}
+  \sporkRule{\sporkSub{\sporkv[\sporkz^*] \texttt{ = } \sporkr}{\texttt{pass}}, \sporkSub{\sporksigma}{\sporksigma'}, \sporktr^*}
 }
 \inferrule*[right=\sporkDReduce]{
   \sporkr' = \sporkr + \sporksigma(\sporkv, \sporkz^*) \\
   \sporksigma' = \sporksigma[(\sporkv, \sporkz^*) \mapsto \sporkr']
 }
 {
-  \sporkRule{\sporkSub{\sporkv[\sporkz^*] \texttt{ += } \sporkr}{\texttt{pass}}, \sporkSub{\sporksigma}{\sporksigma'} \# \sporktr^*}
+  \sporkRule{\sporkSub{\sporkv[\sporkz^*] \texttt{ += } \sporkr}{\texttt{pass}}, \sporkSub{\sporksigma}{\sporksigma'}, \sporktr^*}
 }
 \\
 \inferrule*[right=D-WindowStmtStep]{
-  \sporkRule{\sporkSub{\sporkw_1}{\sporkw_2}, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
+  \sporkRule{\sporkSub{\sporkw_1}{\sporkw_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 {
-  \sporkRule{\texttt{$\sporkv$ = $\sporkSub{\sporkw_1}{\sporkw_2}$ @ $\sporkspecialWindow$}, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
+  \sporkRule{\texttt{$\sporkv$ = $\sporkSub{\sporkw_1}{\sporkw_2}$ @ $\sporkspecialWindow$}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }\\
 \inferrule*[right=D-WindowStmtSub]{
 }
 {
-  \sporkRule{\sporkSub{\texttt{$\sporkv$ = $\sporkwz$ @ $\sporkspecialWindow$;$\sporks$}}{\sporks[\sporkv \sporkWindowSub \sporkwz]}, \sporksigma \# \sporktr^*}
+  \sporkRule{\sporkSub{\texttt{$\sporkv$ = $\sporkwz$ @ $\sporkspecialWindow$;$\sporks$}}{\sporks[\sporkv \sporkWindowSub \sporkwz]}, \sporksigma, \sporktr^*}
 }\\
 \inferrule*[right=D-AllocStep]{
-  \sporkRule{\sporkSub{\sporke_1}{\sporke_2}, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
+  \sporkRule{\sporkSub{\sporke_1}{\sporke_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 {
-  \sporkRule{\texttt{$\sporkv$: $\sporkprim$[$\sporkz^*$, $\sporkSub{\sporke_1}{\sporke_2}$, $\sporke^*$] @ $\sporkmem$}, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
+  \sporkRule{\texttt{$\sporkv$: $\sporkprim$[$\sporkz^*$, $\sporkSub{\sporke_1}{\sporke_2}$, $\sporke^*$] @ $\sporkmem$}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }\\
 \inferrule*[right=D-Alloc]{
   \text{$\sporkmem$ is not SMEM \redBox{TODO}}
 }
 {
-  \sporkRule{\sporkSub{\texttt{$\sporkv$: $\sporkprim$[$\sporkz^*$] @ $\sporkmem$}}{\texttt{pass}}, \sporksigma \# \sporktr^*}
+  \sporkRule{\sporkSub{\texttt{$\sporkv$: $\sporkprim$[$\sporkz^*$] @ $\sporkmem$}}{\texttt{pass}}, \sporksigma, \sporktr^*}
 }
 \inferrule*[right=D-Free]{
   \text{$\sporkv$ is not in SMEM \redBox{TODO}}
 }
 {
-  \sporkRule{\sporkSub{\texttt{free($\sporkv$)}}{\texttt{pass}}, \sporksigma \# \sporktr^*}
+  \sporkRule{\sporkSub{\texttt{free($\sporkv$)}}{\texttt{pass}}, \sporksigma, \sporktr^*}
 }
 \\
 \inferrule*[right=\sporkDInstrStepParam]{
-  \sporkRule{\sporkSub{\sporkwH_1}{\sporkwH_2}, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}} \\
+  \sporkRule{\sporkSub{\sporkwH_1}{\sporkwH_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}} \\
   \texttt{\color{barriercolor}>>$\sporkwH_\textrm{bar}$} \textrm{ may be dropped from the rule. }
 }
 {
-  \sporkRule{\texttt{$\sporkf$($\sporkwzH^*$, $\sporkSub{\sporkwH_1}{\sporkwH_2}$, $\sporkwH^*$){\color{barriercolor}>>$\sporkwH_\textrm{bar}$}}, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
+  \sporkRule{\texttt{$\sporkf$($\sporkwzH^*$, $\sporkSub{\sporkwH_1}{\sporkwH_2}$, $\sporkwH^*$){\color{barriercolor}>>$\sporkwH_\textrm{bar}$}}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }\\
 \inferrule*[right=\sporkDInstrStepBarrier]{
-  \sporkRule{\sporkSub{\sporkwH_1}{\sporkwH_2}, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
+  \sporkRule{\sporkSub{\sporkwH_1}{\sporkwH_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 {
-  \sporkRule{\texttt{$\sporkf$($\sporkwzH^*$)>>$\sporkSub{\sporkwH_1}{\sporkwH_2}$}, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
+  \sporkRule{\texttt{$\sporkf$($\sporkwzH^*$)>>$\sporkSub{\sporkwH_1}{\sporkwH_2}$}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }\\
 \inferrule*[right=\sporkDInstrSub]{
   \sporkfBehavior = \texttt{def($\sporkv_1$:$\sporkprim_1[\sporke_1^*]$ @ $\sporkmem_1$, $\sporkv_2$:$\sporkprim_2[\sporke_2^*]$ @ $\sporkmem_2, ...$):$\sporks_\textrm{body}$} \\
@@ -79,7 +79,7 @@
   \texttt{\color{barriercolor}>>$\sporkwz_\textrm{bar}$} \textrm{ may be dropped from the rule. }
 }
 {
-  \sporkRule{\sporkSub{\texttt{$\sporkf$($\sporkwz_1$, $\sporkwz_2, ...$)\texttt{\color{barriercolor}>>$\sporkwz_\textrm{bar}$}}}{\sporks'}, \sporksigma \# \sporktr^*}
+  \sporkRule{\sporkSub{\texttt{$\sporkf$($\sporkwz_1$, $\sporkwz_2, ...$)\texttt{\color{barriercolor}>>$\sporkwz_\textrm{bar}$}}}{\sporks'}, \sporksigma, \sporktr^*}
 }
 \end{mathpar}
 \caption{Data Semantics. \sporkDAssign, \sporkDReduce, \sporkDInstrSub\ cannot accept windows with \textsf{\#annotations}.
