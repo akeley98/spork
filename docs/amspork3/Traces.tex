@@ -4,9 +4,9 @@
 \toprule
   $\sporktr : \sporkTr$ & $\Coloneqq$ &
         $\sporkTrNewAccess(\sporkmut, \sporkv, z_i^*, \sporkTid_\textrm{new}, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask, \sporkPend_\textrm{await})$ \\
-  &$|$& $\sporkTrFence(\sporkTid_\textrm{fence}, \sporkQtl_1, \sporkQtl_2)$ \\
-  &$|$& $\sporkTrArrive(\sporkTid_\textrm{arrive}, \sporkQtl_1, \sporkv, \sporkz_i^*, \sporkz_\textrm{arrive})$ \\
-  &$|$& $\sporkTrAwait(\sporkTid_\textrm{await}, \sporkQtl_2, \sporkv, \sporkz_i^*, \sporkz_\textrm{await})$ \\
+  &$|$& $\sporkTrFence(\sporkTid_\textrm{fence}, \sporkQtlArrive, \sporkQtlAwait)$ \\
+  &$|$& $\sporkTrArrive(\sporkTid_\textrm{arrive}, \sporkQtlArrive, \sporkv, \sporkz_i^*, \sporkz_\textrm{arrive})$ \\
+  &$|$& $\sporkTrAwait(\sporkTid_\textrm{await}, \sporkQtlAwait, \sporkv, \sporkz_i^*, \sporkz_\textrm{await})$ \\
   &$|$& $\sporkTrReqCanAccess(\sporkmut, \sporkv, z_i^*, \sporkTid_\textrm{req}, \sporkQtlPre)$ \\
   &$|$& $\sporkTrReqPendingAwait(\sporkmut, \sporkv, z_i^*, \sporkpend)$ \\
 \bottomrule

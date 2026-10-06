@@ -2,7 +2,7 @@
 \sporkSemanticsStuff
 \hrule
 \begin{mathpar}
-\inferrule*[right=E-Read]{
+\inferrule*[right=\sporkERead]{
   \sporkr = \sporksigma(\sporkv, \sporkz^*)
 }
 {
@@ -64,7 +64,7 @@
 \caption{Expression Semantics.
 ``Read only'' expressions must be carefully stepped to preserve trace effects.
 We assume constant arithmetic/logic, including externs, e.g. $\frac{}{2+2 \to 4}$, $\frac{}{\texttt{exp2}(3) \to 8}$.
-TODO link to tracing annotated reads.
+Note \sporkERead\ cannot operate on \textsf{\#annotated} windows, which are first stepped by \sporkTrRead\ (Figure~\ref{fig:SyncTraceSemantics}).
 }
 \label{fig:ExprSemantics}
 \hrule

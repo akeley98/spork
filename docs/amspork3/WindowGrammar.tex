@@ -2,12 +2,14 @@
 \sporkGrammarStuff
 \begin{tabular}{rrll}
 \toprule
+  $\sporkqtl : \sporkQtl$ & $\Coloneqq$ & \texttt{cuda\_in\_order\_ram\_qual}... & qualitative timeline (\redBox{todo table link}) \\
+  $\sporkwinAnn : \sporkWinAnn$ & $\Coloneqq$ & $(\sporktidMap, \sporkQtlPre, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask)$ & window annotation \\
   $\sporkc$ & $\Coloneqq$ & $\sporke | \sporkeLo\texttt{:}\sporkeHi$ & window \textbf{c}oordinate (point $\sporke$ or interval $\sporkeLo\texttt{:}\sporkeHi$) \\
   $\sporkcz$ & $\Coloneqq$ & $\sporkz | \sporkz_\text{lo}\texttt{:}\sporkz_\text{hi}$ & $\sporkZ$-constant window coordinate \\
   $\sporkw$ & $\Coloneqq$ & $\sporkv[\sporkc^*]$ & non-annotated window \\
   $\sporkwz$ & $\Coloneqq$ & $\sporkv[\sporkcz^*]$ & non-annotated $\sporkZ$-constant-indexed window \\
-  $\sporkwH$ & $\Coloneqq$ & $\sporkw | \sporkw \# (\sporktidMap, \sporkQtlPre, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask)$ & window (non-annotated or annotated) \\
-  $\sporkwzH$ & $\Coloneqq$ & $\sporkwz | \sporkwz \# (\sporktidMap, \sporkQtlPre, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask)$ & $\sporkZ$-constant-indexed window (non-annotated or annotated) \\
+  $\sporkwH$ & $\Coloneqq$ & $\sporkw | \sporkw \# \sporkwinAnn$ & window (non-annotated or annotated) \\
+  $\sporkwzH$ & $\Coloneqq$ & $\sporkwz | \sporkwz \# \sporkwinAnn$ & $\sporkZ$-constant-indexed window (non-annotated or annotated) \\
 \bottomrule
 \end{tabular}
 \caption{Window Grammar; ``scalar'' windows contain only point coordinates}

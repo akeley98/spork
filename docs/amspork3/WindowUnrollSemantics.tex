@@ -26,11 +26,11 @@
 \quad
 \sporkWvalues: \overset{z}{W}^* \to \sporkSigma \to \mathcal{P}(\sporkV \times \sporkZ^* \times \mathbb{R}) \\
 \inferrule*[right=W-Values]{
-  \{ (\sporkv_1, \sporkz_1^*) ... (\sporkv_n, \sporkz_n^*) \} = \sporkWunroll(\sporkwz) \\
+  \{ (\sporkv_1, \sporkz_1^*) ... (\sporkv_n, \sporkz_n^*) \} = \sporkWunroll(\sporkwz^*) \\
   \forall i \in 1..n. r_i = \sporksigma(\sporkv_i, \sporkz_i^*)
 }
 {
-  \sporkWvalues(\sporkwz, \sporksigma) = \{ (\sporkv_1, \sporkz_1^*, r_1) ... (\sporkv_n, \sporkz_n^*, r_n) \}
+  \sporkWvalues(\sporkwz^*, \sporksigma) = \{ (\sporkv_1, \sporkz_1^*, r_1) ... (\sporkv_n, \sporkz_n^*, r_n) \}
 }
 \end{mathpar}
 \caption{Window Unroll Helper ($\sporkWunroll$, $\sporkWvalues$).

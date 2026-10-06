@@ -32,16 +32,15 @@
   \to
   \langle \sporkv[\sporkcz^*, \sporkz\texttt{:}\sporke_2, \sporkc^*], \sporksigma \# \sporktr^*_2 \rangle
 }\\
-\inferrule*[right=W-Ann]{
+\inferrule*[right=W-KeepAnnotation]{
   \langle \sporkw_1, \sporksigma \# \sporktr^*_1 \rangle
   \to
-  \langle \sporkw_2, \sporksigma \# \sporktr^*_2 \rangle \\
-  \textsf{ann} = (\sporktidMap, \sporkQtlPre, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask)
+  \langle \sporkw_2, \sporksigma \# \sporktr^*_2 \rangle
 }
 {
-  \langle \sporkw_1 \# \textsf{ann}, \sporksigma \# \sporktr^*_1 \rangle
+  \langle \sporkw_1 \# \sporkwinAnn, \sporksigma \# \sporktr^*_1 \rangle
   \to
-  \langle \sporkw_2 \# \textsf{ann}, \sporksigma \# \sporktr^*_2 \rangle
+  \langle \sporkw_2 \# \sporkwinAnn, \sporksigma \# \sporktr^*_2 \rangle
 }
 \end{mathpar}
 \caption{Window Step Semantics (resolve coordinates to integer constants)

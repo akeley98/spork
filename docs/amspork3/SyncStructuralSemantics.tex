@@ -28,9 +28,9 @@
   \langle \sporkwH_2, \sporksigma \# \sporktr^*_2 \rangle
 }
 {
-  \langle \texttt{Arrive($\sporkQtl_1$) >> $\sporkwzH^*,\sporkwH_1,\sporkwH^*$} \#\sporktidMap, \sporksigma \# \sporktr^*_1 \rangle
+  \langle \texttt{Arrive($\sporkQtlArrive$) >> $\sporkwzH^*,\sporkwH_1,\sporkwH^*$} \#\sporktidMap, \sporksigma \# \sporktr^*_1 \rangle
   \to
-  \langle \texttt{Arrive($\sporkQtl_1$) >> $\sporkwzH^*,\sporkwH_2,\sporkwH^*$} \#\sporktidMap, \sporksigma \# \sporktr^*_2 \rangle
+  \langle \texttt{Arrive($\sporkQtlArrive$) >> $\sporkwzH^*,\sporkwH_2,\sporkwH^*$} \#\sporktidMap, \sporksigma \# \sporktr^*_2 \rangle
 }\\
 \inferrule*[right=S-AwaitStep]{
   \langle \sporkwH_1, \sporksigma \# \sporktr^*_1 \rangle
@@ -38,14 +38,14 @@
   \langle \sporkwH_2, \sporksigma \# \sporktr^*_2 \rangle
 }
 {
-  \langle \texttt{Await($\sporkwH_1$, $\sporkQtl_2$)} \#\sporktidMap, \sporksigma \# \sporktr^*_1 \rangle
+  \langle \texttt{Await($\sporkwH_1$, $\sporkQtlAwait$, $\sporkz_\textrm{lag}$)} \#\sporktidMap, \sporksigma \# \sporktr^*_1 \rangle
   \to
-  \langle \texttt{Arrive($\sporkwH_2$, $\sporkQtl_2$)} \#\sporktidMap, \sporksigma \# \sporktr^*_2 \rangle
+  \langle \texttt{Await($\sporkwH_2$, $\sporkQtlAwait$, $\sporkz_\textrm{lag}$)} \#\sporktidMap, \sporksigma \# \sporktr^*_2 \rangle
 }
 \end{mathpar}
 \caption{Synchronization Structural Semantics.
 Note, $\sporksigma(\sporkv)$ is used to store ``arrive counts'' for barrier variables $\sporkv$.
-\redBox{TODO} link to prose about commit group and mbarrier.
+\redBox{TODO} link to prose about commit group and mbarrier; re-evaluate \textsc{S-ZeroArriveCounts} for mbarrier.
 }
 \label{fig:SyncStructuralSemantics}
 \hrule

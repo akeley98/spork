@@ -47,12 +47,6 @@
 \newcommand{\sporkTid}{\mathord{\hyperref[fig:BasicGrammar]{\textgpu{Tid}}}}
 \newcommand{\sporktidMap}{\mathord{\hyperref[fig:BasicGrammar]{\textgpu{tidMap}}}}
 \newcommand{\sporkTidMap}{\mathord{\hyperref[fig:BasicGrammar]{\textgpu{TidMap}}}}
-\newcommand{\sporkqtl}{\mathord{\hyperref[fig:BasicGrammar]{\textgpu{qtl}}}}
-\newcommand{\sporkQtl}{\mathord{\hyperref[fig:BasicGrammar]{\textgpu{Qtl}}}}
-\newcommand{\sporkQtlPre}{\mathord{\hyperref[fig:BasicGrammar]{\underset{\textrm{pre}}{\textgpu{Qtl}}}}}
-\newcommand{\sporkqtlInit}{\mathord{\hyperref[fig:BasicGrammar]{\underset{\textrm{init}}{\textgpu{qtl}}}}}
-\newcommand{\sporkQtlAtom}{\mathord{\hyperref[fig:BasicGrammar]{\underset{\textrm{atom}}{\textgpu{Qtl}}}}}
-\newcommand{\sporkQtlMask}{\mathord{\hyperref[fig:BasicGrammar]{\underset{\textrm{mask}}{\textgpu{Qtl}}}}}
 \newcommand{\sporkloopMode}{\mathord{\hyperref[fig:BasicGrammar]{\textgpu{loopMode}}}}
 \newcommand{\sporkLoopMode}{\mathord{\hyperref[fig:BasicGrammar]{\textgpu{LoopMode}}}}
 \newcommand{\sporkcollUnit}{\mathord{\hyperref[fig:BasicGrammar]{\textgpu{collUnit}}}}
@@ -61,12 +55,22 @@
 \newcommand{\sporkwarpConfig}{\mathord{\hyperref[fig:BasicGrammar]{\textgpu{warpConfig}}}}
 
 %% Window Grammar
+\newcommand{\sporkqtl}{\mathord{\hyperref[fig:WindowGrammar]{\textgpu{qtl}}}}
+\newcommand{\sporkQtl}{\mathord{\hyperref[fig:WindowGrammar]{\textgpu{Qtl}}}}
+\newcommand{\sporkQtlPre}{\mathord{\hyperref[fig:WindowGrammar]{\underset{\textrm{pre}}{\textgpu{Qtl}}}}}
+\newcommand{\sporkqtlInit}{\mathord{\hyperref[fig:WindowGrammar]{\underset{\textrm{init}}{\textgpu{qtl}}}}}
+\newcommand{\sporkQtlAtom}{\mathord{\hyperref[fig:WindowGrammar]{\underset{\textrm{atom}}{\textgpu{Qtl}}}}}
+\newcommand{\sporkQtlMask}{\mathord{\hyperref[fig:WindowGrammar]{\underset{\textrm{mask}}{\textgpu{Qtl}}}}}
+\newcommand{\sporkQtlArrive}{\mathord{\hyperref[fig:WindowGrammar]{\underset{\textrm{Arrive}}{\textgpu{Qtl}}}}}
+\newcommand{\sporkQtlAwait}{\mathord{\hyperref[fig:WindowGrammar]{\underset{\textrm{Await}}{\textgpu{Qtl}}}}}
 \newcommand{\sporkc}{\mathord{\hyperref[fig:WindowGrammar]{{c}}}}
 \newcommand{\sporkcz}{\mathord{\hyperref[fig:WindowGrammar]{\overset{z}{c}}}}
 \newcommand{\sporkw}{\mathord{\hyperref[fig:WindowGrammar]{{w}}}}
 \newcommand{\sporkwH}{\mathord{\hyperref[fig:WindowGrammar]{\overset{\#}{w}}}}
 \newcommand{\sporkwz}{\mathord{\hyperref[fig:WindowGrammar]{\overset{z}{w}}}}
 \newcommand{\sporkwzH}{\mathord{\hyperref[fig:WindowGrammar]{\overset{z\#}{w}}}}
+\newcommand{\sporkwinAnn}{\mathord{\hyperref[fig:WindowGrammar]{\textgpu{winAnn}}}}
+\newcommand{\sporkWinAnn}{\mathord{\hyperref[fig:WindowGrammar]{\textgpu{WinAnn}}}}
 
 %% Expression Grammar
 \newcommand{\sporkb}{\mathord{\hyperref[fig:expr]{b}}}
@@ -99,6 +103,16 @@
 \newcommand{\sporkTrReqCanAccess}{\mathord{\hyperref[fig:Traces]{\textgpu{TrReqCanAccess}}}}
 \newcommand{\sporkTrReqPendingAwait}{\mathord{\hyperref[fig:Traces]{\textgpu{TrReqPendingAwait}}}}
 
+%% Expr Semantics
+\newcommand{\sporkERead}{\hyperref[fig:ExprSemantics]{\textsc{E-Read}}}
+
+%% Data Semantics
+\newcommand{\sporkDAssign}{\hyperref[fig:DataSemantics]{\textsc{D-Assign}}}
+\newcommand{\sporkDReduce}{\hyperref[fig:DataSemantics]{\textsc{D-Reduce}}}
+\newcommand{\sporkDInstrStepParam}{\hyperref[fig:DataSemantics]{\textsc{D-InstrStepParam}}}
+\newcommand{\sporkDInstrStepBarrier}{\hyperref[fig:DataSemantics]{\textsc{D-InstrStepBarrier}}}
+\newcommand{\sporkDInstrSub}{\hyperref[fig:DataSemantics]{\textsc{D-InstrSub}}}
+
 %% Pending Await Grammar
 \newcommand{\sporkpend}{\mathord{\hyperref[fig:PendingAwait]{\textgpu{pend}}}}
 \newcommand{\sporkPend}{\mathord{\hyperref[fig:PendingAwait]{\textgpu{Pend}}}}
@@ -108,7 +122,11 @@
 \newcommand{\sporkinfPendHelper}{\mathord{\hyperref[fig:SyncTraceHelpers]{\textgpu{infPendHelper}}}}
 \newcommand{\sporktrAccessHelper}{\mathord{\hyperref[fig:SyncTraceHelpers]{\textgpu{trAccessHelper}}}}
 
-%% TODO links
+%% SyncTraceSemantics
+\newcommand{\sporkTrRead}{\hyperref[fig:SyncTraceSemantics]{\textsc{Tr-Read}}}
+\newcommand{\sporkTrMutate}{\hyperref[fig:SyncTraceSemantics]{\textsc{Tr-Mutate}}}
+
+%% TODO links to forthcoming definitions
 \newcommand{\sporkConcatChk}{\mathord{\underset{\textsf{chk}}{\texttt{++}}}}
 \newcommand{\sporkConcatEnv}{\mathord{\underset{\textsf{env}}{\texttt{++}}}}
 \newcommand{\sporkqtlConvergent}{\mathord{\textsf{qtlConvergent}}}

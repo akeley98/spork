@@ -25,9 +25,9 @@
 \midrule
   % Barriers
   &$|$& \texttt{$\sporkv$: barrier[$\sporke^*$] @ $\sporkbarrierMechanism$} & barrier allocation \\
-  &$|$& \texttt{Fence($\sporkQtl_1, \sporkQtl_2$)} $\#\sporktidMap$ & fence synchronization statement \\
-  &$|$& \texttt{Arrive($\sporkQtl_1$) >> $\sporkwH^*$} $\#\sporktidMap$ & arrive synchronization statement \\
-  &$|$& \texttt{Await($\sporkwH$, $\sporkQtl_2$)} $\#\sporktidMap$ & await synchronization statement \\
+  &$|$& \texttt{Fence($\sporkQtlArrive, \sporkQtlAwait$)} $\#\sporktidMap$ & fence synchronization statement \\
+  &$|$& \texttt{Arrive($\sporkQtlArrive$) >> $\sporkwH^*$} $\#\sporktidMap$ & arrive synchronization statement \\
+  &$|$& \texttt{Await($\sporkwH$, $\sporkQtlAwait$, $\sporkz_\textrm{lag}$)} $\#\sporktidMap$ & await synchronization statement (expects scalar window) \\
 \bottomrule
 \end{tabular}
 \caption{Statement Grammar}

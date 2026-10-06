@@ -2,51 +2,53 @@
 \sporkSemanticsStuff
 \hrule
 \begin{mathpar}
-\sporkinfPendHelper(\sporkv, \sporkz_i^*, \sporkz_\textsf{await}) =
-\{ \sporkPendingAwait(\sporkv, \sporkz_i^*, \sporkz) \mid \sporkz \ge \sporkz_\textsf{await} \}\\
-\inferrule*[right=Tr-NoAnnotation]{
+\inferrule*[right=Tr-NoAnnotationNoTrace]{
+  % Rule requires for Tr-InstrBarrier and for general clarity
+  % (non-annotated windows produce no trace actions).
 }
 {
-  \sporktrAccessHelper(\sporksigma, \sporktr^*, \sporkmut, \sporkwz, \sporkPend_\textsf{bar}) = \sporktr^*
+  \sporktrAccessHelper(\sporksigma, \sporktr^*, \sporkmut, \sporkwz, \sporkPend_\textrm{new}) = \sporktr^*
 }\\
 \inferrule*[right=Tr-ConvergentTid]{
   \sporkqtlConvergent(\sporkqtlInit) \\
   \sporkTid_\textsf{all} = \sporktidMap(\sigma) \\
   \sporktr^*_\textsf{req} =
-  \left (\sporkTrReqCanAccess(\sporkmut, \sporkv, \sporkz_i^*, \sporkTid_\textsf{all}, \sporkQtlPre) \right)_{
+  \textbf{(}\sporkTrReqCanAccess(\sporkmut, \sporkv, \sporkz_i^*, \sporkTid_\textsf{all}, \sporkQtlPre) \textbf{)}_{
     (\sporkv, \sporkz_i^*) \in \sporkWunroll(\sporkwz)
   }\\
   \sporktr^*_\textsf{new} =
-  \left (\sporkTrNewAccess(\sporkmut, \sporkv, z_i^*, \sporkTid_\textsf{all}, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask, \sporkPend_\textsf{bar}) \right)_{
+  \textbf{(}\sporkTrNewAccess(\sporkmut, \sporkv, z_i^*, \sporkTid_\textsf{all}, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask, \sporkPend_\textrm{new}) \textbf{)}_{
     (\sporkv, \sporkz_i^*) \in \sporkWunroll(\sporkwz)
   }\\
 }
 {
   \sporktrAccessHelper(\sporksigma, \sporktr^*, \sporkmut,
   \sporkwz \# (\sporktidMap, \sporkQtlPre, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask),
-  \sporkPend_\textsf{bar})
+  \sporkPend_\textrm{new})
   = \sporktr^* \sporkConcatChk \sporktr^*_\textsf{req} \sporkConcatChk \sporktr^*_\textsf{new}
 }\\
 \inferrule*[right=Tr-SeparateTid]{
   \neg\sporkqtlConvergent(\sporkqtlInit) \\
   \sporkTid_\textsf{all} = \sporktidMap(\sigma) \\
   \sporktr^*_\textsf{req} =
-  \left (\sporkTrReqCanAccess(\sporkmut, \sporkv, \sporkz_i^*, \{ \sporktid \}, \sporkQtlPre) \right)_{
+  \textbf{(}\sporkTrReqCanAccess(\sporkmut, \sporkv, \sporkz_i^*, \{ \sporktid \}, \sporkQtlPre) \textbf{)}_{
     (\sporkv, \sporkz_i^*) \in \sporkWunroll(\sporkwz), \sporktid \in \sporkTid_\textsf{all}
   }\\
   \sporktr^*_\textsf{new} =
-  \left (\sporkTrNewAccess(\sporkmut, \sporkv, z_i^*, \{ \sporktid \}, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask, \sporkPend_\textsf{bar}) \right)_{
+  \textbf{(}\sporkTrNewAccess(\sporkmut, \sporkv, z_i^*, \{ \sporktid \}, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask, \sporkPend_\textrm{new}) \textbf{)}_{
     (\sporkv, \sporkz_i^*) \in \sporkWunroll(\sporkwz), \sporktid \in \sporkTid_\textsf{all}
   }\\
 }
 {
   \sporktrAccessHelper(\sporksigma, \sporktr^*, \sporkmut,
   \sporkwz \# (\sporktidMap, \sporkQtlPre, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask),
-  \sporkPend_\textsf{bar})
+  \sporkPend_\textrm{new})
   = \sporktr^* \sporkConcatChk \sporktr^*_\textsf{req} \sporkConcatChk \sporktr^*_\textsf{new}
-}
+}\\
+\sporkinfPendHelper(\sporkv, \sporkz_i^*, \sporkz_\textsf{await}) =
+\{ \sporkPendingAwait(\sporkv, \sporkz_i^*, \sporkz) \mid \sporkz \ge \sporkz_\textsf{await} \}
 \end{mathpar}
-\caption{Synchronization Trace Helpers: $\sporkinfPendHelper, \sporktrAccessHelper$ \redBox{TODO:} handwave away undefined ordering of tuple comprehension.}
+\caption{Synchronization Trace Helpers: $\sporktrAccessHelper, \sporkinfPendHelper$ \redBox{TODO:} handwave away undefined ordering of tuple comprehension.}
 \label{fig:SyncTraceHelpers}
 \hrule
 \end{figure}

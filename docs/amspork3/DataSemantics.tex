@@ -24,7 +24,7 @@
   \to
   \langle \sporkwzH \oplus \sporke_2, \sporksigma \# \sporktr^*_2 \rangle
 }\\
-\inferrule*[right=D-Assign]{
+\inferrule*[right=\sporkDAssign]{
   \sporksigma' = \sporksigma[(\sporkv, \sporkz^*) \mapsto \sporkr]
 }
 {
@@ -32,7 +32,7 @@
   \to
   \langle \texttt{pass}, \sporksigma' \# \sporktr^* \rangle
 }
-\inferrule*[right=D-Reduce]{
+\inferrule*[right=\sporkDReduce]{
   \sporkr' = \sporkr + \sporksigma(\sporkv, \sporkz^*) \\
   \sporksigma' = \sporksigma[(\sporkv, \sporkz^*) \mapsto \sporkr']
 }
@@ -65,28 +65,28 @@
   \langle \sporke_2, \sporksigma \# \sporktr^*_2 \rangle
 }
 {
-  \langle \texttt{$\sporkv$: $\sporkprim$[$\sporkz^*$, $\sporke_1$, $\sporke^*$] @ $\sporkmem$}, \sigma \# \sporktr^*_1 \rangle
+  \langle \texttt{$\sporkv$: $\sporkprim$[$\sporkz^*$, $\sporke_1$, $\sporke^*$] @ $\sporkmem$}, \sporksigma \# \sporktr^*_1 \rangle
   \to
-  \langle \texttt{$\sporkv$: $\sporkprim$[$\sporkz^*$, $\sporke_2$, $\sporke^*$] @ $\sporkmem$}, \sigma \# \sporktr^*_2 \rangle
+  \langle \texttt{$\sporkv$: $\sporkprim$[$\sporkz^*$, $\sporke_2$, $\sporke^*$] @ $\sporkmem$}, \sporksigma \# \sporktr^*_2 \rangle
 }\\
 \inferrule*[right=D-Alloc]{
   \text{$\sporkmem$ is not SMEM \redBox{TODO}}
 }
 {
-  \langle \texttt{$\sporkv$: $\sporkprim$[$\sporkz^*$] @ $\sporkmem$}, \sigma \# \sporktr^* \rangle
+  \langle \texttt{$\sporkv$: $\sporkprim$[$\sporkz^*$] @ $\sporkmem$}, \sporksigma \# \sporktr^* \rangle
   \to
-  \langle \texttt{pass}, \sigma \# \sporktr^* \rangle
+  \langle \texttt{pass}, \sporksigma \# \sporktr^* \rangle
 }
 \inferrule*[right=D-Free]{
   \text{$\sporkv$ is not in SMEM \redBox{TODO}}
 }
 {
-  \langle \textrm{free}(\sporkv), \sigma \# \sporktr^* \rangle
+  \langle \textrm{free}(\sporkv), \sporksigma \# \sporktr^* \rangle
   \to
-  \langle \texttt{pass}, \sigma \# \sporktr^* \rangle
+  \langle \texttt{pass}, \sporksigma \# \sporktr^* \rangle
 }
 \\
-\inferrule*[right=D-InstrStepParam]{
+\inferrule*[right=\sporkDInstrStepParam]{
   \langle \sporkwH_1, \sporksigma \# \sporktr^*_1 \rangle
   \to
   \langle \sporkwH_2, \sporksigma \# \sporktr^*_2 \rangle \\
@@ -97,7 +97,7 @@
   \to
   \langle \texttt{$\sporkf$($\sporkwzH^*$, $\sporkwH_2$, $\sporkwH^*$){\color{barriercolor}>>$\sporkwH_\textrm{bar}$}}, \sporksigma \# \sporktr^*_2 \rangle
 }\\
-\inferrule*[right=D-InstrStepBarrier]{
+\inferrule*[right=\sporkDInstrStepBarrier]{
   \langle \sporkwH_1, \sporksigma \# \sporktr^*_1 \rangle
   \to
   \langle \sporkwH_2, \sporksigma \# \sporktr^*_2 \rangle
@@ -107,17 +107,19 @@
   \to
   \langle \texttt{$\sporkf$($\sporkwzH^*$)>>$\sporkwH_2$}, \sporksigma \# \sporktr^*_2 \rangle
 }\\
-\inferrule*[right=D-InstrSub]{
+\inferrule*[right=\sporkDInstrSub]{
   \sporkfBehavior = \texttt{def($\sporkv_1$:$\sporkprim_1[\sporke_1^*]$ @ $\sporkmem_1$, $\sporkv_2$:$\sporkprim_2[\sporke_2^*]$ @ $\sporkmem_2, ...$):$\sporks_\textrm{body}$} \\
-  s' = s_\mathrm{body}[\sporkv_1 \sporkWindowSub \sporkwz_1][\sporkv_2 \sporkWindowSub \sporkwz_2][...]
+  s' = s_\mathrm{body}[\sporkv_1 \sporkWindowSub \sporkwz_1][\sporkv_2 \sporkWindowSub \sporkwz_2][...] \\
+  \texttt{\color{barriercolor}>>$\sporkwz_\textrm{bar}$} \textrm{ may be dropped from the rule. }
 }
 {
-  \langle \texttt{$\sporkf$($\sporkwz_1$, $\sporkwz_2, ...$)}, \sporksigma \# \sporktr^* \rangle
+  \langle \texttt{$\sporkf$($\sporkwz_1$, $\sporkwz_2, ...$)\texttt{\color{barriercolor}>>$\sporkwz_\textrm{bar}$}}, \sporksigma \# \sporktr^* \rangle
   \to
   \langle s', \sporksigma \# \sporktr^* \rangle
 }
 \end{mathpar}
+\caption{Data Semantics. \sporkDAssign, \sporkDReduce, \sporkDInstrSub\ cannot accept windows with \textsf{\#annotations}.
+These are first stepped with \textsc{Tr-} rules (Figure~\ref{fig:SyncTraceSemantics})}
 \label{fig:DataSemantics}
-\caption{Data Semantics}
 \hrule
 \end{figure}
