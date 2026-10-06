@@ -14,8 +14,8 @@
   &$|$& \texttt{assert $\sporkb$} & assertion \\
 \midrule
   % Data
-  &$|$& \texttt{$\sporkwH$ = $\sporke$} & scalar assignment (expects scalar $\sporkwH$) \\
-  &$|$& \texttt{$\sporkwH$ += $\sporke$} & scalar reduction (expects scalar $\sporkwH$) \\
+  &$|$& \texttt{$\sporkwScalarH$ = $\sporke$} & scalar assignment \\
+  &$|$& \texttt{$\sporkwScalarH$ += $\sporke$} & scalar reduction \\
   &$|$& \texttt{$\sporkx$ = $\sporkw$ @ $\sporkspecialWindow$} & window statement \sporkbinder \\
   &$|$& \texttt{$\sporkf$($\sporkwH^*$)} & instruction call, no trailing barrier expr \\
   &$|$& \texttt{$\sporkf$($\sporkwH^*$) >> $\sporkwH$} & instruction call, trailing barrier expr \\
@@ -27,7 +27,7 @@
   &$|$& \texttt{$\sporkx$: barrier[$\sporke^*$] @ $\sporkbarMech$} & barrier allocation \sporkbinder \\
   &$|$& \texttt{Fence($\sporkQtlArrive, \sporkQtlAwait$)} $\#\sporktidMap$ & fence synchronization statement \\
   &$|$& \texttt{Arrive($\sporkQtlArrive$) >> $\sporkwH^*$} $\#\sporktidMap$ & arrive synchronization statement \\
-  &$|$& \texttt{Await($\sporkwH$, $\sporkQtlAwait$, $\sporkz_\textrm{lag}$)} $\#\sporktidMap$ & await synchronization statement (expects scalar window) \\
+  &$|$& \texttt{Await($\sporkwScalarH$, $\sporkQtlAwait$, $\sporkz_\textrm{lag}$)} $\#\sporktidMap$ & await synchronization statement (expects one barrier) \\
 \bottomrule
 \end{tabular}
 \caption{Statement Grammar}
