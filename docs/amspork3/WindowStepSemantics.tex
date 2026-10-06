@@ -3,44 +3,28 @@
 \hrule
 \begin{mathpar}
 \inferrule*[right=W-Point]{
-  \langle \sporke_1, \sporksigma \# \sporktr^*_1 \rangle
-  \to
-  \langle \sporke_2, \sporksigma \# \sporktr^*_2 \rangle
+  \sporkRule{\sporkSub{\sporke_1}{\sporke_2}, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 {
-  \langle \sporkv[\sporkcz^*, \sporke_1, \sporkc^*], \sporksigma \# \sporktr^*_1 \rangle
-  \to
-  \langle \sporkv[\sporkcz^*, \sporke_2, \sporkc^*], \sporksigma \# \sporktr^*_2 \rangle
+  \sporkRule{\sporkv[\sporkcz^*, \sporkSub{\sporke_1}{\sporke_2}, \sporkc^*], \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }\\
 \inferrule*[right=W-Lo]{
-  \langle \sporke_1, \sporksigma \# \sporktr^*_1 \rangle
-  \to
-  \langle \sporke_2, \sporksigma \# \sporktr^*_2 \rangle
+  \sporkRule{\sporkSub{\sporke_1}{\sporke_2}, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 {
-  \langle \sporkv[\sporkcz^*, \sporke_1\texttt{:}\sporke, \sporkc^*], \sporksigma \# \sporktr^*_1 \rangle
-  \to
-  \langle \sporkv[\sporkcz^*, \sporke_2\texttt{:}\sporke, \sporkc^*], \sporksigma \# \sporktr^*_2 \rangle
+  \sporkRule{ \sporkv[\sporkcz^*, \sporkSub{\sporke_1}{\sporke_2}\texttt{:}\sporke, \sporkc^*], \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 \inferrule*[right=W-Hi]{
-  \langle \sporke_1, \sporksigma \# \sporktr^*_1 \rangle
-  \to
-  \langle \sporke_2, \sporksigma \# \sporktr^*_2 \rangle
+  \sporkRule{\sporkSub{\sporke_1}{\sporke_2}, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 {
-  \langle \sporkv[\sporkcz^*, \sporkz\texttt{:}\sporke_1, \sporkc^*], \sporksigma \# \sporktr^*_1 \rangle
-  \to
-  \langle \sporkv[\sporkcz^*, \sporkz\texttt{:}\sporke_2, \sporkc^*], \sporksigma \# \sporktr^*_2 \rangle
+  \sporkRule{ \sporkv[\sporkcz^*, \sporkz\texttt{:}\sporkSub{\sporke_1}{\sporke_2}, \sporkc^*], \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }\\
 \inferrule*[right=W-KeepAnnotation]{
-  \langle \sporkw_1, \sporksigma \# \sporktr^*_1 \rangle
-  \to
-  \langle \sporkw_2, \sporksigma \# \sporktr^*_2 \rangle
+  \sporkRule{\sporkSub{\sporkw_1}{\sporkw_2}, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 {
-  \langle \sporkw_1 \# \sporkwinAnn, \sporksigma \# \sporktr^*_1 \rangle
-  \to
-  \langle \sporkw_2 \# \sporkwinAnn, \sporksigma \# \sporktr^*_2 \rangle
+  \sporkRule{\sporkSub{\sporkw_1}{\sporkw_2} \# \sporkwinAnn, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 \end{mathpar}
 \caption{Window Step Semantics (resolve coordinates to integer constants)

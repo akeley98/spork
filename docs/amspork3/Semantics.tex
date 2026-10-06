@@ -1,6 +1,22 @@
 \clearpage
 \magicSection{Semantics}{sec:Semantics}
 \FloatBarrier
+These are small-step operational semantics.
+We apply rewrite rules to $\langle \sporks, \sporksigma \# \sporktr^* \rangle$
+(statement, value environment, trace event sequence) until we reach the form
+$\langle \texttt{pass}, \sporksigma \# \sporktr^* \rangle$.
+The initial $\sporksigma$ is provided by the outside caller of the Exo-GPU $\sporkproc$
+and the initial $\sporktr^*$ is empty.
+
+For brevity and to highlight which rules can or cannot yield a changed $\sporksigma$ or $\sporktr^*$,
+small step reductions $\langle \text{``before''} \rangle \to \langle \text{``after''} \rangle$
+are abbreviated as $\sporkRule{\text{``common''}}$, where ``common'' contains one or more $\sporkSub{B}{A}$ pairs.
+\emph{Syntactically substituting} $B$ for $\sporkSub{B}{A}$ inside ``common'' yields ``before'',
+and syntactically substituting $A$ for $\sporkSub{B}{A}$ inside ``common'' yields ``after''.
+
+The $\sporkSub{B}{A}$ operator is on the meta-language of rules and has no Exo-GPU operator precedence.
+
+\FloatBarrier
 \input{amspork3/WindowUnrollSemantics.tex}
 \input{amspork3/WindowSubSemantics.tex}
 \input{amspork3/WindowStepSemantics.tex}
