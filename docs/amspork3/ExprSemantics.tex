@@ -51,8 +51,11 @@
 \end{mathpar}
 \caption{Expression Semantics.
 ``Read only'' expressions must be carefully stepped to preserve trace effects.
-We assume constant arithmetic/logic, including externs, e.g. axioms \mbox{$\sporkRule{\sporkSub{2+2}{4}, \sporksigma, \sporktr^*}$} and \mbox{$\sporkRule{\sporkSub{\texttt{exp2}(3)}{8}, \sporksigma, \sporktr^*}$}.
-Note \sporkERead\ cannot operate on \textsf{\#annotated} windows, which are first stepped by \sporkTrRead\ (Figure~\ref{fig:SyncTraceSemantics}).
+We assume constant arithmetic/logic, including externs,
+e.g. axioms \mbox{$\sporkRule{\sporkSub{2+2}{4}, \sporksigma, \sporktr^*}$},
+\mbox{$\sporkRule{\sporkSub{1 \texttt{==} 1}{\sporkTrue}, \sporksigma, \sporktr^*}$},
+and \mbox{$\sporkRule{\sporkSub{\texttt{exp2}(3)}{8}, \sporksigma, \sporktr^*}$}.
+Note \sporkERead\ cannot operate on $\#\sporkwinAnn$ annotated windows, which are first stepped by \sporkTrRead\ (Figure~\ref{fig:SyncTraceSemantics}).
 }
 \label{fig:ExprSemantics}
 \hrule
