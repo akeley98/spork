@@ -5,37 +5,37 @@
 \inferrule*[right=W-SubInitial]{
 }
 {
-  \mathbf{\sporkv_1}[\sporkc_R^*] \to \mathbf{\sporkv_2}[][\sporkcz_2^*][\sporkc_R^*]
+  \mathbf{\sporkx_1}[\sporkc_R^*] \to \mathbf{\sporkx_2}[][\sporkcz_2^*][\sporkc_R^*]
 }
 \inferrule*[right=W-SubPoint]{
 }
 {
-  \sporkv[\sporkc^*][\sporke_L, \sporkc_L^*][\sporkc_R^*]
+  \sporkx[\sporkc^*][\sporke_L, \sporkc_L^*][\sporkc_R^*]
   \to
-  \sporkv[\sporkc^*, \sporke_L][\sporkc_L^*][\sporkc_R^*]
+  \sporkx[\sporkc^*, \sporke_L][\sporkc_L^*][\sporkc_R^*]
 }\\
 \inferrule*[right=W-SubInterval]{
 }
 {
-  \sporkv[\sporkc^*][\sporke_\text{Llo}\texttt{:}\sporke_\text{Lhi}, \sporkc_L^*][\sporke_\text{Rlo}\texttt{:}\sporke_\text{Rhi}, \sporkc_R^*]
+  \sporkx[\sporkc^*][\sporke_\text{Llo}\texttt{:}\sporke_\text{Lhi}, \sporkc_L^*][\sporke_\text{Rlo}\texttt{:}\sporke_\text{Rhi}, \sporkc_R^*]
   \to
-  \sporkv[\sporkc^*, \sporke_\text{Llo}+\sporke_\text{Rlo}\texttt{:}\sporke_\text{Llo}+\sporke_\text{Rhi}][\sporkc_L^*][\sporkc_R^*]
+  \sporkx[\sporkc^*, \sporke_\text{Llo}+\sporke_\text{Rlo}\texttt{:}\sporke_\text{Llo}+\sporke_\text{Rhi}][\sporkc_L^*][\sporkc_R^*]
 }\\
 \inferrule*[right=W-SubMixed]{
 }
 {
-  \sporkv[\sporkc^*][\sporke_\text{Llo}\texttt{:}\sporke_\text{Lhi}, \sporkc_L^*][\sporkc_R, \sporkc_R^*]
+  \sporkx[\sporkc^*][\sporke_\text{Llo}\texttt{:}\sporke_\text{Lhi}, \sporkc_L^*][\sporkc_R, \sporkc_R^*]
   \to
-  \sporkv[\sporkc^*, \sporke_\text{Llo}+\sporkc_R][\sporkc_L^*][\sporkc_R^*]
+  \sporkx[\sporkc^*, \sporke_\text{Llo}+\sporkc_R][\sporkc_L^*][\sporkc_R^*]
 }
 \inferrule*[right=W-SubDone]{
 }
 {
-  \mathbf{\sporkv_2}[\sporkc^*][][] \to \mathbf{\sporkv_2}[\sporkc^*]
+  \mathbf{\sporkx_2}[\sporkc^*][][] \to \mathbf{\sporkx_2}[\sporkc^*]
 }
 \end{mathpar}
-\caption{Window substitution $\sporks[\mathbf{\sporkv_1} \sporkWindowSub \mathbf{\sporkv_2}[\sporkcz_2^*]]$.
-Window substitution steps each window $\sporkw$ in $\sporks$ fully according to the \textsc{W-Sub*} rules (with fixed $\mathbf{\sporkv_1},\mathbf{\sporkv_2}$).
+\caption{Window substitution $\sporks[\mathbf{\sporkx_1} \sporkWindowSub \mathbf{\sporkx_2}[\sporkcz_2^*]]$.
+Window substitution steps each window $\sporkw$ in $\sporks$ fully according to the \textsc{W-Sub*} rules (with fixed $\mathbf{\sporkx_1},\mathbf{\sporkx_2}$).
 These $\sporkw$ may be annotated ($\sporkw \# \sporkwinAnn$); the annotation is unchanged by the stepping.
 Note $\sporke_\text{Lhi}$ is discarded; bounds-check is a separate step.
 }

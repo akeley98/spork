@@ -53,8 +53,8 @@
 } \\
 \inferrule*[right=Tr-Arrive]{
   \sporktr^*_2 = \sporktr^*_1 \sporkConcatChk \textbf{(}
-  \sporkTrArrive(\sporktidMap(\sporksigma), \sporkQtlArrive, \sporkv, \sporkz_i^*, \sporkz_\textrm{arrive})
-  \textbf{)}_{(\sporkv, \sporkz_i^*, \sporkz_\textrm{arrive}) \in \sporkWvalues(\sporkwz^*, \sporksigma)}
+  \sporkTrArrive(\sporktidMap(\sporksigma), \sporkQtlArrive, \sporkx, \sporkz_i^*, \sporkz_\textrm{arrive})
+  \textbf{)}_{(\sporkx, \sporkz_i^*, \sporkz_\textrm{arrive}) \in \sporkWvalues(\sporkwz^*, \sporksigma)}
 }
 {
   \sporkRule{\sporkSub{\texttt{Arrive($\sporkQtlArrive$) >> $\sporkwz^*$} \# \sporktidMap}{\texttt{pass}}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
@@ -67,12 +67,12 @@
   \sporkRule{\texttt{Await($\sporkSub{\sporkwz \# \sporkwinAnn}{\sporkwz}$, $\sporkQtlAwait$, $\sporkz_\textrm{lag}$)} \#\sporktidMap, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 } \\
 \inferrule*[right=Tr-Await]{
-  \sporkz_\textrm{arrive} = \sporksigma(\sporkv, \sporkz_i^*) \\
+  \sporkz_\textrm{arrive} = \sporksigma(\sporkx, \sporkz_i^*) \\
   \sporkz_\textrm{await} = \sporkz_\textrm{arrive} - \sporkz_\textrm{lag} - 1 \\
-  \sporktr^*_2 = \sporktr^*_1 \sporkConcatChk \sporkTrAwait(\sporktidMap(\sporksigma), \sporkQtlAwait, \sporkv, \sporkz_i^*, \sporkz_\textrm{await})
+  \sporktr^*_2 = \sporktr^*_1 \sporkConcatChk \sporkTrAwait(\sporktidMap(\sporksigma), \sporkQtlAwait, \sporkx, \sporkz_i^*, \sporkz_\textrm{await})
 }
 {
-  \sporkRule{\sporkSub{\texttt{Await($\sporkv[\sporkz_i^*]$, $\sporkQtlAwait$, $\sporkz_\textrm{lag}$)} \#\sporktidMap}{\texttt{pass}}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
+  \sporkRule{\sporkSub{\texttt{Await($\sporkx[\sporkz_i^*]$, $\sporkQtlAwait$, $\sporkz_\textrm{lag}$)} \#\sporktidMap}{\texttt{pass}}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 \end{mathpar}
 \caption{Synchronization Trace Append Semantics.

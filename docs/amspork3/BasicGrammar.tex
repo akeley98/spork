@@ -5,7 +5,7 @@
   $\sporkbool : \sporkBool$ & $\Coloneqq$ & $\sporkFalse | \sporkTrue$ & boolean \\
   $\sporkz : \sporkZ$ & & & integer \\
   $\sporkr : \sporkR$ & & & real number \\
-  $\sporkv : \sporkV$ & & & variable name \\
+  $\sporkx : \sporkX$ & & & variable name \\
   $\sporkf : \sporkF$ & & & custom instruction \\
   $\sporkfBehavior : \sporkProc$ & & & instruction behavior (procedure, Figure~\ref{fig:ProcGrammar}) \\
 \midrule
@@ -25,7 +25,7 @@
 \midrule
   % Behind the scenes
   $\sporkmut : \sporkMut$ & $\Coloneqq$ & $\sporkread|\sporkmutate$ & read/mutate tag \\
-  $\sporksigma : \sporkSigma$ & & $\sporkSigma \equiv \sporkV \to \mathbb{N}^* \to \sporkR$ & value environment \\
+  $\sporksigma : \sporkSigma$ & & $\sporkSigma \equiv \sporkX \to \mathbb{N}^* \to \sporkR$ & value environment \\
   $\sporktid : \sporkTid$ & & & thread ID \\
   $\sporktidMap : \sporkTidMap$ & & $\sporkTidMap \equiv \sporkSigma \to \mathcal{P}({\sporkTid})$ & thread map \\
 \bottomrule

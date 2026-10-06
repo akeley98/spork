@@ -3,12 +3,12 @@
 \begin{tabular}{rrl}
 \toprule
   $\sporktr : \sporkTr$ & $\Coloneqq$ &
-        $\sporkTrNewAccess(\sporkmut, \sporkv, \sporkz_i^*, \sporkTid_\textrm{new}, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask, \sporkPend_\textrm{await})$ \\
+        $\sporkTrNewAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTid_\textrm{new}, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask, \sporkPend_\textrm{await})$ \\
   &$|$& $\sporkTrFence(\sporkTid_\textrm{fence}, \sporkQtlArrive, \sporkQtlAwait)$ \\
-  &$|$& $\sporkTrArrive(\sporkTid_\textrm{arrive}, \sporkQtlArrive, \sporkv, \sporkz_i^*, \sporkz_\textrm{arrive})$ \\
-  &$|$& $\sporkTrAwait(\sporkTid_\textrm{await}, \sporkQtlAwait, \sporkv, \sporkz_i^*, \sporkz_\textrm{await})$ \\
-  &$|$& $\sporkTrReqCanAccess(\sporkmut, \sporkv, \sporkz_i^*, \sporkTid_\textrm{req}, \sporkQtlPre)$ \\
-  &$|$& $\sporkTrReqPendingAwait(\sporkmut, \sporkv, \sporkz_i^*, \sporkpend)$ \\
+  &$|$& $\sporkTrArrive(\sporkTid_\textrm{arrive}, \sporkQtlArrive, \sporkx, \sporkz_i^*, \sporkz_\textrm{arrive})$ \\
+  &$|$& $\sporkTrAwait(\sporkTid_\textrm{await}, \sporkQtlAwait, \sporkx, \sporkz_i^*, \sporkz_\textrm{await})$ \\
+  &$|$& $\sporkTrReqCanAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTid_\textrm{req}, \sporkQtlPre)$ \\
+  &$|$& $\sporkTrReqPendingAwait(\sporkmut, \sporkx, \sporkz_i^*, \sporkpend)$ \\
 \bottomrule
 \end{tabular}
 \caption{Trace Types}

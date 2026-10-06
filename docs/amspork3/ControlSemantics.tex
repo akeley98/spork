@@ -47,28 +47,28 @@
   \sporkRule{\sporkSub{\sporke_1}{\sporke_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 {
-  \sporkRule{\texttt{for $\sporkv$ in $\sporkloopMode$($\sporkSub{\sporke_1}{\sporke_2},\sporke$):$\sporks$}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
+  \sporkRule{\texttt{for $\sporkx$ in $\sporkloopMode$($\sporkSub{\sporke_1}{\sporke_2},\sporke$):$\sporks$}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }\\
 \inferrule*[right=C-ForStepHi]{
   \sporkRule{\sporkSub{\sporke_1}{\sporke_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 {
-  \sporkRule{\texttt{for $\sporkv$ in $\sporkloopMode$($\sporkz,\sporkSub{\sporke_1}{\sporke_2}$):$\sporks$}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
+  \sporkRule{\texttt{for $\sporkx$ in $\sporkloopMode$($\sporkz,\sporkSub{\sporke_1}{\sporke_2}$):$\sporks$}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }\\
 \inferrule*[right=C-ForIter]{
   \sporkz_\textrm{lo} < \sporkz_\textrm{hi} \\
   \sporkz_\textrm{next} = \sporkz_\textrm{lo} + 1 \\
-  \sporksigma' = \sporksigma[(\sporkv, ()) \mapsto \sporkz_\textrm{lo}] \\
+  \sporksigma' = \sporksigma[(\sporkx, ()) \mapsto \sporkz_\textrm{lo}] \\
   \sporks' = \sporkalphaRename(\sporks)
 }
 {
-  \sporkRule{\sporkSub{\sporkSubNothing}{\texttt{$\sporks'$;}}\texttt{ for $\sporkv$ in $\sporkloopMode$($\sporkSub{\sporkz_\textrm{lo}}{\sporkz_\textrm{next}}$,$\sporkz_\textrm{hi}$):$\sporks$}, \sporkSub{\sporksigma}{\sporksigma'}, \sporktr^*}
+  \sporkRule{\sporkSub{\sporkSubNothing}{\texttt{$\sporks'$;}}\texttt{ for $\sporkx$ in $\sporkloopMode$($\sporkSub{\sporkz_\textrm{lo}}{\sporkz_\textrm{next}}$,$\sporkz_\textrm{hi}$):$\sporks$}, \sporkSub{\sporksigma}{\sporksigma'}, \sporktr^*}
 }\\
 \inferrule*[right=C-ForDone]{
   \sporkz_\textrm{lo} \ge \sporkz_\textrm{hi}
 }
 {
-  \sporkRule{\sporkSub{\texttt{for $\sporkv$ in $\sporkloopMode$($\sporkz_\textrm{lo},\sporkz_\textrm{hi}$):$\sporks$}}{\texttt{pass}}, \sporksigma, \sporktr^*}
+  \sporkRule{\sporkSub{\texttt{for $\sporkx$ in $\sporkloopMode$($\sporkz_\textrm{lo},\sporkz_\textrm{hi}$):$\sporks$}}{\texttt{pass}}, \sporksigma, \sporktr^*}
 }\\
 \inferrule*[right=C-AssertStep]{
   \sporkRule{\sporkSub{\sporkb_1}{\sporkb_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
@@ -85,7 +85,7 @@
 \caption{Control Semantics.
 Note that the loops are stepped sequentially regardless of $\sporkloopMode$,
 and that \texttt{with CudaWarps} constructs are equivalent to \texttt{if True:}.
-The loop variable is stored in $\sporksigma$ as a 0-dimensional value (read as $\sporkv[]$ by \sporkERead, and visible to $\sporktidMap(\sporksigma)$);
+The loop variable is stored in $\sporksigma$ as a 0-dimensional value (read as $\sporkx[]$ by \sporkERead, and visible to $\sporktidMap(\sporksigma)$);
 programs never assign loop variables and variable names are assumed unique, so no scope-exit rule is needed.
 \texttt{with CudaDeviceFunction} includes implicit ``free'' synchronization.
 No rule steps \texttt{assert $\sporkFalse$}; a failed assertion is intentionally a stuck state.

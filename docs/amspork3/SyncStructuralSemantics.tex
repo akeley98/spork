@@ -6,14 +6,14 @@
   \sporkRule{\sporkSub{\sporke_1}{\sporke_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 {
-  \sporkRule{\texttt{$\sporkv$: $\texttt{barrier}$[$\sporkz^*$, $\sporkSub{\sporke_1}{\sporke_2}$, $\sporke^*$] @ $\sporkbarMech$}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
+  \sporkRule{\texttt{$\sporkx$: $\texttt{barrier}$[$\sporkz^*$, $\sporkSub{\sporke_1}{\sporke_2}$, $\sporke^*$] @ $\sporkbarMech$}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }\\
 \inferrule*[right=S-ZeroArriveCounts]{
   ((\sporkz_1^*), (\sporkz_2^*), ...) = (0..\sporkz_1-1) \times (0..\sporkz_2-1) \times ... \\
-  \sporksigma' = \sporksigma[(\sporkv, \sporkz_1^*) \mapsto 0][(\sporkv, \sporkz_2^*) \mapsto 0][...]
+  \sporksigma' = \sporksigma[(\sporkx, \sporkz_1^*) \mapsto 0][(\sporkx, \sporkz_2^*) \mapsto 0][...]
 }
 {
-  \sporkRule{\sporkSub{\texttt{$\sporkv$: $\texttt{barrier}$[$\sporkz_1, \sporkz_2, ...$] @ $\sporkbarMech$}}{\texttt{pass}}, \sporkSub{\sporksigma}{\sporksigma'}, \sporktr^*}
+  \sporkRule{\sporkSub{\texttt{$\sporkx$: $\texttt{barrier}$[$\sporkz_1, \sporkz_2, ...$] @ $\sporkbarMech$}}{\texttt{pass}}, \sporkSub{\sporksigma}{\sporksigma'}, \sporktr^*}
 }
 \\
 \inferrule*[right=S-ArriveStep]{
@@ -30,7 +30,7 @@
 }
 \end{mathpar}
 \caption{Synchronization Structural Semantics.
-Note, $\sporksigma(\sporkv)$ is used to store ``arrive counts'' for barrier variables $\sporkv$.
+Note, $\sporksigma(\sporkx)$ is used to store ``arrive counts'' for barrier variables $\sporkx$.
 \redBox{TODO} link to additional semantics about commit group and mbarrier, which will also increment arrive counts
 (\textsc{Tr-Arrive} and instruction \texttt{>>} barriers currently leave $\sporksigma$ unchanged); re-evaluate \textsc{S-ZeroArriveCounts} for mbarrier.
 }

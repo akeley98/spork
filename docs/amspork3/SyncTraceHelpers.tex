@@ -13,12 +13,12 @@
   \sporkqtlConvergent(\sporkqtlInit) \\
   \sporkTid_\textsf{all} = \sporktidMap(\sporksigma) \\
   \sporktr^*_\textsf{req} =
-  \textbf{(}\sporkTrReqCanAccess(\sporkmut, \sporkv, \sporkz_i^*, \sporkTid_\textsf{all}, \sporkQtlPre) \textbf{)}_{
-    (\sporkv, \sporkz_i^*) \in \sporkWunroll(\sporkwz)
+  \textbf{(}\sporkTrReqCanAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTid_\textsf{all}, \sporkQtlPre) \textbf{)}_{
+    (\sporkx, \sporkz_i^*) \in \sporkWunroll(\sporkwz)
   }\\
   \sporktr^*_\textsf{new} =
-  \textbf{(}\sporkTrNewAccess(\sporkmut, \sporkv, \sporkz_i^*, \sporkTid_\textsf{all}, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask, \sporkPend_\textrm{new}) \textbf{)}_{
-    (\sporkv, \sporkz_i^*) \in \sporkWunroll(\sporkwz)
+  \textbf{(}\sporkTrNewAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTid_\textsf{all}, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask, \sporkPend_\textrm{new}) \textbf{)}_{
+    (\sporkx, \sporkz_i^*) \in \sporkWunroll(\sporkwz)
   }\\
 }
 {
@@ -31,12 +31,12 @@
   \neg\sporkqtlConvergent(\sporkqtlInit) \\
   \sporkTid_\textsf{all} = \sporktidMap(\sporksigma) \\
   \sporktr^*_\textsf{req} =
-  \textbf{(}\sporkTrReqCanAccess(\sporkmut, \sporkv, \sporkz_i^*, \{ \sporktid \}, \sporkQtlPre) \textbf{)}_{
-    (\sporkv, \sporkz_i^*) \in \sporkWunroll(\sporkwz), \sporktid \in \sporkTid_\textsf{all}
+  \textbf{(}\sporkTrReqCanAccess(\sporkmut, \sporkx, \sporkz_i^*, \{ \sporktid \}, \sporkQtlPre) \textbf{)}_{
+    (\sporkx, \sporkz_i^*) \in \sporkWunroll(\sporkwz), \sporktid \in \sporkTid_\textsf{all}
   }\\
   \sporktr^*_\textsf{new} =
-  \textbf{(}\sporkTrNewAccess(\sporkmut, \sporkv, \sporkz_i^*, \{ \sporktid \}, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask, \sporkPend_\textrm{new}) \textbf{)}_{
-    (\sporkv, \sporkz_i^*) \in \sporkWunroll(\sporkwz), \sporktid \in \sporkTid_\textsf{all}
+  \textbf{(}\sporkTrNewAccess(\sporkmut, \sporkx, \sporkz_i^*, \{ \sporktid \}, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask, \sporkPend_\textrm{new}) \textbf{)}_{
+    (\sporkx, \sporkz_i^*) \in \sporkWunroll(\sporkwz), \sporktid \in \sporkTid_\textsf{all}
   }\\
 }
 {
@@ -45,13 +45,13 @@
   \sporkPend_\textrm{new})
   = \sporktr^* \sporkConcatChk \sporktr^*_\textsf{req} \sporkConcatChk \sporktr^*_\textsf{new}
 }\\
-\sporkinfPendHelper(\sporkv, \sporkz_i^*, \sporkz_\textsf{arrive}) =
-\{ \sporkPendingAwait(\sporkv, \sporkz_i^*, \sporkz) \mid \sporkz \ge \sporkz_\textsf{arrive} \} \\
+\sporkinfPendHelper(\sporkx, \sporkz_i^*, \sporkz_\textsf{arrive}) =
+\{ \sporkPendingAwait(\sporkx, \sporkz_i^*, \sporkz) \mid \sporkz \ge \sporkz_\textsf{arrive} \} \\
 \sporkinstrBarrierHelper(\quad,\sporksigma) = \{ \} \\
 % This is so janky but I don't want to duplicate the already huge instr rules.
 \sporkinstrBarrierHelper(\texttt{\color{barriercolor}>>$\sporkwz_\textrm{bar}$}, \sporksigma) =
-\{ \sporkPendingAwait(\sporkv, \sporkz_i^*, \sporkz) \mid
-  (\sporkv, \sporkz_i^*, \sporkz_\textsf{arrive}) \in \sporkWvalues({\color{barriercolor}{\sporkwz_\textrm{bar}}}, \sporksigma)
+\{ \sporkPendingAwait(\sporkx, \sporkz_i^*, \sporkz) \mid
+  (\sporkx, \sporkz_i^*, \sporkz_\textsf{arrive}) \in \sporkWvalues({\color{barriercolor}{\sporkwz_\textrm{bar}}}, \sporksigma)
    \land \sporkz \ge \sporkz_\textsf{arrive} \}
 \end{mathpar}
 \caption{Synchronization Trace Helpers: $\sporktrAccessHelper, \sporkinfPendHelper, \sporkinstrBarrierHelper$.
