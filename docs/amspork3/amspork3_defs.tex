@@ -9,20 +9,20 @@
     \small
 }
 
-\definecolor{textgpucolor}{HTML}{000000}
-\newcommand{\textgpu}[1]{\textsf{\color{textgpucolor}#1}}
+\newcommand{\textgpu}[1]{\textsf{#1}}
 \definecolor{barriercolor}{HTML}{BB00BB}
 
 %% "Highlight changes" form of small step semantic rules.
 %% In case of haters, redefine macros so they generate normal verbose rules.
 %% i.e. redefine so \sporkStep generates the \langle ... \rangle \to \langle ... \rangle
 %% rule with the LHS/RHS substitution.
-%% Intentionally subdued colors; reserve bolder ones for important info.
-%% Color blind may not distinguish easily but these are pure convenience;
-%% the side of the triangle alone determines the required info.
-%% However, brightness contrast with white background is important so keep green < 1.0
-\definecolor{sporkSubLhsColor}{HTML}{F6D7E1}  % sRGB-correct (0.92, 0.68, 0.75)
-\definecolor{sporkSubRhsColor}{HTML}{E1D7FF}  % sRGB-correct (0.75, 0.68, 1.0)
+%% Intentionally subdued colors (they are a pure scanning convenience; \blacktriangleright clearly separates).
+%% Reserve more bold colors for more important info.
+%% However, contrast with white background is important
+%% as the bounds of the surrounding box affect the meaning.
+\definecolor{sporkSubLhsColor}{HTML}{000000}
+\definecolor{sporkSubRhsColor}{HTML}{006000}
+\definecolor{sporkSubBoxColor}{HTML}{D8D8D8}
 \newcommand{\sporkRule}[1]{
   %% {\color{sporkSubLhsColor} \setlength{\fboxrule}{0.9pt}\setlength{\fboxsep}{0.1pt} \boxed{\normalcolor \bullet} }
   %% \hspace{-2pt}
@@ -33,11 +33,12 @@
   \langle #1 \rangle
 }
 \newcommand{\sporkSub}[2]{
-  {\color{sporkSubLhsColor} \setlength{\fboxrule}{0.75pt}\setlength{\fboxsep}{0.5pt} \boxed{\normalcolor #1} }
+  {\color{sporkSubBoxColor} \setlength{\fboxrule}{0.75pt}\setlength{\fboxsep}{0.5pt} \boxed{
+  {\color{sporkSubLhsColor} #1}
   \hspace{-2pt}
-  \hyperref[sec:Semantics]{\color{gray}\blacktriangleright}
+  \hyperref[sec:Semantics]{\color{lightgray}\blacktriangleright}
   \hspace{-2pt}
-  {\color{sporkSubRhsColor} \setlength{\fboxrule}{0.75pt}\setlength{\fboxsep}{0.5pt} \boxed{\normalcolor #2} }
+  {\color{sporkSubRhsColor} #2}}}
 }
 
 %% Convention: sporkSymbolName or sporksymbolName

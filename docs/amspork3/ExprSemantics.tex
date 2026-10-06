@@ -6,64 +6,42 @@
   \sporkr = \sporksigma(\sporkv, \sporkz^*)
 }
 {
-  \langle \sporkv[\sporkz^*], \sporksigma \# \sporktr^* \rangle
-  \to
-  \langle r, \sporksigma \# \sporktr^* \rangle
+  \sporkRule{\sporkSub{\sporkv[\sporkz^*]}{\sporkr}, \sporksigma \# \sporktr^*}
 }
 \inferrule*[right=E-Negate]{
-  \langle \sporke_1, \sporksigma \# \sporktr^*_1 \rangle
-  \to
-  \langle \sporke_2, \sporksigma \# \sporktr^*_2 \rangle
+  \sporkRule{\sporkSub{\sporke_1}{\sporke_2}, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 {
-  \langle -\sporke_1, \sporksigma \# \sporktr^*_1 \rangle
-  \to
-  \langle -\sporke_2, \sporksigma \# \sporktr^*_2 \rangle
+  \sporkRule{-\sporkSub{\sporke_1}{\sporke_2}, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }\\
 \inferrule*[right=E-BinOpLhs]{
-  \langle \sporke_1, \sporksigma \# \sporktr^*_1 \rangle
-  \to
-  \langle \sporke_2, \sporksigma \# \sporktr^*_2 \rangle
+  \sporkRule{\sporkSub{\sporke_1}{\sporke_2}, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 {
-  \langle \sporke_1 \oplus \sporke, \sporksigma \# \sporktr^*_1 \rangle
-  \to
-  \langle \sporke_2 \oplus \sporke, \sporksigma \# \sporktr^*_2 \rangle
+  \sporkRule{\sporkSub{\sporke_1}{\sporke_2} \oplus \sporke, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 \inferrule*[right=E-BinOpRhs]{
-  \langle \sporke_1, \sporksigma \# \sporktr^*_1 \rangle
-  \to
-  \langle \sporke_2, \sporksigma \# \sporktr^*_2 \rangle
+  \sporkRule{\sporkSub{\sporke_1}{\sporke_2}, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 {
-  \langle \sporkr \oplus \sporke_1, \sporksigma \# \sporktr^*_1 \rangle
-  \to
-  \langle \sporkr \oplus \sporke_2, \sporksigma \# \sporktr^*_2 \rangle
+  \sporkRule{\sporkr \oplus \sporkSub{\sporke_1}{\sporke_2}, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }\\
 \inferrule*[right=E-LogicLhs]{
-  \langle \sporkb_1, \sporksigma \# \sporktr^*_1 \rangle
-  \to
-  \langle \sporkb_2, \sporksigma \# \sporktr^*_2 \rangle
+  \sporkRule{\sporkSub{\sporkb_1}{\sporkb_2}, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 {
-  \langle \sporkb_1 \oplus \sporkb, \sporksigma \# \sporktr^*_1 \rangle
-  \to
-  \langle \sporkb_2 \oplus \sporkb, \sporksigma \# \sporktr^*_2 \rangle
+  \sporkRule{\sporkSub{\sporkb_1}{\sporkb_2} \oplus \sporkb, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 \inferrule*[right=E-LogicRhs]{
-  \langle \sporkb_1, \sporksigma \# \sporktr^*_1 \rangle
-  \to
-  \langle \sporkb_2, \sporksigma \# \sporktr^*_2 \rangle
+  \sporkRule{\sporkSub{\sporkb_1}{\sporkb_2}, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 {
-  \langle \sporkbool \oplus \sporkb_1, \sporksigma \# \sporktr^*_1 \rangle
-  \to
-  \langle \sporkbool \oplus \sporkb_2, \sporksigma \# \sporktr^*_2 \rangle
+  \sporkRule{\sporkbool \oplus \sporkSub{\sporkb_1}{\sporkb_2}, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 \end{mathpar}
 \caption{Expression Semantics.
 ``Read only'' expressions must be carefully stepped to preserve trace effects.
-We assume constant arithmetic/logic, including externs, e.g. $\frac{}{2+2 \to 4}$, $\frac{}{\texttt{exp2}(3) \to 8}$.
+We assume constant arithmetic/logic, including externs, e.g. axioms \mbox{$\sporkRule{\sporkSub{2+2}{4}, \sporksigma \# \sporktr^*}$} and \mbox{$\sporkRule{\sporkSub{\texttt{exp2}(3)}{8}, \sporksigma \# \sporktr^*}$}.
 Note \sporkERead\ cannot operate on \textsf{\#annotated} windows, which are first stepped by \sporkTrRead\ (Figure~\ref{fig:SyncTraceSemantics}).
 }
 \label{fig:ExprSemantics}

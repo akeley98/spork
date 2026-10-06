@@ -3,52 +3,36 @@
 \hrule
 \begin{mathpar}
 \inferrule*[right=C-SeqStep]{
-  \langle \sporks_1, \sporksigma_1 \# \sporktr^*_1 \rangle
-  \to
-  \langle \sporks_2, \sporksigma_2 \# \sporktr^*_2 \rangle
+  \sporkRule{\sporkSub{\sporks_1}{\sporks_2}, \sporkSub{\sporksigma_1}{\sporksigma_2} \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 {
-  \langle \texttt{$\sporks_1$;$\sporks$}, \sporksigma_1 \# \sporktr^*_1 \rangle
-  \to
-  \langle \texttt{$\sporks_2$;$\sporks$}, \sporksigma_2 \# \sporktr^*_2 \rangle
+  \sporkRule{\texttt{$\sporkSub{\sporks_1}{\sporks_2}$;$\sporks$}, \sporkSub{\sporksigma_1}{\sporksigma_2} \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 \inferrule*[right=C-SeqDone]{
 }
 {
-  \langle \texttt{pass;$\sporks$}, \sporksigma \# \sporktr^* \rangle
-  \to
-  \langle \sporks, \sporksigma \# \sporktr^* \rangle
+  \sporkRule{\sporkSub{\texttt{pass;$\sporks$}}{\sporks}, \sporksigma \# \sporktr^*}
 }\\
 \inferrule*[right=C-IfStep]{
-  \langle \sporkb_1, \sporksigma \# \sporktr^*_1 \rangle
-  \to
-  \langle \sporkb_2, \sporksigma \# \sporktr^*_2 \rangle
+  \sporkRule{\sporkSub{\sporkb_1}{\sporkb_2}, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 {
-  \langle \texttt{if $\sporkb_1$:$s$}, \sporksigma \# \sporktr^*_1 \rangle
-  \to
-  \langle \texttt{if $\sporkb_2$:$s$}, \sporksigma \# \sporktr^*_2 \rangle
+  \sporkRule{\texttt{if $\sporkSub{\sporkb_1}{\sporkb_2}$:$\sporks$}, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 \inferrule*[right=C-IfFalse]{
 }
 {
-  \langle \texttt{if False:$s$}, \sporksigma \# \sporktr^* \rangle
-  \to
-  \langle \texttt{pass}, \sporksigma \# \sporktr^* \rangle
+  \sporkRule{\sporkSub{\texttt{if $\sporkFalse$:$\sporks$}}{\texttt{pass}}, \sporksigma \# \sporktr^*}
 }\\
 \inferrule*[right=C-IfTrue]{
 }
 {
-  \langle \texttt{if True:$s$}, \sporksigma \# \sporktr^* \rangle
-  \to
-  \langle s, \sporksigma \# \sporktr^* \rangle
+  \sporkRule{\sporkSub{\texttt{if $\sporkTrue$:$\sporks$}}{\sporks}, \sporksigma \# \sporktr^*}
 }
 \inferrule*[right=C-CudaWarps]{
 }
 {
-  \langle \texttt{with CudaWarps(...):$s$}, \sporksigma \# \sporktr^* \rangle
-  \to
-  \langle s, \sporksigma \# \sporktr^* \rangle
+  \sporkRule{\sporkSub{\texttt{with CudaWarps(...):$\sporks$}}{\sporks}, \sporksigma \# \sporktr^*}
 }\\
 \inferrule*[right=C-CudaDeviceFunction]{
   \redBox{TODO define $\sporkQtlCuda$} \\
@@ -57,63 +41,43 @@
   \sporks_\textrm{fence2} = \texttt{Fence($\sporkQtlCuda$, $\sporkQtlCuda$)} \# \sporktidMap_\textrm{allThreads}
 }
 {
-  \langle \texttt{with CudaDeviceFunction(...):} \sporks_\textrm{device}, \sporksigma \# \sporktr^* \rangle
-  \to
-  \langle \texttt{$\sporks_\textrm{fence1}$;$\sporks_\textrm{device}$;$\sporks_\textrm{fence2}$}, \sporksigma \# \sporktr^* \rangle
+  \sporkRule{\sporkSub{\texttt{with CudaDeviceFunction(...):} \sporks_\textrm{device}}{\texttt{$\sporks_\textrm{fence1}$;$\sporks_\textrm{device}$;$\sporks_\textrm{fence2}$}}, \sporksigma \# \sporktr^*}
 }\\
 \inferrule*[right=C-ForStepLo]{
-  \langle \sporke_1, \sporksigma \# \sporktr^*_1 \rangle
-  \to
-  \langle \sporke_2, \sporksigma \# \sporktr^*_2 \rangle
+  \sporkRule{\sporkSub{\sporke_1}{\sporke_2}, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 {
-  \langle \texttt{for $\sporkv$ in $\sporkloopMode$($\sporke_1,\sporke$):$s$}, \sporksigma \# \sporktr^*_1 \rangle
-  \to
-  \langle \texttt{for $\sporkv$ in $\sporkloopMode$($\sporke_2,\sporke$):$s$}, \sporksigma \# \sporktr^*_2 \rangle
+  \sporkRule{\texttt{for $\sporkv$ in $\sporkloopMode$($\sporkSub{\sporke_1}{\sporke_2},\sporke$):$\sporks$}, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }\\
 \inferrule*[right=C-ForStepHi]{
-  \langle \sporke_1, \sporksigma \# \sporktr^*_1 \rangle
-  \to
-  \langle \sporke_2, \sporksigma \# \sporktr^*_2 \rangle
+  \sporkRule{\sporkSub{\sporke_1}{\sporke_2}, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 {
-  \langle \texttt{for $\sporkv$ in $\sporkloopMode$($\sporkz,\sporke_1$):$s$}, \sporksigma \# \sporktr^*_1 \rangle
-  \to
-  \langle \texttt{for $\sporkv$ in $\sporkloopMode$($\sporkz,\sporke_2$):$s$}, \sporksigma \# \sporktr^*_2 \rangle
+  \sporkRule{\texttt{for $\sporkv$ in $\sporkloopMode$($\sporkz,\sporkSub{\sporke_1}{\sporke_2}$):$\sporks$}, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }\\
 \inferrule*[right=C-ForIter]{
   \sporkz_\textrm{lo} < \sporkz_\textrm{hi} \\
-  s' = \alpha\textrm{-rename}(s[v \mapsto \sporkz_\textrm{lo}])
+  \sporks' = \alpha\textrm{-rename}(\sporks[\sporkv \mapsto \sporkz_\textrm{lo}])
 }
 {
-  \langle \texttt{for $\sporkv$ in $\sporkloopMode$($\sporkz_\textrm{lo},\sporkz_\textrm{hi}$):$s$}, \sporksigma \# \sporktr^* \rangle
-  \to
-  \langle s'\texttt{; for $\sporkv$ in $\sporkloopMode$($\sporkz_\textrm{lo} + 1,\sporkz_\textrm{hi}$):$s$}, \sporksigma \# \sporktr^* \rangle
+  \sporkRule{\sporkSub{\texttt{for $\sporkv$ in $\sporkloopMode$($\sporkz_\textrm{lo},\sporkz_\textrm{hi}$):$\sporks$}}{\texttt{$\sporks'$; for $\sporkv$ in $\sporkloopMode$($\sporkz_\textrm{lo} + 1,\sporkz_\textrm{hi}$):$\sporks$}}, \sporksigma \# \sporktr^*}
 }\\
 \inferrule*[right=C-ForDone]{
   \sporkz_\textrm{lo} \ge \sporkz_\textrm{hi}
 }
 {
-  \langle \texttt{for $\sporkv$ in $\sporkloopMode$($\sporkz_\textrm{lo},\sporkz_\textrm{hi}$):$s$}, \sporksigma \# \sporktr^* \rangle
-  \to
-  \langle \texttt{pass}, \sporksigma \# \sporktr^* \rangle
+  \sporkRule{\sporkSub{\texttt{for $\sporkv$ in $\sporkloopMode$($\sporkz_\textrm{lo},\sporkz_\textrm{hi}$):$\sporks$}}{\texttt{pass}}, \sporksigma \# \sporktr^*}
 }\\
 \inferrule*[right=C-AssertStep]{
-  \langle \sporkb_1, \sporksigma \# \sporktr^*_1 \rangle
-  \to
-  \langle \sporkb_2, \sporksigma \# \sporktr^*_2 \rangle
+  \sporkRule{\sporkSub{\sporkb_1}{\sporkb_2}, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 {
-  \langle \texttt{assert $\sporkb_1$:$s$}, \sporksigma \# \sporktr^*_1 \rangle
-  \to
-  \langle \texttt{assert $\sporkb_2$:$s$}, \sporksigma \# \sporktr^*_2 \rangle
+  \sporkRule{\texttt{assert $\sporkSub{\sporkb_1}{\sporkb_2}$}, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 \inferrule*[right=C-AssertPass]{
 }
 {
-  \langle \texttt{assert $\sporkTrue$}, \sporksigma \# \sporktr \rangle
-  \to
-  \langle \texttt{pass}, \sporksigma \# \sporktr \rangle
+  \sporkRule{\sporkSub{\texttt{assert $\sporkTrue$}}{\texttt{pass}}, \sporksigma \# \sporktr^*}
 }
 \end{mathpar}
 \caption{Control Semantics.
