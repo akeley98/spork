@@ -47,7 +47,7 @@
 }\\
 \sporkinfPendHelper(\sporkv, \sporkz_i^*, \sporkz_\textsf{arrive}) =
 \{ \sporkPendingAwait(\sporkv, \sporkz_i^*, \sporkz) \mid \sporkz \ge \sporkz_\textsf{arrive} \} \\
-\sporkinstrBarrierHelper(\sporksigma) = \{ \} \\
+\sporkinstrBarrierHelper(\quad,\sporksigma) = \{ \} \\
 % This is so janky but I don't want to duplicate the already huge instr rules.
 \sporkinstrBarrierHelper(\texttt{\color{barriercolor}>>$\sporkwz_\textrm{bar}$}, \sporksigma) =
 \{ \sporkPendingAwait(\sporkv, \sporkz_i^*, \sporkz) \mid
