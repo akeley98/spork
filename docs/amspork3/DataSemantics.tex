@@ -17,6 +17,9 @@
   \sporkRule{\sporkwzH \oplus \sporkSub{\sporke_1}{\sporke_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }\\
 \inferrule*[right=\sporkDAssign]{
+  % \sporkr, not \sporkv: Exo only assigns to data. Change to \sporkv if Exo is generalized to allow assignments to control values
+  % (also required by the control-argument desugaring idea, which writes t[] = e for a control-valued e).
+  (\sporkx, \sporkz^*) \in \textrm{dom}(\sporksigma) \\
   \sporksigma' = \sporksigma[(\sporkx, \sporkz^*) \mapsto \sporkr]
 }
 {
@@ -48,11 +51,12 @@
   \sporkRule{\texttt{$\sporkx$: $\sporkprim$[$\sporkz^*$, $\sporkSub{\sporke_1}{\sporke_2}$, $\sporke^*$] @ $\sporkmem$}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }\\
 \inferrule*[right=D-Alloc]{
-  \text{$\sporkmem$ is not SMEM \redBox{TODO}}
+  \text{$\sporkmem$ is not SMEM \redBox{TODO}} \\\\
+  \sporksigma' = \sporksigma[(\sporkx, \sporkz^*) \mapsto \bot \mid (\sporkx, \sporkz^*) \in \sporkWunroll(\sporkx[0\texttt{:}\sporkz_1, \ldots, 0\texttt{:}\sporkz_n])]
 }
 {
-  \sporkRule{\sporkSub{\texttt{$\sporkx$: $\sporkprim$[$\sporkz^*$] @ $\sporkmem$}}{\texttt{pass}}, \sporksigma, \sporktr^*}
-}
+  \sporkRule{\sporkSub{\texttt{$\sporkx$: $\sporkprim$[$\sporkz_1, \ldots, \sporkz_n$] @ $\sporkmem$}}{\texttt{pass}}, \sporkSub{\sporksigma}{\sporksigma'}, \sporktr^*}
+}\\
 \inferrule*[right=D-Free]{
   \text{$\sporkx$ is not in SMEM \redBox{TODO}}
 }

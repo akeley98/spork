@@ -14,10 +14,10 @@
   \sporkRule{\sporkSub{\texttt{pass;$\sporks$}}{\sporks}, \sporksigma, \sporktr^*}
 }\\
 \inferrule*[right=C-IfStep]{
-  \sporkRule{\sporkSub{\sporkb_1}{\sporkb_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
+  \sporkRule{\sporkSub{\sporke_1}{\sporke_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 {
-  \sporkRule{\texttt{if $\sporkSub{\sporkb_1}{\sporkb_2}$:$\sporks$}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
+  \sporkRule{\texttt{if $\sporkSub{\sporke_1}{\sporke_2}$:$\sporks$}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 \inferrule*[right=C-IfFalse]{
 }
@@ -71,10 +71,10 @@
   \sporkRule{\sporkSub{\texttt{for $\sporkx$ in $\sporkloopMode$($\sporkz_\textrm{lo},\sporkz_\textrm{hi}$):$\sporks$}}{\texttt{pass}}, \sporksigma, \sporktr^*}
 }\\
 \inferrule*[right=C-AssertStep]{
-  \sporkRule{\sporkSub{\sporkb_1}{\sporkb_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
+  \sporkRule{\sporkSub{\sporke_1}{\sporke_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 {
-  \sporkRule{\texttt{assert $\sporkSub{\sporkb_1}{\sporkb_2}$}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
+  \sporkRule{\texttt{assert $\sporkSub{\sporke_1}{\sporke_2}$}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 \inferrule*[right=C-AssertPass]{
 }

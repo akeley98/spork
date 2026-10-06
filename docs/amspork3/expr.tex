@@ -4,15 +4,14 @@
 \toprule
   $\sporke : \sporkExpr$ & $\Coloneqq$ &
         $\sporkwScalarH$ & scalar read \\
-  &$|$& $\sporkr$ & integer/float constant \\
+  &$|$& $\sporkv$ & constant (boolean, integer, or real) \\
   &$|$& $-\sporke$ & unary negation \\
-  &$|$& $\sporke_L \oplus \sporke_R$ & arithemtic bin-op, $\oplus \in \{+,-,*,/,\%\}$ \\
+  &$|$& $\sporke_L \oplus \sporke_R$ & bin-op, $\oplus : \sporkBinOp$ \\
   &$|$& $\sporkextern(\sporke^*)$ & extern call \\
 \midrule
-  $\sporkb : \sporkBoolExpr$ & $\Coloneqq$ &
-        $\sporkFalse | \sporkTrue$ & boolean constant \\
-  &$|$& $\sporke_L \oplus \sporke_R$ & comparison bin-op, $\oplus \in \{\texttt{==}, \texttt{!=}, \texttt{<}, \texttt{<=}, \texttt{>}, \texttt{>=}\}$ \\
-  &$|$& $\sporkb_L \oplus \sporkb_R$ & logical bin-op, $\oplus \in \{\texttt{or}, \texttt{and}\}$ \\
+  $\oplus : \sporkBinOp$ & $\Coloneqq$ & \texttt{+|-|*|/|\%} & arithmetic \\
+  &$|$& \texttt{==|!=|<|<=|>|>=} & comparison \\
+  &$|$& \texttt{and|or} & logical \\
 \bottomrule
 \end{tabular}
 \caption{Expression Grammar}

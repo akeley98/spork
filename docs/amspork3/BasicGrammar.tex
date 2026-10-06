@@ -5,6 +5,7 @@
   $\sporkbool : \sporkBool$ & $\Coloneqq$ & $\sporkFalse | \sporkTrue$ & boolean \\
   $\sporkz : \sporkZ$ & & & integer \\
   $\sporkr : \sporkR$ & & & real number \\
+  $\sporkv : \sporkV$ & $\Coloneqq$ & $\sporkbool \,|\, \sporkz \,|\, \sporkr$ & value \\
   $\sporkx : \sporkX$ & & & variable name \\
   $\sporkf : \sporkF$ & & & custom instruction \\
   $\sporkfBehavior : \sporkProc$ & & & instruction behavior (procedure, Figure~\ref{fig:ProcGrammar}) \\
@@ -25,11 +26,11 @@
 \midrule
   % Behind the scenes
   $\sporkmut : \sporkMut$ & $\Coloneqq$ & $\sporkread|\sporkmutate$ & read/mutate tag \\
-  $\sporksigma : \sporkSigma$ & & $\sporkSigma \equiv \sporkX \to \mathbb{N}^* \to \sporkR$ & value environment \\
+  $\sporksigma : \sporkSigma$ & & $\sporkSigma \equiv \sporkX \times \mathbb{N}^* \rightharpoonup \sporkV \cup \{\bot\}$ & value environment \\
   $\sporktid : \sporkTid$ & & & thread ID \\
   $\sporktidMap : \sporkTidMap$ & & $\sporkTidMap \equiv \sporkSigma \to \mathcal{P}({\sporkTid})$ & thread map \\
 \bottomrule
 \end{tabular}
-\caption{Basic Grammar and Types}
+\caption{Basic Grammar and Types. $\sporksigma$ is a partial function; $\bot$ marks allocated but uninitialized data.}
 \label{fig:BasicGrammar}
 \end{figure}

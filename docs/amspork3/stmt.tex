@@ -6,12 +6,12 @@
   $\sporks : \sporkStmt$ & $\Coloneqq$ &
     \texttt{$\sporks_L$;$\sporks_R$} & sequencing \\
   &$|$& \texttt{pass} & pass (skip, no-op) \\
-  &$|$& \texttt{if $\sporkb$:$\sporks$} & guard \\
+  &$|$& \texttt{if $\sporke$:$\sporks$} & guard \\
   &$|$& \texttt{for $\sporkx$ in $\sporkloopMode$($\sporkeLo,\sporkeHi$):$\sporks$} & sequential or parallel loop \sporkbinder \\
   &$|$& \texttt{with CudaWarps($\sporkz$, $\sporkz$, name=$\sporkwarpName$): $\sporks$} & warp specialization block \\
   &$|$& \texttt{with CudaDeviceFunction(clusterDim=$\sporkz$,} & cuda device function launch \\
   &   & \texttt{~~~~~~~warp\_config=$\sporkwarpConfig^*$): $\sporks$} & \\
-  &$|$& \texttt{assert $\sporkb$} & assertion \\
+  &$|$& \texttt{assert $\sporke$} & assertion \\
 \midrule
   % Data
   &$|$& \texttt{$\sporkwScalarH$ = $\sporke$} & scalar assignment \\

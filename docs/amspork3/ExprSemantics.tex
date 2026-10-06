@@ -3,10 +3,10 @@
 \hrule
 \begin{mathpar}
 \inferrule*[right=\sporkERead]{
-  \sporkr = \sporksigma(\sporkx, \sporkz^*)
+  \sporkv = \sporksigma(\sporkx, \sporkz^*)
 }
 {
-  \sporkRule{\sporkSub{\sporkx[\sporkz^*]}{\sporkr}, \sporksigma, \sporktr^*}
+  \sporkRule{\sporkSub{\sporkx[\sporkz^*]}{\sporkv}, \sporksigma, \sporktr^*}
 }
 \inferrule*[right=E-Negate]{
   \sporkRule{\sporkSub{\sporke_1}{\sporke_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
@@ -15,46 +15,33 @@
   \sporkRule{-\sporkSub{\sporke_1}{\sporke_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }\\
 \inferrule*[right=E-BinOpLhs]{
-  \oplus \in \{\texttt{+},\texttt{-},\texttt{*},\texttt{/},\texttt{\%},\texttt{==},\texttt{!=},\texttt{<},\texttt{<=},\texttt{>},\texttt{>=}\} \\\\
+  \oplus \in \sporkBinOp \\\\
   \sporkRule{\sporkSub{\sporke_1}{\sporke_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 {
   \sporkRule{\sporkSub{\sporke_1}{\sporke_2} \oplus \sporke, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 \inferrule*[right=E-BinOpRhs]{
-  \oplus \in \{\texttt{+},\texttt{-},\texttt{*},\texttt{/},\texttt{\%},\texttt{==},\texttt{!=},\texttt{<},\texttt{<=},\texttt{>},\texttt{>=}\} \\\\
+  \oplus \in \sporkBinOp \\\\
   \sporkRule{\sporkSub{\sporke_1}{\sporke_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 {
-  \sporkRule{\sporkr \oplus \sporkSub{\sporke_1}{\sporke_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
-}\\
-\inferrule*[right=E-LogicLhs]{
-  \oplus \in \{\texttt{or},\texttt{and}\} \\\\
-  \sporkRule{\sporkSub{\sporkb_1}{\sporkb_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
-}
-{
-  \sporkRule{\sporkSub{\sporkb_1}{\sporkb_2} \oplus \sporkb, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
-}
-\inferrule*[right=E-LogicRhs]{
-  \oplus \in \{\texttt{or},\texttt{and}\} \\\\
-  \sporkRule{\sporkSub{\sporkb_1}{\sporkb_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
-}
-{
-  \sporkRule{\sporkbool \oplus \sporkSub{\sporkb_1}{\sporkb_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
+  \sporkRule{\sporkv \oplus \sporkSub{\sporke_1}{\sporke_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }\\
 \inferrule*[right=E-ExternArg]{
   \sporkRule{\sporkSub{\sporke_1}{\sporke_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 {
-  \sporkRule{\sporkextern(\sporkr^*, \sporkSub{\sporke_1}{\sporke_2}, \sporke^*), \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
+  \sporkRule{\sporkextern(\sporkv^*, \sporkSub{\sporke_1}{\sporke_2}, \sporke^*), \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 \end{mathpar}
 \caption{Expression Semantics.
 ``Read only'' expressions must be carefully stepped to preserve trace effects.
 We assume constant arithmetic/logic, including externs,
-e.g. axioms \mbox{$\sporkRule{\sporkSub{2+2}{4}, \sporksigma, \sporktr^*}$},
+e.g. axioms \mbox{$\sporkRule{\sporkSub{2 \texttt{+} 2}{4}, \sporksigma, \sporktr^*}$},
 \mbox{$\sporkRule{\sporkSub{1 \texttt{==} 1}{\sporkTrue}, \sporksigma, \sporktr^*}$},
 and \mbox{$\sporkRule{\sporkSub{\texttt{exp2}(3)}{8}, \sporksigma, \sporktr^*}$}.
+Ill-typed combinations (e.g.\ \texttt{True + 1}) have no axiom, so they are stuck.
 Note \sporkERead\ cannot operate on $\#\sporkwinAnn$ annotated windows, which are first stepped by \sporkTrRead\ (Figure~\ref{fig:SyncTraceSemantics}).
 }
 \label{fig:ExprSemantics}
