@@ -21,7 +21,7 @@
 % but tracing the trailing barrier expr first simplifies the exposition here,
 % and it doesn't make a functional difference since data and barriers are always different vars.
 \inferrule*[right=Tr-InstrBarrier]{
-  \sporkPend_\textrm{new} = \sporkinstrBarrierHelper(\texttt{>>$\sporkwz_\textrm{bar}$}) \\
+  \sporkPend_\textrm{new} = \sporkinstrBarrierHelper(\texttt{>>$\sporkwz_\textrm{bar}$}, \sporksigma) \\
   \sporktr^*_2 = \sporktrAccessHelper(\sporksigma, \sporktr^*_1, \sporkread, \sporkwz_\textrm{bar} \# \sporkwinAnn, \sporkPend_\textrm{new})
 }
 {
@@ -32,7 +32,7 @@
   \sporkmut = \sporkread \iff \text{corresponding formal parameter for $\sporkwz \# \sporkwinAnn$ is read-only in $\sporkfBehavior$} \\
   % TODO "may be dropped from the rule" is janky but, for now, avoids duplicating LaTeX that may accidentally diverge.
   \texttt{\color{barriercolor}>>$\sporkwz_\textrm{bar}$}\text{ may be dropped from the rule.} \\
-  \sporkPend_\textrm{new} = \sporkinstrBarrierHelper(\texttt{\color{barriercolor}>>$\sporkwz_\textrm{bar}$}) \\
+  \sporkPend_\textrm{new} = \sporkinstrBarrierHelper(\texttt{\color{barriercolor}>>$\sporkwz_\textrm{bar}$}, \sporksigma) \\
   \sporktr^*_2 = \sporktrAccessHelper(\sporksigma, \sporktr^*_1, \sporkmut, \sporkwz \# \sporkwinAnn, \sporkPend_\textrm{new})
 }
 {
@@ -69,7 +69,6 @@
 \inferrule*[right=Tr-Await]{
   \sporkz_\textrm{arrive} = \sporksigma(\sporkv, \sporkz_i^*) \\
   \sporkz_\textrm{await} = \sporkz_\textrm{arrive} - \sporkz_\textrm{lag} - 1 \\
-  \sporkPend_\textrm{new} = \{\} \\
   \sporktr^*_2 = \sporktr^*_1 \sporkConcatChk \sporkTrAwait(\sporktidMap(\sporksigma), \sporkQtlAwait, \sporkv, \sporkz_i^*, \sporkz_\textrm{await})
 }
 {

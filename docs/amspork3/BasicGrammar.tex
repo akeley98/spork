@@ -14,13 +14,13 @@
   $\sporkprim$ & $\Coloneqq$ & \texttt{f16|bf16|f32|f64|i8|i16}... & primitive data type \\
   $\sporkmem$ & $\Coloneqq$ & \texttt{CudaRmem|CudaGmemLinear}... & memory type \\
   $\sporkspecialWindow$ & $\Coloneqq$ & \texttt{Sm90\_tensorMap(...)} & special window type \\
-  $\sporkbarrierMechanism$ & $\Coloneqq$ & \texttt{CudaMbarrier|CudaClusterSync}... & barrier mechanism type \\
+  $\sporkbarMech$ & $\Coloneqq$ & \texttt{CudaMbarrier|CudaClusterSync}... & barrier mechanism type \\
   $\sporkcollUnit : \sporkCollUnit$ & $\Coloneqq$ & \texttt{cuda\_thread}|\texttt{cuda\_warp}... & collective unit \\
   $\sporkloopMode : \sporkLoopMode$ & $\Coloneqq$ & \texttt{Seq}|\texttt{CudaTasks}|\texttt{CudaThreads}($\sporkcollUnit$) & loop mode \\
   $\sporkwarpName$ & & & warp specialization name \\
-  $\sporkwarpConfig$ & $\Coloneqq$ & \texttt{CudaWarpConfig($\sporkwarpName$, $z$)} & $z$-many warps' configuration \\
-  & $|$ & ``\,''\texttt{($\sporkwarpName$, $z$, setmaxnreg\_dec=$z$)} & (decrease from default reg count) \\
-  & $|$ & ``\,''\texttt{($\sporkwarpName$, $z$, setmaxnreg\_inc=$z$)} & (increase from default reg count) \\
+  $\sporkwarpConfig$ & $\Coloneqq$ & \texttt{CudaWarpConfig($\sporkwarpName$, $\sporkz$)} & $\sporkz$-many warps' configuration \\
+  & $|$ & ``\,''\texttt{($\sporkwarpName$, $\sporkz$, setmaxnreg\_dec=$\sporkz$)} & (decrease from default reg count) \\
+  & $|$ & ``\,''\texttt{($\sporkwarpName$, $\sporkz$, setmaxnreg\_inc=$\sporkz$)} & (increase from default reg count) \\
 \midrule
   % Behind the scenes
   $\sporkmut : \sporkMut$ & $\Coloneqq$ & $\sporkread|\sporkmutate$ & read/mutate tag \\

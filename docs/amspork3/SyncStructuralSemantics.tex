@@ -31,7 +31,8 @@
 \end{mathpar}
 \caption{Synchronization Structural Semantics.
 Note, $\sporksigma(\sporkv)$ is used to store ``arrive counts'' for barrier variables $\sporkv$.
-\redBox{TODO} link to prose about commit group and mbarrier; re-evaluate \textsc{S-ZeroArriveCounts} for mbarrier.
+\redBox{TODO} link to additional semantics about commit group and mbarrier, which will also increment arrive counts
+(\textsc{Tr-Arrive} and instruction \texttt{>>} barriers currently leave $\sporksigma$ unchanged); re-evaluate \textsc{S-ZeroArriveCounts} for mbarrier.
 }
 \label{fig:SyncStructuralSemantics}
 \hrule

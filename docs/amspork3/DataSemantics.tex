@@ -57,7 +57,7 @@
   \text{$\sporkv$ is not in SMEM \redBox{TODO}}
 }
 {
-  \sporkRule{\sporkSub{\textrm{free}(\sporkv)}{\texttt{pass}}, \sporksigma \# \sporktr^*}
+  \sporkRule{\sporkSub{\texttt{free($\sporkv$)}}{\texttt{pass}}, \sporksigma \# \sporktr^*}
 }
 \\
 \inferrule*[right=\sporkDInstrStepParam]{
@@ -83,7 +83,7 @@
 }
 \end{mathpar}
 \caption{Data Semantics. \sporkDAssign, \sporkDReduce, \sporkDInstrSub\ cannot accept windows with \textsf{\#annotations}.
-These are first stepped with \textsc{Tr-} rules (Figure~\ref{fig:SyncTraceSemantics})}
+These are first stepped with \textsc{Tr-} rules (Figure~\ref{fig:SyncTraceSemantics}).}
 \label{fig:DataSemantics}
 \hrule
 \end{figure}

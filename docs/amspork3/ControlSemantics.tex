@@ -57,10 +57,11 @@
 }\\
 \inferrule*[right=C-ForIter]{
   \sporkz_\textrm{lo} < \sporkz_\textrm{hi} \\
+  \sporkz_\textrm{next} = \sporkz_\textrm{lo} + 1 \\
   \sporks' = \alpha\textrm{-rename}(\sporks[\sporkv \mapsto \sporkz_\textrm{lo}])
 }
 {
-  \sporkRule{\sporkSub{\sporkSubNothing}{\texttt{$\sporks'$;}}\texttt{ for $\sporkv$ in $\sporkloopMode$($\sporkSub{\sporkz_\textrm{lo}}{\sporkz_\textrm{lo} + 1}$,$\sporkz_\textrm{hi}$):$\sporks$}, \sporksigma \# \sporktr^*}
+  \sporkRule{\sporkSub{\sporkSubNothing}{\texttt{$\sporks'$;}}\texttt{ for $\sporkv$ in $\sporkloopMode$($\sporkSub{\sporkz_\textrm{lo}}{\sporkz_\textrm{next}}$,$\sporkz_\textrm{hi}$):$\sporks$}, \sporksigma \# \sporktr^*}
 }\\
 \inferrule*[right=C-ForDone]{
   \sporkz_\textrm{lo} \ge \sporkz_\textrm{hi}
@@ -84,6 +85,7 @@
 Note that the loops are stepped sequentially regardless of $\sporkloopMode$,
 and that \texttt{with CudaWarps} constructs are equivalent to \texttt{if True:}.
 \texttt{with CudaDeviceFunction} includes implicit ``free'' synchronization.
+No rule steps \texttt{assert $\sporkFalse$}; a failed assertion is intentionally a stuck state.
 }
 \label{fig:ControlSemantics}
 \hrule

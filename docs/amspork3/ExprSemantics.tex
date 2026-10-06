@@ -15,28 +15,38 @@
   \sporkRule{-\sporkSub{\sporke_1}{\sporke_2}, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }\\
 \inferrule*[right=E-BinOpLhs]{
+  \oplus \in \{\texttt{+},\texttt{-},\texttt{*},\texttt{/},\texttt{\%},\texttt{==},\texttt{!=},\texttt{<},\texttt{<=},\texttt{>},\texttt{>=}\} \\\\
   \sporkRule{\sporkSub{\sporke_1}{\sporke_2}, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 {
   \sporkRule{\sporkSub{\sporke_1}{\sporke_2} \oplus \sporke, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 \inferrule*[right=E-BinOpRhs]{
+  \oplus \in \{\texttt{+},\texttt{-},\texttt{*},\texttt{/},\texttt{\%},\texttt{==},\texttt{!=},\texttt{<},\texttt{<=},\texttt{>},\texttt{>=}\} \\\\
   \sporkRule{\sporkSub{\sporke_1}{\sporke_2}, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 {
   \sporkRule{\sporkr \oplus \sporkSub{\sporke_1}{\sporke_2}, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }\\
 \inferrule*[right=E-LogicLhs]{
+  \oplus \in \{\texttt{or},\texttt{and}\} \\\\
   \sporkRule{\sporkSub{\sporkb_1}{\sporkb_2}, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 {
   \sporkRule{\sporkSub{\sporkb_1}{\sporkb_2} \oplus \sporkb, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 \inferrule*[right=E-LogicRhs]{
+  \oplus \in \{\texttt{or},\texttt{and}\} \\\\
   \sporkRule{\sporkSub{\sporkb_1}{\sporkb_2}, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 {
   \sporkRule{\sporkbool \oplus \sporkSub{\sporkb_1}{\sporkb_2}, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
+}\\
+\inferrule*[right=E-ExternArg]{
+  \sporkRule{\sporkSub{\sporke_1}{\sporke_2}, \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
+}
+{
+  \sporkRule{\sporkextern(\sporkr^*, \sporkSub{\sporke_1}{\sporke_2}, \sporke^*), \sporksigma \# \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 \end{mathpar}
 \caption{Expression Semantics.

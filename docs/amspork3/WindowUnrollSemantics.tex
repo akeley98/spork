@@ -3,8 +3,8 @@
 \hrule
 \begin{mathpar}
 \sporkWunroll: \overset{z}{W}^* \to \mathcal{P}(\sporkV \times \sporkZ^*) \quad
-\textrm{Wrange}(z) = \{z\} \quad
-\textrm{Wrange}(z_\textrm{lo}\textrm{:}z_\textrm{hi}) = \{ z \in \mathbb{Z} \mid z_\textrm{lo} \le z < z_\textrm{hi} \}\\
+\textrm{Wrange}(\sporkz) = \{\sporkz\} \quad
+\textrm{Wrange}(\sporkz_\textrm{lo}\textrm{:}\sporkz_\textrm{hi}) = \{ \sporkz \in \sporkZ \mid \sporkz_\textrm{lo} \le \sporkz < \sporkz_\textrm{hi} \}\\
 \inferrule*[right=W-Empty]{
 }
 {
@@ -27,10 +27,10 @@
 \sporkWvalues: \overset{z}{W}^* \to \sporkSigma \to \mathcal{P}(\sporkV \times \sporkZ^* \times \mathbb{R}) \\
 \inferrule*[right=W-Values]{
   \{ (\sporkv_1, \sporkz_1^*) ... (\sporkv_n, \sporkz_n^*) \} = \sporkWunroll(\sporkwz^*) \\
-  \forall i \in 1..n. r_i = \sporksigma(\sporkv_i, \sporkz_i^*)
+  \forall i \in 1..n. \sporkr_i = \sporksigma(\sporkv_i, \sporkz_i^*)
 }
 {
-  \sporkWvalues(\sporkwz^*, \sporksigma) = \{ (\sporkv_1, \sporkz_1^*, r_1) ... (\sporkv_n, \sporkz_n^*, r_n) \}
+  \sporkWvalues(\sporkwz^*, \sporksigma) = \{ (\sporkv_1, \sporkz_1^*, \sporkr_1) ... (\sporkv_n, \sporkz_n^*, \sporkr_n) \}
 }
 \end{mathpar}
 \caption{Window Unroll Helper ($\sporkWunroll$, $\sporkWvalues$).
