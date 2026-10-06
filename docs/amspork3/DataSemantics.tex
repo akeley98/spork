@@ -75,7 +75,7 @@
 }\\
 \inferrule*[right=\sporkDInstrSub]{
   \sporkfBehavior = \texttt{def($\sporkv_1$:$\sporkprim_1[\sporke_1^*]$ @ $\sporkmem_1$, $\sporkv_2$:$\sporkprim_2[\sporke_2^*]$ @ $\sporkmem_2, ...$):$\sporks_\textrm{body}$} \\
-  \sporks' = \sporks_\textrm{body}[\sporkv_1 \sporkWindowSub \sporkwz_1][\sporkv_2 \sporkWindowSub \sporkwz_2][...] \\
+  \sporks' = \sporkalphaRename(\sporks_\textrm{body})[\sporkv_1 \sporkWindowSub \sporkwz_1][\sporkv_2 \sporkWindowSub \sporkwz_2][...] \\
   \texttt{\color{barriercolor}>>$\sporkwz_\textrm{bar}$} \textrm{ may be dropped from the rule. }
 }
 {

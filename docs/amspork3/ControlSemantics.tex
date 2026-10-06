@@ -59,7 +59,7 @@
   \sporkz_\textrm{lo} < \sporkz_\textrm{hi} \\
   \sporkz_\textrm{next} = \sporkz_\textrm{lo} + 1 \\
   \sporksigma' = \sporksigma[(\sporkv, ()) \mapsto \sporkz_\textrm{lo}] \\
-  \sporks' = \alpha\textrm{-rename}(\sporks)
+  \sporks' = \sporkalphaRename(\sporks)
 }
 {
   \sporkRule{\sporkSub{\sporkSubNothing}{\texttt{$\sporks'$;}}\texttt{ for $\sporkv$ in $\sporkloopMode$($\sporkSub{\sporkz_\textrm{lo}}{\sporkz_\textrm{next}}$,$\sporkz_\textrm{hi}$):$\sporks$}, \sporkSub{\sporksigma}{\sporksigma'} \# \sporktr^*}
