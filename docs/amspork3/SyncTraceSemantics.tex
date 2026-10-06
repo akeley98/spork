@@ -11,7 +11,7 @@
 } \\
 \inferrule*[right=\sporkTrMutate]{
   % \sporkr, not \sporkv: Exo only assigns to data. Change to \sporkv if Exo is generalized to allow assignments to control values.
-  \oplus \in \texttt{\{=, +=\}} \\
+  \oplus \in \sporkMutateOpSet \\
   \sporkPend_\textrm{new} = \{\} \\
   \sporktr^*_2 = \sporktrAccessHelper(\sporksigma, \sporktr^*_1, \sporkmutate, \sporkwz \# \sporkwinAnn, \sporkPend_\textrm{new})
 }

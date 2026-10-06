@@ -4,14 +4,14 @@
 \begin{mathpar}
 \inferrule*[right=D-StepLhs]{
   \sporkRule{\sporkSub{\sporkwH_1}{\sporkwH_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}\\\\
-  \oplus \in \texttt{\{=, +=\}}
+  \oplus \in \sporkMutateOpSet
 }
 {
   \sporkRule{\sporkSub{\sporkwH_1}{\sporkwH_2} \oplus \sporke, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 \inferrule*[right=D-StepRhs]{
   \sporkRule{\sporkSub{\sporke_1}{\sporke_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}\\\\
-  \oplus \in \texttt{\{=, +=\}}
+  \oplus \in \sporkMutateOpSet
 }
 {
   \sporkRule{\sporkwzH \oplus \sporkSub{\sporke_1}{\sporke_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}

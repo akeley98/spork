@@ -6,14 +6,19 @@
         $\sporkwScalarH$ & scalar read \\
   &$|$& $\sporkv$ & constant (boolean, integer, or real) \\
   &$|$& $-\sporke$ & unary negation \\
-  &$|$& $\sporke_L \oplus \sporke_R$ & bin-op, $\oplus : \sporkBinOp$ \\
+  &$|$& $\sporke_L \oplus \sporke_R$ & bin-op, $\oplus \in \sporkBinOp$ \\
   &$|$& $\sporkextern(\sporke^*)$ & extern call \\
-\midrule
-  $\oplus : \sporkBinOp$ & $\Coloneqq$ & \texttt{+|-|*|/|\%} & arithmetic \\
-  &$|$& \texttt{==|!=|<|<=|>|>=} & comparison \\
-  &$|$& \texttt{and|or} & logical \\
 \bottomrule
 \end{tabular}
-\caption{Expression Grammar}
+\begin{tabular}{rll}
+\toprule
+% Note, we don't say \oplus : \sporkBinOp because \oplus may be used as a generic operator
+% placeholder (e.g. = or += in Tr-Mutate), not specifically these BinOps.
+$\sporkBinOp \Coloneqq$ & $\{$ \texttt{+},\texttt{-},\texttt{*},\texttt{/},\texttt{\%}, & (arithmetic) \\
+  & \texttt{==},\texttt{!=},\texttt{<},\texttt{<=},\texttt{>},\texttt{>=}, & (comparison) \\
+  & \texttt{and},\texttt{or} $\}$ & (logical) \\
+\bottomrule
+\end{tabular}
+\caption{Expression Grammar; \texttt{and} and \texttt{or} do \emph{not} short-circuit in Exo-GPU}
 \label{fig:expr}
 \end{figure}
