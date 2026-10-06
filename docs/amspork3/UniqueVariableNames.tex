@@ -20,4 +20,5 @@ before substituting the instruction's parameters (free in the body) with the arg
 
 Substitution (Figure~\ref{fig:WindowSubSemantics}) never captures a variable,
 and $\sporksigma$, which is keyed by name, needs no scoping:
-loop variables and allocations simply stay in $\sporksigma$ after their scope ends; nothing can observe them.
+loop variables simply stay in $\sporksigma$ after their loop ends, where nothing can observe them.
+(Allocations are removed from $\sporksigma$ by \textsc{D-Free}, so a use after \texttt{free} is stuck.)

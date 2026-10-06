@@ -58,10 +58,11 @@
   \sporkRule{\sporkSub{\texttt{$\sporkx$: $\sporkprim$[$\sporkz_1, \ldots, \sporkz_n$] @ $\sporkmem$}}{\texttt{pass}}, \sporkSub{\sporksigma}{\sporksigma'}, \sporktr^*}
 }\\
 \inferrule*[right=D-Free]{
-  \text{$\sporkx$ is not in SMEM \redBox{TODO}}
+  \text{$\sporkx$ is not in SMEM \redBox{TODO}} \\
+  \sporksigma' = \sporksigma|_{\textrm{dom}(\sporksigma) \setminus (\{\sporkx\} \times \mathbb{N}^*)}
 }
 {
-  \sporkRule{\sporkSub{\texttt{free($\sporkx$)}}{\texttt{pass}}, \sporksigma, \sporktr^*}
+  \sporkRule{\sporkSub{\texttt{free($\sporkx$)}}{\texttt{pass}}, \sporkSub{\sporksigma}{\sporksigma'}, \sporktr^*}
 }
 \\
 \inferrule*[right=\sporkDInstrStepParam]{
