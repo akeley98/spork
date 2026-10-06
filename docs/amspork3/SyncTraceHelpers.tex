@@ -45,15 +45,14 @@
   \sporkPend_\textrm{new})
   = \sporktr^* \sporkConcatChk \sporktr^*_\textsf{req} \sporkConcatChk \sporktr^*_\textsf{new}
 }\\
-\sporkinfPendHelper(\sporkv, \sporkz_i^*, \sporkz_\textsf{await}) =
-\{ \sporkPendingAwait(\sporkv, \sporkz_i^*, \sporkz) \mid \sporkz \ge \sporkz_\textsf{await} \} \\
+\sporkinfPendHelper(\sporkv, \sporkz_i^*, \sporkz_\textsf{arrive}) =
+\{ \sporkPendingAwait(\sporkv, \sporkz_i^*, \sporkz) \mid \sporkz \ge \sporkz_\textsf{arrive} \} \\
 \sporkinstrBarrierHelper() = \{ \} \\
 % This is so janky but I don't want to duplicate the already huge instr rules.
-% The \cup x.\,y is an abuse of notation (similar to \forall) but the subscript
-% of \cup and \bigcup is unreadably tiny with the \sporkw overset stuff.
 \sporkinstrBarrierHelper(\texttt{\color{barriercolor}>>$\sporkwz_\textrm{bar}$}) =
-\cup (\sporkv, \sporkz_i^*, \sporkz_\textsf{arrive}) \in \sporkWvalues({\color{barriercolor}{\sporkwz_\textrm{bar}}}).\,
-\sporkinfPendHelper(\sporkv, \sporkz_i^*, \sporkz_\textsf{arrive})
+\{ \sporkPendingAwait(\sporkv, \sporkz_i^*, \sporkz) \mid
+  (\sporkv, \sporkz_i^*, \sporkz_\textsf{arrive}) \in \sporkWvalues({\color{barriercolor}{\sporkwz_\textrm{bar}}})
+   \land \sporkz \ge \sporkz_\textsf{arrive} \}
 \end{mathpar}
 \caption{Synchronization Trace Helpers: $\sporktrAccessHelper, \sporkinfPendHelper, \sporkinstrBarrierHelper$.
 The last helper targets \emph{optional} trailing barrier syntax \texttt{\color{barriercolor}>>$\sporkwz_\textrm{bar}$}.
