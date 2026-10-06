@@ -33,7 +33,7 @@
   \langle #1 \rangle
 }
 %% \sporkSub usage policy (internal; the reader only gets the definition in Semantics.tex):
-%% * Box only what changes. Unchanged context (operators, statement keywords, siblings)
+%% * Box only what changes. With exceptions (below), unchanged context (operators, statement keywords, siblings)
 %%   stays outside the box, even prefix/postfix context like -\sporkSub{..}{..} or \sporkSub{..}{..}:e.
 %% * Box \sporksigma and \sporktr^* only in rules that can change them;
 %%   an unboxed \sporksigma / \sporktr^* tells the reader the rule cannot change it.
@@ -51,7 +51,7 @@
 %% * Axioms that replace a construct with something unrelated (C-IfFalse -> pass)
 %%   box the whole construct.
 %% Em-width blank for an empty \sporkSub side.
-\newcommand{\sporkSubNothing}{\quad}
+\newcommand{\sporkSubNothing}{\quad}  % Redefine to nothing for the "in case of haters" scenario.
 \newcommand{\sporkSub}[2]{
   {\color{sporkSubBoxColor} \setlength{\fboxrule}{0.75pt}\setlength{\fboxsep}{0.5pt} \boxed{
   {\color{sporkSubLhsColor} #1}
