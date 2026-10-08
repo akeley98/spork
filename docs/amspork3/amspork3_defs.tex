@@ -199,10 +199,38 @@
 \newcommand{\sporkTlSigB}{\mathord{\hyperref[fig:VertexTable]{\textsf{TlSig2}}}}
 \newcommand{\sporkPendA}{\mathord{\hyperref[fig:VertexTable]{\textsf{Pend1}}}}
 \newcommand{\sporkPendB}{\mathord{\hyperref[fig:VertexTable]{\textsf{Pend2}}}}
-% VertexTable layout: each trace event constructor gets a full-width row
-% (extra space below for underset subscripts), followed by a row of values
-% aligned under the column headers.
-\newcommand{\vertexTableCtor}[1]{\multicolumn{5}{@{}l}{#1} \\[0.6ex]}
+% VertexTable layout: one tikz diagram per trace event constructor.
+% The constructor box sits in the middle; TlSig boxes above, Pend boxes below,
+% "1" boxes on the left, "2" boxes (blue) on the right.
+% An empty value argument draws a minimal box holding just \varnothing.
+\tikzset{
+  vertCtor/.style={draw, inner sep=3pt},
+  vertVal/.style={draw, inner sep=2pt, font=\small, align=left},
+  vertEmpty/.style={draw, inner sep=1pt, font=\scriptsize},
+  vertTwo/.style={draw=blueBoxFg, text=blueBoxFg},
+}
+% \vertexDiagramBox{style}{node name}{label}{value}
+% \vertexDiagram{constructor}{TlSig1}{TlSig2}{Pend1}{Pend2}: constructor and values are math; an empty value means \varnothing
+\newcommand{\vertexDiagramBox}[4]{%
+  \if\relax\detokenize{#4}\relax
+    \node[vertEmpty, #1] (#2) {$\varnothing$};%
+  \else
+    \node[vertVal, #1] (#2) {$#3 =$\\ $#4$};%
+  \fi
+}
+\newcommand{\vertexDiagram}[5]{%
+\begin{tikzpicture}[baseline=(ctor.base)]
+  \node[vertCtor] (ctor) {$\sporkvert = (\sporkz, #1)$};
+  \vertexDiagramBox{anchor=south east, at={($(ctor.north)+(-1.5mm,2.5mm)$)}}{tl}{\sporkTlSigA(\sporkvert)}{#2}
+  \vertexDiagramBox{vertTwo, anchor=south west, at={($(ctor.north)+(1.5mm,2.5mm)$)}}{tr}{\sporkTlSigB(\sporkvert)}{#3}
+  \vertexDiagramBox{anchor=north east, at={($(ctor.south)+(-1.5mm,-2.5mm)$)}}{bl}{\sporkPendA(\sporkvert)}{#4}
+  \vertexDiagramBox{vertTwo, anchor=north west, at={($(ctor.south)+(1.5mm,-2.5mm)$)}}{br}{\sporkPendB(\sporkvert)}{#5}
+  \draw ($(tl.south east)+(-1.5mm,0)$) -- ++(0,-2.5mm);
+  \draw[blueBoxFg] ($(tr.south west)+(1.5mm,0)$) -- ++(0,-2.5mm);
+  \draw ($(bl.north east)+(-1.5mm,0)$) -- ++(0,2.5mm);
+  \draw[blueBoxFg] ($(br.north west)+(1.5mm,0)$) -- ++(0,2.5mm);
+\end{tikzpicture}%
+}
 \newcommand{\sporkvertQtlMask}{\mathord{\hyperref[fig:VertexTable]{\textsf{vertQtlMask}}}}
 
 %% TODO links to forthcoming definitions
