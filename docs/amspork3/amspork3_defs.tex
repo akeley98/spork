@@ -176,7 +176,6 @@
 \newcommand{\sporkPendingAwait}{\mathord{\hyperref[fig:PendingAwait]{\textgpu{PendingAwait}}}}
 
 %% SyncTraceHelpers
-\newcommand{\sporkinfPendHelper}{\mathord{\hyperref[fig:SyncTraceHelpers]{\textgpu{infPendHelper}}}}
 \newcommand{\sporktrAccessHelper}{\mathord{\hyperref[fig:SyncTraceHelpers]{\textgpu{trAccessHelper}}}}
 \newcommand{\sporkinstrBarrierHelper}{\mathord{\hyperref[fig:SyncTraceHelpers]{\textgpu{instrBarrierHelper}}}}
 
@@ -184,8 +183,29 @@
 \newcommand{\sporkTrRead}{\hyperref[fig:SyncTraceSemantics]{\textsc{Tr-Read}}}
 \newcommand{\sporkTrMutate}{\hyperref[fig:SyncTraceSemantics]{\textsc{Tr-Mutate}}}
 
+%% Trace Checks
+\newcommand{\sporkConcatRaw}{\mathord{\hyperref[sec:TraceChecks]{\underset{\textsf{raw}}{\texttt{++}}}}}
+\newcommand{\sporkConcatChk}{\mathord{\hyperref[sec:TraceChecks]{\underset{\textsf{chk}}{\texttt{++}}}}}
+
+%% Trace Vertices
+\newcommand{\sporkvert}{\mathord{\hyperref[sec:TraceVertices]{\textsf{vert}}}}
+\newcommand{\sporkVert}{\mathord{\hyperref[sec:TraceVertices]{\textsf{Vert}}}}
+\newcommand{\sporktrVerts}{\mathord{\hyperref[eq:sporktrVerts]{\textsf{trVerts}}}}
+\newcommand{\sporktrNewVerts}{\mathord{\hyperref[eq:sporktrNewVerts]{\textsf{trNewVerts}}}}
+\newcommand{\sporktrNewVertsAt}{\mathord{\hyperref[eq:sporktrNewVertsAt]{\textsf{trNewVertsAt}}}}
+\newcommand{\sporktlSig}{\mathord{\hyperref[sec:TraceVertices]{\textsf{tlSig}}}}
+\newcommand{\sporkTlSig}{\mathord{\hyperref[sec:TraceVertices]{\textsf{TlSig}}}}
+\newcommand{\sporkTlSigA}{\mathord{\hyperref[fig:VertexTable]{\textsf{TlSig1}}}}
+\newcommand{\sporkTlSigB}{\mathord{\hyperref[fig:VertexTable]{\textsf{TlSig2}}}}
+\newcommand{\sporkPendA}{\mathord{\hyperref[fig:VertexTable]{\textsf{Pend1}}}}
+\newcommand{\sporkPendB}{\mathord{\hyperref[fig:VertexTable]{\textsf{Pend2}}}}
+% VertexTable layout: each trace event constructor gets a full-width row
+% (extra space below for underset subscripts), followed by a row of values
+% aligned under the column headers.
+\newcommand{\vertexTableCtor}[1]{\multicolumn{5}{@{}l}{#1} \\[0.6ex]}
+\newcommand{\sporkvertQtlMask}{\mathord{\hyperref[fig:VertexTable]{\textsf{vertQtlMask}}}}
+
 %% TODO links to forthcoming definitions
-\newcommand{\sporkConcatChk}{\mathord{\underset{\textsf{chk}}{\texttt{++}}}}
 \newcommand{\sporkConcatEnv}{\mathord{\underset{\textsf{env}}{\texttt{++}}}}
 \newcommand{\sporkqtlConvergent}{\mathord{\textsf{qtlConvergent}}}
 \newcommand{\sporkQtlCuda}{\mathord{\underset{\textrm{cuda}}{\sporkQtl}}}

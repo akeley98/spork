@@ -5,12 +5,15 @@ These are small-step operational semantics.
 We apply rewrite rules to $\langle \sporks, \sporksigma, \sporktr^* \rangle$
 (statement, value environment, trace event sequence) until we reach the form
 $\langle \texttt{pass}, \sporksigma, \sporktr^* \rangle$.
+
 The initial $\sporksigma$ is provided by the outside caller of the Exo-GPU $\sporkproc$
 and the initial $\sporktr^*$ is empty.
 A program that gets \emph{stuck} (no rule applies before reaching \texttt{pass}) is wrong.
 This is how we express failed assertions, ill-typed operations such as \texttt{True + 1},
 accesses outside $\textrm{dom}(\sporksigma)$, and reads of uninitialized ($\bot$) data;
 we do not otherwise spell out type checking or bounds checking.
+For programs with unsafe parallelization, the ``checked trace concatenation operator''\\
+$\sporkConcatChk$ (Section~\ref{sec:TraceChecks}) serves a similar purpose.
 
 For brevity and to highlight which rules can or cannot yield a changed $\sporksigma$ or $\sporktr^*$,
 small step reductions $\langle \text{``before''} \rangle \to \langle \text{``after''} \rangle$

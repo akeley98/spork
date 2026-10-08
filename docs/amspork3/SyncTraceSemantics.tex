@@ -70,7 +70,7 @@
 \inferrule*[right=Tr-Await]{
   \sporkz_\textrm{arrive} = \sporksigma(\sporkx, \sporkz_i^*) \\
   \sporkz_\textrm{await} = \sporkz_\textrm{arrive} - \sporkz_\textrm{lag} - 1 \\
-  \sporktr^*_2 = \sporktr^*_1 \sporkConcatChk \sporkTrAwait(\sporktidMap(\sporksigma), \sporkQtlAwait, \sporkx, \sporkz_i^*, \sporkz_\textrm{await})
+  \sporktr^*_2 = \sporktr^*_1 \sporkConcatChk \sporkTrAwait(\sporktidMap(\sporksigma), \sporkQtlAwait, \sporkPendingAwait(\sporkx, \sporkz_i^*, \sporkz_\textrm{await}))
 }
 {
   \sporkRule{\sporkSub{\texttt{Await($\sporkx[\sporkz_i^*]$, $\sporkQtlAwait$, $\sporkz_\textrm{lag}$)} \#\sporktidMap}{\texttt{pass}}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}

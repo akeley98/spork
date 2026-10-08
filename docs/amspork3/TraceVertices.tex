@@ -1,0 +1,17 @@
+\magicSubsection{Trace Vertices}{sec:TraceVertices}
+
+Each vertex $\sporkvert: \sporkVert$ is an integer/trace-event pair $(\sporkz,\sporktr)$.
+$\sporktrVerts: \sporkTr^* \to \mathcal{P}(\sporkVert)$ converts a trace (sequence)
+into a set of vertices by pairing each trace event with its 0-based index in the sequence.
+\begin{align}
+    \sporktrVerts(()) &= \varnothing \\
+    \sporktrVerts(\sporktr^* \sporkConcatRaw \sporktr_0) &= \sporktrVerts(\sporktr^*) \cup \{ (\abs{\sporktr^*}, \sporktr_0 ) \}
+    \label{eq:sporktrVerts}
+\end{align}
+Each vertex $\sporkvert$ advertises first and second \myKeyA{timeline signature sets}\footnote{Legacy: ``visibility set''}
+$\sporkTlSigA(\sporkvert)$ and $\sporkTlSigB(\sporkvert)$,
+where a timeline signature $\sporktlSig: \sporkTlSig$ is a pair $(\sporktid, \sporkqtl)$.
+We further support querying \myKeyA{pending await sets} $\sporkPendA(\sporkvert)$ and $\sporkPendB(\sporkvert)$
+and a qualitative timeline mask $\sporkvertQtlMask$, as defined per-trace-event-constructor in Figure~\ref{fig:VertexTable}.
+
+\input{amspork3/VertexTable.tex}

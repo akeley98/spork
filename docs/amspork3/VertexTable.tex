@@ -1,0 +1,52 @@
+\begin{figure}[h]
+\centering
+\begin{tabular}{@{\hspace{1.5em}}c>{\color{blueBoxFg}}cc>{\color{blueBoxFg}}cc}
+\toprule
+$\sporkTlSigA(\sporkvert)$ & $\sporkTlSigB(\sporkvert)$ & $\sporkPendA(\sporkvert)$ & $\sporkPendB(\sporkvert)$ & $\sporkvertQtlMask(\sporkvert)$ \\
+\midrule
+\vertexTableCtor{$\sporkvert = (\sporkz, \sporkTrNewAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTid_\textrm{new}, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask, \sporkPend_\textrm{await}))$}
+$\varnothing$ &
+$\sporkTid_\textrm{new} \times \{ \sporkqtl \} \cup \sporkTid \times \sporkQtlAtom$ &
+$\varnothing$ &
+$\sporkPend_\textrm{await}$ &
+$\sporkQtlMask$ \\
+\midrule
+\vertexTableCtor{$\sporkvert = (\sporkz, \sporkTrFence(\sporkTid_\textrm{fence}, \sporkQtlArrive, \sporkQtlAwait))$}
+$\sporkTid_\textrm{fence} \times \sporkQtlArrive$ &
+$\sporkTid_\textrm{fence} \times \sporkQtlAwait$ &
+$\varnothing$ &
+$\varnothing$ &
+$\varnothing$ \\
+\midrule
+\vertexTableCtor{$\sporkvert = (\sporkz, \sporkTrArrive(\sporkTid_\textrm{arrive}, \sporkQtlArrive, \sporkx, \sporkz_i^*, \sporkz_\textrm{arrive}))$}
+$\sporkTid_\textrm{arrive} \times \sporkQtlArrive$ &
+$\varnothing$ &
+$\varnothing$ &
+$\{ \sporkPendingAwait(\sporkx, \sporkz_i^*, \sporkz) \mid \sporkz \ge z_\textrm{arrive}\}$ &
+$\varnothing$ \\
+\midrule
+\vertexTableCtor{$\sporkvert = (\sporkz, \sporkTrAwait(\sporkTid_\textrm{await}, \sporkQtlAwait, \sporkpend))$}
+$\varnothing$ &
+$\sporkTid_\textrm{await} \times \sporkQtlAwait$ &
+$\{ \sporkpend \}$ &
+$\varnothing$ &
+$\varnothing$ \\
+\midrule
+\vertexTableCtor{$\sporkvert = (\sporkz, \sporkTrReqCanAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTid_\textrm{req}, \sporkQtlPre))$}
+$\sporkTid_\textrm{req} \times \sporkQtlPre$ &
+$\varnothing$ &
+$\varnothing$ &
+$\varnothing$ &
+$\varnothing$ \\
+\midrule
+\vertexTableCtor{$\sporkvert = (\sporkz, \sporkTrReqPendingAwait(\sporkmut, \sporkx, \sporkz_i^*, \sporkpend))$}
+$\varnothing$ &
+$\varnothing$ &
+$\{ \sporkpend \}$ &
+$\varnothing$ &
+$\varnothing$ \\
+\bottomrule
+\end{tabular}
+\caption{TODO dummy caption for label}
+\label{fig:VertexTable}
+\end{figure}
