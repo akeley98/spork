@@ -1,6 +1,7 @@
 % vertQtlMask(vert) is not drawn yet; its values are kept in comments:
 % TrNewAccess: \sporkQtlMask; all other constructors: \varnothing.
 % TrArrive/TrAwait are paired side by side to make the arrive/await pairing clear.
+% Fence/Req diagrams put their quadrants on the sides to save vertical space.
 \begin{figure}[h]
 \centering
 \vertexDiagram
@@ -10,7 +11,7 @@
   {}
   {\sporkPend_\textrm{await}}
 
-\bigskip
+\medskip
 \vertexDiagram
   {\sporkTrArrive(\sporkTid_\textrm{arrive}, \sporkQtlArrive, \sporkx, \sporkz_i^*, \sporkz_\textrm{arrive})}
   {\sporkTid_\textrm{arrive} \times \sporkQtlArrive}
@@ -25,24 +26,24 @@
   {\{ \sporkpend \}}
   {}
 
-\bigskip
-\vertexDiagram
+\medskip
+\vertexDiagramSides
   {\sporkTrFence(\sporkTid_\textrm{fence}, \sporkQtlArrive, \sporkQtlAwait)}
   {\sporkTid_\textrm{fence} \times \sporkQtlArrive}
   {\sporkTid_\textrm{fence} \times \sporkQtlAwait}
   {}
   {}
 
-\bigskip
-\vertexDiagram
+\medskip
+\vertexDiagramSides
   {\sporkTrReqCanAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTid_\textrm{req}, \sporkQtlPre)}
   {\sporkTid_\textrm{req} \times \sporkQtlPre}
   {}
   {}
   {}
 
-\bigskip
-\vertexDiagram
+\medskip
+\vertexDiagramSides
   {\sporkTrReqPendingAwait(\sporkmut, \sporkx, \sporkz_i^*, \sporkpend)}
   {}
   {}

@@ -216,6 +216,7 @@
 \newdimen\vd@aOne \newdimen\vd@aTwo \newdimen\vd@bOne \newdimen\vd@bTwo
 \newdimen\vd@a \newdimen\vd@b \newdimen\vd@lo \newdimen\vd@hi \newdimen\vd@tmp
 \newdimen\vd@topShift \newdimen\vd@botShift
+\newdimen\vd@cOne \newdimen\vd@cTwo \newdimen\vd@dOne \newdimen\vd@dTwo
 \newif\ifvd@breakA \newif\ifvd@breakB
 \newif\ifvd@breakTL \newif\ifvd@breakTR \newif\ifvd@breakBL \newif\ifvd@breakBR
 \newcommand\vd@ifempty[3]{\if\relax\detokenize{#1}\relax #2\else #3\fi}
@@ -264,7 +265,7 @@
 % \vd@box{options}{node name}{label}{value}{break?}
 \newcommand\vd@box[5]{%
   \vd@ifempty{#4}%
-    {\node[vertEmpty, font=\scriptsize, #1] (#2) {#5{$#3 =$\\ $\varnothing$}{$#3 = \varnothing$}};}%
+    {\node[vertEmpty, font=\scriptsize, #1] (#2) {$#3 = \varnothing$};}%
     {\node[vertVal, font=\small, #1] (#2) {#5{$#3 =$\\ $#4$}{$#3 = #4$}};}}
 \newcommand\vd@ifTL{\ifvd@breakTL\expandafter\@firstoftwo\else\expandafter\@secondoftwo\fi}
 \newcommand\vd@ifTR{\ifvd@breakTR\expandafter\@firstoftwo\else\expandafter\@secondoftwo\fi}
@@ -288,6 +289,44 @@
     \draw ($(tr.south west)+(1.5mm,0)$) -- ++(0,-2.5mm);
     \draw ($(bl.north east)+(-1.5mm,0)$) -- ++(0,2.5mm);
     \draw ($(br.north west)+(1.5mm,0)$) -- ++(0,2.5mm);
+  \end{tikzpicture}%
+}
+% \vertexDiagramSides: same arguments, but the "1" quadrants sit to the left of the
+% constructor and the "2" quadrants to the right (TlSig upper, Pend lower).
+% Trades horizontal space for vertical. If the diagram would exceed \linewidth,
+% the wider column's boxes break after "=" (then the other column if still needed).
+\newcommand\vd@sideWidths{%
+  \vd@a=\ifvd@breakTL\vd@aTwo\else\vd@aOne\fi
+  \vd@tmp=\ifvd@breakBL\vd@bTwo\else\vd@bOne\fi
+  \ifdim\vd@tmp>\vd@a \vd@a=\vd@tmp\fi
+  \vd@b=\ifvd@breakTR\vd@cTwo\else\vd@cOne\fi
+  \vd@tmp=\ifvd@breakBR\vd@dTwo\else\vd@dOne\fi
+  \ifdim\vd@tmp>\vd@b \vd@b=\vd@tmp\fi
+  \vd@tmp=\vd@W \advance\vd@tmp by \vd@a \advance\vd@tmp by \vd@b
+  \advance\vd@tmp by 5mm\relax}
+\newcommand{\vertexDiagramSides}[5]{%
+  \sbox\vd@tmpbox{$\sporkvert = (\sporkz, #1)$}\vd@W=\wd\vd@tmpbox \advance\vd@W by 6.4pt
+  \vd@widths{\sporkTlSigA(\sporkvert)}{#2}\vd@aOne\vd@aTwo
+  \vd@widths{\sporkPendA(\sporkvert)}{#4}\vd@bOne\vd@bTwo
+  \vd@widths{\sporkTlSigB(\sporkvert)}{#3}\vd@cOne\vd@cTwo
+  \vd@widths{\sporkPendB(\sporkvert)}{#5}\vd@dOne\vd@dTwo
+  \vd@breakTLfalse \vd@breakBLfalse \vd@breakTRfalse \vd@breakBRfalse
+  \vd@sideWidths
+  \ifdim\vd@tmp>\linewidth
+    \ifdim\vd@a<\vd@b \vd@breakTRtrue \vd@breakBRtrue \else \vd@breakTLtrue \vd@breakBLtrue \fi
+    \vd@sideWidths
+    \ifdim\vd@tmp>\linewidth \vd@breakTLtrue \vd@breakBLtrue \vd@breakTRtrue \vd@breakBRtrue \fi
+  \fi
+  \begin{tikzpicture}[baseline=(ctor.base)]
+    \node[vertCtor] (ctor) {$\sporkvert = (\sporkz, #1)$};
+    \vd@box{anchor=south east, at={($(ctor.west)+(-2.5mm,0.5mm)$)}}{tl}{\sporkTlSigA(\sporkvert)}{#2}\vd@ifTL
+    \vd@box{anchor=south west, at={($(ctor.east)+(2.5mm,0.5mm)$)}}{tr}{\sporkTlSigB(\sporkvert)}{#3}\vd@ifTR
+    \vd@box{anchor=north east, at={($(ctor.west)+(-2.5mm,-0.5mm)$)}}{bl}{\sporkPendA(\sporkvert)}{#4}\vd@ifBL
+    \vd@box{anchor=north west, at={($(ctor.east)+(2.5mm,-0.5mm)$)}}{br}{\sporkPendB(\sporkvert)}{#5}\vd@ifBR
+    \draw ($(tl.south east)+(0,1.2mm)$) -- ++(2.5mm,0);
+    \draw ($(tr.south west)+(0,1.2mm)$) -- ++(-2.5mm,0);
+    \draw ($(bl.north east)+(0,-1.2mm)$) -- ++(2.5mm,0);
+    \draw ($(br.north west)+(0,-1.2mm)$) -- ++(-2.5mm,0);
   \end{tikzpicture}%
 }
 \makeatother
