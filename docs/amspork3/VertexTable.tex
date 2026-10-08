@@ -1,13 +1,12 @@
 % vertQtlMask(vert) is not drawn yet; its values are kept in comments:
 % TrNewAccess: \sporkQtlMask; all other constructors: \varnothing.
-% Narrow diagrams are paired side by side to save vertical space
-% (only Fence/Await are narrow enough to share a line).
+% TrArrive/TrAwait are paired side by side to make the arrive/await pairing clear.
 \begin{figure}[h]
 \centering
 \vertexDiagram
   {\sporkTrNewAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTid_\textrm{new}, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask, \sporkPend_\textrm{await})}
   {}
-  {\sporkTid_\textrm{new} \times \{ \sporkqtl \} \cup \sporkTid \times \sporkQtlAtom}
+  {\sporkTid_\textrm{new} \times \{ \sporkqtlInit \} \cup \sporkTid \times \sporkQtlAtom}
   {}
   {\sporkPend_\textrm{await}}
 
@@ -17,7 +16,14 @@
   {\sporkTid_\textrm{arrive} \times \sporkQtlArrive}
   {}
   {}
-  {\{ \sporkPendingAwait(\sporkx, \sporkz_i^*, \sporkz) \mid \sporkz \ge \sporkz_\textrm{arrive}\}}
+  {\{ \sporkPendingAwait(\sporkx, \sporkz_i^*, \sporkz_a) \mid \sporkz_a \ge \sporkz_\textrm{arrive}\}}
+\hfill
+\vertexDiagram
+  {\sporkTrAwait(\sporkTid_\textrm{await}, \sporkQtlAwait, \sporkpend)}
+  {}
+  {\sporkTid_\textrm{await} \times \sporkQtlAwait}
+  {\{ \sporkpend \}}
+  {}
 
 \bigskip
 \vertexDiagram
@@ -25,13 +31,6 @@
   {\sporkTid_\textrm{fence} \times \sporkQtlArrive}
   {\sporkTid_\textrm{fence} \times \sporkQtlAwait}
   {}
-  {}
-\hfill
-\vertexDiagram
-  {\sporkTrAwait(\sporkTid_\textrm{await}, \sporkQtlAwait, \sporkpend)}
-  {}
-  {\sporkTid_\textrm{await} \times \sporkQtlAwait}
-  {\{ \sporkpend \}}
   {}
 
 \bigskip

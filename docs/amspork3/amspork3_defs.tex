@@ -200,37 +200,97 @@
 \newcommand{\sporkPendA}{\mathord{\hyperref[fig:VertexTable]{\textsf{Pend1}}}}
 \newcommand{\sporkPendB}{\mathord{\hyperref[fig:VertexTable]{\textsf{Pend2}}}}
 % VertexTable layout: one tikz diagram per trace event constructor.
+% \vertexDiagram{constructor}{TlSig1}{TlSig2}{Pend1}{Pend2}
 % The constructor box sits in the middle; TlSig boxes above, Pend boxes below,
-% "1" boxes on the left, "2" boxes (blue) on the right.
-% An empty value argument draws a minimal box holding just \varnothing.
+% "1" boxes on the left, "2" boxes on the right. Constructor and values are math.
+% An empty value means \varnothing, drawn as a minimized "label = \varnothing" box.
+% Before drawing, each row (top/bottom) is measured:
+%   * a box breaks after "=" only if its row would otherwise be wider than the
+%     constructor box (wider box first; the other only if that makes the row fit;
+%     \varnothing boxes never break);
+%   * the row slides horizontally to stay within the constructor box's width
+%     (centered on the constructor if it can't fit).
+\makeatletter
+\newsavebox\vd@tmpbox
+\newdimen\vd@W \newdimen\vd@gap \vd@gap=3mm
+\newdimen\vd@aOne \newdimen\vd@aTwo \newdimen\vd@bOne \newdimen\vd@bTwo
+\newdimen\vd@a \newdimen\vd@b \newdimen\vd@lo \newdimen\vd@hi \newdimen\vd@tmp
+\newdimen\vd@topShift \newdimen\vd@botShift
+\newif\ifvd@breakA \newif\ifvd@breakB
+\newif\ifvd@breakTL \newif\ifvd@breakTR \newif\ifvd@breakBL \newif\ifvd@breakBR
+\newcommand\vd@ifempty[3]{\if\relax\detokenize{#1}\relax #2\else #3\fi}
+\newcommand\vd@fontfor[1]{\vd@ifempty{#1}{\scriptsize}{\small}}
+\newcommand\vd@valfor[1]{\vd@ifempty{#1}{\varnothing}{#1}}
 \tikzset{
   vertCtor/.style={draw, inner sep=3pt},
-  vertVal/.style={draw, inner sep=2pt, font=\small, align=left},
-  vertEmpty/.style={draw, inner sep=1pt, font=\scriptsize},
-  vertTwo/.style={draw=blueBoxFg, text=blueBoxFg},
+  vertVal/.style={draw, inner sep=2pt, align=left},
+  vertEmpty/.style={draw, inner sep=1pt, align=left},
 }
-% \vertexDiagramBox{style}{node name}{label}{value}
-% \vertexDiagram{constructor}{TlSig1}{TlSig2}{Pend1}{Pend2}: constructor and values are math; an empty value means \varnothing
-\newcommand{\vertexDiagramBox}[4]{%
-  \if\relax\detokenize{#4}\relax
-    \node[vertEmpty, #1] (#2) {$\varnothing$};%
-  \else
-    \node[vertVal, #1] (#2) {$#3 =$\\ $#4$};%
+% \vd@widths{label}{value}{one-line width}{broken width}: outer node widths
+\newcommand\vd@widths[4]{%
+  \sbox\vd@tmpbox{\vd@fontfor{#2}$#1 = \vd@valfor{#2}$}#3=\wd\vd@tmpbox
+  \sbox\vd@tmpbox{\vd@fontfor{#2}$#1 =$}#4=\wd\vd@tmpbox
+  \sbox\vd@tmpbox{\vd@fontfor{#2}$\vd@valfor{#2}$}%
+  \ifdim\wd\vd@tmpbox>#4 #4=\wd\vd@tmpbox\fi
+  \vd@tmp=\vd@ifempty{#2}{2.4pt}{4.4pt}% 2 * inner sep + line width
+  \advance#3 by \vd@tmp \advance#4 by \vd@tmp
+  \ifdim#4>#3 #4=#3\fi
+  \vd@ifempty{#2}{#4=#3}{}}% \varnothing boxes never break
+\newcommand\vd@tryBreakA{\ifdim\vd@aTwo<\vd@aOne \vd@a=\vd@aTwo \vd@breakAtrue\fi}
+\newcommand\vd@tryBreakB{\ifdim\vd@bTwo<\vd@bOne \vd@b=\vd@bTwo \vd@breakBtrue\fi}
+\newif\ifvd@tooWide
+\newcommand\vd@checkWidth{\vd@tmp=\vd@a \advance\vd@tmp by \vd@b \advance\vd@tmp by \vd@gap
+  \ifdim\vd@tmp>\vd@W \vd@tooWidetrue \else \vd@tooWidefalse \fi}
+% \vd@row{labelA}{valueA}{labelB}{valueB}{shift dimen}: sets \ifvd@breakA/B and the shift
+\newcommand\vd@row[5]{%
+  \vd@widths{#1}{#2}\vd@aOne\vd@aTwo \vd@widths{#3}{#4}\vd@bOne\vd@bTwo
+  \vd@a=\vd@aOne \vd@b=\vd@bOne \vd@breakAfalse \vd@breakBfalse
+  \vd@checkWidth
+  \ifvd@tooWide
+    \ifdim\vd@aOne<\vd@bOne \vd@tryBreakB \else \vd@tryBreakA \fi
+    \vd@checkWidth
+    \ifvd@tooWide % break the other box too, but only if that makes the row fit
+      \vd@tmp=\vd@aTwo \advance\vd@tmp by \vd@bTwo \advance\vd@tmp by \vd@gap
+      \ifdim\vd@tmp>\vd@W\else \vd@tryBreakA \vd@tryBreakB \fi
+    \fi
   \fi
-}
+  \vd@lo=-0.5\vd@W \advance\vd@lo by 0.5\vd@gap \advance\vd@lo by \vd@a
+  \vd@hi=0.5\vd@W \advance\vd@hi by -0.5\vd@gap \advance\vd@hi by -\vd@b
+  \ifdim\vd@lo>\vd@hi #5=0.5\vd@lo \advance#5 by 0.5\vd@hi
+  \else #5=0pt
+    \ifdim#5<\vd@lo #5=\vd@lo\fi
+    \ifdim#5>\vd@hi #5=\vd@hi\fi
+  \fi}
+% \vd@box{options}{node name}{label}{value}{break?}
+\newcommand\vd@box[5]{%
+  \vd@ifempty{#4}%
+    {\node[vertEmpty, font=\scriptsize, #1] (#2) {#5{$#3 =$\\ $\varnothing$}{$#3 = \varnothing$}};}%
+    {\node[vertVal, font=\small, #1] (#2) {#5{$#3 =$\\ $#4$}{$#3 = #4$}};}}
+\newcommand\vd@ifTL{\ifvd@breakTL\expandafter\@firstoftwo\else\expandafter\@secondoftwo\fi}
+\newcommand\vd@ifTR{\ifvd@breakTR\expandafter\@firstoftwo\else\expandafter\@secondoftwo\fi}
+\newcommand\vd@ifBL{\ifvd@breakBL\expandafter\@firstoftwo\else\expandafter\@secondoftwo\fi}
+\newcommand\vd@ifBR{\ifvd@breakBR\expandafter\@firstoftwo\else\expandafter\@secondoftwo\fi}
 \newcommand{\vertexDiagram}[5]{%
-\begin{tikzpicture}[baseline=(ctor.base)]
-  \node[vertCtor] (ctor) {$\sporkvert = (\sporkz, #1)$};
-  \vertexDiagramBox{anchor=south east, at={($(ctor.north)+(-1.5mm,2.5mm)$)}}{tl}{\sporkTlSigA(\sporkvert)}{#2}
-  \vertexDiagramBox{vertTwo, anchor=south west, at={($(ctor.north)+(1.5mm,2.5mm)$)}}{tr}{\sporkTlSigB(\sporkvert)}{#3}
-  \vertexDiagramBox{anchor=north east, at={($(ctor.south)+(-1.5mm,-2.5mm)$)}}{bl}{\sporkPendA(\sporkvert)}{#4}
-  \vertexDiagramBox{vertTwo, anchor=north west, at={($(ctor.south)+(1.5mm,-2.5mm)$)}}{br}{\sporkPendB(\sporkvert)}{#5}
-  \draw ($(tl.south east)+(-1.5mm,0)$) -- ++(0,-2.5mm);
-  \draw[blueBoxFg] ($(tr.south west)+(1.5mm,0)$) -- ++(0,-2.5mm);
-  \draw ($(bl.north east)+(-1.5mm,0)$) -- ++(0,2.5mm);
-  \draw[blueBoxFg] ($(br.north west)+(1.5mm,0)$) -- ++(0,2.5mm);
-\end{tikzpicture}%
+  \sbox\vd@tmpbox{$\sporkvert = (\sporkz, #1)$}\vd@W=\wd\vd@tmpbox \advance\vd@W by 6.4pt
+  \vd@row{\sporkTlSigA(\sporkvert)}{#2}{\sporkTlSigB(\sporkvert)}{#3}\vd@topShift
+  \ifvd@breakA\vd@breakTLtrue\else\vd@breakTLfalse\fi
+  \ifvd@breakB\vd@breakTRtrue\else\vd@breakTRfalse\fi
+  \vd@row{\sporkPendA(\sporkvert)}{#4}{\sporkPendB(\sporkvert)}{#5}\vd@botShift
+  \ifvd@breakA\vd@breakBLtrue\else\vd@breakBLfalse\fi
+  \ifvd@breakB\vd@breakBRtrue\else\vd@breakBRfalse\fi
+  \begin{tikzpicture}[baseline=(ctor.base)]
+    \node[vertCtor] (ctor) {$\sporkvert = (\sporkz, #1)$};
+    \vd@box{anchor=south east, at={($(ctor.north)+(\vd@topShift-0.5\vd@gap,2.5mm)$)}}{tl}{\sporkTlSigA(\sporkvert)}{#2}\vd@ifTL
+    \vd@box{anchor=south west, at={($(ctor.north)+(\vd@topShift+0.5\vd@gap,2.5mm)$)}}{tr}{\sporkTlSigB(\sporkvert)}{#3}\vd@ifTR
+    \vd@box{anchor=north east, at={($(ctor.south)+(\vd@botShift-0.5\vd@gap,-2.5mm)$)}}{bl}{\sporkPendA(\sporkvert)}{#4}\vd@ifBL
+    \vd@box{anchor=north west, at={($(ctor.south)+(\vd@botShift+0.5\vd@gap,-2.5mm)$)}}{br}{\sporkPendB(\sporkvert)}{#5}\vd@ifBR
+    \draw ($(tl.south east)+(-1.5mm,0)$) -- ++(0,-2.5mm);
+    \draw ($(tr.south west)+(1.5mm,0)$) -- ++(0,-2.5mm);
+    \draw ($(bl.north east)+(-1.5mm,0)$) -- ++(0,2.5mm);
+    \draw ($(br.north west)+(1.5mm,0)$) -- ++(0,2.5mm);
+  \end{tikzpicture}%
 }
+\makeatother
 \newcommand{\sporkvertQtlMask}{\mathord{\hyperref[fig:VertexTable]{\textsf{vertQtlMask}}}}
 
 %% TODO links to forthcoming definitions
