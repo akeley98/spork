@@ -24,9 +24,10 @@
 \newcommand\vd@fontfor[1]{\vd@ifempty{#1}{\scriptsize}{\small}}
 \newcommand\vd@valfor[1]{\vd@ifempty{#1}{\varnothing}{#1}}
 \tikzset{
-  vertCtor/.style={draw, inner sep=3pt},
-  vertVal/.style={draw, inner sep=2pt, align=left},
-  vertEmpty/.style={draw, inner sep=1pt, align=left},
+  vertCtor/.style={draw=blueBoxFg, text=blueBoxFg, inner sep=3pt},
+  vertVal/.style={draw=black!33, inner sep=2pt, align=left},
+  vertEmpty/.style={draw=black!33, inner sep=1pt, align=left},
+  vertStub/.style={draw=blueBoxFg, line width=1pt},
 }
 % \vd@widths{label}{value}{one-line width}{broken width}: outer node widths
 \newcommand\vd@widths[4]{%
@@ -108,10 +109,10 @@
     \vd@box{anchor=south west, at={($(ctor.north)+(\vd@topShift+0.5\vd@gap,2.5mm)$)}}{tr}{\sporkTlSigB(\sporkvert)}{#4}\vd@ifTR
     \vd@box{anchor=north east, at={($(ctor.south)+(\vd@botShift-0.5\vd@gap,-2.5mm)$)}}{bl}{\sporkPendA(\sporkvert)}{#5}\vd@ifBL
     \vd@box{anchor=north west, at={($(ctor.south)+(\vd@botShift+0.5\vd@gap,-2.5mm)$)}}{br}{\sporkPendB(\sporkvert)}{#6}\vd@ifBR
-    \draw ($(tl.south east)+(-1.5mm,0)$) -- ++(0,-2.5mm);
-    \draw ($(tr.south west)+(1.5mm,0)$) -- ++(0,-2.5mm);
-    \draw ($(bl.north east)+(-1.5mm,0)$) -- ++(0,2.5mm);
-    \draw ($(br.north west)+(1.5mm,0)$) -- ++(0,2.5mm);
+    \draw[vertStub] ($(tl.south east)+(-1.5mm,0)$) -- ++(0,-2.5mm);
+    \draw[vertStub] ($(tr.south west)+(1.5mm,0)$) -- ++(0,-2.5mm);
+    \draw[vertStub] ($(bl.north east)+(-1.5mm,0)$) -- ++(0,2.5mm);
+    \draw[vertStub] ($(br.north west)+(1.5mm,0)$) -- ++(0,2.5mm);
   \end{tikzpicture}%
 }
 % \vertexDiagramSides: same arguments, but the "1" quadrants sit to the left of the
@@ -151,10 +152,10 @@
     \vd@box{anchor=south west, at={($(ctor.east)+(2.5mm,0.5mm)$)}}{tr}{\sporkTlSigB(\sporkvert)}{#4}\vd@ifTR
     \vd@box{anchor=north east, at={($(ctor.west)+(-2.5mm,-0.5mm)$)}}{bl}{\sporkPendA(\sporkvert)}{#5}\vd@ifBL
     \vd@box{anchor=north west, at={($(ctor.east)+(2.5mm,-0.5mm)$)}}{br}{\sporkPendB(\sporkvert)}{#6}\vd@ifBR
-    \draw ($(tl.south east)+(0,1.2mm)$) -- ++(2.5mm,0);
-    \draw ($(tr.south west)+(0,1.2mm)$) -- ++(-2.5mm,0);
-    \draw ($(bl.north east)+(0,-1.2mm)$) -- ++(2.5mm,0);
-    \draw ($(br.north west)+(0,-1.2mm)$) -- ++(-2.5mm,0);
+    \draw[vertStub] ($(tl.south east)+(0,1.2mm)$) -- ++(2.5mm,0);
+    \draw[vertStub] ($(tr.south west)+(0,1.2mm)$) -- ++(-2.5mm,0);
+    \draw[vertStub] ($(bl.north east)+(0,-1.2mm)$) -- ++(2.5mm,0);
+    \draw[vertStub] ($(br.north west)+(0,-1.2mm)$) -- ++(-2.5mm,0);
   \end{tikzpicture}%
 }
 \makeatother
