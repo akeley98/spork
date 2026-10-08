@@ -200,7 +200,7 @@
 \newcommand{\sporkPendA}{\mathord{\hyperref[fig:VertexTable]{\textsf{Pend1}}}}
 \newcommand{\sporkPendB}{\mathord{\hyperref[fig:VertexTable]{\textsf{Pend2}}}}
 % VertexTable layout: one tikz diagram per trace event constructor.
-% \vertexDiagram{constructor}{TlSig1}{TlSig2}{Pend1}{Pend2}
+% \vertexDiagram[options]{constructor}{TlSig1}{TlSig2}{Pend1}{Pend2} (options: see "Manual overrides")
 % The constructor box sits in the middle; TlSig boxes above, Pend boxes below,
 % "1" boxes on the left, "2" boxes on the right. Constructor and values are math.
 % An empty value means \varnothing, drawn as a minimized "label = \varnothing" box.
@@ -240,10 +240,25 @@
 \newcommand\vd@tryBreakA{\ifdim\vd@aTwo<\vd@aOne \vd@a=\vd@aTwo \vd@breakAtrue\fi}
 \newcommand\vd@tryBreakB{\ifdim\vd@bTwo<\vd@bOne \vd@b=\vd@bTwo \vd@breakBtrue\fi}
 \newif\ifvd@tooWide
+% Manual overrides, given as \vertexDiagram[options]{...} or \vertexDiagramSides[options]{...}:
+%   tl break, tr break, bl break, br break = auto (default) | true | false
+%   top shift, bottom shift = <dimen> (\vertexDiagram only; replaces the automatic row slide)
+\def\vd@strue{true}\def\vd@sfalse{false}
+\pgfkeys{/vd/.cd,
+  tl break/.store in=\vd@optTL, tr break/.store in=\vd@optTR,
+  bl break/.store in=\vd@optBL, br break/.store in=\vd@optBR,
+  top shift/.store in=\vd@optTopShift, bottom shift/.store in=\vd@optBotShift}
+\newcommand\vd@setopts[1]{%
+  \def\vd@optTL{auto}\def\vd@optTR{auto}\def\vd@optBL{auto}\def\vd@optBR{auto}%
+  \let\vd@optTopShift\@empty \let\vd@optBotShift\@empty
+  \pgfkeys{/vd/.cd,#1}}
+% \vd@override{mode macro}{if true}{if false}
+\newcommand\vd@override[3]{\ifx#1\vd@strue #2\fi \ifx#1\vd@sfalse #3\fi}
 \newcommand\vd@checkWidth{\vd@tmp=\vd@a \advance\vd@tmp by \vd@b \advance\vd@tmp by \vd@gap
   \ifdim\vd@tmp>\vd@W \vd@tooWidetrue \else \vd@tooWidefalse \fi}
-% \vd@row{labelA}{valueA}{labelB}{valueB}{shift dimen}: sets \ifvd@breakA/B and the shift
-\newcommand\vd@row[5]{%
+% \vd@row{labelA}{valueA}{labelB}{valueB}{shift dimen}{modeA}{modeB}:
+% sets \ifvd@breakA/B and the shift
+\newcommand\vd@row[7]{%
   \vd@widths{#1}{#2}\vd@aOne\vd@aTwo \vd@widths{#3}{#4}\vd@bOne\vd@bTwo
   \vd@a=\vd@aOne \vd@b=\vd@bOne \vd@breakAfalse \vd@breakBfalse
   \vd@checkWidth
@@ -255,6 +270,10 @@
       \ifdim\vd@tmp>\vd@W\else \vd@tryBreakA \vd@tryBreakB \fi
     \fi
   \fi
+  \vd@override#6\vd@breakAtrue\vd@breakAfalse
+  \vd@override#7\vd@breakBtrue\vd@breakBfalse
+  \vd@a=\ifvd@breakA\vd@aTwo\else\vd@aOne\fi
+  \vd@b=\ifvd@breakB\vd@bTwo\else\vd@bOne\fi
   \vd@lo=-0.5\vd@W \advance\vd@lo by 0.5\vd@gap \advance\vd@lo by \vd@a
   \vd@hi=0.5\vd@W \advance\vd@hi by -0.5\vd@gap \advance\vd@hi by -\vd@b
   \ifdim\vd@lo>\vd@hi #5=0.5\vd@lo \advance#5 by 0.5\vd@hi
@@ -271,20 +290,23 @@
 \newcommand\vd@ifTR{\ifvd@breakTR\expandafter\@firstoftwo\else\expandafter\@secondoftwo\fi}
 \newcommand\vd@ifBL{\ifvd@breakBL\expandafter\@firstoftwo\else\expandafter\@secondoftwo\fi}
 \newcommand\vd@ifBR{\ifvd@breakBR\expandafter\@firstoftwo\else\expandafter\@secondoftwo\fi}
-\newcommand{\vertexDiagram}[5]{%
-  \sbox\vd@tmpbox{$\sporkvert = (\sporkz, #1)$}\vd@W=\wd\vd@tmpbox \advance\vd@W by 6.4pt
-  \vd@row{\sporkTlSigA(\sporkvert)}{#2}{\sporkTlSigB(\sporkvert)}{#3}\vd@topShift
+\newcommand{\vertexDiagram}[6][]{%
+  \vd@setopts{#1}%
+  \sbox\vd@tmpbox{$\sporkvert = (\sporkz, #2)$}\vd@W=\wd\vd@tmpbox \advance\vd@W by 6.4pt
+  \vd@row{\sporkTlSigA(\sporkvert)}{#3}{\sporkTlSigB(\sporkvert)}{#4}\vd@topShift\vd@optTL\vd@optTR
+  \ifx\vd@optTopShift\@empty\else \vd@topShift=\vd@optTopShift\relax\fi
   \ifvd@breakA\vd@breakTLtrue\else\vd@breakTLfalse\fi
   \ifvd@breakB\vd@breakTRtrue\else\vd@breakTRfalse\fi
-  \vd@row{\sporkPendA(\sporkvert)}{#4}{\sporkPendB(\sporkvert)}{#5}\vd@botShift
+  \vd@row{\sporkPendA(\sporkvert)}{#5}{\sporkPendB(\sporkvert)}{#6}\vd@botShift\vd@optBL\vd@optBR
+  \ifx\vd@optBotShift\@empty\else \vd@botShift=\vd@optBotShift\relax\fi
   \ifvd@breakA\vd@breakBLtrue\else\vd@breakBLfalse\fi
   \ifvd@breakB\vd@breakBRtrue\else\vd@breakBRfalse\fi
   \begin{tikzpicture}[baseline=(ctor.base)]
-    \node[vertCtor] (ctor) {$\sporkvert = (\sporkz, #1)$};
-    \vd@box{anchor=south east, at={($(ctor.north)+(\vd@topShift-0.5\vd@gap,2.5mm)$)}}{tl}{\sporkTlSigA(\sporkvert)}{#2}\vd@ifTL
-    \vd@box{anchor=south west, at={($(ctor.north)+(\vd@topShift+0.5\vd@gap,2.5mm)$)}}{tr}{\sporkTlSigB(\sporkvert)}{#3}\vd@ifTR
-    \vd@box{anchor=north east, at={($(ctor.south)+(\vd@botShift-0.5\vd@gap,-2.5mm)$)}}{bl}{\sporkPendA(\sporkvert)}{#4}\vd@ifBL
-    \vd@box{anchor=north west, at={($(ctor.south)+(\vd@botShift+0.5\vd@gap,-2.5mm)$)}}{br}{\sporkPendB(\sporkvert)}{#5}\vd@ifBR
+    \node[vertCtor] (ctor) {$\sporkvert = (\sporkz, #2)$};
+    \vd@box{anchor=south east, at={($(ctor.north)+(\vd@topShift-0.5\vd@gap,2.5mm)$)}}{tl}{\sporkTlSigA(\sporkvert)}{#3}\vd@ifTL
+    \vd@box{anchor=south west, at={($(ctor.north)+(\vd@topShift+0.5\vd@gap,2.5mm)$)}}{tr}{\sporkTlSigB(\sporkvert)}{#4}\vd@ifTR
+    \vd@box{anchor=north east, at={($(ctor.south)+(\vd@botShift-0.5\vd@gap,-2.5mm)$)}}{bl}{\sporkPendA(\sporkvert)}{#5}\vd@ifBL
+    \vd@box{anchor=north west, at={($(ctor.south)+(\vd@botShift+0.5\vd@gap,-2.5mm)$)}}{br}{\sporkPendB(\sporkvert)}{#6}\vd@ifBR
     \draw ($(tl.south east)+(-1.5mm,0)$) -- ++(0,-2.5mm);
     \draw ($(tr.south west)+(1.5mm,0)$) -- ++(0,-2.5mm);
     \draw ($(bl.north east)+(-1.5mm,0)$) -- ++(0,2.5mm);
@@ -304,12 +326,13 @@
   \ifdim\vd@tmp>\vd@b \vd@b=\vd@tmp\fi
   \vd@tmp=\vd@W \advance\vd@tmp by \vd@a \advance\vd@tmp by \vd@b
   \advance\vd@tmp by 5mm\relax}
-\newcommand{\vertexDiagramSides}[5]{%
-  \sbox\vd@tmpbox{$\sporkvert = (\sporkz, #1)$}\vd@W=\wd\vd@tmpbox \advance\vd@W by 6.4pt
-  \vd@widths{\sporkTlSigA(\sporkvert)}{#2}\vd@aOne\vd@aTwo
-  \vd@widths{\sporkPendA(\sporkvert)}{#4}\vd@bOne\vd@bTwo
-  \vd@widths{\sporkTlSigB(\sporkvert)}{#3}\vd@cOne\vd@cTwo
-  \vd@widths{\sporkPendB(\sporkvert)}{#5}\vd@dOne\vd@dTwo
+\newcommand{\vertexDiagramSides}[6][]{%
+  \vd@setopts{#1}%
+  \sbox\vd@tmpbox{$\sporkvert = (\sporkz, #2)$}\vd@W=\wd\vd@tmpbox \advance\vd@W by 6.4pt
+  \vd@widths{\sporkTlSigA(\sporkvert)}{#3}\vd@aOne\vd@aTwo
+  \vd@widths{\sporkPendA(\sporkvert)}{#5}\vd@bOne\vd@bTwo
+  \vd@widths{\sporkTlSigB(\sporkvert)}{#4}\vd@cOne\vd@cTwo
+  \vd@widths{\sporkPendB(\sporkvert)}{#6}\vd@dOne\vd@dTwo
   \vd@breakTLfalse \vd@breakBLfalse \vd@breakTRfalse \vd@breakBRfalse
   \vd@sideWidths
   \ifdim\vd@tmp>\linewidth
@@ -317,12 +340,16 @@
     \vd@sideWidths
     \ifdim\vd@tmp>\linewidth \vd@breakTLtrue \vd@breakBLtrue \vd@breakTRtrue \vd@breakBRtrue \fi
   \fi
+  \vd@override\vd@optTL\vd@breakTLtrue\vd@breakTLfalse
+  \vd@override\vd@optTR\vd@breakTRtrue\vd@breakTRfalse
+  \vd@override\vd@optBL\vd@breakBLtrue\vd@breakBLfalse
+  \vd@override\vd@optBR\vd@breakBRtrue\vd@breakBRfalse
   \begin{tikzpicture}[baseline=(ctor.base)]
-    \node[vertCtor] (ctor) {$\sporkvert = (\sporkz, #1)$};
-    \vd@box{anchor=south east, at={($(ctor.west)+(-2.5mm,0.5mm)$)}}{tl}{\sporkTlSigA(\sporkvert)}{#2}\vd@ifTL
-    \vd@box{anchor=south west, at={($(ctor.east)+(2.5mm,0.5mm)$)}}{tr}{\sporkTlSigB(\sporkvert)}{#3}\vd@ifTR
-    \vd@box{anchor=north east, at={($(ctor.west)+(-2.5mm,-0.5mm)$)}}{bl}{\sporkPendA(\sporkvert)}{#4}\vd@ifBL
-    \vd@box{anchor=north west, at={($(ctor.east)+(2.5mm,-0.5mm)$)}}{br}{\sporkPendB(\sporkvert)}{#5}\vd@ifBR
+    \node[vertCtor] (ctor) {$\sporkvert = (\sporkz, #2)$};
+    \vd@box{anchor=south east, at={($(ctor.west)+(-2.5mm,0.5mm)$)}}{tl}{\sporkTlSigA(\sporkvert)}{#3}\vd@ifTL
+    \vd@box{anchor=south west, at={($(ctor.east)+(2.5mm,0.5mm)$)}}{tr}{\sporkTlSigB(\sporkvert)}{#4}\vd@ifTR
+    \vd@box{anchor=north east, at={($(ctor.west)+(-2.5mm,-0.5mm)$)}}{bl}{\sporkPendA(\sporkvert)}{#5}\vd@ifBL
+    \vd@box{anchor=north west, at={($(ctor.east)+(2.5mm,-0.5mm)$)}}{br}{\sporkPendB(\sporkvert)}{#6}\vd@ifBR
     \draw ($(tl.south east)+(0,1.2mm)$) -- ++(2.5mm,0);
     \draw ($(tr.south west)+(0,1.2mm)$) -- ++(-2.5mm,0);
     \draw ($(bl.north east)+(0,-1.2mm)$) -- ++(2.5mm,0);

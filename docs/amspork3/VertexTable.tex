@@ -19,15 +19,15 @@
   {}
   {\{ \sporkPendingAwait(\sporkx, \sporkz_i^*, \sporkz_a) \mid \sporkz_a \ge \sporkz_\textrm{arrive}\}}
 \hfill
-\vertexDiagram
+\vertexDiagram[tr break=false]
   {\sporkTrAwait(\sporkTid_\textrm{await}, \sporkQtlAwait, \sporkpend)}
   {}
   {\sporkTid_\textrm{await} \times \sporkQtlAwait}
   {\{ \sporkpend \}}
   {}
 
-\medskip
-\vertexDiagramSides
+\vspace{-8pt} % kern Fence up into the short parts of the Arrive/Await row
+\vertexDiagramSides[tl break=false, tr break=true]
   {\sporkTrFence(\sporkTid_\textrm{fence}, \sporkQtlArrive, \sporkQtlAwait)}
   {\sporkTid_\textrm{fence} \times \sporkQtlArrive}
   {\sporkTid_\textrm{fence} \times \sporkQtlAwait}
