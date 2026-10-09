@@ -1,30 +1,38 @@
 \magicSubsection{Synchronization Environment Concatenation}{sec:SyncEnvConcat}
 % ``concatenation'' maybe dumb
 
+Define helper%% , which tests whether an edge (Section~\ref{sec:TraceEdges}) would connect some vertex summarized by $\sporkenvValue$ to $\sporktr$.
+%% The $\sporkQtlMask$ filtering of edges is already applied when unioning into $\sporkTlSig_v$ (Cases 1 and 2 below), so it does not appear here:
+\begin{align}
+    & \sporksyncsWith: \sporkEnvValue \times \sporkTr \to \sporkBool
+    \label{eq:syncsWith}
+    \\
+    & \sporksyncsWith((\sporkTlSig_v, \sporkPend_v, \sporkQtlMask), \sporktr) =
+    \sporkTlSig_v \cap \sporkTlSigA(\sporktr) \cap (\sporkTid \times \sporkQtlMask) \ne \varnothing
+      \lor
+      \sporkPend_v \cap \sporkPendA(\sporktr) \ne \varnothing \notag % f the overfull hbox
+\end{align}
 Define $\sporkenv \sporkConcatEnv \sporktr_d$ by cases; all cases are total except $\sporkTrReqCanAccess$:
 
 \mainKey{Case 1/3:} $\sporktr_d = \sporkTrNewAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTid_\textrm{new}, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask, \sporkPendAwait)$
-\begin{gather}
+\begin{align}
     \sporkenv \sporkConcatEnv \sporktr_d =
     % \sporkenv \cup \{ ((\sporkmut, \sporkx, \sporkz_i^*), (\sporkTid_\textrm{new} \times \{\sporkqtlInit\}, \sporkPendAwait, \sporkQtlMask)) \}
-    \sporkenv \cup \{ ((\sporkmut, \sporkx, \sporkz_i^*), (\sporkTlSigB(\sporktr_d), \sporkPendB(\sporktr_d), \sporkQtlMask)) \}
+    \sporkenv \cup \{ ((\sporkmut, \sporkx, \sporkz_i^*), (\sporkTlSigB(\sporktr_d) \cap (\sporkTid \times \sporkQtlMask), \sporkPendB(\sporktr_d), \sporkQtlMask)) \}
     \label{eq:envConcatNew}
-\end{gather}
+\end{align}
 \mainKey{Case 2/3:} $\sporktr_d$ is constructed with $\sporkTrFence$, $\sporkTrArrive$, or $\sporkTrAwait$.
 \begin{align}
     & \sporkenv \sporkConcatEnv \sporktr_d = \{ (\sporkenvKey, \lambda(\sporkenvValue)) \mid (\sporkenvKey, \sporkenvValue) \in \sporkenv \}
     \label{eq:envConcatSync} \\
-    & \text{ where } \lambda((\sporkTlSig_v, \sporkPend_v, \sporkQtlMask)) = \notag \\
-    & \begin{cases}
-      (\sporkTlSig_v \cup \sporkTlSigB(\sporktr_d), \sporkPend_v \cup \sporkPendB(\sporktr_d), \sporkQtlMask)
-      &
-      \sporkTlSig_v \cap \sporkTlSigA(\sporktr_d) \ne \varnothing
-      \lor
-      \sporkPend_v \cap \sporkPendA(\sporktr_d) \ne \varnothing
-      \\
-      (\sporkTlSig_v, \sporkPend_v, \sporkQtlMask) & \text{otherwise}
-    \end{cases}
-    \notag
+    % Idiotic unpacking of \sporkenvValue for now.
+    % PL community should invest in standardized math syntax that's actually good.
+    & \text{where } \lambda(\sporkenvValue) = \lambda((\sporkTlSig_v, \sporkPend_v, \sporkQtlMask)) = \notag \\
+    & \quad \begin{cases}
+      (\sporkTlSig_v \cup (\sporkTlSigB(\sporktr_d) \cap (\sporkTid \times \sporkQtlMask)), \sporkPend_v \cup \sporkPendB(\sporktr_d), \sporkQtlMask)
+      & \sporksyncsWith(\sporkenvValue, \sporktr_d) \\
+      \sporkenvValue & \text{otherwise}
+    \end{cases} \notag
 \end{align}
 \mainKey{Case 3/3:} $\sporktr_d = \sporkTrReqCanAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTid_\textrm{req}, \sporkQtlPre, \sporkPendFree)$
 \begin{align}
@@ -37,6 +45,6 @@ Define $\sporkenv \sporkConcatEnv \sporktr_d$ by cases; all cases are total exce
     \text{where \textsf{isLegal} = }
     & \textbf{let } \sporkEnvKey_e = \sporkmutReqs(\sporkmut) \times \{ \sporkx \} \times \{ \sporkz_i^* \} \textbf{ in} \notag \\
     & \forall \sporkenvKey \in \sporkEnvKey_e. \notag \\
-    & \forall (\sporkTlSig_v, \sporkPend_v, \sporkQtlMask) \in \sporkenv(\sporkenvKey). \notag \\
-    & (\sporkTlSig_v \cap \sporkTlSigA(\sporktr_d) \ne \varnothing \lor \sporkPend_v \cap \sporkPendA(\sporktr_d) \ne \varnothing) \notag
+    & \forall \sporkenvValue \in \sporkenv(\sporkenvKey).\,
+    \sporksyncsWith(\sporkenvValue, \sporktr_d) \notag
 \end{align}
