@@ -207,17 +207,22 @@
 \newcommand{\sporkEdgeArrow}[3]{({#1} \xrightarrow{#2} {#3})}
 
 %% Trace Concatenation Check
+\newcommand{\sporkvertMask}{\mathord{\hyperref[eq:vertMask]{\textsf{vertMask}}}}
 \newcommand{\sporktrReachable}{\mathord{\hyperref[eq:trReachable]{\textsf{trReachable}}}}
 \newcommand{\sporktrNewVerts}{\mathord{\hyperref[eq:trNewVerts]{\textsf{trNewVerts}}}}
 \newcommand{\sporkmutReqs}{\mathord{\hyperref[eq:mutReqs]{\textsf{mutReqs}}}}
 \newcommand{\sporkPATH}{\mathord{\hyperref[eq:trReachable]{\textrm{PATH}}}}
 \newcommand{\sporkConcatChk}{\mathord{\hyperref[eq:concatChk]{\underset{\textsf{chk}}{\texttt{++}}}}}
 
+%% Synchronization Environment
+\newcommand{\sporkenv}{\mathord{\hyperref[sec:SyncEnv]{\textsf{env}}}}
+\newcommand{\sporkEnv}{\mathord{\hyperref[sec:SyncEnv]{\textsf{Env}}}}
+\newcommand{\sporkEnvKey}{\mathord{\hyperref[sec:SyncEnv]{\textsf{EnvKey}}}}
+\newcommand{\sporkenvKey}{\mathord{\hyperref[sec:SyncEnv]{\textsf{envKey}}}}
+\newcommand{\sporkEnvValue}{\mathord{\hyperref[sec:SyncEnv]{\textsf{EnvValue}}}}
+\newcommand{\sporkenvValue}{\mathord{\hyperref[sec:SyncEnv]{\textsf{envValue}}}}
+
 %% TODO links to forthcoming definitions
 \newcommand{\sporkConcatEnv}{\mathord{\underset{\textsf{env}}{\texttt{++}}}}
 \newcommand{\sporkqtlConvergent}{\mathord{\textsf{qtlConvergent}}}
 \newcommand{\sporkQtlCuda}{\mathord{\underset{\textrm{cuda}}{\sporkQtl}}}
-\newcommand{\sporkEnvKey}{\mathord{\textsf{EnvKey}}}  % Defined earlier than I'd like.
-\newcommand{\sporkenvKey}{\mathord{\textsf{envKey}}}
-\newcommand{\sporkEnvValue}{\mathord{\textsf{EnvValue}}}
-\newcommand{\sporkenvValue}{\mathord{\textsf{envValue}}}

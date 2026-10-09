@@ -1,37 +1,42 @@
 \magicSubsection{Trace Concatenation Check}{sec:TraceConcatChk}
 
-The checked concatenation $\sporktr^* \sporkConcatChk \sporktr_\textrm{req}$
-can fail only for $\sporktr_\textrm{req}$ constructed from the $\sporkTrReqCanAccess$ constructor.
-The concatenated event is legal if and only if the event is reachable
-(by following graph edges filtered by $\sporkQtlMask$)
-from all prior $\sporkTrNewAccess$ events to the same array element (same $\sporkx$ and $\sporkz_i^*$),
-excluding those that are labelled as $\sporkread$ if the new event is also a $\sporkread$.
+The checked concatenation $\sporktr^* \sporkConcatChk \sporktr_d$
+can fail only for $\sporktr_d$ constructed from the $\sporkTrReqCanAccess$ constructor.
+The concatenated ``destination'' event is legal if and only if the event is reachable
+from \textbf{all} prior ``source'' $\sporkTrNewAccess$ events to the same array element (same $\sporkx$ and $\sporkz_i^*$),
+excluding those that are tagged as $\sporkread$ if the new event is also a $\sporkread$.
+The reachability depends on edges filtered by the $\sporkQtlMask$ of the source event.
 
-With $\sporkPATH$ denoting the typical path-existence decision problem,
-define type $\sporkEnvKey$, and helpers $\sporktrReachable$, $\sporktrNewVerts$, $\sporkmutReqs$:
+With $\sporkPATH$ denoting the typical path-existence decision problem (ignoring edge labels),
+define type $\sporkEnvKey$, and helpers $\sporkvertMask$, $\sporktrReachable$, $\sporktrNewVerts$, $\sporkmutReqs$:
 \begin{align}
     % Not the most natural place for EnvKey but I don't know how to fix this.
-    {\color{gray}\bullet} &
-    \sporkenvKey: \sporkEnvKey \Coloneqq (\sporkmut, \sporkx, \sporkz^*) \\
-    {\color{gray}\bullet} &
-    \sporktrReachable: \sporkTr^* \times \mathcal{P}(\sporkQtl) \times \sporkVert \to \mathcal{P}(\sporkVert)
-    \codecomment{\,(Vertices with path from given source)}
+    {\color{gray}\bullet\,} &
+    \sporkenvKey: \sporkEnvKey \Coloneqq (\sporkmut, \sporkx, \sporkz_i^*) \\
+    {\color{gray}\bullet\,} &
+    \sporkvertMask: \sporkVert \rightharpoonup \mathcal{P}(\sporkQtl) \quad
+    \sporkvertMask((\sporkz, \sporkTrNewAccess(\_, \_, \_, \_, \_, \_, \sporkQtlMask, \_))) = \sporkQtlMask
+    \label{eq:vertMask} \\
+    {\color{gray}\bullet\,} &
+    \sporktrReachable: \sporkTr^* \times \sporkVert \rightharpoonup \mathcal{P}(\sporkVert)
+    \codecomment{\,(Vertices with path from given source $\sporkTrNewAccess$ vertex)}
     \notag \\
-    & \sporktrReachable(\sporktr^*, \sporkQtlMask, \sporkvert) = \{
-        \sporkvert_d \in \sporktrVerts(\sporktr^*) \notag \\
-    & \quad\mid
-        \sporkPATH(\sporktrVerts(\sporktr^*), \sporktrEdges(\sporktr^*, \sporkQtlMask), \sporkvert_s, \sporkvert_d)
-    \} \label{eq:trReachable} \\
-    {\color{gray}\bullet} &
+    & \sporktrReachable(\sporktr^*, \sporkvert_s) = \{
+        \sporkvert_d \in \sporkVert_G \mid \sporkPATH(\sporkVert_G, \sporkEdge_G, \sporkvert_s, \sporkvert_d) \} \label{eq:trReachable} \\
+    & \text{where } \sporkVert_G = \sporktrVerts(\sporktr^*), \sporkEdge_G = \sporktrEdges(\sporktr^*, \sporkvertMask(\sporkvert_s)) \notag \\
+    %% & \quad\mid
+    %%     \sporkPATH(\sporktrVerts(\sporktr^*), \sporktrEdges(\sporktr^*, \textsf{maskOf}(\sporkvert_s)), \sporkvert_s, \sporkvert_d)
+    %% \} \label{eq:trReachable} \\
+    {\color{gray}\bullet\,} &
     \sporktrNewVerts: \sporkTr^* \times \mathcal{P}(\sporkEnvKey) \to \mathcal{P}(\sporkVert) \notag \\
     & \sporktrNewVerts(\sporktr^*, \sporkEnvKey_a) = \{
     \codecomment{\,($\sporkTrNewAccess$-constructed vertices, filtered by $(\sporkmut, \sporkx, \sporkz_i^*)$)}
     \notag \\
-    & \quad (z, \sporkTrNewAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTid_\textrm{new}, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask, \sporkPendAwait))
+    & \quad (\sporkz, \sporkTrNewAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTid_\textrm{new}, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask, \sporkPendAwait))
       \in \sporktrVerts(\sporktr^*) \notag \\
     & \quad\mid (\sporkmut, \sporkx, \sporkz_i^*) \in \sporkEnvKey_a \}
     \label{eq:trNewVerts} \\
-    {\color{gray}\bullet} & \sporkmutReqs: \sporkMut \to \mathcal{P}(\sporkMut)
+    {\color{gray}\bullet\,} & \sporkmutReqs: \sporkMut \to \mathcal{P}(\sporkMut)
     \codecomment{\,(Will be used to ignore read/read pairs)} \notag \\
     & \sporkmutReqs(\sporkread) = \{\sporkmutate\} \quad \sporkmutReqs(\sporkmutate) = \{ \sporkread, \sporkmutate \}
     \label{eq:mutReqs}
@@ -50,7 +55,7 @@ For $\sporktr_d = \sporkTrReqCanAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTi
     & \textbf{let } \sporkEnvKey_a = \sporkmutReqs(\sporkmut) \times \{ \sporkx \} \times \{ \sporkz_i^* \} \textbf{ in} \notag \\
     & \textbf{let } \sporkVert_s = \sporktrNewVerts(\sporktr^*_\textrm{cat}, \sporkEnvKey_a) \textbf{ in} \notag \\
     & \forall \sporkvert_s \in \sporkVert_s.\,
-    \sporkvert_d \in \sporktrReachable(\sporktr^*_\textrm{cat}, \sporkQtlMask, \sporkvert_s)
+    \sporkvert_d \in \sporktrReachable(\sporktr^*_\textrm{cat}, \sporkvert_s)
 \end{align}
 $\sporktr^* \sporkConcatChk \sporktr_d = \sporktr^* \sporkConcatRaw \sporktr_d$ for all other $\sporktr_d$.
 %% XXX
