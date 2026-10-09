@@ -8,18 +8,11 @@ into a set of vertices by pairing each trace event with its 0-based index in the
     \sporktrVerts(\sporktr^* \sporkConcatRaw \sporktr_0) &= \sporktrVerts(\sporktr^*) \cup \{ (\abs{\sporktr^*}, \sporktr_0 ) \}
     \label{eq:sporktrVerts}
 \end{align}
-Each vertex $\sporkvert$ advertises two kinds of first and second sets:
+Each trace event $\sporktr$ advertises two kinds of first and second sets:
 \textbf{(a)} timeline signature sets\footnote{Legacy: ``visibility set''}
-$\sporkTlSigA(\sporkvert)$ and $\sporkTlSigB(\sporkvert)$,
+$\sporkTlSigA(\sporktr)$ and $\sporkTlSigB(\sporktr)$,
 where a timeline signature $\sporktlSig: \sporkTlSig$ is a pair $(\sporktid, \sporkqtl)$;
-and, \textbf{(b)} pending await sets $\sporkPendA(\sporkvert)$ and $\sporkPendB(\sporkvert)$.
+and, \textbf{(b)} pending await sets $\sporkPendA(\sporktr)$ and $\sporkPendB(\sporktr)$.
 They are defined per-trace-event-constructor in Figure~\ref{fig:VertexTable}.
-
-The $\sporkvertQtlMask: \sporkVert \rightharpoonup \mathcal{P}(\sporkQtl)$ helper is defined for vertices constructed with $\sporkTrNewAccess$ only:
-\begin{align}
-\sporkvertQtlMask((\sporkz, \sporkTrNewAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTid_\textrm{new}, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask, \sporkPend_\textrm{await}))) = \sporkQtlMask
-\label{eq:vertQtlMask}
-\end{align}
-
 
 \input{amspork3/VertexTable.tex}
