@@ -17,8 +17,9 @@ define type $\sporkEnvKey$, and helpers $\sporktrReachable$, $\sporktrNewVerts$,
     \sporktrReachable: \sporkTr^* \times \mathcal{P}(\sporkQtl) \times \sporkVert \to \mathcal{P}(\sporkVert)
     \codecomment{\,(Vertices with path from given source)}
     \notag \\
-    & \{
-        \sporkvert_d \in \sporktrVerts(\sporktr^*) \mid
+    & \sporktrReachable(\sporktr^*, \sporkQtlMask, \sporkvert) = \{
+        \sporkvert_d \in \sporktrVerts(\sporktr^*) \notag \\
+    & \quad\mid
         \sporkPATH(\sporktrVerts(\sporktr^*), \sporktrEdges(\sporktr^*, \sporkQtlMask), \sporkvert_s, \sporkvert_d)
     \} \label{eq:trReachable} \\
     {\color{gray}\bullet} &
@@ -28,7 +29,7 @@ define type $\sporkEnvKey$, and helpers $\sporktrReachable$, $\sporktrNewVerts$,
     \notag \\
     & \quad (z, \sporkTrNewAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTid_\textrm{new}, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask, \sporkPendAwait))
       \in \sporktrVerts(\sporktr^*) \notag \\
-    & \mid (\sporkmut, \sporkx, \sporkz_i^*) \in \sporkEnvKey_a \}
+    & \quad\mid (\sporkmut, \sporkx, \sporkz_i^*) \in \sporkEnvKey_a \}
     \label{eq:trNewVerts} \\
     {\color{gray}\bullet} & \sporkmutReqs: \sporkMut \to \mathcal{P}(\sporkMut)
     \codecomment{\,(Will be used to ignore read/read pairs)} \notag \\
