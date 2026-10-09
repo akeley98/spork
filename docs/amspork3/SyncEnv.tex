@@ -1,0 +1,13 @@
+\magicSection{Synchronization Environment}{sec:SyncEnv}
+
+The goal of the synchronization environment is to ``compress'' the trace into an environment-like object that records a summary of the prior reads and mutates done to each array element.
+Rather than keeping the literal trace, the prior reads and mutates are summarized based on analyzing how synchronization events propagate the observation of the read or mutate to more threads.
+Define
+\begin{align}
+    % Already defined EnvKey, but this is the proper place.
+    \sporkenvKey: \sporkEnvKey &\Coloneqq (\sporkmut, \sporkx, \sporkz_i^*) \\
+    \sporkenvValue: \sporkEnvValue &\Coloneqq (\sporkTlSig_v, \sporkPend_v, \sporkQtlMask) \\
+    \sporkEnv &= \mathcal{P}(\sporkEnvKey \times \sporkEnvValue)
+\end{align}
+Ignoring the effects of set de-duplication, each $(\sporkenvKey, \sporkenvValue)$ pair in a given $\sporkenv:\sporkEnv$ corresponds 1:1 with a $\sporkTrNewAccess$ event.
+The ultimate goal of this section is to define $\sporkenv$ and $\sporkConcatEnv$ as semantics-preserving drop-in replacements for $\sporktr^*$ and $\sporkConcatChk$; i.e., that alternative semantics (Section~\ref{sec:Semantics}) with $\sporktr^*$ and $\sporkConcatChk$ replaced with $\sporkenv$ and $\sporkConcatEnv$ will get stuck on an input program iff said program gets stuck with the original semantics.
