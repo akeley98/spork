@@ -9,14 +9,12 @@ $\sporkConcatChk: \sporkTr^* \times \sporkTr \rightharpoonup \sporkTr^*$.
 $\sporktr^* \sporkConcatChk \sporktr_0$ is undefined when the check in
 Section~\ref{sec:TraceConcatChk} fails; otherwise, it's the concatenation of $\sporktr^*, \sporktr_0$.
 
-For clarity, we also define a ``raw'' trace concatenation operator
+For clarity, we also define ``raw'' trace concatenation
 $\sporkConcatRaw: \sporkTr^* \times \sporkTr \to \sporkTr^*$
-that omits the checking.
+that omits checking.
 
 All trace concatenation functions are left associative and implicitly apply iteratively to a right-hand tuple argument, i.e.
-\begin{gather}
-  \sporktr^* \texttt{++} (\sporktr_0, \sporktr_1) = \sporktr^* \texttt{++} \sporktr_0 \texttt{++} \sporktr_1
-\end{gather}
+$\sporktr^* \texttt{++} (\sporktr_0, \sporktr_1) = \sporktr^* \texttt{++} \sporktr_0 \texttt{++} \sporktr_1$.
 
 \input{amspork3/TraceVertices.tex}
 \input{amspork3/TraceEdges.tex}

@@ -1,1 +1,17 @@
 \magicSubsection{Trace Edges}{sec:TraceEdges}
+
+Pairs of vertices are conditionally connected by edges into a DAG based on the overlap of their second and first sets;
+each edge is labelled by the timeline signature $\sporktlSig$ or pending await $\sporkpend$ found in the overlap.
+The $\sporktlSig$-labelled edges are further filtered by a given $\sporkQtlMask$.
+Edges can only go from lower-indexed vertices in the trace to higher-indexed vertices.
+
+Given $\sporkvert_1, \sporkvert_2 \in \sporktrVerts(\sporktr^*)$ and $\sporkvert_1$ is ordered before $\sporkvert_2$,
+\begin{align*}
+    (\sporkEdgeArrow{\sporkvert_1}{(\sporktid, \sporkqtl)}{\sporkvert_2}) \in \sporktrEdges(\sporktr^*, \sporkQtlMask)
+    & \iff
+    (\sporktid, \sporkqtl) \in \sporkTlSigB(\sporkvert_1) \cap \sporkTlSigA(\sporkvert_2) \land
+    \sporkqtl \in \sporkQtlMask \\
+    (\sporkEdgeArrow{\sporkvert_1}{\sporkpend}{\sporkvert_2}) \in \sporktrEdges(\sporktr^*, \sporkQtlMask)
+    & \iff
+    \sporkpend \in \sporkPendB(\sporkvert_1) \cap \sporkPendA(\sporkvert_2)
+\end{align*}
