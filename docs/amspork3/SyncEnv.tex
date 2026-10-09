@@ -11,3 +11,9 @@ Define
 \end{align}
 Ignoring the effects of set de-duplication, each $(\sporkenvKey, \sporkenvValue)$ pair in a given $\sporkenv:\sporkEnv$ corresponds 1:1 with a $\sporkTrNewAccess$ event.
 The ultimate goal of this section is to define $\sporkenv$ and $\sporkConcatEnv$ as semantics-preserving drop-in replacements for $\sporktr^*$ and $\sporkConcatChk$; i.e., that alternative semantics (Section~\ref{sec:Semantics}) with $\sporktr^*$ and $\sporkConcatChk$ replaced with $\sporkenv$ and $\sporkConcatEnv$ will get stuck on an input program iff said program gets stuck with the original semantics.
+For brevity, we allow treating $\sporkenv$ as a relation $\sporkEnvKey \to \mathcal{P}(\sporkEnvValue)$:
+\begin{align}
+    \sporkenv(\sporkenvKey) = \{ \sporkenvValue \mid (\sporkenvKey, \sporkenvValue) \in \sporkenv \}
+\end{align}
+
+\input{amspork3/SyncEnvConcat.tex}
