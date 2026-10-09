@@ -1,12 +1,88 @@
 \magicSubsection{Trace Concatenation Check}{sec:TraceConcatChk}
 
-The checked concatenation $\sporktr^* \sporkConcatChk \sporktr_0$
-can fail only for $\sporktr_0$ constructed from the $\sporkTrReqCanAccess$ constructor.
-The concatenated event is legal if and only if the event is reachable (by following graph edges filtered by $\sporkQtlMask$)
-from all prior $\sporkTrNewAccess$ events to the same array element (same $\sporksigma$ and $\sporkz_i^*$),
+The checked concatenation $\sporktr^* \sporkConcatChk \sporktr_\textrm{req}$
+can fail only for $\sporktr_\textrm{req}$ constructed from the $\sporkTrReqCanAccess$ constructor.
+The concatenated event is legal if and only if the event is reachable
+(by following graph edges filtered by $\sporkQtlMask$)
+from all prior $\sporkTrNewAccess$ events to the same array element (same $\sporkx$ and $\sporkz_i^*$),
 excluding those that are labelled as $\sporkread$ if the new event is also a $\sporkread$.
 
-\begin{gather*}
-\sporktrReachable = \redBox{todo}
-\label{eq:trReachable}
-\end{gather*}
+With $\sporkPATH$ denoting the typical path-existence decision problem,
+define type $\sporkEnvKey$, and helpers $\sporktrReachable$, $\sporktrNewVerts$, $\sporkmutReqs$:
+\begin{align}
+    % Not the most natural place for EnvKey but I don't know how to fix this.
+    {\color{gray}\bullet} &
+    \sporkenvKey: \sporkEnvKey \Coloneqq (\sporkmut, \sporkx, \sporkz^*) \\
+    {\color{gray}\bullet} &
+    \sporktrReachable: \sporkTr^* \times \mathcal{P}(\sporkQtl) \times \sporkVert \to \mathcal{P}(\sporkVert)
+    \codecomment{\,(Vertices with path from given source)}
+    \notag \\
+    & \{
+        \sporkvert_d \in \sporktrVerts(\sporktr^*) \mid
+        \sporkPATH(\sporktrVerts(\sporktr^*), \sporktrEdges(\sporktr^*, \sporkQtlMask), \sporkvert_s, \sporkvert_d)
+    \} \label{eq:trReachable} \\
+    {\color{gray}\bullet} &
+    \sporktrNewVerts: \sporkTr^* \times \mathcal{P}(\sporkEnvKey) \to \mathcal{P}(\sporkVert) \notag \\
+    & \sporktrNewVerts(\sporktr^*, \sporkEnvKey_a) = \{
+    \codecomment{\,($\sporkTrNewAccess$-constructed vertices, filtered by $(\sporkmut, \sporkx, \sporkz_i^*)$)}
+    \notag \\
+    & \quad (z, \sporkTrNewAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTid_\textrm{new}, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask, \sporkPendAwait))
+      \in \sporktrVerts(\sporktr^*) \notag \\
+    & \mid (\sporkmut, \sporkx, \sporkz_i^*) \in \sporkEnvKey_a \}
+    \label{eq:trNewVerts} \\
+    {\color{gray}\bullet} & \sporkmutReqs: \sporkMut \to \mathcal{P}(\sporkMut)
+    \codecomment{\,(Will be used to ignore read/read pairs)} \notag \\
+    & \sporkmutReqs(\sporkread) = \{\sporkmutate\} \quad \sporkmutReqs(\sporkmutate) = \{ \sporkread, \sporkmutate \}
+    \label{eq:mutReqs}
+\end{align}
+For $\sporktr_d = \sporkTrReqCanAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTid_\mathrm{req}, \sporkQtlPre, \sporkPendFree)$,
+\begin{align}
+    & \sporktr^* \sporkConcatChk \sporktr_d = \begin{cases}
+        \sporktr^* \sporkConcatRaw \sporktr_d & \textsf{isLegal} \\
+        \emph{undefined} & \text{otherwise}
+    \end{cases}
+    \label{eq:concatChk} \\
+    \text{where \textsf{isLegal} = }
+    & \textbf{let } \sporktr^*_\textrm{cat} = \sporktr^* \sporkConcatRaw \sporktr_d \textbf{ in} \notag \\
+    & \textbf{let } \sporkvert_d = (\abs{\sporktr^*}, \sporktr_d) \textbf{ in}
+    \codecomment{\,(newly added vertex)} \notag \\
+    & \textbf{let } \sporkEnvKey_a = \sporkmutReqs(\sporkmut) \times \{ \sporkx \} \times \{ \sporkz_i^* \} \textbf{ in} \notag \\
+    & \textbf{let } \sporkVert_s = \sporktrNewVerts(\sporktr^*_\textrm{cat}, \sporkEnvKey_a) \textbf{ in} \notag \\
+    & \forall \sporkvert_s \in \sporkVert_s.\,
+    \sporkvert_d \in \sporktrReachable(\sporktr^*_\textrm{cat}, \sporkQtlMask, \sporkvert_s)
+\end{align}
+$\sporktr^* \sporkConcatChk \sporktr_d = \sporktr^* \sporkConcatRaw \sporktr_d$ for all other $\sporktr_d$.
+%% XXX
+%% \begin{itemize}
+%%   \item $\sporktrReachable: \sporkTr^* \times \mathcal{P}(\sporkQtl) \times \sporkVert \to \mathcal{P}(\sporkVert)$
+%%   \codecomment{\# Vertices with path from given source vertex}
+%%   \item $\sporktrNewVerts: \sporkTr^* \times \mathcal{P}(\sporkMut \times \sporkX \times \sporkZ^*)$
+%%   \codecomment{\# $\sporkTrNewAccess$ vertices with given $(\sporkmut, \sporkx, \sporkz^*)$ ``key''}
+%% \end{itemize}
+%% \begin{gather}
+%% \inferrule*{
+%%   \sporkVert_G = \sporktrVerts(\sporktr^*) \\
+%%   \sporkEdge_G = \sporktrEdges(\sporktr^*, \sporkQtlMask) \\
+%%   \sporkPATH(\sporkVert_G, \sporkEdge_G, \sporkvert_s, \sporkvert_d)
+%% }
+%% {
+%%   \sporkvert_d \in \sporktrReachable(\sporktr^*, \sporkQtlMask, \sporkvert_s)
+%% }
+%% \hspace{-48pt} % spill into the left margin so the tag stays on this line
+%% \sporktrReachable(\sporktr^*, \sporkQtlMask, \sporkvert_s) = \{
+%%     \sporkvert_d \in \sporktrVerts(\sporktr^*) \mid
+%%     \sporkPATH(\sporktrVerts(\sporktr^*), \sporktrEdges(\sporktr^*, \sporkQtlMask), \sporkvert_s, \sporkvert_d)
+%% \}
+%% \label{eq:trReachable}
+%% \end{gather}
+%% where $\sporkPATH$ is the typical path decision problem (ignoring edge labels).
+%% \begin{align}
+%%   \hspace{-24pt} % spill into the left margin instead of the right
+%%   \sporktrNewVerts(\sporktr^*, \sporkEnvKey_a) = \{ &
+%%       (z, \sporkTrNewAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTid_\textrm{new}, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask, \sporkPendAwait))
+%%       \in \sporktrVerts(\sporktr^*) \notag \\
+%%       & \mid
+%%       (\sporkmut, \sporkx, \sporkz_i^*) \in \sporkEnvKey_a
+%%   \}
+%%   \label{eq:trNewVerts}
+%% \end{align}

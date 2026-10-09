@@ -3,13 +3,13 @@
 \begin{tabular}{rrl}
 \toprule
   $\sporktr : \sporkTr$ & $\Coloneqq$ &
-        $\sporkTrNewAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTid_\textrm{new}, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask, \sporkPend_\textrm{await})$ \\
+        $\sporkTrNewAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTid_\textrm{new}, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask, \sporkPendAwait)$ \\
   &$|$& $\sporkTrFence(\sporkTid_\textrm{fence}, \sporkQtlArrive, \sporkQtlAwait)$ \\
   &$|$& $\sporkTrArrive(\sporkTid_\textrm{arrive}, \sporkQtlArrive, \sporkx, \sporkz_i^*, \sporkz_\textrm{arrive})$ \\
   &$|$& $\sporkTrAwait(\sporkTid_\textrm{await}, \sporkQtlAwait, \sporkpend)$ \\
-  &$|$& $\sporkTrReqCanAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTid_\textrm{req}, \sporkQtlPre, \sporkPend_\textrm{free})$ \\
+  &$|$& $\sporkTrReqCanAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTid_\textrm{req}, \sporkQtlPre, \sporkPendFree)$ \\
 \bottomrule
 \end{tabular}
-\caption{Trace Types. The $\sporkPend_\textrm{free}$ is explained in a \redBox{TODO} SMEM appendix.}
+\caption{Trace Types. The $\sporkPendFree$ is explained in a \redBox{TODO} SMEM appendix.}
 \label{fig:Traces}
 \end{figure}
