@@ -1,8 +1,7 @@
 \magicSubsection{Trace Concatenation Check}{sec:TraceConcatChk}
 
 The checked concatenation $\sporktr^* \sporkConcatChk \sporktr_0$
-can fail only for $\sporktr_0$ constructed from constructors
-$\sporkTrReqCanAccess$ and $\sporkTrReqPendingAwait$.
+can fail only for $\sporktr_0$ constructed from the $\sporkTrReqCanAccess$ constructor.
 The concatenated event is legal if and only if the event is reachable (by following graph edges filtered by $\sporkQtlMask$)
 from all prior $\sporkTrNewAccess$ events to the same array element (same $\sporksigma$ and $\sporkz_i^*$),
 excluding those that are labelled as $\sporkread$ if the new event is also a $\sporkread$.

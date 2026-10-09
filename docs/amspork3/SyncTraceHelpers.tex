@@ -13,7 +13,7 @@
   \sporkqtlConvergent(\sporkqtlInit) \\
   \sporkTid_\textsf{all} = \sporktidMap(\sporksigma) \\
   \sporktr^*_\textsf{req} =
-  \textbf{(}\sporkTrReqCanAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTid_\textsf{all}, \sporkQtlPre) \textbf{)}_{
+  \textbf{(}\sporkTrReqCanAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTid_\textsf{all}, \sporkQtlPre, \varnothing) \textbf{)}_{
     (\sporkx, \sporkz_i^*) \in \sporkWunroll(\sporkwz)
   }\\
   \sporktr^*_\textsf{new} =
@@ -31,7 +31,7 @@
   \neg\sporkqtlConvergent(\sporkqtlInit) \\
   \sporkTid_\textsf{all} = \sporktidMap(\sporksigma) \\
   \sporktr^*_\textsf{req} =
-  \textbf{(}\sporkTrReqCanAccess(\sporkmut, \sporkx, \sporkz_i^*, \{ \sporktid \}, \sporkQtlPre) \textbf{)}_{
+  \textbf{(}\sporkTrReqCanAccess(\sporkmut, \sporkx, \sporkz_i^*, \{ \sporktid \}, \sporkQtlPre, \varnothing) \textbf{)}_{
     (\sporkx, \sporkz_i^*) \in \sporkWunroll(\sporkwz), \sporktid \in \sporkTid_\textsf{all}
   }\\
   \sporktr^*_\textsf{new} =

@@ -36,19 +36,12 @@
   {}
 
 \medskip
+\vspace{-11pt}
 \vertexDiagramSides
-  {\sporkTrReqCanAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTid_\textrm{req}, \sporkQtlPre)}
+  {\sporkTrReqCanAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTid_\textrm{req}, \sporkQtlPre, \sporkPend_\textrm{free})}
   {\sporkTid_\textrm{req} \times \sporkQtlPre}
   {}
-  {}
-  {}
-
-\medskip
-\vertexDiagramSides
-  {\sporkTrReqPendingAwait(\sporkmut, \sporkx, \sporkz_i^*, \sporkpend)}
-  {}
-  {}
-  {\{ \sporkpend \}}
+  {\sporkPend_\textrm{free}}
   {}
 \caption{Vertex ``first sets'' $\sporkTlSigA$, $\sporkPendA$ and ``second sets'' $\sporkTlSigB$, $\sporkPendB$.}
 \label{fig:VertexTable}
