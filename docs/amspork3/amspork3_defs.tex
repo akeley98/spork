@@ -207,6 +207,10 @@
 \newcommand{\sporkEdgeArrow}[3]{({#1} \xrightarrow{#2} {#3})}
 
 %% Trace Concatenation Check
+\newcommand{\sporkNewVert}{\mathord{\hyperref[sec:TraceConcatChk]{\textsf{NewVert}}}}
+% NOTE: didn't define newVert to avoid bloating horizontally even more.
+% NewVert exists just to allow avoiding typing as partial function;
+% vert is valid for vert \in NewVert and we don't rely on it alone to imply NewVert constraint.
 \newcommand{\sporkvertMask}{\mathord{\hyperref[eq:vertMask]{\textsf{vertMask}}}}
 \newcommand{\sporktrReachable}{\mathord{\hyperref[eq:trReachable]{\textsf{trReachable}}}}
 \newcommand{\sporktrNewVerts}{\mathord{\hyperref[eq:trNewVerts]{\textsf{trNewVerts}}}}

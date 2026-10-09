@@ -4,21 +4,22 @@ The checked concatenation $\sporktr^* \sporkConcatChk \sporktr_d$
 can fail only for $\sporktr_d$ constructed from the $\sporkTrReqCanAccess$ constructor.
 The concatenated ``destination'' event is legal if and only if the event is reachable
 from \textbf{all} prior ``source'' $\sporkTrNewAccess$ events to the same array element (same $\sporkx$ and $\sporkz_i^*$),
-excluding those that are tagged as $\sporkread$ if the new event is also a $\sporkread$.
+excluding source/destination pairs both tagged as $\sporkread$.
 The reachability depends on edges filtered by the $\sporkQtlMask$ of the source event.
 
 With $\sporkPATH$ denoting the typical path-existence decision problem (ignoring edge labels),
-define type $\sporkEnvKey$, and helpers $\sporkvertMask$, $\sporktrReachable$, $\sporktrNewVerts$, $\sporkmutReqs$:
+and with $\sporkNewVert$ (subset of $\sporkVert$) denoting vertices $(\sporkz, \sporktr)$ where $\sporktr$ is constructed with $\sporkTrNewAccess$,
+define types $\sporkEnvKey$ and helpers $\sporkvertMask$, $\sporktrReachable$, $\sporktrNewVerts$, $\sporkmutReqs$:
 \begin{align}
     % Not the most natural place for EnvKey but I don't know how to fix this.
     {\color{gray}\bullet\,} &
     \sporkenvKey: \sporkEnvKey \Coloneqq (\sporkmut, \sporkx, \sporkz_i^*) \\
     {\color{gray}\bullet\,} &
-    \sporkvertMask: \sporkVert \rightharpoonup \mathcal{P}(\sporkQtl) \quad
-    \sporkvertMask((\sporkz, \sporkTrNewAccess(\_, \_, \_, \_, \_, \_, \sporkQtlMask, \_))) = \sporkQtlMask
+    \sporkvertMask: \sporkNewVert \to \mathcal{P}(\sporkQtl) \notag \\
+    & \sporkvertMask((\sporkz, \sporkTrNewAccess(\_, \_, \_, \_, \_, \_, \sporkQtlMask, \_))) = \sporkQtlMask
     \label{eq:vertMask} \\
     {\color{gray}\bullet\,} &
-    \sporktrReachable: \sporkTr^* \times \sporkVert \rightharpoonup \mathcal{P}(\sporkVert)
+    \sporktrReachable: \sporkTr^* \times \sporkNewVert \to \mathcal{P}(\sporkVert)
     \codecomment{\,(Vertices with path from given source $\sporkTrNewAccess$ vertex)}
     \notag \\
     & \sporktrReachable(\sporktr^*, \sporkvert_s) = \{
@@ -28,13 +29,13 @@ define type $\sporkEnvKey$, and helpers $\sporkvertMask$, $\sporktrReachable$, $
     %%     \sporkPATH(\sporktrVerts(\sporktr^*), \sporktrEdges(\sporktr^*, \textsf{maskOf}(\sporkvert_s)), \sporkvert_s, \sporkvert_d)
     %% \} \label{eq:trReachable} \\
     {\color{gray}\bullet\,} &
-    \sporktrNewVerts: \sporkTr^* \times \mathcal{P}(\sporkEnvKey) \to \mathcal{P}(\sporkVert) \notag \\
+    \sporktrNewVerts: \sporkTr^* \times \mathcal{P}(\sporkEnvKey) \to \mathcal{P}(\sporkNewVert) \notag \\
     & \sporktrNewVerts(\sporktr^*, \sporkEnvKey_a) = \{
     \codecomment{\,($\sporkTrNewAccess$-constructed vertices, filtered by $(\sporkmut, \sporkx, \sporkz_i^*)$)}
     \notag \\
-    & \quad (\sporkz, \sporkTrNewAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTid_\textrm{new}, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask, \sporkPendAwait))
-      \in \sporktrVerts(\sporktr^*) \notag \\
-    & \quad\mid (\sporkmut, \sporkx, \sporkz_i^*) \in \sporkEnvKey_a \}
+    & \quad (\sporkz, \sporkTrNewAccess(\sporkmut, \sporkx, \sporkz_i^*, \_, \_, \_, \_, \_))
+      \in \sporktrVerts(\sporktr^*)
+      \mid (\sporkmut, \sporkx, \sporkz_i^*) \in \sporkEnvKey_a \}
     \label{eq:trNewVerts} \\
     {\color{gray}\bullet\,} & \sporkmutReqs: \sporkMut \to \mathcal{P}(\sporkMut)
     \codecomment{\,(Will be used to ignore read/read pairs)} \notag \\
@@ -53,8 +54,8 @@ For $\sporktr_d = \sporkTrReqCanAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTi
     & \textbf{let } \sporkvert_d = (\abs{\sporktr^*}, \sporktr_d) \textbf{ in}
     \codecomment{\,(newly added vertex)} \notag \\
     & \textbf{let } \sporkEnvKey_a = \sporkmutReqs(\sporkmut) \times \{ \sporkx \} \times \{ \sporkz_i^* \} \textbf{ in} \notag \\
-    & \textbf{let } \sporkVert_s = \sporktrNewVerts(\sporktr^*_\textrm{cat}, \sporkEnvKey_a) \textbf{ in} \notag \\
-    & \forall \sporkvert_s \in \sporkVert_s.\,
+    & \textbf{let } \sporkNewVert_s = \sporktrNewVerts(\sporktr^*_\textrm{cat}, \sporkEnvKey_a) \textbf{ in} \notag \\
+    & \forall \sporkvert_s \in \sporkNewVert_s.\,
     \sporkvert_d \in \sporktrReachable(\sporktr^*_\textrm{cat}, \sporkvert_s)
 \end{align}
 $\sporktr^* \sporkConcatChk \sporktr_d = \sporktr^* \sporkConcatRaw \sporktr_d$ for all other $\sporktr_d$.
