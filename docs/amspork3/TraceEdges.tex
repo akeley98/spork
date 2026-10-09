@@ -1,17 +1,21 @@
 \magicSubsection{Trace Edges}{sec:TraceEdges}
 
 Pairs of vertices are conditionally connected by edges into a DAG based on the overlap of their second and first sets;
-each edge is labelled by the timeline signature $\sporktlSig$ or pending await $\sporkpend$ found in the overlap.
-The $\sporktlSig$-labelled edges are further filtered by a given $\sporkQtlMask$.
+each edge is labelled by the timeline signatures and pending awaits $(\sporkTlSig_e, \sporkPend_e)$ found in the overlap,
+with at least one set non-empty.
+The timeline signatures are further filtered by a given $\sporkQtlMask$ (\redBox{todo} explain this wart).
 Edges can only go from lower-indexed vertices in the trace to higher-indexed vertices.
 
-Given $\sporkvert_1, \sporkvert_2 \in \sporktrVerts(\sporktr^*)$ and $\sporkvert_1$ is ordered before $\sporkvert_2$,
-\begin{align*}
-    (\sporkEdgeArrow{\sporkvert_1}{(\sporktid, \sporkqtl)}{\sporkvert_2}) \in \sporktrEdges(\sporktr^*, \sporkQtlMask)
-    & \iff
-    (\sporktid, \sporkqtl) \in \sporkTlSigB(\sporkvert_1) \cap \sporkTlSigA(\sporkvert_2) \land
-    \sporkqtl \in \sporkQtlMask \\
-    (\sporkEdgeArrow{\sporkvert_1}{\sporkpend}{\sporkvert_2}) \in \sporktrEdges(\sporktr^*, \sporkQtlMask)
-    & \iff
-    \sporkpend \in \sporkPendB(\sporkvert_1) \cap \sporkPendA(\sporkvert_2)
-\end{align*}
+The set of graph edges $\sporktrEdges: \sporkTr^* \times \mathcal{P}(\sporkQtl) \to \mathcal{P}(\sporkEdge)$ is given by
+\begin{align}
+    & (\sporkz_1, \sporktr_1), (\sporkz_2, \sporktr_2) \in \sporktrVerts(\sporktr^*) &
+    \codecomment{(select 2 vertices)}\\
+    \land & \sporkz_1 < \sporkz_2 & \codecomment{(in trace order)} \\
+    \land & \sporkTlSig_e = \sporkTlSigB(\sporktr_1) \cap \sporkTlSigA(\sporktr_2) \cap \sporkTid\times\sporkQtlMask &
+    \codecomment{(common $\sporktlSig$, filtered by $\sporkQtlMask$)} \\
+    \land & \sporkPend_e = \sporkPendB(\sporktr_1) \cap \sporkPendA(\sporktr_2) &
+    \codecomment{(common pending awaits)} \\
+    \land & (\sporkTlSig_e \ne \varnothing \lor \sporkPend_e \ne \varnothing) &
+    \codecomment{(at least one commonality)} \\
+    \iff & \sporkEdgeArrow{(\sporkz_1, \sporktr_1)}{\sporkTlSig_e, \sporkPend_e}{(\sporkz_1, \sporktr_2)} \in \sporktrEdges(\sporktr^*, \sporkQtlMask)
+\end{align}
