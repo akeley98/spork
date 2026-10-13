@@ -1,0 +1,13 @@
+\magicSubsection{Lemma 2}{sec:SyncEnvEquiv}
+
+Similar to $\sporktoEnv$, define
+\begin{align}
+  & \sporktoChk: \sporkTr^* \rightharpoonup \sporkEnv \notag \\
+  & \sporktoChk((\sporktr_1, ..., \sporktr_n)) = () \sporkConcatChk \sporktr_1 \sporkConcatChk ... \sporkConcatChk \sporktr_n
+  \label{eq:toChk}
+\end{align}
+Claim
+\begin{align}
+  \textrm{dom}(\sporktoChk) = \textrm{dom}(\sporktoEnv)
+\end{align}
+Presumably proven by induction on the trace length.

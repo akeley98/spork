@@ -16,3 +16,17 @@ and, \textbf{(b)} pending await sets $\sporkPendA(\sporktr)$ and $\sporkPendB(\s
 They are defined per-trace-event-constructor in Figure~\ref{fig:VertexTable}.
 
 \input{amspork3/VertexTable.tex}
+
+For reasons that will become clearer in Section~\ref{sec:SyncEnv} (Synchronization Environment),
+we define the ``environment key'' (read/mutate tag at some array element) of $\sporkTrNewAccess$ vertices.
+The environment key and qualitative timeline mask can be queried from such vertices.
+With $\sporkNewVert$ (subset of $\sporkVert$) denoting vertices $(\sporkz, \sporktr)$ where $\sporktr$ is constructed with $\sporkTrNewAccess$,
+\begin{align}
+& \sporkenvKey: \sporkEnvKey \Coloneqq (\sporkmut, \sporkx, \sporkz_i^*) & \\
+& \sporkvertMask: \sporkNewVert \to \mathcal{P}(\sporkQtl) \notag \\
+& \sporkvertMask((\sporkz, \sporkTrNewAccess(\_, \_, \_, \_, \_, \_, \sporkQtlMask, \_))) = \sporkQtlMask
+\label{eq:vertMask} \\
+& \sporkvertKey: \sporkNewVert \to \sporkEnvKey \notag \\
+& \sporkvertKey((\sporkz, \sporkTrNewAccess(\sporkmut, \sporkx, \sporkz_i^*, \_, \_, \_, \_, \_))) = (\sporkmut, \sporkx, \sporkz_i^*)
+\label{eq:vertKey}
+\end{align}

@@ -11,13 +11,6 @@ With $\sporkPATH$ denoting the typical path-existence decision problem (ignoring
 and with $\sporkNewVert$ (subset of $\sporkVert$) denoting vertices $(\sporkz, \sporktr)$ where $\sporktr$ is constructed with $\sporkTrNewAccess$,
 define types $\sporkEnvKey$ and helpers $\sporkvertMask$, $\sporktrReachable$, $\sporktrNewVerts$, $\sporkmutReqs$:
 \begin{align}
-    % Not the most natural place for EnvKey but I don't know how to fix this.
-    {\color{gray}\bullet\,} &
-    \sporkenvKey: \sporkEnvKey \Coloneqq (\sporkmut, \sporkx, \sporkz_i^*) \\
-    {\color{gray}\bullet\,} &
-    \sporkvertMask: \sporkNewVert \to \mathcal{P}(\sporkQtl) \notag \\
-    & \sporkvertMask((\sporkz, \sporkTrNewAccess(\_, \_, \_, \_, \_, \_, \sporkQtlMask, \_))) = \sporkQtlMask
-    \label{eq:vertMask} \\
     {\color{gray}\bullet\,} &
     \sporktrReachable: \sporkTr^* \times \sporkNewVert \to \mathcal{P}(\sporkVert)
     \codecomment{\,(Vertices with path from given source $\sporkTrNewAccess$ vertex)}

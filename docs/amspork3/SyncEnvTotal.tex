@@ -1,0 +1,25 @@
+\magicSubsection{Lemma 1}{sec:SyncEnvTotal}
+
+Define
+\begin{align}
+  & \sporktoEnv: \sporkTr^* \rightharpoonup \sporkEnv \notag \\
+  & \sporktoEnv((\sporktr_1, ..., \sporktr_n)) = \varnothing \sporkConcatEnv \sporktr_1 \sporkConcatEnv ... \sporkConcatEnv \sporktr_n
+  \label{eq:toEnv}
+\end{align}
+Define
+\begin{align}
+  & \sporkvertValue : \sporkTr^* \times \sporkNewVert \to \sporkEnvValue \notag \\
+  & \sporkvertValue(\sporktr^*, \sporkvert) = \textbf{let } \sporkVert_d = \sporktrReachable(\sporktr^*, \sporkvert), \sporkQtlMask = \sporkvertMask(\sporkvert) \textbf{ in} \notag \\
+  & \quad ( \bigcup_{\sporkvert_d \in \sporkVert_d} \sporkTlSigB(\sporkvert_d) \cap (\sporkTid \times \sporkQtlMask),
+      \bigcup_{\sporkvert_d \in \sporkVert_d} \sporkPendB(\sporkvert_d),
+      \sporkQtlMask)
+  \label{eq:vertValue} \\
+  & \sporktoEnvTotal: \sporkTr^* \to \sporkEnv \notag \\
+  & \sporktoEnvTotal(\sporktr^*) = \{ (\sporkvertKey(\sporkvert), \sporkvertValue(\sporktr^*, \sporkvert)) \mid \sporkvert \in \sporktrNewVerts(\sporktr^*) \}
+  \label{eq:toEnvTotal}
+\end{align}
+Claim
+\begin{align}
+    \sporktr^* \in \textrm{dom}(\sporktoEnv) \implies \sporktoEnv(\sporktr^*) = \sporktoEnvTotal(\sporktr^*)
+\end{align}
+i.e. $\sporktoEnvTotal$ is a closed-form version of $\sporktoEnv$ with error checking omitted.

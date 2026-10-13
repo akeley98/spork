@@ -197,6 +197,8 @@
 \newcommand{\sporkTlSigB}{\mathord{\hyperref[fig:VertexTable]{\textsf{TlSig2}}}}
 \newcommand{\sporkPendA}{\mathord{\hyperref[fig:VertexTable]{\textsf{Pend1}}}}
 \newcommand{\sporkPendB}{\mathord{\hyperref[fig:VertexTable]{\textsf{Pend2}}}}
+\newcommand{\sporkvertMask}{\mathord{\hyperref[eq:vertMask]{\textsf{vertMask}}}}
+\newcommand{\sporkvertKey}{\mathord{\hyperref[eq:vertKey]{\textsf{vertKey}}}}
 % VertexTable layout macros (\vertexDiagram, \vertexDiagramSides)
 \input{amspork3/amspork3_defs_vertexDiagram.tex}
 
@@ -211,7 +213,7 @@
 % NOTE: didn't define newVert to avoid bloating horizontally even more.
 % NewVert exists just to allow avoiding typing as partial function;
 % vert is valid for vert \in NewVert and we don't rely on it alone to imply NewVert constraint.
-\newcommand{\sporkvertMask}{\mathord{\hyperref[eq:vertMask]{\textsf{vertMask}}}}
+% Re-evaluate if too many people are pissed off about this.
 \newcommand{\sporktrReachable}{\mathord{\hyperref[eq:trReachable]{\textsf{trReachable}}}}
 \newcommand{\sporktrNewVerts}{\mathord{\hyperref[eq:trNewVerts]{\textsf{trNewVerts}}}}
 \newcommand{\sporkmutReqs}{\mathord{\hyperref[eq:mutReqs]{\textsf{mutReqs}}}}
@@ -226,6 +228,10 @@
 \newcommand{\sporkEnvValue}{\mathord{\hyperref[sec:SyncEnv]{\textsf{EnvValue}}}}
 \newcommand{\sporkenvValue}{\mathord{\hyperref[sec:SyncEnv]{\textsf{envValue}}}}
 \newcommand{\sporksyncsWith}{\mathord{\hyperref[eq:syncsWith]{\textsf{syncsWith}}}}
+\newcommand{\sporktoEnv}{\mathord{\hyperref[eq:toEnv]{\textsf{toEnv}}}}
+\newcommand{\sporktoEnvTotal}{\mathord{\hyperref[eq:toEnvTotal]{\textsf{toEnvTotal}}}}
+\newcommand{\sporkvertValue}{\mathord{\hyperref[eq:vertValue]{\textsf{vertValue}}}}
+\newcommand{\sporktoChk}{\mathord{\hyperref[eq:toChk]{\textsf{toChk}}}}
 
 %% TODO links to forthcoming definitions
 \newcommand{\sporkConcatEnv}{\mathord{\underset{\textsf{env}}{\texttt{++}}}}

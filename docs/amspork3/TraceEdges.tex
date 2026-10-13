@@ -10,7 +10,7 @@ The set of graph edges $\sporktrEdges: \sporkTr^* \times \mathcal{P}(\sporkQtl) 
 \begin{align}
     & \sporkEdgeArrow{(\sporkz_1, \sporktr_1)}{\sporkTlSig_e, \sporkPend_e}{(\sporkz_2, \sporktr_2)} \in \sporktrEdges(\sporktr^*, \sporkQtlMask) \iff & \\
     & (\sporkz_1, \sporktr_1), (\sporkz_2, \sporktr_2) \in \sporktrVerts(\sporktr^*) \land{} \sporkz_1 < \sporkz_2 & \codecomment{(pick 2 vertices in trace order)} \\
-    \land{} & \sporkTlSig_e = \sporkTlSigB(\sporktr_1) \cap \sporkTlSigA(\sporktr_2) \cap \sporkTid\times\sporkQtlMask &
+    \land{} & \sporkTlSig_e = \sporkTlSigB(\sporktr_1) \cap \sporkTlSigA(\sporktr_2) \cap (\sporkTid\times\sporkQtlMask) &
     \codecomment{(common $\sporktlSig$, filtered by $\sporkQtlMask$)} \\
     \land{} & \sporkPend_e = \sporkPendB(\sporktr_1) \cap \sporkPendA(\sporktr_2) &
     \codecomment{(common pending awaits)} \\
