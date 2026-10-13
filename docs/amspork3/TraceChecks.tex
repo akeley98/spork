@@ -13,8 +13,9 @@ For clarity, we also define ``raw'' trace concatenation
 $\sporkConcatRaw: \sporkTr^* \times \sporkTr \to \sporkTr^*$
 that omits checking.
 
-All trace concatenation functions are left associative and implicitly apply iteratively to a right-hand tuple argument, i.e.
+All trace concatenation functions are left associative and implicitly apply as a left fold to a right-hand tuple argument, i.e.
 $\sporktr^* \texttt{++} (\sporktr_0, \sporktr_1) = \sporktr^* \texttt{++} \sporktr_0 \texttt{++} \sporktr_1$.
+If any \texttt{++} result is undefined in the fold, then the fold is undefined.
 
 \input{amspork3/TraceVertices.tex}
 \input{amspork3/TraceEdges.tex}
