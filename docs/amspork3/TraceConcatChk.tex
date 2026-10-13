@@ -7,9 +7,9 @@ from \textbf{all} prior ``source'' $\sporkTrNewAccess$ events to the same array 
 excluding source/destination pairs both tagged as $\sporkread$.
 The reachability depends on edges filtered by the $\sporkQtlMask$ of the source event.
 
-With $\sporkPATH$ denoting the typical path-existence decision problem (ignoring edge labels),
+With $\sporkPATH$ denoting the typical path-existence decision problem (accepts 0-length paths and ignores edge labels),
 and with $\sporkNewVert$ (subset of $\sporkVert$) denoting vertices $(\sporkz, \sporktr)$ where $\sporktr$ is constructed with $\sporkTrNewAccess$,
-define types $\sporkEnvKey$ and helpers $\sporkvertMask$, $\sporktrReachable$, $\sporktrNewVerts$, $\sporkmutReqs$:
+define helpers $\sporktrReachable$, $\sporktrNewVerts$, $\sporkmutReqs$:
 \begin{align}
     {\color{gray}\bullet\,} &
     \sporktrReachable: \sporkTr^* \times \sporkNewVert \to \mathcal{P}(\sporkVert)

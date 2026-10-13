@@ -10,12 +10,12 @@ Define
 \begin{align}
   & \sporkvertValue : \sporkTr^* \times \sporkNewVert \to \sporkEnvValue \notag \\
   & \sporkvertValue(\sporktr^*, \sporkvert) = \textbf{let } \sporkVert_d = \sporktrReachable(\sporktr^*, \sporkvert), \sporkQtlMask = \sporkvertMask(\sporkvert) \textbf{ in} \notag \\
-  & \quad ( \bigcup_{\sporkvert_d \in \sporkVert_d} \sporkTlSigB(\sporkvert_d) \cap (\sporkTid \times \sporkQtlMask),
-      \bigcup_{\sporkvert_d \in \sporkVert_d} \sporkPendB(\sporkvert_d),
+  & \quad ( \bigcup_{(z, \sporktr_d) \in \sporkVert_d} \sporkTlSigB(\sporktr_d) \cap (\sporkTid \times \sporkQtlMask),
+      \bigcup_{(z, \sporktr_d) \in \sporkVert_d} \sporkPendB(\sporktr_d),
       \sporkQtlMask)
   \label{eq:vertValue} \\
   & \sporktoEnvTotal: \sporkTr^* \to \sporkEnv \notag \\
-  & \sporktoEnvTotal(\sporktr^*) = \{ (\sporkvertKey(\sporkvert), \sporkvertValue(\sporktr^*, \sporkvert)) \mid \sporkvert \in \sporktrNewVerts(\sporktr^*) \}
+  & \sporktoEnvTotal(\sporktr^*) = \{ (\sporkvertKey(\sporkvert), \sporkvertValue(\sporktr^*, \sporkvert)) \mid \sporkvert \in \sporktrNewVerts(\sporktr^*, \sporkEnvKey) \}
   \label{eq:toEnvTotal}
 \end{align}
 Claim

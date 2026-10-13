@@ -2,11 +2,12 @@
 
 Similar to $\sporktoEnv$, define
 \begin{align}
-  & \sporktoChk: \sporkTr^* \rightharpoonup \sporkEnv \notag \\
+  & \sporktoChk: \sporkTr^* \rightharpoonup \sporkTr^* \notag \\
   & \sporktoChk((\sporktr_1, ..., \sporktr_n)) = () \sporkConcatChk \sporktr_1 \sporkConcatChk ... \sporkConcatChk \sporktr_n
   \label{eq:toChk}
 \end{align}
-Claim
+I claim that $\sporktoEnv(\sporktr^*)$ is undefined iff $\sporktoChk(\sporktr^*)$ is,
+assuming ``undefined'' propagates through the left $\texttt{++}$-folds:
 \begin{align}
   \textrm{dom}(\sporktoChk) = \textrm{dom}(\sporktoEnv)
 \end{align}
