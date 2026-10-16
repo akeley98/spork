@@ -3,37 +3,37 @@
 
 Define helper
 \begin{align}
-    & \sporksyncsWith: \sporkEnvValue \times \sporkTr \to \sporkBool
+    & \sporksyncsWith: \sporkEnvVis \times \sporkTr \to \sporkBool
     \label{eq:syncsWith}
     \\
-    & \sporksyncsWith((\sporkTlSig_v, \sporkPend_v, \sporkQtlMask), \sporktr) =
-    \sporkTlSig_v \cap \sporkTlSigA(\sporktr) \cap (\sporkTid \times \sporkQtlMask) \ne \varnothing
+    & \sporksyncsWith((\sporkOb_v, \sporkAw_v, \sporkQtlMask), \sporktr) =
+    \sporkOb_v \cap \sporkObIn(\sporktr) \cap (\sporkTid \times \sporkQtlMask) \ne \varnothing
       \lor
-      \sporkPend_v \cap \sporkPendA(\sporktr) \ne \varnothing \notag % f the overfull hbox
+      \sporkAw_v \cap \sporkAwIn(\sporktr) \ne \varnothing \notag % f the overfull hbox
 \end{align}
 Define $\sporkenv \sporkConcatEnv \sporktr_d$ by cases; all cases are total except $\sporkTrReqCanAccess$:
 
-\mainKey{Case 1/3:} $\sporktr_d = \sporkTrNewAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTid_\textrm{new}, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask, \sporkPendAwait)$
+\mainKey{Case 1/3:} $\sporktr_d = \sporkTrNewAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTidNew, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask, \sporkAwNew)$
 \begin{align}
     \sporkenv \sporkConcatEnv \sporktr_d =
-    % \sporkenv \cup \{ ((\sporkmut, \sporkx, \sporkz_i^*), (\sporkTid_\textrm{new} \times \{\sporkqtlInit\}, \sporkPendAwait, \sporkQtlMask)) \}
-    \sporkenv \cup \{ ((\sporkmut, \sporkx, \sporkz_i^*), (\sporkTlSigB(\sporktr_d) \cap (\sporkTid \times \sporkQtlMask), \sporkPendB(\sporktr_d), \sporkQtlMask)) \}
+    % \sporkenv \cup \{ ((\sporkmut, \sporkx, \sporkz_i^*), (\sporkTidNew \times \{\sporkqtlInit\}, \sporkAwNew, \sporkQtlMask)) \}
+    \sporkenv \cup \{ ((\sporkmut, \sporkx, \sporkz_i^*), (\sporkObOut(\sporktr_d) \cap (\sporkTid \times \sporkQtlMask), \sporkAwOut(\sporktr_d), \sporkQtlMask)) \}
     \label{eq:envConcatNew}
 \end{align}
 \mainKey{Case 2/3:} $\sporktr_d$ is constructed with $\sporkTrFence$, $\sporkTrArrive$, or $\sporkTrAwait$.
 \begin{align}
-    & \sporkenv \sporkConcatEnv \sporktr_d = \{ (\sporkenvKey, \lambda(\sporkenvValue)) \mid (\sporkenvKey, \sporkenvValue) \in \sporkenv \}
+    & \sporkenv \sporkConcatEnv \sporktr_d = \{ (\sporkenvEff, \lambda(\sporkenvVis)) \mid (\sporkenvEff, \sporkenvVis) \in \sporkenv \}
     \label{eq:envConcatSync} \\
-    % Idiotic unpacking of \sporkenvValue for now.
+    % Idiotic unpacking of \sporkenvVis for now.
     % PL community should invest in standardized math syntax that's actually good.
-    & \text{where } \lambda(\sporkenvValue) = \lambda((\sporkTlSig_v, \sporkPend_v, \sporkQtlMask)) = \notag \\
+    & \text{where } \lambda(\sporkenvVis) = \lambda((\sporkOb_v, \sporkAw_v, \sporkQtlMask)) = \notag \\
     & \quad \begin{cases}
-      (\sporkTlSig_v \cup (\sporkTlSigB(\sporktr_d) \cap (\sporkTid \times \sporkQtlMask)), \sporkPend_v \cup \sporkPendB(\sporktr_d), \sporkQtlMask)
-      & \sporksyncsWith(\sporkenvValue, \sporktr_d) \\
-      \sporkenvValue & \text{otherwise}
+      (\sporkOb_v \cup (\sporkObOut(\sporktr_d) \cap (\sporkTid \times \sporkQtlMask)), \sporkAw_v \cup \sporkAwOut(\sporktr_d), \sporkQtlMask)
+      & \sporksyncsWith(\sporkenvVis, \sporktr_d) \\
+      \sporkenvVis & \text{otherwise}
     \end{cases} \notag
 \end{align}
-\mainKey{Case 3/3:} $\sporktr_d = \sporkTrReqCanAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTid_\textrm{req}, \sporkQtlPre, \sporkPendFree)$
+\mainKey{Case 3/3:} $\sporktr_d = \sporkTrReqCanAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTidReq, \sporkQtlPre, \sporkAwFree)$
 \begin{align}
     & \sporkenv \sporkConcatEnv \sporktr_d = \begin{cases}
         \sporkenv & \textsf{isLegal} \\
@@ -42,8 +42,8 @@ Define $\sporkenv \sporkConcatEnv \sporktr_d$ by cases; all cases are total exce
     \label{eq:envConcatReq}
     \\
     \text{where \textsf{isLegal} = }
-    & \textbf{let } \sporkEnvKey_e = \sporkmutReqs(\sporkmut) \times \{ \sporkx \} \times \{ \sporkz_i^* \} \textbf{ in} \notag \\
-    & \forall \sporkenvKey \in \sporkEnvKey_e. \notag \\
-    & \forall \sporkenvValue \in \sporkenv(\sporkenvKey).\,
-    \sporksyncsWith(\sporkenvValue, \sporktr_d) \notag
+    & \textbf{let } \sporkEnvEff_e = \sporkmutReqs(\sporkmut) \times \{ \sporkx \} \times \{ \sporkz_i^* \} \textbf{ in} \notag \\
+    & \forall \sporkenvEff \in \sporkEnvEff_e. \notag \\
+    & \forall \sporkenvVis \in \sporkenv(\sporkenvEff).\,
+    \sporksyncsWith(\sporkenvVis, \sporktr_d) \notag
 \end{align}

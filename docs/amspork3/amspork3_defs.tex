@@ -74,8 +74,8 @@
 \newcommand{\sporkF}{\mathord{\hyperref[fig:BasicGrammar]{\mathbf{F}}}}
 \newcommand{\sporkfBehavior}{\mathord{\hyperref[fig:BasicGrammar]{f.\textsf{behavior}}}}
 \newcommand{\sporkr}{\mathord{\hyperref[fig:BasicGrammar]{r}}}
-\newcommand{\sporkv}{\mathord{\hyperref[fig:BasicGrammar]{v}}}
-\newcommand{\sporkV}{\mathord{\hyperref[fig:BasicGrammar]{\mathbb{V}}}}
+\newcommand{\sporkvalue}{\mathord{\hyperref[fig:BasicGrammar]{v}}}  % Naming convention exception (avoid clash with vertex v)
+\newcommand{\sporkValue}{\mathord{\hyperref[fig:BasicGrammar]{\mathbb{V}}}}  % Naming convention exception (avoid clash with vertex set V)
 \newcommand{\sporkR}{\mathord{\hyperref[fig:BasicGrammar]{\mathbb{R}}}}
 \newcommand{\sporkx}{\mathord{\hyperref[fig:BasicGrammar]{x}}}
 \newcommand{\sporkX}{\mathord{\hyperref[fig:BasicGrammar]{\mathbb{X}}}}
@@ -95,6 +95,12 @@
 \newcommand{\sporkSigma}{\mathord{\hyperref[fig:BasicGrammar]{\Sigma}}}
 \newcommand{\sporktid}{\mathord{\hyperref[fig:BasicGrammar]{\textgpu{tid}}}}
 \newcommand{\sporkTid}{\mathord{\hyperref[fig:BasicGrammar]{\textgpu{Tid}}}}
+\newcommand{\sporkTidNew}{\mathord{\hyperref[fig:BasicGrammar]{\underset{\textrm{new}}{\textgpu{Tid}}}}}
+\newcommand{\sporkTidFence}{\mathord{\hyperref[fig:BasicGrammar]{\underset{\textrm{fence}}{\textgpu{Tid}}}}}
+\newcommand{\sporkTidArrive}{\mathord{\hyperref[fig:BasicGrammar]{\underset{\textrm{arrive}}{\textgpu{Tid}}}}}
+\newcommand{\sporkTidAwait}{\mathord{\hyperref[fig:BasicGrammar]{\underset{\textrm{await}}{\textgpu{Tid}}}}}
+\newcommand{\sporkTidReq}{\mathord{\hyperref[fig:BasicGrammar]{\underset{\textrm{req}}{\textgpu{Tid}}}}}
+\newcommand{\sporkTidAll}{\mathord{\hyperref[fig:BasicGrammar]{\underset{\textrm{all}}{\textgpu{Tid}}}}}
 \newcommand{\sporktidMap}{\mathord{\hyperref[fig:BasicGrammar]{\textgpu{tidMap}}}}
 \newcommand{\sporkTidMap}{\mathord{\hyperref[fig:BasicGrammar]{\textgpu{TidMap}}}}
 \newcommand{\sporkloopMode}{\mathord{\hyperref[fig:BasicGrammar]{\textgpu{loopMode}}}}
@@ -125,7 +131,7 @@
 
 %% Expression Grammar
 \newcommand{\sporkBinOp}{\mathord{\hyperref[fig:expr]{\textrm{BinOp}}}}
-\newcommand{\sporke}{\mathord{\hyperref[fig:expr]{e}}}
+\newcommand{\sporkexpr}{\mathord{\hyperref[fig:expr]{e}}}  % Naming convention exception (avoid clash with edge e)
 \newcommand{\sporkeLo}{\mathord{\hyperref[fig:expr]{e_\textrm{lo}}}}
 \newcommand{\sporkeHi}{\mathord{\hyperref[fig:expr]{e_\textrm{hi}}}}
 \newcommand{\sporkExpr}{\mathord{\hyperref[fig:expr]{\textrm{Expr}}}}
@@ -170,10 +176,10 @@
 \newcommand{\sporkDInstrSub}{\hyperref[fig:DataSemantics]{\textsc{D-InstrSub}}}
 
 %% Pending Await Grammar
-\newcommand{\sporkpend}{\mathord{\hyperref[fig:PendingAwait]{\textgpu{pend}}}}
-\newcommand{\sporkPend}{\mathord{\hyperref[fig:PendingAwait]{\textgpu{Pend}}}}
-\newcommand{\sporkPendAwait}{\mathord{\hyperref[fig:PendingAwait]{\underset{\textrm{await}}{\textgpu{Pend}}}}}
-\newcommand{\sporkPendFree}{\mathord{\hyperref[fig:PendingAwait]{\underset{\textrm{free}}{\textgpu{Pend}}}}}
+\newcommand{\sporkaw}{\mathord{\hyperref[fig:PendingAwait]{\textgpu{aw}}}}
+\newcommand{\sporkAw}{\mathord{\hyperref[fig:PendingAwait]{\textgpu{Aw}}}}
+\newcommand{\sporkAwNew}{\mathord{\hyperref[fig:PendingAwait]{\underset{\textrm{new}}{\textgpu{Aw}}}}}
+\newcommand{\sporkAwFree}{\mathord{\hyperref[fig:PendingAwait]{\underset{\textrm{free}}{\textgpu{Aw}}}}}
 \newcommand{\sporkPendingAwait}{\mathord{\hyperref[fig:PendingAwait]{\textgpu{PendingAwait}}}}
 
 %% SyncTraceHelpers
@@ -188,50 +194,49 @@
 \newcommand{\sporkConcatRaw}{\mathord{\hyperref[sec:TraceChecks]{\underset{\textsf{raw}}{\texttt{++}}}}}
 
 %% Trace Vertices
-\newcommand{\sporkvert}{\mathord{\hyperref[sec:TraceVertices]{\textsf{vert}}}}
-\newcommand{\sporkVert}{\mathord{\hyperref[sec:TraceVertices]{\textsf{Vert}}}}
-\newcommand{\sporktrVerts}{\mathord{\hyperref[eq:sporktrVerts]{\textsf{trVerts}}}}
-\newcommand{\sporktlSig}{\mathord{\hyperref[sec:TraceVertices]{\textsf{tlSig}}}}
-\newcommand{\sporkTlSig}{\mathord{\hyperref[sec:TraceVertices]{\textsf{TlSig}}}}
-\newcommand{\sporkTlSigA}{\mathord{\hyperref[fig:VertexTable]{\textsf{TlSig1}}}}
-\newcommand{\sporkTlSigB}{\mathord{\hyperref[fig:VertexTable]{\textsf{TlSig2}}}}
-\newcommand{\sporkPendA}{\mathord{\hyperref[fig:VertexTable]{\textsf{Pend1}}}}
-\newcommand{\sporkPendB}{\mathord{\hyperref[fig:VertexTable]{\textsf{Pend2}}}}
-\newcommand{\sporkvertMask}{\mathord{\hyperref[eq:vertMask]{\textsf{vertMask}}}}
-\newcommand{\sporkvertKey}{\mathord{\hyperref[eq:vertKey]{\textsf{vertKey}}}}
-% VertexTable layout macros (\vertexDiagram, \vertexDiagramSides)
-\input{amspork3/amspork3_defs_vertexDiagram.tex}
+\newcommand{\sporkvert}{\mathord{\hyperref[sec:TraceVertices]{\textsf{v}}}}  % Naming convention exception (avoid clash with value v)
+\newcommand{\sporkVert}{\mathord{\hyperref[sec:TraceVertices]{\textsf{V}}}}  % Naming convention exception (avoid clash with value set V)
+\newcommand{\sporktrV}{\mathord{\hyperref[eq:trV]{\textsf{trV}}}}
+\newcommand{\sporkob}{\mathord{\hyperref[sec:TraceVertices]{\textsf{ob}}}}
+\newcommand{\sporkOb}{\mathord{\hyperref[sec:TraceVertices]{\textsf{Ob}}}}
+\newcommand{\sporkObIn}{\mathord{\hyperref[fig:InOutSets]{\textsf{Ob}^\textrm{in}}}}
+\newcommand{\sporkObOut}{\mathord{\hyperref[fig:InOutSets]{\textsf{Ob}^\textrm{out}}}}
+\newcommand{\sporkAwIn}{\mathord{\hyperref[fig:InOutSets]{\textsf{Aw}^\textrm{in}}}}
+\newcommand{\sporkAwOut}{\mathord{\hyperref[fig:InOutSets]{\textsf{Aw}^\textrm{out}}}}
+\newcommand{\sporkvMask}{\mathord{\hyperref[eq:vMask]{\textsf{vMask}}}}
+\newcommand{\sporkvEff}{\mathord{\hyperref[eq:vEff]{\textsf{vEff}}}}
+% InOutSets layout macros (\inOutDiagram, \inOutDiagramSides)
+\input{amspork3/amspork3_defs_inOutDiagram.tex}
 
 %% Trace Edges
-\newcommand{\sporkedge}{\mathord{\hyperref[sec:TraceEdges]{\textsf{edge}}}}
-\newcommand{\sporkEdge}{\mathord{\hyperref[sec:TraceEdges]{\textsf{Edge}}}}
-\newcommand{\sporktrEdges}{\mathord{\hyperref[sec:TraceEdges]{\textsf{trEdges}}}}
+\newcommand{\sporkedge}{\mathord{\hyperref[sec:TraceEdges]{\textsf{e}}}}  % Naming convention exception (avoid clash with expr e)
+\newcommand{\sporkEdge}{\mathord{\hyperref[sec:TraceEdges]{\textsf{E}}}}  % Naming convention exception (no clash; matches \sporkedge)
+\newcommand{\sporktrE}{\mathord{\hyperref[sec:TraceEdges]{\textsf{trE}}}}
 \newcommand{\sporkEdgeArrow}[3]{({#1} \xrightarrow{#2} {#3})}
 
 %% Trace Concatenation Check
-\newcommand{\sporkNewVert}{\mathord{\hyperref[sec:TraceConcatChk]{\textsf{NewVert}}}}
-% NOTE: didn't define newVert to avoid bloating horizontally even more.
-% NewVert exists just to allow avoiding typing as partial function;
-% vert is valid for vert \in NewVert and we don't rely on it alone to imply NewVert constraint.
-% Re-evaluate if too many people are pissed off about this.
-\newcommand{\sporktrReachable}{\mathord{\hyperref[eq:trReachable]{\textsf{trReachable}}}}
-\newcommand{\sporktrNewVerts}{\mathord{\hyperref[eq:trNewVerts]{\textsf{trNewVerts}}}}
+% \sporkVNew[s], \sporkvNew[s]: optional subscript goes inside the stack (V_s over "new").
+\newcommand{\sporkSubOpt}[2]{\if\relax\detokenize{#2}\relax #1\else #1_{#2}\fi}
+\newcommand{\sporkVNew}[1][]{\mathord{\hyperref[sec:TraceConcatChk]{\underset{\textrm{new}}{\sporkSubOpt{\textsf{V}}{#1}}}}}
+\newcommand{\sporkvNew}[1][]{\mathord{\hyperref[sec:TraceConcatChk]{\underset{\textrm{new}}{\sporkSubOpt{\textsf{v}}{#1}}}}}
+\newcommand{\sporktrReach}{\mathord{\hyperref[eq:trReach]{\textsf{trReach}}}}
+\newcommand{\sporktrVNew}{\mathord{\hyperref[eq:trVNew]{\textsf{trVNew}}}}
 \newcommand{\sporkmutReqs}{\mathord{\hyperref[eq:mutReqs]{\textsf{mutReqs}}}}
-\newcommand{\sporkPATH}{\mathord{\hyperref[eq:trReachable]{\textrm{PATH}}}}
+\newcommand{\sporkPATH}{\mathord{\hyperref[eq:trReach]{\textrm{PATH}}}}
 \newcommand{\sporkConcatChk}{\mathord{\hyperref[eq:concatChk]{\underset{\textsf{chk}}{\texttt{++}}}}}
 
 %% Synchronization Environment
 \newcommand{\sporkenv}{\mathord{\hyperref[sec:SyncEnv]{\textsf{env}}}}
 \newcommand{\sporkEnv}{\mathord{\hyperref[sec:SyncEnv]{\textsf{Env}}}}
-\newcommand{\sporkEnvKey}{\mathord{\hyperref[sec:SyncEnv]{\textsf{EnvKey}}}}
-\newcommand{\sporkenvKey}{\mathord{\hyperref[sec:SyncEnv]{\textsf{envKey}}}}
-\newcommand{\sporkEnvValue}{\mathord{\hyperref[sec:SyncEnv]{\textsf{EnvValue}}}}
-\newcommand{\sporkenvValue}{\mathord{\hyperref[sec:SyncEnv]{\textsf{envValue}}}}
+\newcommand{\sporkEnvEff}{\mathord{\hyperref[sec:SyncEnv]{\textsf{EnvEff}}}}
+\newcommand{\sporkenvEff}{\mathord{\hyperref[sec:SyncEnv]{\textsf{envEff}}}}
+\newcommand{\sporkEnvVis}{\mathord{\hyperref[sec:SyncEnv]{\textsf{EnvVis}}}}
+\newcommand{\sporkenvVis}{\mathord{\hyperref[sec:SyncEnv]{\textsf{envVis}}}}
 \newcommand{\sporksyncsWith}{\mathord{\hyperref[eq:syncsWith]{\textsf{syncsWith}}}}
 \newcommand{\sporkConcatEnv}{\mathord{\hyperref[sec:SyncEnvConcat]{\underset{\textsf{env}}{\texttt{++}}}}}
 \newcommand{\sporktoEnv}{\mathord{\hyperref[eq:toEnv]{\textsf{toEnv}}}}
 \newcommand{\sporktoEnvTotal}{\mathord{\hyperref[eq:toEnvTotal]{\textsf{toEnvTotal}}}}
-\newcommand{\sporkvertValue}{\mathord{\hyperref[eq:vertValue]{\textsf{vertValue}}}}
+\newcommand{\sporkvVis}{\mathord{\hyperref[eq:vVis]{\textsf{vVis}}}}
 \newcommand{\sporktoChk}{\mathord{\hyperref[eq:toChk]{\textsf{toChk}}}}
 
 %% TODO links to forthcoming definitions

@@ -4,16 +4,16 @@ The goal of the synchronization environment is to ``compress'' the trace into an
 Rather than keeping the literal trace, the prior reads and mutates are summarized based on analyzing how synchronization events propagate the observation of the read or mutate to more threads.
 Define
 \begin{align}
-    % Already defined EnvKey, but this is the proper place.
-    \sporkenvKey: \sporkEnvKey &\Coloneqq (\sporkmut, \sporkx, \sporkz_i^*) \\
-    \sporkenvValue: \sporkEnvValue &\Coloneqq (\sporkTlSig_v, \sporkPend_v, \sporkQtlMask) \\
-    \sporkEnv &= \mathcal{P}(\sporkEnvKey \times \sporkEnvValue)
+    % Already defined EnvEff, but this is the proper place.
+    \sporkenvEff: \sporkEnvEff &\Coloneqq (\sporkmut, \sporkx, \sporkz_i^*) \\
+    \sporkenvVis: \sporkEnvVis &\Coloneqq (\sporkOb_v, \sporkAw_v, \sporkQtlMask) \\
+    \sporkEnv &= \mathcal{P}(\sporkEnvEff \times \sporkEnvVis)
 \end{align}
-Ignoring the effects of set de-duplication, each $(\sporkenvKey, \sporkenvValue)$ pair in a given $\sporkenv:\sporkEnv$ corresponds 1:1 with a $\sporkTrNewAccess$ event.
+Ignoring the effects of set de-duplication, each $(\sporkenvEff, \sporkenvVis)$ pair in a given $\sporkenv:\sporkEnv$ corresponds 1:1 with a $\sporkTrNewAccess$ event.
 The ultimate goal of this section is to define $\sporkenv$ and $\sporkConcatEnv$ as semantics-preserving drop-in replacements for $\sporktr^*$ and $\sporkConcatChk$; i.e., that alternative semantics (Section~\ref{sec:Semantics}) with $\sporktr^*$ and $\sporkConcatChk$ replaced with $\sporkenv$ and $\sporkConcatEnv$ will get stuck on an input program iff said program gets stuck with the original semantics.
-For brevity, we allow treating $\sporkenv$ as a relation $\sporkEnvKey \to \mathcal{P}(\sporkEnvValue)$:
+For brevity, we allow treating $\sporkenv$ as a relation $\sporkEnvEff \to \mathcal{P}(\sporkEnvVis)$:
 \begin{align}
-    \sporkenv(\sporkenvKey) = \{ \sporkenvValue \mid (\sporkenvKey, \sporkenvValue) \in \sporkenv \}
+    \sporkenv(\sporkenvEff) = \{ \sporkenvVis \mid (\sporkenvEff, \sporkenvVis) \in \sporkenv \}
 \end{align}
 
 \input{amspork3/SyncEnvConcat.tex}

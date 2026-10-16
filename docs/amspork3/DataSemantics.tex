@@ -7,17 +7,17 @@
   \oplus \in \sporkMutateOpSet
 }
 {
-  \sporkRule{\sporkSub{\sporkwH_1}{\sporkwH_2} \oplus \sporke, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
+  \sporkRule{\sporkSub{\sporkwH_1}{\sporkwH_2} \oplus \sporkexpr, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 \inferrule*[right=D-StepRhs]{
-  \sporkRule{\sporkSub{\sporke_1}{\sporke_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}\\\\
+  \sporkRule{\sporkSub{\sporkexpr_1}{\sporkexpr_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}\\\\
   \oplus \in \sporkMutateOpSet
 }
 {
-  \sporkRule{\sporkwzH \oplus \sporkSub{\sporke_1}{\sporke_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
+  \sporkRule{\sporkwzH \oplus \sporkSub{\sporkexpr_1}{\sporkexpr_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }\\
 \inferrule*[right=\sporkDAssign]{
-  % \sporkr, not \sporkv: Exo only assigns to data. Change to \sporkv if Exo is generalized to allow assignments to control values
+  % \sporkr, not \sporkvalue: Exo only assigns to data. Change to \sporkvalue if Exo is generalized to allow assignments to control values
   % (also required by the control-argument desugaring idea, which writes t[] = e for a control-valued e).
   (\sporkx, \sporkz^*) \in \textrm{dom}(\sporksigma) \\
   \sporksigma' = \sporksigma[(\sporkx, \sporkz^*) \mapsto \sporkr]
@@ -45,10 +45,10 @@
   \sporkRule{\sporkSub{\texttt{$\sporkx$ = $\sporkwz$ @ $\sporkspecialWindow$;$\sporks$}}{\sporks[\sporkx \sporkWindowSub \sporkwz]}, \sporksigma, \sporktr^*}
 }\\
 \inferrule*[right=D-AllocStep]{
-  \sporkRule{\sporkSub{\sporke_1}{\sporke_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
+  \sporkRule{\sporkSub{\sporkexpr_1}{\sporkexpr_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 {
-  \sporkRule{\texttt{$\sporkx$: $\sporkprim$[$\sporkz^*$, $\sporkSub{\sporke_1}{\sporke_2}$, $\sporke^*$] @ $\sporkmem$}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
+  \sporkRule{\texttt{$\sporkx$: $\sporkprim$[$\sporkz^*$, $\sporkSub{\sporkexpr_1}{\sporkexpr_2}$, $\sporkexpr^*$] @ $\sporkmem$}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }\\
 \inferrule*[right=D-Alloc]{
   \text{$\sporkmem$ is not SMEM \redBox{TODO}} \\\\
@@ -79,7 +79,7 @@
   \sporkRule{\texttt{$\sporkf$($\sporkwzH^*$)>>$\sporkSub{\sporkwH_1}{\sporkwH_2}$}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }\\
 \inferrule*[right=\sporkDInstrSub]{
-  \sporkfBehavior = \texttt{def($\sporkx_1$:$\sporkprim_1[\sporke_1^*]$ @ $\sporkmem_1$, $\sporkx_2$:$\sporkprim_2[\sporke_2^*]$ @ $\sporkmem_2, ...$):$\sporks_\textrm{body}$} \\
+  \sporkfBehavior = \texttt{def($\sporkx_1$:$\sporkprim_1[\sporkexpr_1^*]$ @ $\sporkmem_1$, $\sporkx_2$:$\sporkprim_2[\sporkexpr_2^*]$ @ $\sporkmem_2, ...$):$\sporks_\textrm{body}$} \\
   \sporks' = \sporkalphaRename(\sporks_\textrm{body})[\sporkx_1 \sporkWindowSub \sporkwz_1][\sporkx_2 \sporkWindowSub \sporkwz_2][...] \\
   \texttt{\color{barriercolor}>>$\sporkwz_\textrm{bar}$} \textrm{ may be dropped from the rule. }
 }

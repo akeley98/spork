@@ -1,35 +1,35 @@
 \magicSubsection{Trace Vertices}{sec:TraceVertices}
 
 Each vertex $\sporkvert: \sporkVert$ is an integer/trace-event pair $(\sporkz,\sporktr)$.
-$\sporktrVerts: \sporkTr^* \to \mathcal{P}(\sporkVert)$ converts a trace (sequence)
+$\sporktrV: \sporkTr^* \to \mathcal{P}(\sporkVert)$ converts a trace (sequence)
 into a set of vertices by pairing each trace event with its 0-based index in the sequence.
 \begin{align}
-    \sporktrVerts(()) &= \varnothing \\
-    \sporktrVerts(\sporktr^* \sporkConcatRaw \sporktr_0) &= \sporktrVerts(\sporktr^*) \cup \{ (\abs{\sporktr^*}, \sporktr_0 ) \}
-    \label{eq:sporktrVerts}
+    \sporktrV(()) &= \varnothing \\
+    \sporktrV(\sporktr^* \sporkConcatRaw \sporktr_0) &= \sporktrV(\sporktr^*) \cup \{ (\abs{\sporktr^*}, \sporktr_0 ) \}
+    \label{eq:trV}
 \end{align}
-Each trace event $\sporktr$ advertises two kinds of first and second sets:
-\textbf{(a)} timeline signature sets\footnote{Legacy: ``visibility set''}
-$\sporkTlSigA(\sporktr)$ and $\sporkTlSigB(\sporktr)$,
-where a timeline signature $\sporktlSig: \sporkTlSig$ is a pair $(\sporktid, \sporkqtl)$;
-and, \textbf{(b)} pending await sets $\sporkPendA(\sporktr)$ and $\sporkPendB(\sporktr)$.
-They are defined per-trace-event-constructor in Figure~\ref{fig:VertexTable}.
+Each trace event $\sporktr$ advertises two kinds of inbound and outbound sets:
+\textbf{(a)} observer sets\footnote{Legacy: ``visibility set''}
+$\sporkObIn(\sporktr)$ and $\sporkObOut(\sporktr)$,
+where an observer $\sporkob: \sporkOb$ is a pair $(\sporktid, \sporkqtl)$;
+and, \textbf{(b)} pending await sets $\sporkAwIn(\sporktr)$ and $\sporkAwOut(\sporktr)$.
+They are defined per-trace-event-constructor in Figure~\ref{fig:InOutSets}.
 
-\input{amspork3/VertexTable.tex}
+\input{amspork3/InOutSets.tex}
 
 For reasons that will become clearer in Section~\ref{sec:SyncEnv} (Synchronization Environment),
-we define the ``environment key'' (read/mutate tag at some array element) of $\sporkTrNewAccess$ vertices.
-The environment key and qualitative timeline mask can be queried from such vertices.
-With $\sporkNewVert$ (subset of $\sporkVert$) denoting vertices $(\sporkz, \sporktr)$ where $\sporktr$ is constructed with $\sporkTrNewAccess$,
+we define the ``environment effect'' (read/mutate tag at some array element) of $\sporkTrNewAccess$ vertices.
+The environment effect and qualitative timeline mask can be queried from such vertices.
+With $\sporkvNew: \sporkVNew$ (subset of $\sporkVert$) denoting vertices $(\sporkz, \sporktr)$ where $\sporktr$ is constructed with $\sporkTrNewAccess$,
 \begin{align}
 {\color{gray}\bullet\,}
-& \sporkenvKey: \sporkEnvKey \Coloneqq (\sporkmut, \sporkx, \sporkz_i^*) & \\
+& \sporkenvEff: \sporkEnvEff \Coloneqq (\sporkmut, \sporkx, \sporkz_i^*) & \\
 {\color{gray}\bullet\,}
-& \sporkvertKey: \sporkNewVert \to \sporkEnvKey \notag \\
-& \sporkvertKey((\sporkz, \sporkTrNewAccess(\sporkmut, \sporkx, \sporkz_i^*, \_, \_, \_, \_, \_))) = (\sporkmut, \sporkx, \sporkz_i^*)
-\label{eq:vertKey} \\
+& \sporkvEff: \sporkVNew \to \sporkEnvEff \notag \\
+& \sporkvEff((\sporkz, \sporkTrNewAccess(\sporkmut, \sporkx, \sporkz_i^*, \_, \_, \_, \_, \_))) = (\sporkmut, \sporkx, \sporkz_i^*)
+\label{eq:vEff} \\
 {\color{gray}\bullet\,}
-& \sporkvertMask: \sporkNewVert \to \mathcal{P}(\sporkQtl) \notag \\
-& \sporkvertMask((\sporkz, \sporkTrNewAccess(\_, \_, \_, \_, \_, \_, \sporkQtlMask, \_))) = \sporkQtlMask
-\label{eq:vertMask}
+& \sporkvMask: \sporkVNew \to \mathcal{P}(\sporkQtl) \notag \\
+& \sporkvMask((\sporkz, \sporkTrNewAccess(\_, \_, \_, \_, \_, \_, \sporkQtlMask, \_))) = \sporkQtlMask
+\label{eq:vMask}
 \end{align}

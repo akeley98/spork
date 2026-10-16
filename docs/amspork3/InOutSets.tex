@@ -1,0 +1,48 @@
+% TrArrive/TrAwait are paired side by side to make the arrive/await pairing clear.
+% Fence/Req diagrams put their quadrants on the sides to save vertical space.
+\begin{figure}[h]
+\codehrule
+\centering
+\inOutDiagram
+  {\sporkTrNewAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTidNew, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask, \sporkAwNew)}
+  {}
+  {\sporkTidNew \times \{ \sporkqtlInit \} \cup \sporkTid \times \sporkQtlAtom}
+  {}
+  {\sporkAwNew}
+
+\medskip
+\inOutDiagram
+  {\sporkTrArrive(\sporkTidArrive, \sporkQtlArrive, \sporkx, \sporkz_i^*, \sporkz_\textrm{arrive})}
+  {\sporkTidArrive \times \sporkQtlArrive}
+  {}
+  {}
+  {\{ \sporkPendingAwait(\sporkx, \sporkz_i^*, \sporkz_a) \mid \sporkz_a \ge \sporkz_\textrm{arrive}\}}
+\hfill
+\inOutDiagram[tr break=false, bl break=false]
+  {\sporkTrAwait(\sporkTidAwait, \sporkQtlAwait, \sporkaw)}
+  {}
+  {\sporkTidAwait \times \sporkQtlAwait}
+  {\{ \sporkaw \}}
+  {}
+
+\vspace{-8pt} % kern Fence up into the short parts of the Arrive/Await row
+\inOutDiagramSides[tl break=false, tr break=true]
+  {\sporkTrFence(\sporkTidFence, \sporkQtlArrive, \sporkQtlAwait)}
+  {\sporkTidFence \times \sporkQtlArrive}
+  {\sporkTidFence \times \sporkQtlAwait}
+  {}
+  {}
+
+\medskip
+\vspace{-5pt}
+\inOutDiagramSides
+  {\sporkTrReqCanAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTidReq, \sporkQtlPre, \sporkAwFree)}
+  {\sporkTidReq \times \sporkQtlPre}
+  {}
+  {\sporkAwFree}
+  {}
+\caption{Trace event ``inbound sets'' $\sporkObIn$, $\sporkAwIn$ and ``outbound sets'' $\sporkObOut$, $\sporkAwOut$.\\
+Note, the use of ``all possible thread IDs'' $\sporkTid$ in $(\sporkTid \times \sporkQtlAtom)$ is intentional.}
+\label{fig:InOutSets}
+\codehrule
+\end{figure}

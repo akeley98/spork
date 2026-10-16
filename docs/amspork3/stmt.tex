@@ -6,25 +6,25 @@
   $\sporks : \sporkStmt$ & $\Coloneqq$ &
     \texttt{$\sporks_L$;$\sporks_R$} & sequencing \\
   &$|$& \texttt{pass} & pass (skip, no-op) \\
-  &$|$& \texttt{if $\sporke$:$\sporks$} & guard \\
+  &$|$& \texttt{if $\sporkexpr$:$\sporks$} & guard \\
   &$|$& \texttt{for $\sporkx$ in $\sporkloopMode$($\sporkeLo,\sporkeHi$):$\sporks$} & sequential or parallel loop \sporkbinder \\
   &$|$& \texttt{with CudaWarps($\sporkz$, $\sporkz$, name=$\sporkwarpName$): $\sporks$} & warp specialization block \\
   &$|$& \texttt{with CudaDeviceFunction(clusterDim=$\sporkz$,} & cuda device function launch \\
   &   & \texttt{~~~~~~~warp\_config=$\sporkwarpConfig^*$): $\sporks$} & \\
-  &$|$& \texttt{assert $\sporke$} & assertion \\
+  &$|$& \texttt{assert $\sporkexpr$} & assertion \\
 \midrule
   % Data
-  &$|$& \texttt{$\sporkwScalarH$ = $\sporke$} & scalar assignment \\
-  &$|$& \texttt{$\sporkwScalarH$ += $\sporke$} & scalar reduction \\
+  &$|$& \texttt{$\sporkwScalarH$ = $\sporkexpr$} & scalar assignment \\
+  &$|$& \texttt{$\sporkwScalarH$ += $\sporkexpr$} & scalar reduction \\
   &$|$& \texttt{$\sporkx$ = $\sporkw$ @ $\sporkspecialWindow$} & window statement \sporkbinder \\
   &$|$& \texttt{$\sporkf$($\sporkwH^*$)} & instruction call, no trailing barrier expr \\
   &$|$& \texttt{$\sporkf$($\sporkwH^*$) >> $\sporkwH$} & instruction call, trailing barrier expr \\
-  &$|$& \texttt{$\sporkx$: $\sporkprim$[$\sporke^*$] @ $\sporkmem$} & data allocation \sporkbinder \\
+  &$|$& \texttt{$\sporkx$: $\sporkprim$[$\sporkexpr^*$] @ $\sporkmem$} & data allocation \sporkbinder \\
 \midrule
   &$|$& \texttt{free($\sporkx$)} & free \\
 \midrule
   % Barriers
-  &$|$& \texttt{$\sporkx$: barrier[$\sporke^*$] @ $\sporkbarMech$} & barrier allocation \sporkbinder \\
+  &$|$& \texttt{$\sporkx$: barrier[$\sporkexpr^*$] @ $\sporkbarMech$} & barrier allocation \sporkbinder \\
   &$|$& \texttt{Fence($\sporkQtlArrive, \sporkQtlAwait$)} $\#\sporktidMap$ & fence synchronization statement \\
   &$|$& \texttt{Arrive($\sporkQtlArrive$) >> $\sporkwH^*$} $\#\sporktidMap$ & arrive synchronization statement \\
   &$|$& \texttt{Await($\sporkwScalarH$, $\sporkQtlAwait$, $\sporkz_\textrm{lag}$)} $\#\sporktidMap$ & await synchronization statement (expects one barrier) \\

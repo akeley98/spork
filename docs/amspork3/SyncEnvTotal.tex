@@ -8,14 +8,14 @@ Define
 \end{align}
 Define
 \begin{align}
-  & \sporkvertValue : \sporkTr^* \times \sporkNewVert \to \sporkEnvValue \notag \\
-  & \sporkvertValue(\sporktr^*, \sporkvert) = \textbf{let } \sporkVert_d = \sporktrReachable(\sporktr^*, \sporkvert), \sporkQtlMask = \sporkvertMask(\sporkvert) \textbf{ in} \notag \\
-  & \quad ( \bigcup_{(z, \sporktr_d) \in \sporkVert_d} \sporkTlSigB(\sporktr_d) \cap (\sporkTid \times \sporkQtlMask),
-      \bigcup_{(z, \sporktr_d) \in \sporkVert_d} \sporkPendB(\sporktr_d),
+  & \sporkvVis : \sporkTr^* \times \sporkVNew \to \sporkEnvVis \notag \\
+  & \sporkvVis(\sporktr^*, \sporkvNew) = \textbf{let } \sporkVert_d = \sporktrReach(\sporktr^*, \sporkvNew), \sporkQtlMask = \sporkvMask(\sporkvNew) \textbf{ in} \notag \\
+  & \quad ( \bigcup_{(z, \sporktr_d) \in \sporkVert_d} \sporkObOut(\sporktr_d) \cap (\sporkTid \times \sporkQtlMask),
+      \bigcup_{(z, \sporktr_d) \in \sporkVert_d} \sporkAwOut(\sporktr_d),
       \sporkQtlMask)
-  \label{eq:vertValue} \\
+  \label{eq:vVis} \\
   & \sporktoEnvTotal: \sporkTr^* \to \sporkEnv \notag \\
-  & \sporktoEnvTotal(\sporktr^*) = \{ (\sporkvertKey(\sporkvert), \sporkvertValue(\sporktr^*, \sporkvert)) \mid \sporkvert \in \sporktrNewVerts(\sporktr^*, \sporkEnvKey) \}
+  & \sporktoEnvTotal(\sporktr^*) = \{ (\sporkvEff(\sporkvNew), \sporkvVis(\sporktr^*, \sporkvNew)) \mid \sporkvNew \in \sporktrVNew(\sporktr^*, \sporkEnvEff) \}
   \label{eq:toEnvTotal}
 \end{align}
 Claim

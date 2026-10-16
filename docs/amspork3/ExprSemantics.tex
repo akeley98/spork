@@ -3,36 +3,36 @@
 \hrule
 \begin{mathpar}
 \inferrule*[right=\sporkERead]{
-  \sporkv = \sporksigma(\sporkx, \sporkz^*)
+  \sporkvalue = \sporksigma(\sporkx, \sporkz^*)
 }
 {
-  \sporkRule{\sporkSub{\sporkx[\sporkz^*]}{\sporkv}, \sporksigma, \sporktr^*}
+  \sporkRule{\sporkSub{\sporkx[\sporkz^*]}{\sporkvalue}, \sporksigma, \sporktr^*}
 }
 \inferrule*[right=E-Negate]{
-  \sporkRule{\sporkSub{\sporke_1}{\sporke_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
+  \sporkRule{\sporkSub{\sporkexpr_1}{\sporkexpr_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 {
-  \sporkRule{-\sporkSub{\sporke_1}{\sporke_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
+  \sporkRule{-\sporkSub{\sporkexpr_1}{\sporkexpr_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }\\
 \inferrule*[right=E-BinOpLhs]{
   \oplus \in \sporkBinOp \\\\
-  \sporkRule{\sporkSub{\sporke_1}{\sporke_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
+  \sporkRule{\sporkSub{\sporkexpr_1}{\sporkexpr_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 {
-  \sporkRule{\sporkSub{\sporke_1}{\sporke_2} \oplus \sporke, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
+  \sporkRule{\sporkSub{\sporkexpr_1}{\sporkexpr_2} \oplus \sporkexpr, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 \inferrule*[right=E-BinOpRhs]{
   \oplus \in \sporkBinOp \\\\
-  \sporkRule{\sporkSub{\sporke_1}{\sporke_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
+  \sporkRule{\sporkSub{\sporkexpr_1}{\sporkexpr_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 {
-  \sporkRule{\sporkv \oplus \sporkSub{\sporke_1}{\sporke_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
+  \sporkRule{\sporkvalue \oplus \sporkSub{\sporkexpr_1}{\sporkexpr_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }\\
 \inferrule*[right=E-ExternArg]{
-  \sporkRule{\sporkSub{\sporke_1}{\sporke_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
+  \sporkRule{\sporkSub{\sporkexpr_1}{\sporkexpr_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 {
-  \sporkRule{\sporkextern(\sporkv^*, \sporkSub{\sporke_1}{\sporke_2}, \sporke^*), \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
+  \sporkRule{\sporkextern(\sporkvalue^*, \sporkSub{\sporkexpr_1}{\sporkexpr_2}, \sporkexpr^*), \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 \end{mathpar}
 \caption{Expression Semantics.

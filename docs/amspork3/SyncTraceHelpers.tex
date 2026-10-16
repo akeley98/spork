@@ -7,42 +7,42 @@
   % (non-annotated windows produce no trace actions).
 }
 {
-  \sporktrAccessHelper(\sporksigma, \sporktr^*, \sporkmut, \sporkwz, \sporkPend_\textrm{new}) = \sporktr^*
+  \sporktrAccessHelper(\sporksigma, \sporktr^*, \sporkmut, \sporkwz, \sporkAwNew) = \sporktr^*
 }\\
 \inferrule*[right=Tr-ConvergentTid]{
   \sporkqtlConvergent(\sporkqtlInit) \\
-  \sporkTid_\textsf{all} = \sporktidMap(\sporksigma) \\
+  \sporkTidAll = \sporktidMap(\sporksigma) \\
   \sporktr^*_\textsf{req} =
-  \textbf{(}\sporkTrReqCanAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTid_\textsf{all}, \sporkQtlPre, \varnothing) \textbf{)}_{
+  \textbf{(}\sporkTrReqCanAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTidAll, \sporkQtlPre, \varnothing) \textbf{)}_{
     (\sporkx, \sporkz_i^*) \in \sporkWunroll(\sporkwz)
   }\\
   \sporktr^*_\textsf{new} =
-  \textbf{(}\sporkTrNewAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTid_\textsf{all}, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask, \sporkPend_\textrm{new}) \textbf{)}_{
+  \textbf{(}\sporkTrNewAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTidAll, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask, \sporkAwNew) \textbf{)}_{
     (\sporkx, \sporkz_i^*) \in \sporkWunroll(\sporkwz)
   }\\
 }
 {
   \sporktrAccessHelper(\sporksigma, \sporktr^*, \sporkmut,
   \sporkwz \# (\sporktidMap, \sporkQtlPre, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask),
-  \sporkPend_\textrm{new})
+  \sporkAwNew)
   = \sporktr^* \sporkConcatChk \sporktr^*_\textsf{req} \sporkConcatChk \sporktr^*_\textsf{new}
 }\\
 \inferrule*[right=Tr-SeparateTid]{
   \neg\sporkqtlConvergent(\sporkqtlInit) \\
-  \sporkTid_\textsf{all} = \sporktidMap(\sporksigma) \\
+  \sporkTidAll = \sporktidMap(\sporksigma) \\
   \sporktr^*_\textsf{req} =
   \textbf{(}\sporkTrReqCanAccess(\sporkmut, \sporkx, \sporkz_i^*, \{ \sporktid \}, \sporkQtlPre, \varnothing) \textbf{)}_{
-    (\sporkx, \sporkz_i^*) \in \sporkWunroll(\sporkwz), \sporktid \in \sporkTid_\textsf{all}
+    (\sporkx, \sporkz_i^*) \in \sporkWunroll(\sporkwz), \sporktid \in \sporkTidAll
   }\\
   \sporktr^*_\textsf{new} =
-  \textbf{(}\sporkTrNewAccess(\sporkmut, \sporkx, \sporkz_i^*, \{ \sporktid \}, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask, \sporkPend_\textrm{new}) \textbf{)}_{
-    (\sporkx, \sporkz_i^*) \in \sporkWunroll(\sporkwz), \sporktid \in \sporkTid_\textsf{all}
+  \textbf{(}\sporkTrNewAccess(\sporkmut, \sporkx, \sporkz_i^*, \{ \sporktid \}, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask, \sporkAwNew) \textbf{)}_{
+    (\sporkx, \sporkz_i^*) \in \sporkWunroll(\sporkwz), \sporktid \in \sporkTidAll
   }\\
 }
 {
   \sporktrAccessHelper(\sporksigma, \sporktr^*, \sporkmut,
   \sporkwz \# (\sporktidMap, \sporkQtlPre, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask),
-  \sporkPend_\textrm{new})
+  \sporkAwNew)
   = \sporktr^* \sporkConcatChk \sporktr^*_\textsf{req} \sporkConcatChk \sporktr^*_\textsf{new}
 }\\
 \sporkinstrBarrierHelper(\quad,\sporksigma) = \{ \} \\

@@ -2,12 +2,12 @@
 \sporkGrammarStuff
 \begin{tabular}{rrll}
 \toprule
-  $\sporke : \sporkExpr$ & $\Coloneqq$ &
+  $\sporkexpr : \sporkExpr$ & $\Coloneqq$ &
         $\sporkwScalarH$ & scalar read \\
-  &$|$& $\sporkv$ & constant (boolean, integer, or real) \\
-  &$|$& $-\sporke$ & unary negation \\
-  &$|$& $\sporke_L \oplus \sporke_R$ & bin-op, $\oplus \in \sporkBinOp$ \\
-  &$|$& $\sporkextern(\sporke^*)$ & extern call \\
+  &$|$& $\sporkvalue$ & constant (boolean, integer, or real) \\
+  &$|$& $-\sporkexpr$ & unary negation \\
+  &$|$& $\sporkexpr_L \oplus \sporkexpr_R$ & bin-op, $\oplus \in \sporkBinOp$ \\
+  &$|$& $\sporkextern(\sporkexpr^*)$ & extern call \\
 \bottomrule
 \end{tabular}
 \begin{tabular}{rll}
