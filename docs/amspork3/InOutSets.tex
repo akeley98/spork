@@ -10,23 +10,23 @@
   {}
   {\sporkAwNew}
 
-\medskip
-\inOutDiagram
+\smallskip
+\inOutDiagram[br break=true]
   {\sporkTrArrive(\sporkTidArrive, \sporkQtlArrive, \sporkx, \sporkz_i^*, \sporkz_\textrm{arrive})}
   {\sporkTidArrive \times \sporkQtlArrive}
   {}
   {}
   {\{ \sporkPendingAwait(\sporkx, \sporkz_i^*, \sporkz_a) \mid \sporkz_a \ge \sporkz_\textrm{arrive}\}}
 \hfill
-\inOutDiagram[tr break=false, bl break=false]
+\inOutDiagram
   {\sporkTrAwait(\sporkTidAwait, \sporkQtlAwait, \sporkaw)}
   {}
   {\sporkTidAwait \times \sporkQtlAwait}
   {\{ \sporkaw \}}
   {}
 
-\vspace{-8pt} % kern Fence up into the short parts of the Arrive/Await row
-\inOutDiagramSides[tl break=false, tr break=true]
+\vspace{3pt} % gaps between diagrams are hand-tuned to look even
+\inOutDiagramSides
   {\sporkTrFence(\sporkTidFence, \sporkQtlArrive, \sporkQtlAwait)}
   {\sporkTidFence \times \sporkQtlArrive}
   {\sporkTidFence \times \sporkQtlAwait}
@@ -34,7 +34,7 @@
   {}
 
 \medskip
-\vspace{-5pt}
+\vspace{-3pt}
 \inOutDiagramSides
   {\sporkTrReqCanAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTidReq, \sporkQtlPre, \sporkAwFree)}
   {\sporkTidReq \times \sporkQtlPre}

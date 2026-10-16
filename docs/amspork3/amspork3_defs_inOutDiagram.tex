@@ -7,84 +7,60 @@
 % The constructor box sits in the middle; Ob boxes above, Aw boxes below,
 % "in" boxes on the left, "out" boxes on the right. Constructor and values are math.
 % An empty value means \varnothing, drawn as a minimized "label = \varnothing" box.
-% Before drawing, each row (top/bottom) is measured:
-%   * a box breaks after "=" only if its row would otherwise be wider than the
-%     constructor box (wider box first; the other only if that makes the row fit;
-%     \varnothing boxes never break);
-%   * the row slides horizontally to stay within the constructor box's width
-%     (centered on the constructor if it can't fit).
+% Every box hangs off its own corner of the constructor box by a 45-degree "leg"
+% (same in both layouts, so no connection direction looks special).
+% Breaks after "=" are manual only (see "Manual overrides"); by default every box is one line.
+% Placement:
+%   * \inOutDiagram: the "in" box's left edge and the "out" box's right edge sit just
+%     outside the constructor's corners, so the legs land \vd@inset in from the boxes'
+%     outer corners; a row too wide for that spreads outward symmetrically.
+%   * \inOutDiagramSides: likewise vertically, per column.
 \makeatletter
 \newsavebox\vd@tmpbox
-\newdimen\vd@W \newdimen\vd@gap \vd@gap=3mm
-\newdimen\vd@aOne \newdimen\vd@aTwo \newdimen\vd@bOne \newdimen\vd@bTwo
-\newdimen\vd@a \newdimen\vd@b \newdimen\vd@lo \newdimen\vd@hi \newdimen\vd@tmp
+\newdimen\vd@W \newdimen\vd@H \newdimen\vd@gap \vd@gap=3mm
+\newdimen\vd@leg \vd@leg=2mm     % horizontal = vertical extent of each corner leg
+\newdimen\vd@inset \vd@inset=1.5mm % where the leg lands, measured from the box's outer corner
+\newdimen\vd@a \newdimen\vd@b
 \newdimen\vd@topShift \newdimen\vd@botShift
-\newdimen\vd@cOne \newdimen\vd@cTwo \newdimen\vd@dOne \newdimen\vd@dTwo
-\newif\ifvd@breakA \newif\ifvd@breakB
 \newif\ifvd@breakTL \newif\ifvd@breakTR \newif\ifvd@breakBL \newif\ifvd@breakBR
 \newcommand\vd@ifempty[3]{\if\relax\detokenize{#1}\relax #2\else #3\fi}
-\newcommand\vd@fontfor[1]{\vd@ifempty{#1}{\scriptsize}{\small}}
-\newcommand\vd@valfor[1]{\vd@ifempty{#1}{\varnothing}{#1}}
 \tikzset{
   vertCtor/.style={draw=mainColor, text=mainColor, inner sep=3pt},
   vertVal/.style={draw=black!33, inner sep=2pt, align=left},
   vertEmpty/.style={draw=black!33, inner sep=1pt, align=left},
   vertStub/.style={draw=mainColor, line width=1pt},
 }
-% \vd@widths{label}{value}{one-line width}{broken width}: outer node widths
-\newcommand\vd@widths[4]{%
-  \sbox\vd@tmpbox{\vd@fontfor{#2}$#1 = \vd@valfor{#2}$}#3=\wd\vd@tmpbox
-  \sbox\vd@tmpbox{\vd@fontfor{#2}$#1 =$}#4=\wd\vd@tmpbox
-  \sbox\vd@tmpbox{\vd@fontfor{#2}$\vd@valfor{#2}$}%
-  \ifdim\wd\vd@tmpbox>#4 #4=\wd\vd@tmpbox\fi
-  \vd@tmp=\vd@ifempty{#2}{2.4pt}{4.4pt}% 2 * inner sep + line width
-  \advance#3 by \vd@tmp \advance#4 by \vd@tmp
-  \ifdim#4>#3 #4=#3\fi
-  \vd@ifempty{#2}{#4=#3}{}}% \varnothing boxes never break
-\newcommand\vd@tryBreakA{\ifdim\vd@aTwo<\vd@aOne \vd@a=\vd@aTwo \vd@breakAtrue\fi}
-\newcommand\vd@tryBreakB{\ifdim\vd@bTwo<\vd@bOne \vd@b=\vd@bTwo \vd@breakBtrue\fi}
-\newif\ifvd@tooWide
 % Manual overrides, given as \inOutDiagram[options]{...} or \inOutDiagramSides[options]{...}:
-%   tl break, tr break, bl break, br break = auto (default) | true | false
-%   top shift, bottom shift = <dimen> (\inOutDiagram only; replaces the automatic row slide)
-\def\vd@strue{true}\def\vd@sfalse{false}
+%   tl break, tr break, bl break, br break = false (default) | true
+%     (break that box after "="; \varnothing boxes never break)
+%   top shift, bottom shift = <dimen> (\inOutDiagram only; replaces the automatic outward
+%     spread of an overfull row; each box moves outward by this much)
+\def\vd@strue{true}
 \pgfkeys{/vd/.cd,
   tl break/.store in=\vd@optTL, tr break/.store in=\vd@optTR,
   bl break/.store in=\vd@optBL, br break/.store in=\vd@optBR,
   top shift/.store in=\vd@optTopShift, bottom shift/.store in=\vd@optBotShift}
+% \vd@setbreak{option macro}{\vd@breakXXtrue}{\vd@breakXXfalse}
+\newcommand\vd@setbreak[3]{\ifx#1\vd@strue #2\else #3\fi}
 \newcommand\vd@setopts[1]{%
-  \def\vd@optTL{auto}\def\vd@optTR{auto}\def\vd@optBL{auto}\def\vd@optBR{auto}%
+  \def\vd@optTL{false}\def\vd@optTR{false}\def\vd@optBL{false}\def\vd@optBR{false}%
   \let\vd@optTopShift\@empty \let\vd@optBotShift\@empty
-  \pgfkeys{/vd/.cd,#1}}
-% \vd@override{mode macro}{if true}{if false}
-\newcommand\vd@override[3]{\ifx#1\vd@strue #2\fi \ifx#1\vd@sfalse #3\fi}
-\newcommand\vd@checkWidth{\vd@tmp=\vd@a \advance\vd@tmp by \vd@b \advance\vd@tmp by \vd@gap
-  \ifdim\vd@tmp>\vd@W \vd@tooWidetrue \else \vd@tooWidefalse \fi}
-% \vd@row{labelA}{valueA}{labelB}{valueB}{shift dimen}{modeA}{modeB}:
-% sets \ifvd@breakA/B and the shift
-\newcommand\vd@row[7]{%
-  \vd@widths{#1}{#2}\vd@aOne\vd@aTwo \vd@widths{#3}{#4}\vd@bOne\vd@bTwo
-  \vd@a=\vd@aOne \vd@b=\vd@bOne \vd@breakAfalse \vd@breakBfalse
-  \vd@checkWidth
-  \ifvd@tooWide
-    \ifdim\vd@aOne<\vd@bOne \vd@tryBreakB \else \vd@tryBreakA \fi
-    \vd@checkWidth
-    \ifvd@tooWide % break the other box too, but only if that makes the row fit
-      \vd@tmp=\vd@aTwo \advance\vd@tmp by \vd@bTwo \advance\vd@tmp by \vd@gap
-      \ifdim\vd@tmp>\vd@W\else \vd@tryBreakA \vd@tryBreakB \fi
-    \fi
-  \fi
-  \vd@override#6\vd@breakAtrue\vd@breakAfalse
-  \vd@override#7\vd@breakBtrue\vd@breakBfalse
-  \vd@a=\ifvd@breakA\vd@aTwo\else\vd@aOne\fi
-  \vd@b=\ifvd@breakB\vd@bTwo\else\vd@bOne\fi
-  \vd@lo=-0.5\vd@W \advance\vd@lo by 0.5\vd@gap \advance\vd@lo by \vd@a
-  \vd@hi=0.5\vd@W \advance\vd@hi by -0.5\vd@gap \advance\vd@hi by -\vd@b
-  \ifdim\vd@lo>\vd@hi #5=0.5\vd@lo \advance#5 by 0.5\vd@hi
-  \else #5=0pt
-    \ifdim#5<\vd@lo #5=\vd@lo\fi
-    \ifdim#5>\vd@hi #5=\vd@hi\fi
-  \fi}
+  \pgfkeys{/vd/.cd,#1}%
+  \vd@setbreak\vd@optTL\vd@breakTLtrue\vd@breakTLfalse
+  \vd@setbreak\vd@optTR\vd@breakTRtrue\vd@breakTRfalse
+  \vd@setbreak\vd@optBL\vd@breakBLtrue\vd@breakBLfalse
+  \vd@setbreak\vd@optBR\vd@breakBRtrue\vd@breakBRfalse}
+% \vd@ctorsize{constructor}: \vd@W, \vd@H = outer size of the constructor box
+\newcommand\vd@ctorsize[1]{%
+  \sbox\vd@tmpbox{\begin{tikzpicture}\node[vertCtor] {$\sporktr = #1$};\end{tikzpicture}}%
+  \vd@W=\wd\vd@tmpbox \vd@H=\ht\vd@tmpbox \advance\vd@H by \dp\vd@tmpbox}
+% \vd@measure{label}{value}{\vd@ifXX}: typesets the box as drawn into \vd@tmpbox
+\newcommand\vd@measure[3]{%
+  \sbox\vd@tmpbox{\begin{tikzpicture}\vd@box{}{tmp}{#1}{#2}#3\end{tikzpicture}}}
+% \vd@spread{size A}{size B}{room}{shift dimen}: shift = max(0, A + B + gap - room) / 2
+\newcommand\vd@spread[4]{%
+  #4=#1 \advance#4 by #2 \advance#4 by \vd@gap \advance#4 by -#3
+  \ifdim#4<0pt #4=0pt\fi #4=0.5#4}
 % \vd@box{options}{node name}{label}{value}{break?}
 \newcommand\vd@box[5]{%
   \vd@ifempty{#4}%
@@ -94,70 +70,53 @@
 \newcommand\vd@ifTR{\ifvd@breakTR\expandafter\@firstoftwo\else\expandafter\@secondoftwo\fi}
 \newcommand\vd@ifBL{\ifvd@breakBL\expandafter\@firstoftwo\else\expandafter\@secondoftwo\fi}
 \newcommand\vd@ifBR{\ifvd@breakBR\expandafter\@firstoftwo\else\expandafter\@secondoftwo\fi}
+% The four 45-degree legs from the constructor box's corners.
+\newcommand\vd@legs{%
+  \draw[vertStub] (ctor.north west) -- ++(-\vd@leg,\vd@leg);
+  \draw[vertStub] (ctor.north east) -- ++(\vd@leg,\vd@leg);
+  \draw[vertStub] (ctor.south west) -- ++(-\vd@leg,-\vd@leg);
+  \draw[vertStub] (ctor.south east) -- ++(\vd@leg,-\vd@leg);}
 \newcommand{\inOutDiagram}[6][]{%
   \vd@setopts{#1}%
-  \sbox\vd@tmpbox{$\sporktr = #2$}\vd@W=\wd\vd@tmpbox \advance\vd@W by 6.4pt
-  \vd@row{\sporkObIn(\sporktr)}{#3}{\sporkObOut(\sporktr)}{#4}\vd@topShift\vd@optTL\vd@optTR
+  \vd@ctorsize{#2}\advance\vd@W by 2\vd@leg \advance\vd@W by 2\vd@inset % room per row
+  \vd@measure{\sporkObIn(\sporktr)}{#3}\vd@ifTL\vd@a=\wd\vd@tmpbox
+  \vd@measure{\sporkObOut(\sporktr)}{#4}\vd@ifTR\vd@b=\wd\vd@tmpbox
+  \vd@spread\vd@a\vd@b\vd@W\vd@topShift
+  \vd@measure{\sporkAwIn(\sporktr)}{#5}\vd@ifBL\vd@a=\wd\vd@tmpbox
+  \vd@measure{\sporkAwOut(\sporktr)}{#6}\vd@ifBR\vd@b=\wd\vd@tmpbox
+  \vd@spread\vd@a\vd@b\vd@W\vd@botShift
   \ifx\vd@optTopShift\@empty\else \vd@topShift=\vd@optTopShift\relax\fi
-  \ifvd@breakA\vd@breakTLtrue\else\vd@breakTLfalse\fi
-  \ifvd@breakB\vd@breakTRtrue\else\vd@breakTRfalse\fi
-  \vd@row{\sporkAwIn(\sporktr)}{#5}{\sporkAwOut(\sporktr)}{#6}\vd@botShift\vd@optBL\vd@optBR
   \ifx\vd@optBotShift\@empty\else \vd@botShift=\vd@optBotShift\relax\fi
-  \ifvd@breakA\vd@breakBLtrue\else\vd@breakBLfalse\fi
-  \ifvd@breakB\vd@breakBRtrue\else\vd@breakBRfalse\fi
   \begin{tikzpicture}[baseline=(ctor.base)]
     \node[vertCtor] (ctor) {$\sporktr = #2$};
-    \vd@box{anchor=south east, at={($(ctor.north)+(\vd@topShift-0.5\vd@gap,2.5mm)$)}}{tl}{\sporkObIn(\sporktr)}{#3}\vd@ifTL
-    \vd@box{anchor=south west, at={($(ctor.north)+(\vd@topShift+0.5\vd@gap,2.5mm)$)}}{tr}{\sporkObOut(\sporktr)}{#4}\vd@ifTR
-    \vd@box{anchor=north east, at={($(ctor.south)+(\vd@botShift-0.5\vd@gap,-2.5mm)$)}}{bl}{\sporkAwIn(\sporktr)}{#5}\vd@ifBL
-    \vd@box{anchor=north west, at={($(ctor.south)+(\vd@botShift+0.5\vd@gap,-2.5mm)$)}}{br}{\sporkAwOut(\sporktr)}{#6}\vd@ifBR
-    \draw[vertStub] ($(tl.south east)+(-1.5mm,0)$) -- ++(0,-2.5mm);
-    \draw[vertStub] ($(tr.south west)+(1.5mm,0)$) -- ++(0,-2.5mm);
-    \draw[vertStub] ($(bl.north east)+(-1.5mm,0)$) -- ++(0,2.5mm);
-    \draw[vertStub] ($(br.north west)+(1.5mm,0)$) -- ++(0,2.5mm);
+    \vd@box{anchor=south west, at={($(ctor.north west)+(-\vd@leg-\vd@inset-\vd@topShift,\vd@leg)$)}}{tl}{\sporkObIn(\sporktr)}{#3}\vd@ifTL
+    \vd@box{anchor=south east, at={($(ctor.north east)+(\vd@leg+\vd@inset+\vd@topShift,\vd@leg)$)}}{tr}{\sporkObOut(\sporktr)}{#4}\vd@ifTR
+    \vd@box{anchor=north west, at={($(ctor.south west)+(-\vd@leg-\vd@inset-\vd@botShift,-\vd@leg)$)}}{bl}{\sporkAwIn(\sporktr)}{#5}\vd@ifBL
+    \vd@box{anchor=north east, at={($(ctor.south east)+(\vd@leg+\vd@inset+\vd@botShift,-\vd@leg)$)}}{br}{\sporkAwOut(\sporktr)}{#6}\vd@ifBR
+    \vd@legs
   \end{tikzpicture}%
 }
 % \inOutDiagramSides: same arguments, but the "in" quadrants sit to the left of the
 % constructor and the "out" quadrants to the right (Ob upper, Aw lower).
-% Trades horizontal space for vertical. If the diagram would exceed \linewidth,
-% the wider column's boxes break after "=" (then the other column if still needed).
-\newcommand\vd@sideWidths{%
-  \vd@a=\ifvd@breakTL\vd@aTwo\else\vd@aOne\fi
-  \vd@tmp=\ifvd@breakBL\vd@bTwo\else\vd@bOne\fi
-  \ifdim\vd@tmp>\vd@a \vd@a=\vd@tmp\fi
-  \vd@b=\ifvd@breakTR\vd@cTwo\else\vd@cOne\fi
-  \vd@tmp=\ifvd@breakBR\vd@dTwo\else\vd@dOne\fi
-  \ifdim\vd@tmp>\vd@b \vd@b=\vd@tmp\fi
-  \vd@tmp=\vd@W \advance\vd@tmp by \vd@a \advance\vd@tmp by \vd@b
-  \advance\vd@tmp by 5mm\relax}
+% Trades horizontal space for vertical.
+% \vd@topShift (left column) and \vd@botShift (right column) hold how far each box
+% moves outward (vertically) if the column's two boxes would otherwise overlap.
 \newcommand{\inOutDiagramSides}[6][]{%
   \vd@setopts{#1}%
-  \sbox\vd@tmpbox{$\sporktr = #2$}\vd@W=\wd\vd@tmpbox \advance\vd@W by 6.4pt
-  \vd@widths{\sporkObIn(\sporktr)}{#3}\vd@aOne\vd@aTwo
-  \vd@widths{\sporkAwIn(\sporktr)}{#5}\vd@bOne\vd@bTwo
-  \vd@widths{\sporkObOut(\sporktr)}{#4}\vd@cOne\vd@cTwo
-  \vd@widths{\sporkAwOut(\sporktr)}{#6}\vd@dOne\vd@dTwo
-  \vd@breakTLfalse \vd@breakBLfalse \vd@breakTRfalse \vd@breakBRfalse
-  \vd@sideWidths
-  \ifdim\vd@tmp>\linewidth
-    \ifdim\vd@a<\vd@b \vd@breakTRtrue \vd@breakBRtrue \else \vd@breakTLtrue \vd@breakBLtrue \fi
-    \vd@sideWidths
-    \ifdim\vd@tmp>\linewidth \vd@breakTLtrue \vd@breakBLtrue \vd@breakTRtrue \vd@breakBRtrue \fi
-  \fi
-  \vd@override\vd@optTL\vd@breakTLtrue\vd@breakTLfalse
-  \vd@override\vd@optTR\vd@breakTRtrue\vd@breakTRfalse
-  \vd@override\vd@optBL\vd@breakBLtrue\vd@breakBLfalse
-  \vd@override\vd@optBR\vd@breakBRtrue\vd@breakBRfalse
+  \vd@ctorsize{#2}\advance\vd@H by 2\vd@leg \advance\vd@H by 2\vd@inset % room per column
+  \vd@measure{\sporkObIn(\sporktr)}{#3}\vd@ifTL\vd@a=\ht\vd@tmpbox \advance\vd@a by \dp\vd@tmpbox
+  \vd@measure{\sporkAwIn(\sporktr)}{#5}\vd@ifBL\vd@b=\ht\vd@tmpbox \advance\vd@b by \dp\vd@tmpbox
+  \vd@spread\vd@a\vd@b\vd@H\vd@topShift
+  \vd@measure{\sporkObOut(\sporktr)}{#4}\vd@ifTR\vd@a=\ht\vd@tmpbox \advance\vd@a by \dp\vd@tmpbox
+  \vd@measure{\sporkAwOut(\sporktr)}{#6}\vd@ifBR\vd@b=\ht\vd@tmpbox \advance\vd@b by \dp\vd@tmpbox
+  \vd@spread\vd@a\vd@b\vd@H\vd@botShift
   \begin{tikzpicture}[baseline=(ctor.base)]
     \node[vertCtor] (ctor) {$\sporktr = #2$};
-    \vd@box{anchor=south east, at={($(ctor.west)+(-2.5mm,0.5mm)$)}}{tl}{\sporkObIn(\sporktr)}{#3}\vd@ifTL
-    \vd@box{anchor=south west, at={($(ctor.east)+(2.5mm,0.5mm)$)}}{tr}{\sporkObOut(\sporktr)}{#4}\vd@ifTR
-    \vd@box{anchor=north east, at={($(ctor.west)+(-2.5mm,-0.5mm)$)}}{bl}{\sporkAwIn(\sporktr)}{#5}\vd@ifBL
-    \vd@box{anchor=north west, at={($(ctor.east)+(2.5mm,-0.5mm)$)}}{br}{\sporkAwOut(\sporktr)}{#6}\vd@ifBR
-    \draw[vertStub] ($(tl.south east)+(0,1.2mm)$) -- ++(2.5mm,0);
-    \draw[vertStub] ($(tr.south west)+(0,1.2mm)$) -- ++(-2.5mm,0);
-    \draw[vertStub] ($(bl.north east)+(0,-1.2mm)$) -- ++(2.5mm,0);
-    \draw[vertStub] ($(br.north west)+(0,-1.2mm)$) -- ++(-2.5mm,0);
+    \vd@box{anchor=north east, at={($(ctor.north west)+(-\vd@leg,\vd@leg+\vd@inset+\vd@topShift)$)}}{tl}{\sporkObIn(\sporktr)}{#3}\vd@ifTL
+    \vd@box{anchor=north west, at={($(ctor.north east)+(\vd@leg,\vd@leg+\vd@inset+\vd@botShift)$)}}{tr}{\sporkObOut(\sporktr)}{#4}\vd@ifTR
+    \vd@box{anchor=south east, at={($(ctor.south west)+(-\vd@leg,-\vd@leg-\vd@inset-\vd@topShift)$)}}{bl}{\sporkAwIn(\sporktr)}{#5}\vd@ifBL
+    \vd@box{anchor=south west, at={($(ctor.south east)+(\vd@leg,-\vd@leg-\vd@inset-\vd@botShift)$)}}{br}{\sporkAwOut(\sporktr)}{#6}\vd@ifBR
+    \vd@legs
   \end{tikzpicture}%
 }
 \makeatother
