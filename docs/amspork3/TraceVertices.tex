@@ -18,8 +18,8 @@ They are defined per-trace-event-constructor in Figure~\ref{fig:InOutSets}.
 \input{amspork3/InOutSets.tex}
 
 For reasons that will become clearer in Section~\ref{sec:SyncEnv} (Synchronization Environment),
-we define the ``environment effect'' (read/mutate tag at some array element) of $\sporkTrNewAccess$ vertices.
-The environment effect and qualitative timeline mask can be queried from such vertices.
+we define querying the ``environment effect'' (read/mutate tag at some $x[z_i^*]$) of $\sporkTrNewAccess$ vertices.
+We can also query the qualitative timeline mask of such vertices.
 With $\sporkvNew: \sporkVNew$ (subset of $\sporkVert$) denoting vertices $(\sporkz, \sporktr)$ where $\sporktr$ is constructed with $\sporkTrNewAccess$,
 \begin{align}
 {\color{gray}\bullet\,}

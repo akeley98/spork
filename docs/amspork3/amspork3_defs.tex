@@ -207,6 +207,9 @@
 \newcommand{\sporkvEff}{\mathord{\hyperref[eq:vEff]{\textsf{vEff}}}}
 % InOutSets layout macros (\inOutDiagram, \inOutDiagramSides)
 \input{amspork3/amspork3_defs_inOutDiagram.tex}
+% \sporkVNew[s], \sporkvNew[s]: optional subscript goes inside the stack (V_s over "new").
+\newcommand{\sporkVNew}[1][]{\mathord{\hyperref[eq:vEff]{\underset{\textrm{new}}{\sporkSubOpt{\textsf{V}}{#1}}}}}
+\newcommand{\sporkvNew}[1][]{\mathord{\hyperref[eq:vEff]{\underset{\textrm{new}}{\sporkSubOpt{\textsf{v}}{#1}}}}}
 
 %% Trace Edges
 \newcommand{\sporkedge}{\mathord{\hyperref[sec:TraceEdges]{\textsf{e}}}}  % Naming convention exception (avoid clash with expr e)
@@ -215,10 +218,7 @@
 \newcommand{\sporkEdgeArrow}[3]{({#1} \xrightarrow{#2} {#3})}
 
 %% Trace Concatenation Check
-% \sporkVNew[s], \sporkvNew[s]: optional subscript goes inside the stack (V_s over "new").
 \newcommand{\sporkSubOpt}[2]{\if\relax\detokenize{#2}\relax #1\else #1_{#2}\fi}
-\newcommand{\sporkVNew}[1][]{\mathord{\hyperref[sec:TraceConcatChk]{\underset{\textrm{new}}{\sporkSubOpt{\textsf{V}}{#1}}}}}
-\newcommand{\sporkvNew}[1][]{\mathord{\hyperref[sec:TraceConcatChk]{\underset{\textrm{new}}{\sporkSubOpt{\textsf{v}}{#1}}}}}
 \newcommand{\sporktrReach}{\mathord{\hyperref[eq:trReach]{\textsf{trReach}}}}
 \newcommand{\sporktrVNew}{\mathord{\hyperref[eq:trVNew]{\textsf{trVNew}}}}
 \newcommand{\sporkmutReqs}{\mathord{\hyperref[eq:mutReqs]{\textsf{mutReqs}}}}

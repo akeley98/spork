@@ -9,7 +9,8 @@ Define
     \sporkenvVis: \sporkEnvVis &\Coloneqq (\sporkOb_v, \sporkAw_v, \sporkQtlMask) \\
     \sporkEnv &= \mathcal{P}(\sporkEnvEff \times \sporkEnvVis)
 \end{align}
-Ignoring the effects of set de-duplication, each $(\sporkenvEff, \sporkenvVis)$ pair in a given $\sporkenv:\sporkEnv$ corresponds 1:1 with a $\sporkTrNewAccess$ event.
+Each $(\sporkenvEff, \sporkenvVis)$ pair in a given $\sporkenv:\sporkEnv$ corresponds 1:1 with a $\sporkTrNewAccess$ event
+(ignoring the issue of set de-duplication).
 The ultimate goal of this section is to define $\sporkenv$ and $\sporkConcatEnv$ as semantics-preserving drop-in replacements for $\sporktr^*$ and $\sporkConcatChk$; i.e., that alternative semantics (Section~\ref{sec:Semantics}) with $\sporktr^*$ and $\sporkConcatChk$ replaced with $\sporkenv$ and $\sporkConcatEnv$ will get stuck on an input program iff said program gets stuck with the original semantics.
 For brevity, we allow treating $\sporkenv$ as a relation $\sporkEnvEff \to \mathcal{P}(\sporkEnvVis)$:
 \begin{align}

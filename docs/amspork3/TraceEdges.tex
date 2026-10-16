@@ -11,7 +11,7 @@ The set of graph edges $\sporktrE: \sporkTr^* \times \mathcal{P}(\sporkQtl) \to 
     & \sporkEdgeArrow{(\sporkz_1, \sporktr_1)}{\sporkOb_e, \sporkAw_e}{(\sporkz_2, \sporktr_2)} \in \sporktrE(\sporktr^*, \sporkQtlMask) \iff & \\
     & (\sporkz_1, \sporktr_1), (\sporkz_2, \sporktr_2) \in \sporktrV(\sporktr^*) \land{} \sporkz_1 < \sporkz_2 & \codecomment{(pick 2 vertices in trace order)} \\
     \land{} & \sporkOb_e = \sporkObOut(\sporktr_1) \cap \sporkObIn(\sporktr_2) \cap (\sporkTid\times\sporkQtlMask) &
-    \codecomment{(common $\sporkob$, filtered by $\sporkQtlMask$)} \\
+    \codecomment{(common observers, filtered by $\sporkQtlMask$)} \\
     \land{} & \sporkAw_e = \sporkAwOut(\sporktr_1) \cap \sporkAwIn(\sporktr_2) &
     \codecomment{(common pending awaits)} \\
     \land{} & (\sporkOb_e \ne \varnothing \lor \sporkAw_e \ne \varnothing) &
