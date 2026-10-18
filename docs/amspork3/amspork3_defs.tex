@@ -95,11 +95,11 @@
 \newcommand{\sporkSigma}{\mathord{\hyperref[fig:BasicGrammar]{\Sigma}}}
 \newcommand{\sporktid}{\mathord{\hyperref[fig:BasicGrammar]{\textgpu{tid}}}}
 \newcommand{\sporkTid}{\mathord{\hyperref[fig:BasicGrammar]{\textgpu{Tid}}}}
-\newcommand{\sporkTidNew}{\mathord{\hyperref[fig:BasicGrammar]{\underset{\textrm{new}}{\textgpu{Tid}}}}}
+\newcommand{\sporkTidPost}{\mathord{\hyperref[fig:BasicGrammar]{\underset{\textrm{post}}{\textgpu{Tid}}}}}  % Formerly \sporkTidNew
 \newcommand{\sporkTidFence}{\mathord{\hyperref[fig:BasicGrammar]{\underset{\textrm{fence}}{\textgpu{Tid}}}}}
 \newcommand{\sporkTidArrive}{\mathord{\hyperref[fig:BasicGrammar]{\underset{\textrm{arrive}}{\textgpu{Tid}}}}}
 \newcommand{\sporkTidAwait}{\mathord{\hyperref[fig:BasicGrammar]{\underset{\textrm{await}}{\textgpu{Tid}}}}}
-\newcommand{\sporkTidReq}{\mathord{\hyperref[fig:BasicGrammar]{\underset{\textrm{req}}{\textgpu{Tid}}}}}
+\newcommand{\sporkTidPre}{\mathord{\hyperref[fig:BasicGrammar]{\underset{\textrm{pre}}{\textgpu{Tid}}}}}  % Formerly \sporkTidReq
 \newcommand{\sporkTidAll}{\mathord{\hyperref[fig:BasicGrammar]{\underset{\textrm{all}}{\textgpu{Tid}}}}}
 \newcommand{\sporktidMap}{\mathord{\hyperref[fig:BasicGrammar]{\textgpu{tidMap}}}}
 \newcommand{\sporkTidMap}{\mathord{\hyperref[fig:BasicGrammar]{\textgpu{TidMap}}}}
@@ -159,11 +159,11 @@
 %% Trace Grammar
 \newcommand{\sporktr}{\mathord{\hyperref[fig:Traces]{\textgpu{tr}}}}
 \newcommand{\sporkTr}{\mathord{\hyperref[fig:Traces]{\textgpu{Tr}}}}
-\newcommand{\sporkTrNewAccess}{\mathord{\hyperref[fig:Traces]{\textgpu{TrNewAccess}}}}
+\newcommand{\sporkTrPostAccess}{\mathord{\hyperref[fig:Traces]{\textgpu{TrPostAccess}}}}  % Formerly \sporkTrNewAccess
 \newcommand{\sporkTrFence}{\mathord{\hyperref[fig:Traces]{\textgpu{TrFence}}}}
 \newcommand{\sporkTrArrive}{\mathord{\hyperref[fig:Traces]{\textgpu{TrArrive}}}}
 \newcommand{\sporkTrAwait}{\mathord{\hyperref[fig:Traces]{\textgpu{TrAwait}}}}
-\newcommand{\sporkTrReqCanAccess}{\mathord{\hyperref[fig:Traces]{\textgpu{TrReqCanAccess}}}}
+\newcommand{\sporkTrPreAccess}{\mathord{\hyperref[fig:Traces]{\textgpu{TrPreAccess}}}}  % Formerly \sporkTrReqCanAccess
 
 %% Expr Semantics
 \newcommand{\sporkERead}{\hyperref[fig:ExprSemantics]{\textsc{E-Read}}}
@@ -178,7 +178,7 @@
 %% Pending Await Grammar
 \newcommand{\sporkaw}{\mathord{\hyperref[fig:PendingAwait]{\textgpu{aw}}}}
 \newcommand{\sporkAw}{\mathord{\hyperref[fig:PendingAwait]{\textgpu{Aw}}}}
-\newcommand{\sporkAwNew}{\mathord{\hyperref[fig:PendingAwait]{\underset{\textrm{new}}{\textgpu{Aw}}}}}
+\newcommand{\sporkAwPost}{\mathord{\hyperref[fig:PendingAwait]{\underset{\textrm{post}}{\textgpu{Aw}}}}}  % Formerly \sporkAwNew
 \newcommand{\sporkAwFree}{\mathord{\hyperref[fig:PendingAwait]{\underset{\textrm{free}}{\textgpu{Aw}}}}}
 \newcommand{\sporkPendingAwait}{\mathord{\hyperref[fig:PendingAwait]{\textgpu{PendingAwait}}}}
 
@@ -207,9 +207,9 @@
 \newcommand{\sporkvEff}{\mathord{\hyperref[eq:vEff]{\textsf{vEff}}}}
 % InOutSets layout macros (\inOutDiagram, \inOutDiagramSides)
 \input{amspork3/amspork3_defs_inOutDiagram.tex}
-% \sporkVNew[s], \sporkvNew[s]: optional subscript goes inside the stack (V_s over "new").
-\newcommand{\sporkVNew}[1][]{\mathord{\hyperref[eq:vEff]{\underset{\textrm{new}}{\sporkSubOpt{\textsf{V}}{#1}}}}}
-\newcommand{\sporkvNew}[1][]{\mathord{\hyperref[eq:vEff]{\underset{\textrm{new}}{\sporkSubOpt{\textsf{v}}{#1}}}}}
+% \sporkVPost[s], \sporkvPost[s]: optional subscript goes inside the stack (V_s over "post").
+\newcommand{\sporkVPost}[1][]{\mathord{\hyperref[eq:vEff]{\underset{\textrm{post}}{\sporkSubOpt{\textsf{V}}{#1}}}}}  % Formerly \sporkVNew
+\newcommand{\sporkvPost}[1][]{\mathord{\hyperref[eq:vEff]{\underset{\textrm{post}}{\sporkSubOpt{\textsf{v}}{#1}}}}}  % Formerly \sporkvNew
 
 %% Trace Edges
 \newcommand{\sporkedge}{\mathord{\hyperref[sec:TraceEdges]{\textsf{e}}}}  % Naming convention exception (avoid clash with expr e)
@@ -220,7 +220,7 @@
 %% Trace Concatenation Check
 \newcommand{\sporkSubOpt}[2]{\if\relax\detokenize{#2}\relax #1\else #1_{#2}\fi}
 \newcommand{\sporktrReach}{\mathord{\hyperref[eq:trReach]{\textsf{trReach}}}}
-\newcommand{\sporktrVNew}{\mathord{\hyperref[eq:trVNew]{\textsf{trVNew}}}}
+\newcommand{\sporktrVPost}{\mathord{\hyperref[eq:trVPost]{\textsf{trVPost}}}}  % Formerly \sporktrVNew
 \newcommand{\sporkmutReqs}{\mathord{\hyperref[eq:mutReqs]{\textsf{mutReqs}}}}
 \newcommand{\sporkPATH}{\mathord{\hyperref[eq:trReach]{\textrm{PATH}}}}
 \newcommand{\sporkConcatChk}{\mathord{\hyperref[eq:concatChk]{\underset{\textsf{chk}}{\texttt{++}}}}}

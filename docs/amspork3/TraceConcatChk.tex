@@ -1,40 +1,44 @@
 \magicSubsection{Trace Concatenation Check}{sec:TraceConcatChk}
 
 The checked concatenation $\sporktr^* \sporkConcatChk \sporktr_d$
-can fail only for $\sporktr_d$ constructed from the $\sporkTrReqCanAccess$ constructor.
+can fail only for $\sporktr_d$ constructed from the $\sporkTrPreAccess$ constructor.
 The concatenated ``destination'' event is legal if and only if the event is reachable
-from \textbf{all} prior ``source'' $\sporkTrNewAccess$ events to the same array element (same $\sporkx$ and $\sporkz_i^*$),
+from \textbf{all} prior ``source'' $\sporkTrPostAccess$ events to the same array element (same $\sporkx$ and $\sporkz_i^*$),
 excluding source/destination pairs both tagged as $\sporkread$.
+The order of these analyzed paths ($\sporkTrPostAccess\to\sporkTrPreAccess$)
+is opposite to the order $\sporktrAccessHelper$ adds trace events,
+so we don't analyze paths within a single access only.
+
 The reachability depends on edges filtered by the $\sporkQtlMask$ of the source event.
 
 With $\sporkPATH$ denoting the typical path-existence decision problem (accepts 0-length paths and ignores edge labels),
-define helpers $\sporktrReach$, $\sporktrVNew$, $\sporkmutReqs$:
+define helpers $\sporktrReach$, $\sporktrVPost$, $\sporkmutReqs$:
 \begin{align}
     {\color{gray}\bullet\,} &
-    \sporktrReach: \sporkTr^* \times \sporkVNew \to \mathcal{P}(\sporkVert)
-    \codecomment{\,(Vertices with path from given source $\sporkTrNewAccess$ vertex)}
+    \sporktrReach: \sporkTr^* \times \sporkVPost \to \mathcal{P}(\sporkVert)
+    \codecomment{\,(Vertices with path from given source $\sporkTrPostAccess$ vertex)}
     \notag \\
-    & \sporktrReach(\sporktr^*, \sporkvNew[s]) = \{
-        \sporkvert_d \in \sporkVert_G \mid \sporkPATH(\sporkVert_G, \sporkEdge_G, \sporkvNew[s], \sporkvert_d) \} \label{eq:trReach} \\
-    & \text{where } \sporkVert_G = \sporktrV(\sporktr^*), \sporkEdge_G = \sporktrE(\sporktr^*, \sporkvMask(\sporkvNew[s])) \notag \\
+    & \sporktrReach(\sporktr^*, \sporkvPost[s]) = \{
+        \sporkvert_d \in \sporkVert_G \mid \sporkPATH(\sporkVert_G, \sporkEdge_G, \sporkvPost[s], \sporkvert_d) \} \label{eq:trReach} \\
+    & \text{where } \sporkVert_G = \sporktrV(\sporktr^*), \sporkEdge_G = \sporktrE(\sporktr^*, \sporkvMask(\sporkvPost[s])) \notag \\
     %% & \quad\mid
     %%     \sporkPATH(\sporktrV(\sporktr^*), \sporktrE(\sporktr^*, \textsf{maskOf}(\sporkvert_s)), \sporkvert_s, \sporkvert_d)
     %% \} \label{eq:trReach} \\
     {\color{gray}\bullet\,} &
-    \sporktrVNew: \sporkTr^* \times \mathcal{P}(\sporkEnvEff) \to \mathcal{P}(\sporkVNew) \notag \\
-    & \sporktrVNew(\sporktr^*, \sporkEnvEff_a) = \{
-    \codecomment{\,($\sporkTrNewAccess$-constructed vertices, filtered by $(\sporkmut, \sporkx, \sporkz_i^*)$)}
+    \sporktrVPost: \sporkTr^* \times \mathcal{P}(\sporkEnvEff) \to \mathcal{P}(\sporkVPost) \notag \\
+    & \sporktrVPost(\sporktr^*, \sporkEnvEff_a) = \{
+    \codecomment{\,($\sporkTrPostAccess$-constructed vertices, filtered by $(\sporkmut, \sporkx, \sporkz_i^*)$)}
     \notag \\
-    & \quad (\sporkz, \sporkTrNewAccess(\sporkmut, \sporkx, \sporkz_i^*, \_, \_, \_, \_, \_))
+    & \quad (\sporkz, \sporkTrPostAccess(\sporkmut, \sporkx, \sporkz_i^*, \_, \_, \_, \_, \_))
       \in \sporktrV(\sporktr^*)
       \mid (\sporkmut, \sporkx, \sporkz_i^*) \in \sporkEnvEff_a \}
-    \label{eq:trVNew} \\
+    \label{eq:trVPost} \\
     {\color{gray}\bullet\,} & \sporkmutReqs: \sporkMut \to \mathcal{P}(\sporkMut)
     \codecomment{\,(Will be used to ignore read/read pairs)} \notag \\
     & \sporkmutReqs(\sporkread) = \{\sporkmutate\} \quad \sporkmutReqs(\sporkmutate) = \{ \sporkread, \sporkmutate \}
     \label{eq:mutReqs}
 \end{align}
-For $\sporktr_d = \sporkTrReqCanAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTidReq, \sporkQtlPre, \sporkAwFree)$,
+For $\sporktr_d = \sporkTrPreAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTidPre, \sporkQtlPre, \sporkAwFree)$,
 \begin{align}
     & \sporktr^* \sporkConcatChk \sporktr_d = \begin{cases}
         \sporktr^* \sporkConcatRaw \sporktr_d & \textsf{isLegal} \\
@@ -43,20 +47,23 @@ For $\sporktr_d = \sporkTrReqCanAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTi
     \label{eq:concatChk} \\
     \text{where \textsf{isLegal} = }
     & \textbf{let } \sporktr^*_\textrm{cat} = \sporktr^* \sporkConcatRaw \sporktr_d \textbf{ in} \notag \\
-    & \textbf{let } \sporkvert_d = (\abs{\sporktr^*}, \sporktr_d) \textbf{ in}
-    \codecomment{\,(newly added vertex)} \notag \\
+    \codecomment{(newly added vertex)\,}
+    & \textbf{let } \sporkvert_d = (\abs{\sporktr^*}, \sporktr_d) \textbf{ in} \notag \\
+    \codecomment{(mutates and maybe reads at $\sporkx[\sporkz_i^*]$)\,}
     & \textbf{let } \sporkEnvEff_a = \sporkmutReqs(\sporkmut) \times \{ \sporkx \} \times \{ \sporkz_i^* \} \textbf{ in} \notag \\
-    & \textbf{let } \sporkVNew[s] = \sporktrVNew(\sporktr^*_\textrm{cat}, \sporkEnvEff_a) \textbf{ in} \notag \\
-    & \forall \sporkvNew[s] \in \sporkVNew[s].\,
-    \sporkvert_d \in \sporktrReach(\sporktr^*_\textrm{cat}, \sporkvNew[s])
+    \codecomment{(all prior matching $\sporkTrPostAccess$...\,}
+    & \textbf{let } \sporkVPost[s] = \sporktrVPost(\sporktr^*_\textrm{cat}, \sporkEnvEff_a) \textbf{ in} \notag \\
+    \codecomment{...must have a path to $\sporkvert_d$)\,}
+    & \forall \sporkvPost[s] \in \sporkVPost[s].\,
+    \sporkvert_d \in \sporktrReach(\sporktr^*_\textrm{cat}, \sporkvPost[s])
 \end{align}
 $\sporktr^* \sporkConcatChk \sporktr_d = \sporktr^* \sporkConcatRaw \sporktr_d$ for all other $\sporktr_d$.
 %% XXX
 %% \begin{itemize}
 %%   \item $\sporktrReach: \sporkTr^* \times \mathcal{P}(\sporkQtl) \times \sporkVert \to \mathcal{P}(\sporkVert)$
 %%   \codecomment{\# Vertices with path from given source vertex}
-%%   \item $\sporktrVNew: \sporkTr^* \times \mathcal{P}(\sporkMut \times \sporkX \times \sporkZ^*)$
-%%   \codecomment{\# $\sporkTrNewAccess$ vertices with given $(\sporkmut, \sporkx, \sporkz^*)$ ``key''}
+%%   \item $\sporktrVPost: \sporkTr^* \times \mathcal{P}(\sporkMut \times \sporkX \times \sporkZ^*)$
+%%   \codecomment{\# $\sporkTrPostAccess$ vertices with given $(\sporkmut, \sporkx, \sporkz^*)$ ``key''}
 %% \end{itemize}
 %% \begin{gather}
 %% \inferrule*{
@@ -77,11 +84,11 @@ $\sporktr^* \sporkConcatChk \sporktr_d = \sporktr^* \sporkConcatRaw \sporktr_d$ 
 %% where $\sporkPATH$ is the typical path decision problem (ignoring edge labels).
 %% \begin{align}
 %%   \hspace{-24pt} % spill into the left margin instead of the right
-%%   \sporktrVNew(\sporktr^*, \sporkEnvEff_a) = \{ &
-%%       (z, \sporkTrNewAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTidNew, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask, \sporkAwNew))
+%%   \sporktrVPost(\sporktr^*, \sporkEnvEff_a) = \{ &
+%%       (z, \sporkTrPostAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTidPost, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask, \sporkAwPost))
 %%       \in \sporktrV(\sporktr^*) \notag \\
 %%       & \mid
 %%       (\sporkmut, \sporkx, \sporkz_i^*) \in \sporkEnvEff_a
 %%   \}
-%%   \label{eq:trVNew}
+%%   \label{eq:trVPost}
 %% \end{align}

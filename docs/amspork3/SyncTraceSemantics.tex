@@ -3,8 +3,8 @@
 \hrule
 \begin{mathpar}
 \inferrule*[right=\sporkTrRead]{
-  \sporkAwNew = \{\} \\
-  \sporktr^*_2 = \sporktrAccessHelper(\sporksigma, \sporktr^*_1, \sporkread, \sporkwz \# \sporkwinAnn, \sporkAwNew)
+  \sporkAwPost = \{\} \\
+  \sporktr^*_2 = \sporktrAccessHelper(\sporksigma, \sporktr^*_1, \sporkread, \sporkwz \# \sporkwinAnn, \sporkAwPost)
 }
 {
   \sporkRule{\sporkSub{\sporkwz \# \sporkwinAnn}{\sporkwz}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
@@ -12,8 +12,8 @@
 \inferrule*[right=\sporkTrMutate]{
   % \sporkr, not \sporkvalue: Exo only assigns to data. Change to \sporkvalue if Exo is generalized to allow assignments to control values.
   \oplus \in \sporkMutateOpSet \\
-  \sporkAwNew = \{\} \\
-  \sporktr^*_2 = \sporktrAccessHelper(\sporksigma, \sporktr^*_1, \sporkmutate, \sporkwz \# \sporkwinAnn, \sporkAwNew)
+  \sporkAwPost = \{\} \\
+  \sporktr^*_2 = \sporktrAccessHelper(\sporksigma, \sporktr^*_1, \sporkmutate, \sporkwz \# \sporkwinAnn, \sporkAwPost)
 }
 {
   \sporkRule{\sporkSub{\sporkwz \# \sporkwinAnn}{\sporkwz} \oplus \sporkr, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
@@ -22,8 +22,8 @@
 % but tracing the trailing barrier expr first simplifies the exposition here,
 % and it doesn't make a functional difference since data and barriers are always different vars.
 \inferrule*[right=Tr-InstrBarrier]{
-  \sporkAwNew = \sporkinstrBarrierHelper(\texttt{>>$\sporkwz_\textrm{bar}$}, \sporksigma) \\
-  \sporktr^*_2 = \sporktrAccessHelper(\sporksigma, \sporktr^*_1, \sporkread, \sporkwz_\textrm{bar} \# \sporkwinAnn, \sporkAwNew)
+  \sporkAwPost = \sporkinstrBarrierHelper(\texttt{>>$\sporkwz_\textrm{bar}$}, \sporksigma) \\
+  \sporktr^*_2 = \sporktrAccessHelper(\sporksigma, \sporktr^*_1, \sporkread, \sporkwz_\textrm{bar} \# \sporkwinAnn, \sporkAwPost)
 }
 {
   \sporkRule{\sporkf(\sporkwzH^*)\texttt{>>$\sporkSub{\sporkwz_\textrm{bar} \# \sporkwinAnn}{\sporkwz_\textrm{bar}}$}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
@@ -33,8 +33,8 @@
   \sporkmut = \sporkread \iff \text{corresponding formal parameter for $\sporkwz \# \sporkwinAnn$ is read-only in $\sporkfBehavior$} \\
   % TODO "may be dropped from the rule" is janky but, for now, avoids duplicating LaTeX that may accidentally diverge.
   \texttt{\color{barriercolor}>>$\sporkwz_\textrm{bar}$}\text{ may be dropped from the rule.} \\
-  \sporkAwNew = \sporkinstrBarrierHelper(\texttt{\color{barriercolor}>>$\sporkwz_\textrm{bar}$}, \sporksigma) \\
-  \sporktr^*_2 = \sporktrAccessHelper(\sporksigma, \sporktr^*_1, \sporkmut, \sporkwz \# \sporkwinAnn, \sporkAwNew)
+  \sporkAwPost = \sporkinstrBarrierHelper(\texttt{\color{barriercolor}>>$\sporkwz_\textrm{bar}$}, \sporksigma) \\
+  \sporktr^*_2 = \sporktrAccessHelper(\sporksigma, \sporktr^*_1, \sporkmut, \sporkwz \# \sporkwinAnn, \sporkAwPost)
 }
 {
   \sporkRule{\sporkf(\sporkwz^*, \sporkSub{\sporkwz \# \sporkwinAnn}{\sporkwz}, \sporkwzH^*)\texttt{\color{barriercolor}>>$\sporkwz_\textrm{bar}$}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
@@ -46,8 +46,8 @@
   \sporkRule{\sporkSub{\texttt{Fence($\sporkQtlArrive$, $\sporkQtlAwait$)}\# \sporktidMap}{\texttt{pass}}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 } \\
 \inferrule*[right=Tr-ArriveParam]{
-  \sporkAwNew = \{\} \\
-  \sporktr^*_2 = \sporktrAccessHelper(\sporksigma, \sporktr^*_1, \sporkread, \sporkwz \# \sporkwinAnn, \sporkAwNew)
+  \sporkAwPost = \{\} \\
+  \sporktr^*_2 = \sporktrAccessHelper(\sporksigma, \sporktr^*_1, \sporkread, \sporkwz \# \sporkwinAnn, \sporkAwPost)
 }
 {
   \sporkRule{\texttt{Arrive($\sporkQtlArrive$) >> $\sporkwz^*,\sporkSub{\sporkwz \# \sporkwinAnn}{\sporkwz},\sporkwzH^*$} \#\sporktidMap, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
@@ -61,8 +61,8 @@
   \sporkRule{\sporkSub{\texttt{Arrive($\sporkQtlArrive$) >> $\sporkwz^*$} \# \sporktidMap}{\texttt{pass}}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 } \\
 \inferrule*[right=Tr-AwaitParam]{
-  \sporkAwNew = \{\} \\
-  \sporktr^*_2 = \sporktrAccessHelper(\sporksigma, \sporktr^*_1, \sporkread, \sporkwz \# \sporkwinAnn, \sporkAwNew)
+  \sporkAwPost = \{\} \\
+  \sporktr^*_2 = \sporktrAccessHelper(\sporksigma, \sporktr^*_1, \sporkread, \sporkwz \# \sporkwinAnn, \sporkAwPost)
 }
 {
   \sporkRule{\texttt{Await($\sporkSub{\sporkwz \# \sporkwinAnn}{\sporkwz}$, $\sporkQtlAwait$, $\sporkz_\textrm{lag}$)} \#\sporktidMap, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}

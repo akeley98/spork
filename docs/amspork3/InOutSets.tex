@@ -4,11 +4,11 @@
 \codehrule
 \centering
 \inOutDiagram
-  {\sporkTrNewAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTidNew, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask, \sporkAwNew)}
+  {\sporkTrPostAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTidPost, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask, \sporkAwPost)}
   {}
-  {\sporkTidNew \times \{ \sporkqtlInit \} \cup \sporkTid \times \sporkQtlAtom}
+  {\sporkTidPost \times \{ \sporkqtlInit \} \cup \sporkTid \times \sporkQtlAtom}
   {}
-  {\sporkAwNew}
+  {\sporkAwPost}
 
 \smallskip
 \inOutDiagram[br break=true]
@@ -36,13 +36,15 @@
 \medskip
 \vspace{-3pt}
 \inOutDiagramSides
-  {\sporkTrReqCanAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTidReq, \sporkQtlPre, \sporkAwFree)}
-  {\sporkTidReq \times \sporkQtlPre}
+  {\sporkTrPreAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTidPre, \sporkQtlPre, \sporkAwFree)}
+  {\sporkTidPre \times \sporkQtlPre}
   {}
   {\sporkAwFree}
   {}
 \caption{Trace event ``inbound sets'' $\sporkObIn$, $\sporkAwIn$ and ``outbound sets'' $\sporkObOut$, $\sporkAwOut$.\\
-Note, the use of ``all possible thread IDs'' $\sporkTid$ in $(\sporkTid \times \sporkQtlAtom)$ is intentional.}
+Note, the use of ``all possible thread IDs'' $\sporkTid$ in $(\sporkTid \times \sporkQtlAtom)$ is intentional.
+$\sporkTrPostAccess$ vertices are \emph{sources} with only outbound edges; $\sporkTrPreAccess$ vertices are \emph{sinks} with only inbound edges.
+}
 \label{fig:InOutSets}
 \codehrule
 \end{figure}

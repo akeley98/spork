@@ -3,13 +3,20 @@
 \begin{tabular}{rrl}
 \toprule
   $\sporktr : \sporkTr$ & $\Coloneqq$ &
-        $\sporkTrNewAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTidNew, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask, \sporkAwNew)$ \\
+        $\sporkTrPostAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTidPost, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask, \sporkAwPost)$ \\
   &$|$& $\sporkTrFence(\sporkTidFence, \sporkQtlArrive, \sporkQtlAwait)$ \\
   &$|$& $\sporkTrArrive(\sporkTidArrive, \sporkQtlArrive, \sporkx, \sporkz_i^*, \sporkz_\textrm{arrive})$ \\
   &$|$& $\sporkTrAwait(\sporkTidAwait, \sporkQtlAwait, \sporkaw)$ \\
-  &$|$& $\sporkTrReqCanAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTidReq, \sporkQtlPre, \sporkAwFree)$ \\
+  &$|$& $\sporkTrPreAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTidPre, \sporkQtlPre, \sporkAwFree)$ \\
 \bottomrule
 \end{tabular}
-\caption{Trace Types. The $\sporkAwFree$ is explained in a \redBox{TODO} SMEM appendix.}
+\caption{Trace Types. The $\sporkAwFree$ is explained in a \redBox{TODO} SMEM appendix.\\
+Section~\ref{sec:TraceChecks} forms a graph from the trace events,
+and analyzes paths starting at a $\sporkTrPostAccess$,
+passing through 0 or more $\sporkTrFence$, $\sporkTrArrive$, and $\sporkTrAwait$ events,
+and ending at a $\sporkTrPreAccess$.
+The ``Post'' and ``Pre'' names correspond to the ``postcondition'' and ``precondition'' behavior
+these trace events will take on in the synchronization environment (Section~\ref{sec:SyncEnvConcat}).
+}
 \label{fig:Traces}
 \end{figure}

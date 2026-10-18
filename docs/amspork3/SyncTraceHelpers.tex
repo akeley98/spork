@@ -7,43 +7,43 @@
   % (non-annotated windows produce no trace actions).
 }
 {
-  \sporktrAccessHelper(\sporksigma, \sporktr^*, \sporkmut, \sporkwz, \sporkAwNew) = \sporktr^*
+  \sporktrAccessHelper(\sporksigma, \sporktr^*, \sporkmut, \sporkwz, \sporkAwPost) = \sporktr^*
 }\\
 \inferrule*[right=Tr-ConvergentTid]{
   \sporkqtlConvergent(\sporkqtlInit) \\
   \sporkTidAll = \sporktidMap(\sporksigma) \\
-  \sporktr^*_\textsf{req} =
-  \textbf{(}\sporkTrReqCanAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTidAll, \sporkQtlPre, \varnothing) \textbf{)}_{
+  \sporktr^*_\textsf{pre} =
+  \textbf{(}\sporkTrPreAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTidAll, \sporkQtlPre, \varnothing) \textbf{)}_{
     (\sporkx, \sporkz_i^*) \in \sporkWunroll(\sporkwz)
   }\\
-  \sporktr^*_\textsf{new} =
-  \textbf{(}\sporkTrNewAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTidAll, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask, \sporkAwNew) \textbf{)}_{
+  \sporktr^*_\textsf{post} =
+  \textbf{(}\sporkTrPostAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTidAll, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask, \sporkAwPost) \textbf{)}_{
     (\sporkx, \sporkz_i^*) \in \sporkWunroll(\sporkwz)
   }\\
 }
 {
   \sporktrAccessHelper(\sporksigma, \sporktr^*, \sporkmut,
   \sporkwz \# (\sporktidMap, \sporkQtlPre, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask),
-  \sporkAwNew)
-  = \sporktr^* \sporkConcatChk \sporktr^*_\textsf{req} \sporkConcatChk \sporktr^*_\textsf{new}
+  \sporkAwPost)
+  = \sporktr^* \sporkConcatChk \sporktr^*_\textsf{pre} \sporkConcatChk \sporktr^*_\textsf{post}
 }\\
 \inferrule*[right=Tr-SeparateTid]{
   \neg\sporkqtlConvergent(\sporkqtlInit) \\
   \sporkTidAll = \sporktidMap(\sporksigma) \\
-  \sporktr^*_\textsf{req} =
-  \textbf{(}\sporkTrReqCanAccess(\sporkmut, \sporkx, \sporkz_i^*, \{ \sporktid \}, \sporkQtlPre, \varnothing) \textbf{)}_{
+  \sporktr^*_\textsf{pre} =
+  \textbf{(}\sporkTrPreAccess(\sporkmut, \sporkx, \sporkz_i^*, \{ \sporktid \}, \sporkQtlPre, \varnothing) \textbf{)}_{
     (\sporkx, \sporkz_i^*) \in \sporkWunroll(\sporkwz), \sporktid \in \sporkTidAll
   }\\
-  \sporktr^*_\textsf{new} =
-  \textbf{(}\sporkTrNewAccess(\sporkmut, \sporkx, \sporkz_i^*, \{ \sporktid \}, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask, \sporkAwNew) \textbf{)}_{
+  \sporktr^*_\textsf{post} =
+  \textbf{(}\sporkTrPostAccess(\sporkmut, \sporkx, \sporkz_i^*, \{ \sporktid \}, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask, \sporkAwPost) \textbf{)}_{
     (\sporkx, \sporkz_i^*) \in \sporkWunroll(\sporkwz), \sporktid \in \sporkTidAll
   }\\
 }
 {
   \sporktrAccessHelper(\sporksigma, \sporktr^*, \sporkmut,
   \sporkwz \# (\sporktidMap, \sporkQtlPre, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask),
-  \sporkAwNew)
-  = \sporktr^* \sporkConcatChk \sporktr^*_\textsf{req} \sporkConcatChk \sporktr^*_\textsf{new}
+  \sporkAwPost)
+  = \sporktr^* \sporkConcatChk \sporktr^*_\textsf{pre} \sporkConcatChk \sporktr^*_\textsf{post}
 }\\
 \sporkinstrBarrierHelper(\quad,\sporksigma) = \{ \} \\
 % This is so janky but I don't want to duplicate the already huge instr rules.
@@ -52,8 +52,14 @@
   (\sporkx, \sporkz_i^*, \sporkz_\textsf{arrive}) \in \sporkWvalues({\color{barriercolor}{\sporkwz_\textrm{bar}}}, \sporksigma)
    \land \sporkz \ge \sporkz_\textsf{arrive} \}
 \end{mathpar}
-\caption{Synchronization Trace Helpers: $\sporktrAccessHelper, \sporkinstrBarrierHelper$.
-The last helper targets \emph{optional} trailing barrier syntax \texttt{\color{barriercolor}>>$\sporkwz_\textrm{bar}$}.
+\caption{Synchronization Trace Helpers: $\sporktrAccessHelper, \sporkinstrBarrierHelper$.\\
+For each accessed $\sporkx[\sporkz_i^*]$ in the window,
+$\sporktrAccessHelper$ adds one or many $\sporkTrPreAccess$ events followed by one or many $\sporkTrPostAccess$ events;
+``one'' is the convergent case
+(an event includes all threads given by the $\sporktidMap$)
+and ``many'' is the non-convergent case
+(each thread gets its own events).\\
+$\sporkinstrBarrierHelper$ targets \emph{optional} trailing barrier syntax \texttt{\color{barriercolor}>>$\sporkwz_\textrm{bar}$}.\\
 \redBox{TODO:} handwave away undefined ordering of tuple comprehension.}
 \label{fig:SyncTraceHelpers}
 \hrule

@@ -8,14 +8,14 @@ Define
 \end{align}
 Define
 \begin{align}
-  & \sporkvVis : \sporkTr^* \times \sporkVNew \to \sporkEnvVis \notag \\
-  & \sporkvVis(\sporktr^*, \sporkvNew) = \textbf{let } \sporkVert_d = \sporktrReach(\sporktr^*, \sporkvNew), \sporkQtlMask = \sporkvMask(\sporkvNew) \textbf{ in} \notag \\
+  & \sporkvVis : \sporkTr^* \times \sporkVPost \to \sporkEnvVis \notag \\
+  & \sporkvVis(\sporktr^*, \sporkvPost) = \textbf{let } \sporkVert_d = \sporktrReach(\sporktr^*, \sporkvPost), \sporkQtlMask = \sporkvMask(\sporkvPost) \textbf{ in} \notag \\
   & \quad ( \bigcup_{(z, \sporktr_d) \in \sporkVert_d} \sporkObOut(\sporktr_d) \cap (\sporkTid \times \sporkQtlMask),
       \bigcup_{(z, \sporktr_d) \in \sporkVert_d} \sporkAwOut(\sporktr_d),
       \sporkQtlMask)
   \label{eq:vVis} \\
   & \sporktoEnvTotal: \sporkTr^* \to \sporkEnv \notag \\
-  & \sporktoEnvTotal(\sporktr^*) = \{ (\sporkvEff(\sporkvNew), \sporkvVis(\sporktr^*, \sporkvNew)) \mid \sporkvNew \in \sporktrVNew(\sporktr^*, \sporkEnvEff) \}
+  & \sporktoEnvTotal(\sporktr^*) = \{ (\sporkvEff(\sporkvPost), \sporkvVis(\sporktr^*, \sporkvPost)) \mid \sporkvPost \in \sporktrVPost(\sporktr^*, \sporkEnvEff) \}
   \label{eq:toEnvTotal}
 \end{align}
 Claim
