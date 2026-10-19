@@ -2,8 +2,10 @@
 \sporkGrammarStuff
 \begin{tabular}{rrll}
 \toprule
-  $\sporkformalParam: \sporkFormalParam$ & $\Coloneqq$ & \texttt{$\sporkx$:$\sporkprim$[$\sporkexpr^*$] @ $\sporkmem$}|\texttt{$\sporkx$:$\sporkcontrol$} &
-  formal parameter \sporkbinder \\
+  $\sporkformalParam: \sporkFormalParam$ & $\Coloneqq$ & \texttt{$\sporkx$:$\sporkprim$[$\sporkexpr^*$] @ $\sporkmem$} &
+  formal data parameter \sporkbinder \\
+  &$|$& \texttt{$\sporkx$:$\sporkcontrol$} & formal control parameter \sporkbinder \\
+\midrule
   $\sporkproc : \sporkProc$ & $\Coloneqq$ &
     \texttt{def($\sporkformalParam^*$):$\sporks_\textrm{body}$}
     & procedure \\
