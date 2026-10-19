@@ -66,11 +66,10 @@
 }
 \\
 \inferrule*[right=\sporkDInstrStepParam]{
-  \sporkRule{\sporkSub{\sporkwH_1}{\sporkwH_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}} \\
-  \texttt{\color{barriercolor}>>$\sporkwH_\textrm{bar}$} \textrm{ may be dropped from the rule. }
+  \sporkRule{\sporkSub{\sporkwH_1}{\sporkwH_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 {
-  \sporkRule{\texttt{$\sporkf$($\sporkwzH^*$, $\sporkSub{\sporkwH_1}{\sporkwH_2}$, $\sporkwH^*$){\color{barriercolor}>>$\sporkwH_\textrm{bar}$}}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
+  \sporkRule{\texttt{$\sporkf$($\sporkwzH^*$, $\sporkSub{\sporkwH_1}{\sporkwH_2}$, $\sporkwH^*$)$\sporkfBarH$}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }\\
 \inferrule*[right=\sporkDInstrStepBarrier]{
   \sporkRule{\sporkSub{\sporkwH_1}{\sporkwH_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
@@ -80,11 +79,10 @@
 }\\
 \inferrule*[right=\sporkDInstrSub]{
   \sporkfBehavior = \texttt{def($\sporkx_1$:$\sporkprim_1[\sporkexpr_1^*]$ @ $\sporkmem_1$, $\sporkx_2$:$\sporkprim_2[\sporkexpr_2^*]$ @ $\sporkmem_2, ...$):$\sporks_\textrm{body}$} \\
-  \sporks' = \sporkalphaRename(\sporks_\textrm{body})[\sporkx_1 \sporkWindowSub \sporkwz_1][\sporkx_2 \sporkWindowSub \sporkwz_2][...] \\
-  \texttt{\color{barriercolor}>>$\sporkwz_\textrm{bar}$} \textrm{ may be dropped from the rule. }
+  \sporks' = \sporkalphaRename(\sporks_\textrm{body})[\sporkx_1 \sporkWindowSub \sporkwz_1][\sporkx_2 \sporkWindowSub \sporkwz_2][...]
 }
 {
-  \sporkRule{\sporkSub{\texttt{$\sporkf$($\sporkwz_1$, $\sporkwz_2, ...$)\texttt{\color{barriercolor}>>$\sporkwz_\textrm{bar}$}}}{\sporks'}, \sporksigma, \sporktr^*}
+  \sporkRule{\sporkSub{\texttt{$\sporkf$($\sporkwz_1$, $\sporkwz_2, ...$)$\sporkfBarZ$}}{\sporks'}, \sporksigma, \sporktr^*}
 }
 \end{mathpar}
 \caption{Data Semantics. \sporkDAssign, \sporkDReduce, \sporkDInstrSub\ cannot accept windows with $\#\sporkwinAnn$ annotations.

@@ -17,8 +17,7 @@
   &$|$& \texttt{$\sporkwScalarH$ = $\sporkexpr$} & scalar assignment \\
   &$|$& \texttt{$\sporkwScalarH$ += $\sporkexpr$} & scalar reduction \\
   &$|$& \texttt{$\sporkx$ = $\sporkw$ @ $\sporkspecialWindow$} & window statement \sporkbinder \\
-  &$|$& \texttt{$\sporkf$($\sporkwH^*$)} & instruction call, no trailing barrier expr \\
-  &$|$& \texttt{$\sporkf$($\sporkwH^*$) >> $\sporkwH$} & instruction call, trailing barrier expr \\
+  &$|$& \texttt{$\sporkf$($\sporkwH^*$)$\sporkfBarH$} & instruction call with \emph{optional} trailing barrier expr $\sporkfBarH$ \\
   &$|$& \texttt{$\sporkx$: $\sporkprim$[$\sporkexpr^*$] @ $\sporkmem$} & data allocation \sporkbinder \\
 \midrule
   &$|$& \texttt{free($\sporkx$)} & free \\
@@ -28,6 +27,14 @@
   &$|$& \texttt{Fence($\sporkQtlArrive, \sporkQtlAwait$)} $\#\sporktidMap$ & fence synchronization statement \\
   &$|$& \texttt{Arrive($\sporkQtlArrive$) >> $\sporkwH^*$} $\#\sporktidMap$ & arrive synchronization statement \\
   &$|$& \texttt{Await($\sporkwScalarH$, $\sporkQtlAwait$, $\sporkz_\textrm{lag}$)} $\#\sporktidMap$ & await synchronization statement (expects one barrier) \\
+\bottomrule
+\end{tabular}
+\begin{tabular}{rrll}
+\toprule
+  $\sporkfBarH$ & $\Coloneqq$ & & no trailing barrier expression (blank syntax for instr \texttt{$\sporkf$($\sporkwH^*$)}) \\
+  &$|$& \texttt{>> $\sporkwH_\textrm{bar}$} & trailing barrier expression (for instr \texttt{$\sporkf$($\sporkwH^*$) >> $\sporkwH_\textrm{bar}$}) \\
+  $\sporkfBarZ$ & $\Coloneqq$ & & no trailing barrier expression \\
+  &$|$& \texttt{>> $\sporkwz_\textrm{bar}$} & trailing barrier expression, non-annotated $\sporkZ$-constant-indexed \\
 \bottomrule
 \end{tabular}
 \caption{Statement Grammar}

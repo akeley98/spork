@@ -21,7 +21,7 @@
 % Ordering of Tr-InstrBarrier and Tr-InstrParam is backwards from Exo sync_check.py as of 2026-10-05
 % but tracing the trailing barrier expr first simplifies the exposition here,
 % and it doesn't make a functional difference since data and barriers are always different vars.
-\inferrule*[right=Tr-InstrBarrier]{
+\inferrule*[right=\sporkTrInstrBarrier]{
   \sporkAwPost = \sporkinstrBarrierHelper(\texttt{>>$\sporkwz_\textrm{bar}$}, \sporksigma) \\
   \sporktr^*_2 = \sporktrAccessHelper(\sporksigma, \sporktr^*_1, \sporkread, \sporkwz_\textrm{bar} \# \sporkwinAnn, \sporkAwPost)
 }
@@ -31,13 +31,11 @@
 \inferrule*[right=Tr-InstrParam]{
   % TODO how to express \sporkmut here more legitimately without a bunch of auxiliary formalism that obscures the point
   \sporkmut = \sporkread \iff \text{corresponding formal parameter for $\sporkwz \# \sporkwinAnn$ is read-only in $\sporkfBehavior$} \\
-  % TODO "may be dropped from the rule" is janky but, for now, avoids duplicating LaTeX that may accidentally diverge.
-  \texttt{\color{barriercolor}>>$\sporkwz_\textrm{bar}$}\text{ may be dropped from the rule.} \\
-  \sporkAwPost = \sporkinstrBarrierHelper(\texttt{\color{barriercolor}>>$\sporkwz_\textrm{bar}$}, \sporksigma) \\
+  \sporkAwPost = \sporkinstrBarrierHelper(\sporkfBarZ, \sporksigma) \\
   \sporktr^*_2 = \sporktrAccessHelper(\sporksigma, \sporktr^*_1, \sporkmut, \sporkwz \# \sporkwinAnn, \sporkAwPost)
 }
 {
-  \sporkRule{\sporkf(\sporkwz^*, \sporkSub{\sporkwz \# \sporkwinAnn}{\sporkwz}, \sporkwzH^*)\texttt{\color{barriercolor}>>$\sporkwz_\textrm{bar}$}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
+  \sporkRule{\sporkf(\sporkwz^*, \sporkSub{\sporkwz \# \sporkwinAnn}{\sporkwz}, \sporkwzH^*)\sporkfBarZ, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 } \\
 \inferrule*[right=Tr-Fence]{
   \sporktr^*_2 = \sporktr^*_1 \sporkConcatChk \sporkTrFence(\sporktidMap(\sporksigma), \sporkQtlArrive, \sporkQtlAwait)
@@ -79,6 +77,9 @@
 \caption{Synchronization Trace Append Semantics.
 These require constant $\sporkZ$-valued window parameters $\sporkwzH$ (Figure~\ref{fig:WindowGrammar}) and remove their annotations (step to $\sporkwz$).
 Reduce to $\sporkwzH$ with \sporkDInstrStepParam\ and similar rules (window: Figure~\ref{fig:WindowStepSemantics}, expr: Figure~\ref{fig:ExprSemantics}, stmt: Figures~\ref{fig:DataSemantics}~\&~\ref{fig:SyncStructuralSemantics}).
+A similar story holds for a non-empty trailing barrier expression $\sporkfBarH$ (\texttt{>>}$\sporkwH_\textrm{bar}$).
+It is given concrete $\sporkZ$ coordinates by \sporkDInstrStepBarrier,
+then its $\#\sporkwinAnn$ (if present) is stripped by \sporkTrInstrBarrier.
 }
 \label{fig:SyncTraceSemantics}
 \hrule

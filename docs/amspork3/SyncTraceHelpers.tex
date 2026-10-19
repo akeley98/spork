@@ -46,7 +46,6 @@
   = \sporktr^* \sporkConcatChk \sporktr^*_\textsf{pre} \sporkConcatChk \sporktr^*_\textsf{post}
 }\\
 \sporkinstrBarrierHelper(\quad,\sporksigma) = \{ \} \\
-% This is so janky but I don't want to duplicate the already huge instr rules.
 \sporkinstrBarrierHelper(\texttt{\color{barriercolor}>>$\sporkwz_\textrm{bar}$}, \sporksigma) =
 \{ \sporkPendingAwait(\sporkx, \sporkz_i^*, \sporkz) \mid
   (\sporkx, \sporkz_i^*, \sporkz_\textsf{arrive}) \in \sporkWvalues({\color{barriercolor}{\sporkwz_\textrm{bar}}}, \sporksigma)
@@ -59,7 +58,7 @@ $\sporktrAccessHelper$ adds one or many $\sporkTrPreAccess$ events followed by o
 (an event includes all threads given by the $\sporktidMap$)
 and ``many'' is the non-convergent case
 (each thread gets its own events).\\
-$\sporkinstrBarrierHelper$ targets \emph{optional} trailing barrier syntax \texttt{\color{barriercolor}>>$\sporkwz_\textrm{bar}$}.\\
+$\sporkinstrBarrierHelper$ is defined for both alternatives of $\sporkfBarZ$ (Figure~\ref{fig:stmt}): no trailing barrier expression, or \texttt{\color{barriercolor}>>$\sporkwz_\textrm{bar}$}.\\
 \redBox{TODO:} handwave away undefined ordering of tuple comprehension.}
 \label{fig:SyncTraceHelpers}
 \hrule
