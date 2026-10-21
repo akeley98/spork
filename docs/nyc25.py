@@ -720,11 +720,7 @@ def nyc25_gemm_smem_cp_async(M: size, N: size, K: size, A: f32[M, K] @ CudaGmemL
                     accum[m1, n1, m0, n0] += (A_smem[m1 * M0 + m0, k0]
                                               * B_smem[k0, n1 * N0 + n0])
           # TeX: begin ring_todo
-          # TeX: color line cp_async[1]
-        # yyyyy                rrrrrrrrrrrrr
-          # TeX: color line ring_todo[3]
-        # rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
-          Fence(cuda_in_order, Sm80_cp_async)
+          Fence(cuda_in_order, cuda_in_order)  # UPDATED 2026
           # TeX: end cp_async[1] ring_todo
         for m1 in cuda_threads(0, M1 / M0, unit=(N1 / N0) * cuda_thread):
           for n1 in cuda_threads(0, N1 / N0, unit=cuda_thread):
@@ -755,10 +751,10 @@ def nyc25_gemm_ring(M: size, N: size, K: size, A: f32[M, K] @ CudaGmemLinear, B:
         # TeX: begin split
         # TeX: color line split[0]
       # yyy
-        raw: barrier @ CudaMbarrier
+        raw: barrier[(K/K0) @ ring_buffer_by(3)] @ CudaMbarrier
       # TeX: color line split[0]
       # yyy
-        war: barrier(raw) @ CudaMbarrier
+        war: barrier[(K/K0 + 3) @ ring_buffer_by(3)] @ CudaMbarrierPreArrive(3)
         # TeX: begin ring[0]
         # TeX: color line ring[0] split[2]
       # gggggg      b
@@ -778,8 +774,8 @@ def nyc25_gemm_ring(M: size, N: size, K: size, A: f32[M, K] @ CudaGmemLinear, B:
           if k1 < K / K0:
             # TeX: end ring[1]
             # TeX: color line split[2]
-          # yyyyy yyy  rrrrrrrrrrrrr  bb
-            Await(war, Sm80_cp_async, ~3)
+          # yyyyy yyyyyyy
+            Await(war[k1], cuda_in_order, 0)
             # TeX: end split
             # TeX: begin ring[0]
             # TeX: summary
@@ -813,16 +809,16 @@ def nyc25_gemm_ring(M: size, N: size, K: size, A: f32[M, K] @ CudaGmemLinear, B:
           # TeX: end ring[0]
           # TeX: begin split
           # TeX: color line split[1]
-          # yyyyyy rrrrrrrrrrrrr        yyy
-            Arrive(Sm80_cp_async, 1) >> raw
+          # yyyyyy rrrrrrrrrrrrr        yyyyyyy
+            Arrive(Sm80_cp_async, 1) >> raw[k1]
           # TeX: begin ring[1]
           # TeX: color line ring[1]
           #  rrrrrrrrrrr
           if k1 >= 1:
           # TeX: end ring[1]
             # TeX: color line split[1]
-          # yyyyy yyy
-            Await(raw, cuda_in_order, ~0)
+          # yyyyy yyyyyyy
+            Await(raw[k1], cuda_in_order, 0)
             # TeX: begin ring[1]
             for m1 in cuda_threads(0, M1 / M0, unit=(N1 / N0) * cuda_thread):
               for n1 in cuda_threads(0, N1 / N0, unit=cuda_thread):
@@ -844,8 +840,8 @@ def nyc25_gemm_ring(M: size, N: size, K: size, A: f32[M, K] @ CudaGmemLinear, B:
               # TeX: end ring[1]
             # TeX: begin split
             # TeX: color line split[2]
-          # yyyyyy                   yyyyyy
-            Arrive(cuda_in_order, 1) >> war
+          # yyyyyy                   yyyyyyyyyyyyyy
+            Arrive(cuda_in_order, 1) >> war[k1 + 3]
             # TeX: end split
 
         for m1 in cuda_threads(0, M1 / M0, unit=(N1 / N0) * cuda_thread):
@@ -857,6 +853,7 @@ def nyc25_gemm_ring(M: size, N: size, K: size, A: f32[M, K] @ CudaGmemLinear, B:
 
 
 nyc25_gemm_ring = simplify(nyc25_gemm_ring)
+nyc25_gemm_ring.sync_check(M=128, N=128, K=256)
 
 
 """
