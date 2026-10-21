@@ -1,4 +1,4 @@
-exocc amspork3_samples.py && python3 code_to_tex.py amspork3_samples.py amspork3/code/ || exit 1
+exocc amspork3_samples.py && python3 legacy_code_to_tex.py amspork3_samples.py amspork3/code/ || exit 1
 
 has_undefined_refs() {
     grep -qi "there were undefined references" amspork3.log

@@ -1,7 +1,7 @@
-# `code_to_tex.py`: turning annotated Python/Exo source into LaTeX code listings
+# `legacy_code_to_tex.py` (frozen): turning annotated Python/Exo source into LaTeX code listings
 
 > **Note:** This document was written by a generative AI (Claude, Anthropic) by
-> reading `code_to_tex.py`, its callers, and its inputs/outputs in `spork/docs`.
+> reading `legacy_code_to_tex.py`, its callers, and its inputs/outputs in `spork/docs`.
 > It has not been fully reviewed by a human; if it disagrees with the script,
 > trust the script.
 
@@ -55,7 +55,7 @@
 
 ## Overview
 
-`code_to_tex.py` is a plain text-processing script (it does not import `exo`).
+`legacy_code_to_tex.py` is a plain text-processing script (it does not import `exo`).
 It reads a single `.py` file containing ordinary source code with special
 `# TeX: ...` comment directives, and writes out any number of code "listings",
 each as a pair of files:
@@ -68,7 +68,7 @@ each as a pair of files:
 Usage:
 
 ```bash
-python3 code_to_tex.py input.py output_dir
+python3 legacy_code_to_tex.py input.py output_dir
 ```
 
 The output directory is created if needed. Every listing declared in the input
@@ -79,15 +79,15 @@ is (re)generated on every run.
 `spork_b_tex.sh`:
 
 ```bash
-exocc b_samples.py && python3 code_to_tex.py b_samples.py spork_b && xelatex spork_b.tex </dev/null
+exocc b_samples.py && python3 legacy_code_to_tex.py b_samples.py spork_b && xelatex spork_b.tex </dev/null
 ```
 
 1. `exocc b_samples.py` compiles the samples. This is only a sanity check that
-   the example code is valid Exo; `code_to_tex.py` never looks at `exocc`
+   the example code is valid Exo; `legacy_code_to_tex.py` never looks at `exocc`
    output. (Fragments that are not meant to be compiled, like the deliberately
    broken `why_dist` example, are hidden inside `if False:` blocks; they still
    need to parse as Python.)
-2. `code_to_tex.py` writes `spork_b/<name>.0.tex` and `spork_b/<name>.0.txt`
+2. `legacy_code_to_tex.py` writes `spork_b/<name>.0.tex` and `spork_b/<name>.0.txt`
    directly into the `spork_b/` source directory, next to the hand-written
    `.tex` files.
 3. Hand-written files pull listings in, e.g. `DistributedMemoryOverview.tex`:
