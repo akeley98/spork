@@ -1,0 +1,105 @@
+% Paper side of the beamer_nyc25_test smoke test: \input the same figure files and
+% \sporkListing the same listings as the deck, and say what each should look like.
+% Build:  cd spork/docs && python3 -m code_to_tex.build beamer_nyc25_test
+\documentclass{article}
+\newif\ifsporkSlides \sporkSlidesfalse
+\input{copied_styles/spork_style.tex}
+\input{copied_styles/code_to_tex_support.tex}
+
+\title{Beamer + Overlay Smoke Test: the Paper Side}
+\author{beamer\_nyc25\_test}
+\date{}
+
+\begin{document}
+\maketitle
+
+\sporkSection{Listings}{sec:listings}
+
+Each listing source holds every version; the paper picks one with \texttt{version=N}
+(without it, the last version). Highlights are those of that version only.
+
+\paragraph{Starting point.}
+Version~2 of \texttt{cpu}: the four \texttt{@ DRAM} memory annotations and nothing else highlighted,
+with the full signature (version~4, which drops the signature, is not shown).
+\begin{center}
+\begin{minipage}{0.7\linewidth}
+\sporkListing[version=2]{cpu}
+\end{minipage}
+\end{center}
+
+\paragraph{Reserved lines.}
+Version~0 of \texttt{m\_divide\_loop} with \texttt{reserve}: an empty line below the
+\textit{\# ... @proc body excerpt below} placeholder, where version~2 puts the \texttt{assert}.
+The \texttt{m2}/\texttt{m1}/\texttt{m0} loop variables are green.
+\begin{center}
+\begin{minipage}{0.7\linewidth}
+\small
+\sporkListing[version=0, reserve]{m_divide_loop}
+\end{minipage}
+\end{center}
+
+\paragraph{Grown code, elided text.}
+Version~1 of \texttt{smem\_in\_order}: both \texttt{Fence} lines present, \texttt{Fence} yellow,
+its arguments elided as \texttt{(...)}; the per-thread accumulate code collapsed to a placeholder.
+\begin{center}
+\begin{minipage}{0.9\linewidth}
+\small
+\sporkListing[version=1]{smem_in_order}
+\end{minipage}
+\end{center}
+
+\sporkSection{Figures}{sec:figures}
+
+Figure~\ref{fig:dag} is the final DAG: all revealed elements (ring buffer row and WAR edges)
+are present; the WAR edges are \emph{dashed} (paper-only style) and a legend below the
+figure explains them (paper-only node). Nothing from the slide-only steps appears:
+no red or inverted nodes, no thick red edges, no ``each edge'' or ``Accelerate me!'' callouts.
+
+\begin{figure}[ht]
+\centering
+\input{fig_dag.tex}
+\caption{Loop-skewed producer/consumer DAG with a 3-slot ring buffer.}
+\label{fig:dag}
+\end{figure}
+
+Figure~\ref{fig:sync_flow} shows both yellow sync bars with their RAW/WAR captions
+and the arrows through them; the direct B~$\to$~accumulate arrow of slide~1
+and the ``Accelerate me!'' callouts of slide~3 are absent.
+
+\begin{figure}[ht]
+\centering
+\input{fig_sync_flow.tex}
+\caption{The ``classic'' GPU GEMM main loop with its two synchronizations.}
+\label{fig:sync_flow}
+\end{figure}
+
+Figure~\ref{fig:grid_tile} shows the A and B tiles (revealed on slide~2) around~C,
+but block~0 is plain (its inverted green is slide-only).
+
+\begin{figure}[ht]
+\centering
+\input{fig_grid_tile.tex}
+\caption{Thread block tiling of C.}
+\label{fig:grid_tile}
+\end{figure}
+
+Figure~\ref{fig:split_marks} is a figure holding a listing: the last version of \texttt{split}
+(WAR lines yellow, bold WAR remark) with both the red RAW arrow and the blue WAR arrow,
+drawn between listing marks.
+
+\begin{figure}[ht]
+\centering
+\input{fig_split_marks.tex}
+\caption{Split barriers in code.}
+\label{fig:split_marks}
+\end{figure}
+
+\sporkSection{Text Macros}{sec:text}
+
+Keys: \sporkKeyA{key A}, \sporkKeyB{key B}, \sporkMainKey{main}, \sporkMinorKey{minor}.
+Boxes: \sporkRed{red} \sporkYellow{yellow} \sporkGreen{green} \sporkBlue{blue} \sporkViolet{violet}
+\sporkInvBlue{inv blue}. Intent macros: ``\sporkReveal<2->{revealed}'' is shown,
+``\sporkSlideOnly<2>{SLIDE ONLY TEXT}'' is not (the quotes are empty),
+``\sporkPaperOnly{paper only}'' is shown. A paper link: see \sporkPaperLink{fig:dag}{the DAG figure}.
+
+\end{document}

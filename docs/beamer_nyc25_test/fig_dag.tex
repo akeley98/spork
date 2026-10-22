@@ -1,0 +1,73 @@
+% Loop-skewed producer/consumer DAG (merged from the old nyc25_dag.tex, nyc25_dag_k.tex,
+% nyc25_dag_ring.tex, nyc25_dag_war.tex). Overlay steps (frame `dag` of the deck):
+%   1  loads, computes, RAW edges, k1 labels          (paper: shown)
+%   2+ ring buffer slot row        spork reveal       (paper: shown)
+%   3+ WAR edges                   spork reveal       (paper: shown, dashed via spork paper style)
+%   4  one RAW + one WAR edge and their nodes emphasized, "split barrier" callout   (slide only)
+%   5  compute nodes red, "Accelerate me!" callout                                   (slide only)
+% Paper only: a legend explaining solid/dashed edges.
+\documentclass[beamer]{standalone}
+\newif\ifsporkSlides \sporkSlidestrue
+\input{copied_styles/spork_style.tex}
+\input{copied_styles/code_to_tex_support.tex}
+\sporkFigMaxWidth{11cm}
+\begin{document}
+\begin{standaloneframe}
+% Absolute font size: the same in the paper (10pt body) and on slides (12pt body).
+% Any node-level font= replaces the picture font entirely, so bold nodes use \dagFont\bfseries.
+\def\dagFont{\sffamily\fontsize{9}{11}\selectfont}
+\begin{tikzpicture}[
+    font=\dagFont,
+    dag load/.style={minimum width=15mm, minimum height=5.5mm, inner sep=1pt},
+    dag compute/.style={draw=black, fill=white, minimum width=15mm, minimum height=10mm},
+    % Per-node one-off emphasis (slide only); referenced as `dag X/.try` below.
+    dag C2/.style={spork slide only=<4>{spork red style, very thick}},
+    dag B4/.style={spork slide only=<4>{spork inv purple style}},
+    dag A1/.style={spork slide only=<4>{spork inv green style}},
+  ]
+  \def\pitch{17mm}
+  % Loads (iteration i) and computes (iteration i, consuming the tile loaded in i-1).
+  \foreach \i in {0,...,5} {
+    \node (A\i) [dag load, spork green style, dag A\i/.try] at (\i*\pitch, 0) {Load A};
+    \node (B\i) [dag load, spork violet style, dag B\i/.try, anchor=north] at (A\i.south) {Load B};
+    \node (k\i) at (\i*\pitch, -27mm) {\sporkBlue{\texttt{k1 = \i}}};
+  }
+  \foreach \i in {1,...,5} {
+    \node (C\i) [dag compute, spork slide only=<5>{spork red style}, dag C\i/.try] at (\i*\pitch, -19mm) {compute};
+  }
+  % RAW edges: tile loaded in iteration i is consumed in iteration i+1.
+  \foreach \i [evaluate=\i as \j using int(\i+1)] in {0,...,4} {
+    \draw [spork arrow] (A\i.south east) to[out=0, in=180] (C\j.west);
+  }
+  % Ring buffer slots (3 slots; slot reuse boxed).
+  \node (buf) [spork reveal=<2->, align=right, font=\dagFont\bfseries, anchor=east]
+    at ($(k0.east)+(0,-6mm)$) {Ring\\buffer:};
+  \foreach \i/\s/\boxed in {1/0/1, 2/1/0, 3/2/0, 4/0/1, 5/1/0} {
+    \ifnum\boxed=1
+      \node (slot\i) [spork reveal=<2->, draw=black, inner sep=2pt] at ($(k\i)+(0,-6mm)$) {Slot \s};
+    \else
+      \node (slot\i) [spork reveal=<2->, inner sep=2pt] at ($(k\i)+(0,-6mm)$) {Slot \s};
+    \fi
+  }
+  % WAR edges: compute i must finish before slot (i mod 3) is refilled in iteration i+2.
+  \foreach \i [evaluate=\i as \j using int(\i+2)] in {1,...,3} {
+    \draw [spork arrow, spork reveal=<3->, spork paper style={dashed}]
+      ($(C\i.north east)+(0,-2mm)$) to[out=40, in=200] (B\j.west);
+  }
+  % Step 4 (slide only): one RAW and one WAR edge redrawn thick red, plus a callout.
+  \draw [spork arrow, very thick, draw=sporkRedFg, spork slide only=<4>]
+    (A1.south east) to[out=0, in=180] (C2.west);
+  \draw [spork arrow, very thick, draw=sporkRedFg, spork slide only=<4>]
+    ($(C2.north east)+(0,-2mm)$) to[out=40, in=200] (B4.west);
+  \node (splitNote) [spork slide only=<4>, spork red style, draw, align=center, anchor=north east]
+    at ($(slot5.south east)+(0,-1mm)$) {each edge = one\\\texttt{Arrive}/\texttt{Await} pair};
+  % Step 5 (slide only): tensor core callout.
+  \node [spork slide only=<5>, spork inv red style, font=\dagFont\bfseries]
+    at ($(C3.north)!0.5!(C4.north)+(0,3mm)$) {Accelerate me!};
+  % Paper only: legend (on slides the speaker explains it).
+  \node [spork paper only, anchor=north west, align=left]
+    at ($(slot1.south west)+(0,-2mm)$)
+    {Solid edges: RAW (tile ready); dashed edges: WAR (ring buffer slot free).};
+\end{tikzpicture}
+\end{standaloneframe}
+\end{document}

@@ -1,0 +1,41 @@
+% The `split` listing with arrows drawn between its Arrive and Await lines (listing marks;
+% same technique as the arXiv paper's async-bug example, without the \bugYFix hack).
+% A "figure" that holds a listing: \input by the deck (frame `split_marks`) and by main.tex.
+%   slides: listing version v on step v+1; RAW arrow from step 2, WAR arrow from step 3
+%   paper:  last listing version, both arrows
+% Marks must be in normal text (not inside a TikZ node), so the listing is plain text and
+% the arrows live in a separate `remember picture, overlay` picture (code_to_tex/README.md, Marks).
+% Wider than the default 4:3 standalone Beamer page (112mm text width), so the standalone
+% preview uses the deck's 16:9 page (standalone passes the option on to Beamer; nothing may
+% precede \documentclass, since that would run when the figure is \input).
+\documentclass[beamer,aspectratio=169]{standalone}
+\newif\ifsporkSlides \sporkSlidestrue
+\input{copied_styles/spork_style.tex}
+\input{copied_styles/code_to_tex_support.tex}
+\begin{document}
+\begin{standaloneframe}
+\begin{minipage}{116mm}
+% Absolute size: \footnotesize differs between the paper (8pt) and slides (10pt).
+\fontsize{9}{10.5}\selectfont
+\sporkListing{split}
+\end{minipage}%
+\begin{tikzpicture}[remember picture, overlay, rounded corners=2mm,
+    font=\sffamily\fontsize{9}{11}\selectfont\bfseries]
+  % Vertical arrow segments run at fixed distances from the listing's left edge (mark `left`),
+  % right of the longest code line they pass.
+  \coordinate (rawX) at ([xshift=88mm]pic cs:split-left);
+  \coordinate (warX) at ([xshift=116mm]pic cs:split-left);
+  \foreach \m in {raw_arrive, raw_await, war_arrive, war_await} {
+    \coordinate (\m) at ([xshift=1mm]pic cs:split-\m);
+  }
+  \sporkReveal<2->{
+    \draw [spork arrow, draw=sporkRedFg] (raw_arrive) -- (raw_arrive -| rawX)
+      -- node[right, text=sporkRedFg] {RAW} (raw_await -| rawX) -- (raw_await);
+  }
+  \sporkReveal<3->{
+    \draw [spork arrow, draw=sporkBlueFg] (war_arrive) -- (war_arrive -| warX)
+      -- node[right, text=sporkBlueFg, align=left] {WAR\\(slot\\reuse)} (war_await -| warX) -- (war_await);
+  }
+\end{tikzpicture}
+\end{standaloneframe}
+\end{document}

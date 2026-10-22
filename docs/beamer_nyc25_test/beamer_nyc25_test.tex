@@ -1,0 +1,201 @@
+% Smoke-test deck for the code_to_tex Beamer + overlay system: a subset of the old
+% spork/docs/spork_nyc25.tex (contents need not match nyc25.py; formatting is the point).
+% Build:  cd spork/docs && python3 -m code_to_tex.build beamer_nyc25_test --slides beamer_nyc25_test --png
+% One frame:  ... --slides beamer_nyc25_test --frame dag --skip-code --png
+\documentclass[aspectratio=169]{beamer}
+\newif\ifsporkSlides \sporkSlidestrue
+\input{copied_styles/spork_style.tex}
+\input{copied_styles/code_to_tex_support.tex}
+
+\title{Exo-GPU}
+\subtitle{Safe, Imperative, User-schedulable Programming for Tensor Cores}
+\author{David Zhao Akeley \and Yuka Ikarashi \and Jonathan Ragan-Kelley}
+\date{2025 MIT/Jane Street Symposium (smoke-test port)}
+
+\begin{document}
+
+% ---------------------------------------------------------------------------
+\begin{frame}[label=title]
+\titlepage
+\end{frame}
+
+% ---------------------------------------------------------------------------
+% Listing with highlight steps: version v on step v+1; version 4 removes the signature lines.
+% The title changes per step (\sporkSlideOnly in the title).
+\begin{frame}[label=cpu]{%
+    \sporkSlideOnly<1>{Starting out with Exo}%
+    \sporkSlideOnly<2>{Type Annotations}%
+    \sporkSlideOnly<3>{Memory Type Annotations}%
+    \sporkSlideOnly<4>{M/N Tiling}%
+    \sporkSlideOnly<5>{Loop Body}%
+    \sporkTitleTag{\sporkInvBlue{GEMM v1}}}
+\footnotesize
+\sporkListing{cpu}
+\normalsize
+\vspace{2mm}
+\sporkCodeRule
+\vspace{2mm}
+\sporkSlideOnly<1>{\texttt{@proc} (procedure) decorator: Python AST $\to$ C/C++ (mostly 1:1).}%
+\sporkSlideOnly<2>{Sizes and tensor shapes are \sporkKeyA{type annotations}.}%
+\sporkSlideOnly<3>{\texttt{@ DRAM}: every buffer has a \sporkKeyB{memory type}.}%
+\sporkSlideOnly<4>{We want to \sporkKeyA{tile} the \sporkGreen{m}/\sporkViolet{n} loop nest.}%
+\sporkSlideOnly<5>{\sporkKeyA{Sequential} loops here; contrast to \sporkKeyB{parallel} loops later.}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+% `reserve`: the assert line appears in version 2, and nothing below it moves.
+\begin{frame}[label=m_divide]{%
+    \sporkSlideOnly<1>{Divide Loop (M)}%
+    \sporkSlideOnly<2>{M Variable Rewritten}%
+    \sporkSlideOnly<3>{Assume Perfect Tiling}}
+\footnotesize
+\sporkListing[reserve]{m_divide_loop}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+% Fixed versions of two listings side by side (no overlays).
+\begin{frame}[label=before_after]{Before and After (Exo checked functional equivalence)}
+\begin{columns}[T]
+\begin{column}{0.4\textwidth}
+\textbf{BEFORE}\par
+\fontsize{9.5}{11.2}\selectfont
+\sporkListing[version=4]{cpu}
+\end{column}
+\begin{column}{0.56\textwidth}
+\textbf{AFTER}\par
+\fontsize{9.5}{11.2}\selectfont
+\sporkListing[version=1]{m_divide_loop}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+% Listing beside a figure: listing in a column (normal text), figure in the other column.
+% Both animate: listing version 1 and the figure's A/B tiles appear on step 2.
+\begin{frame}[label=grid_tile]{Summary: Thread Block Tiling\sporkTitleTag{\sporkInvBlue{GEMM v2}}}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\footnotesize
+\sporkListing{loops}
+\end{column}
+\begin{column}{0.48\textwidth}
+\centering
+\scalebox{0.95}{\input{fig_grid_tile.tex}}
+\end{column}
+\end{columns}
+\vfill
+\sporkReveal<2->{Block \sporkInvGreen{0} reads a row of \sporkGreen{A} tiles and a column of \sporkViolet{B} tiles.}
+\vspace{3mm}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+% Bullet text: keys, boxes, revealed items.
+\begin{frame}[label=smem]{Shared Memory: SMEM}
+\sporkKeyB{SMEM:} per-thread-block ``scratchpad''.
+
+Save the needed block of \sporkGreen{A}, \sporkViolet{B} in SMEM.
+\begin{itemize}
+  \item Break blocks into tiles to fit within SMEM.
+  \item \sporkReveal<2->{Tile the \sporkBlue{\texttt{k}} loop by \sporkBlue{\texttt{K0}}
+        (\texttt{k $\mapsto$ k1 * K0 + k0}).}
+  \item \sporkReveal<3->{Copies: \sporkKeyA{GMEM} $\to$ \sporkKeyB{SMEM}, then many reads from SMEM.}
+  \begin{itemize}
+    \item \sporkReveal<3->{\sporkYellow{\texttt{Fence}} needed: the thread that \emph{writes} a value is not the one that \emph{reads} it.}
+  \end{itemize}
+\end{itemize}
+\vfill
+\sporkReveal<4->{\sporkMainKey{Main key}, \sporkMinorKey{minor key}; boxes:
+  \sporkRed{red} \sporkYellow{yellow} \sporkGreen{green} \sporkBlue{blue} \sporkViolet{violet}
+  \sporkInvRed{inv red} \sporkInvGold{inv gold} \sporkInvGreen{inv green} \sporkInvPurple{inv purple}.}
+\vspace{3mm}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+% Code grows: the Fence lines appear on step 2 (elided arguments), then highlights.
+\begin{frame}[label=smem_sync]{%
+    \sporkSlideOnly<1>{Stage in SMEM: Divide \& Parallelize SMEM-fill Loops}%
+    \sporkSlideOnly<2-3>{Add Synchronization\sporkTitleTag{\sporkInvBlue{GEMM v3}}}%
+    \sporkSlideOnly<4->{Synchronization: What Is Ordered?\sporkTitleTag{\sporkInvBlue{GEMM v3}}}}
+\footnotesize
+\sporkListing{smem_in_order}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}[label=sync_flow]{%
+    \sporkSlideOnly<1>{Loop Fission Restructuring}%
+    \sporkSlideOnly<2>{``Classic'' GPU GEMM Summary}%
+    \sporkSlideOnly<3>{Modernize GPU GEMM}}
+% Fixed-height text area: alternatives of different heights would make the figure jump.
+\begin{overlayarea}{\linewidth}{2\baselineskip}
+\sporkSlideOnly<1>{All steps are thread-block-cooperative, but nothing orders them yet.}%
+\sporkSlideOnly<2>{First sync: wait for the SMEM tile to fill (RAW).\\
+  Second sync: don't overwrite until all SMEM reads are done (WAR).}%
+\sporkSlideOnly<3>{Next step: use accelerator instructions for the \sporkKeyA{GMEM}$\to$\sporkKeyB{SMEM} copies.}
+\end{overlayarea}
+\begin{center}
+\scalebox{1.2}{\input{fig_sync_flow.tex}}
+\end{center}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+% The merged DAG figure: steps 1-3 build the paper figure, 4-5 are slide-only emphasis.
+\begin{frame}[label=dag]{%
+    \sporkSlideOnly<1>{Loop Skew: Delay SMEM Tile Consumption}%
+    \sporkSlideOnly<2>{Ring Buffer Required}%
+    \sporkSlideOnly<3>{WAR Hazard: Ring Buffer Slot Re-Use}%
+    \sporkSlideOnly<4>{Split Barriers}%
+    \sporkSlideOnly<5>{Tensor Cores}}
+\begin{center}
+\scalebox{1.2}{\input{fig_dag.tex}}
+\end{center}
+\vfill
+\sporkCodeRule
+\vspace{2mm}
+\sporkSlideOnly<1>{Consume each SMEM tile one \sporkBlue{\texttt{k1}} iteration \sporkKeyA{after} it is loaded.}%
+\sporkSlideOnly<2>{One slot may be being filled while another is consumed.}%
+\sporkSlideOnly<3>{A slot can only be refilled once its previous readers are done.}%
+\sporkSlideOnly<4>{Implement each edge with a \sporkKeyA{split barrier}: \texttt{Arrive} \dots{} \texttt{Await}.}%
+\sporkSlideOnly<5>{Use tensor cores to accelerate \sporkKeyA{matrix multiply-accumulate}.}
+\vspace{3mm}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+% Listing marks + arrows between code lines; remark lines (plain and bold); placeholders.
+\begin{frame}[label=split_marks]{Split Barriers in Code}
+\input{fig_split_marks.tex}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\sporkExtraSlides
+
+\begin{frame}[label=extra_ring]{Extra Slides: %
+    \sporkSlideOnly<1>{Ring Buffer}\sporkSlideOnly<2>{Loop Skew}}
+\scriptsize
+\sporkListing{ring}
+\normalsize
+\vfill
+\sporkSlideOnly<1>{Lift \texttt{A\_smem}, \texttt{B\_smem} out of the \sporkBlue{\texttt{k1}} loop and ring buffer by 3
+  (long index expressions \sporkComment{elided}).}%
+\sporkSlideOnly<2>{Add an extra \sporkBlue{\texttt{k1}} iteration; delay the accumulate code by one iteration.}
+\vspace{3mm}
+\end{frame}
+
+\begin{frame}[label=extra_machine]{Extra Slides: Abstract Machine}
+Exo-GPU programs target this abstract machine.
+\medskip
+
+\textbf{Correctness view:} check predicates on \sporkKeyA{visibility sets}.
+\begin{itemize}
+  \item Each read is \sporkKeyA{guaranteed} to get the value of the sequentially-prior write.
+  \item Sequential-parallel equivalence.
+\end{itemize}
+\medskip
+
+\textbf{Optimization view:} the abstract machine trace \sporkKeyB{dictates} which instructions and threads perform each operation.
+\begin{itemize}
+  \item Constrains the compiler.
+  \item Generated CUDA internals aren't implementation details.
+\end{itemize}
+\end{frame}
+
+\end{document}
