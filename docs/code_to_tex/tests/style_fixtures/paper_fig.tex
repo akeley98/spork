@@ -1,0 +1,12 @@
+% Paper that \inputs the standalone figure (final, non-animated rendering).
+\documentclass{article}
+\newif\ifsporkSlides \sporkSlidesfalse
+\input{copied_styles/spork_style.tex}
+\input{copied_styles/code_to_tex_support.tex}
+\begin{document}
+\begin{figure}[h]
+\centering
+\input{fig.tex}
+\caption{The figure.}
+\end{figure}
+\end{document}

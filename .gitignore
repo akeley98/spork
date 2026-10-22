@@ -74,3 +74,5 @@ nyc25/*
 *.ptx
 elf.o
 *.sass
+# All PDFs are build outputs or viewer copies (plan_slides.md); un-ignore exceptional ones explicitly.
+*.pdf

@@ -1,0 +1,54 @@
+%% Minimal stand-in for latex/spork_style.tex, used only by the listing
+%% tests (copied to copied_styles/spork_style.tex in a temp dir), so they do
+%% not depend on the real style.  Box/comment definitions are the legacy
+%% colorbox_common.tex ones under the new names.
+\ifsporkSlides
+  \usepackage{standalone}
+  \setbeamertemplate{navigation symbols}{}
+\else
+  \usepackage{beamerarticle}
+  \usepackage{standalone}
+\fi
+\usepackage{fontspec}
+\setsansfont{FreeSans}
+\setmonofont{Ubuntu Mono}
+\ifsporkSlides\renewcommand{\familydefault}{\sfdefault}\fi
+\usepackage{xcolor}
+\usepackage{tikz}
+\usetikzlibrary{tikzmark}
+
+\setlength{\fboxsep}{1.5pt}
+\definecolor{sporkRedFg}{RGB}{224, 0, 0}
+\definecolor{sporkRedBg}{RGB}{255, 211, 225}
+\newcommand{\sporkRed}[1]{{\color{sporkRedFg}\colorbox{sporkRedBg}{#1}}}
+\definecolor{sporkYellowFg}{RGB}{89, 89, 0}
+\definecolor{sporkYellowBg}{RGB}{255, 232, 0}
+\newcommand{\sporkYellow}[1]{{\color{sporkYellowFg}\colorbox{sporkYellowBg}{#1}}}
+\definecolor{sporkGreenFg}{RGB}{0, 89, 63}
+\definecolor{sporkGreenBg}{RGB}{149, 232, 170}
+\newcommand{\sporkGreen}[1]{{\color{sporkGreenFg}\colorbox{sporkGreenBg}{#1}}}
+\definecolor{sporkBlueFg}{RGB}{0, 97, 232}
+\definecolor{sporkBlueBg}{RGB}{224, 232, 255}
+\newcommand{\sporkBlue}[1]{{\color{sporkBlueFg}\colorbox{sporkBlueBg}{#1}}}
+\definecolor{sporkVioletFg}{RGB}{89, 52, 104}
+\definecolor{sporkVioletBg}{RGB}{218, 204, 255}
+\newcommand{\sporkViolet}[1]{{\color{sporkVioletFg}\colorbox{sporkVioletBg}{#1}}}
+\definecolor{sporkInvRedFg}{RGB}{255, 226, 237}
+\definecolor{sporkInvRedBg}{RGB}{188, 0, 0}
+\newcommand{\sporkInvRed}[1]{{\color{sporkInvRedFg}\colorbox{sporkInvRedBg}{#1}}}
+\definecolor{sporkInvGoldFg}{RGB}{255, 255, 0}
+\definecolor{sporkInvGoldBg}{RGB}{170, 149, 0}
+\newcommand{\sporkInvGold}[1]{{\color{sporkInvGoldFg}\colorbox{sporkInvGoldBg}{#1}}}
+\definecolor{sporkInvGreenFg}{RGB}{140, 255, 160}
+\definecolor{sporkInvGreenBg}{RGB}{0, 170, 149}
+\newcommand{\sporkInvGreen}[1]{{\color{sporkInvGreenFg}\colorbox{sporkInvGreenBg}{#1}}}
+\definecolor{sporkInvBlueFg}{RGB}{240, 240, 255}
+\definecolor{sporkInvBlueBg}{RGB}{0, 0, 225}
+\newcommand{\sporkInvBlue}[1]{{\color{sporkInvBlueFg}\colorbox{sporkInvBlueBg}{#1}}}
+\definecolor{sporkInvPurpleFg}{RGB}{240, 240, 255}
+\definecolor{sporkInvPurpleBg}{RGB}{137, 0, 170}
+\newcommand{\sporkInvPurple}[1]{{\color{sporkInvPurpleFg}\colorbox{sporkInvPurpleBg}{#1}}}
+
+\definecolor{sporkCommentColor}{RGB}{124, 170, 0}
+\newcommand{\sporkComment}[1]{{\color{sporkCommentColor}\textsf{#1}}}
+\newcommand{\sporkCodeRule}{{\color{lightgray}\hrule}}

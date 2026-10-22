@@ -1,0 +1,14 @@
+\documentclass{article}
+\newif\ifsporkSlides \sporkSlidesfalse
+\input{copied_styles/spork_style.tex}
+\input{copied_styles/code_to_tex_support.tex}
+\input{mydoc_defs.tex}
+\begin{document}
+\section{Intro}\label{sec:intro}
+See Figure~\ref{fig:fig} on page~\pageref{fig:fig}. \myDocMacro
+\begin{figure}[h]
+\centering
+\input{fig.tex}
+\caption{A figure}\label{fig:fig}
+\end{figure}
+\end{document}

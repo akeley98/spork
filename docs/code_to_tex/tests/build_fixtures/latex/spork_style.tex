@@ -1,0 +1,33 @@
+% STUB spork_style.tex for code_to_tex build tests (the real one lives in code_to_tex/latex/).
+% Implements only what the build tests need: mode handling, the single-frame hook,
+% paper-mode beamerarticle + standalone, tikz with tikzmark, and the overlay intent macros.
+\makeatletter
+\@ifclassloaded{standalone}{\sporkSlidestrue}{}
+\makeatother
+\ifsporkSlides
+  \ifdefined\sporkOnlyFrame\expandafter\includeonlyframes\expandafter{\sporkOnlyFrame}\fi
+\else
+  \usepackage{beamerarticle}
+\fi
+\makeatletter
+\@ifclassloaded{standalone}{}{\usepackage{standalone}}
+\makeatother
+% Same standalone.sty workaround as the real spork_style.tex: the figure preamble (with its
+% \newif\ifsporkSlides) would otherwise mis-nest conditionals when the figure is \input.
+\makeatletter
+\ifdefined\sa@gobble
+  \long\def\sa@gobble#1\begin#2{%
+    \def\@tempa{#2}%
+    \ifx\@tempa\sa@gobbleto
+      \expandafter\spork@sa@gobbledone
+    \else
+      \expandafter\sa@gobble
+    \fi}
+  \def\spork@sa@gobbledone{\expandafter\endgroup\expandafter\begin\expandafter{\sa@gobbleto}}
+\fi
+\makeatother
+\usepackage{tikz}
+\usetikzlibrary{tikzmark}
+\newcommand<>{\sporkReveal}[1]{\uncover#2{#1}}
+\newcommand<>{\sporkSlideOnly}[1]{\only#2{#1}}
+\newcommand{\sporkPaperOnly}[1]{\mode<article>{#1}}

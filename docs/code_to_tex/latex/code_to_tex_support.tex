@@ -1,0 +1,185 @@
+%% code_to_tex_support.tex -- LaTeX side of code_to_tex listings.
+%% Documentation: code_to_tex/README.md.  The build driver copies this file
+%% into each document's copied_styles/ (read-only); edit the original.
+%%
+%% \sporkListing[version=N, offset=K, reserve, prefix=P]{NAME}   inputs code/NAME.tex
+%%   Slides (\ifsporkSlides true): version v on overlay step v+1+K, the last
+%%     version stays on all later steps; \only semantics (code grows) unless
+%%     `reserve` (rows absent from the current version leave a blank line).
+%%     version=N: show only version N, on every step.
+%%   Paper: version N (default: the last version).
+%%   Marks: \pgfmark (tikzmark library) named P-MARK, P defaults to NAME;
+%%     use as (pic cs:P-MARK) in a remember-picture tikzpicture (2+ passes).
+%% \sporkMarkXShift, \sporkMarkYShift: default mark offsets from the
+%%   character boundary on the baseline (redefine with \renewcommand).
+%%
+%% Requires from spork_style.tex: \ifsporkSlides, \sporkComment, the box
+%% macros \sporkRed ... \sporkInvPurple (\colorbox-based, padding \fboxsep).
+
+\RequirePackage{xcolor}
+\RequirePackage{tikz}
+\usetikzlibrary{tikzmark}
+
+% Mark offsets, calibrated with Ubuntu Mono (see README "Marks"):
+% x: exactly at the character boundary; y: middle of the x-height.
+\providecommand*\sporkMarkXShift{0pt}
+\providecommand*\sporkMarkYShift{0.5ex}
+
+\ExplSyntaxOn
+
+% Fallback if the main file did not declare \ifsporkSlides: slides iff Beamer.
+\cs_if_exist:cF { ifsporkSlides }
+  {
+    \exp_args:Nc \newif { ifsporkSlides }
+    \use:c { @ifclassloaded } { beamer } { \use:c { sporkSlidestrue } } { }
+  }
+
+\msg_new:nnn { spork } { listing-direct }
+  { code/#1.tex~must~be~included~with~\token_to_str:N \sporkListing {#1},~not~\token_to_str:N \input. }
+\msg_new:nnn { spork } { listing-version }
+  { \token_to_str:N \sporkListing {#1}:~version=#2~out~of~range~(the~listing~has~versions~0..#3). }
+\msg_new:nnn { spork } { listing-offset }
+  { \token_to_str:N \sporkListing {#1}:~offset~must~be~>=~0. }
+
+\bool_new:N \l__sporklst_inside_bool
+\bool_new:N \l__sporklst_reserve_bool
+\bool_new:N \l__sporklst_overlays_bool   % slides without version=N
+\bool_new:N \l__sporklst_found_bool
+\int_new:N \l__sporklst_version_int      % option value; -1 = not given
+\int_new:N \l__sporklst_offset_int
+\int_new:N \l__sporklst_count_int
+\int_new:N \l__sporklst_shown_int        % version shown without overlays
+\tl_new:N \l__sporklst_name_tl
+\tl_new:N \l__sporklst_prefix_tl
+\tl_new:N \l__sporklst_spec_tl
+\tl_new:N \l__sporklst_markname_tl
+
+\keys_define:nn { spork/listing }
+  {
+    version .int_set:N = \l__sporklst_version_int ,
+    offset  .int_set:N = \l__sporklst_offset_int ,
+    reserve .bool_set:N = \l__sporklst_reserve_bool ,
+    reserve .default:n = true ,
+    prefix  .tl_set:N = \l__sporklst_prefix_tl ,
+  }
+
+\NewDocumentCommand \sporkListing { O{} m }
+  {
+    \par
+    \group_begin:
+      \keys_set:nn { spork/listing }
+        { version = -1 , offset = 0 , reserve = false , prefix = #2 , #1 }
+      \tl_set:Nn \l__sporklst_name_tl {#2}
+      \bool_set_true:N \l__sporklst_inside_bool
+      \int_compare:nNnT { \l__sporklst_offset_int } < { 0 }
+        { \msg_error:nnx { spork } { listing-offset } {#2} }
+      \bool_set_false:N \l__sporklst_overlays_bool
+      \legacy_if:nT { sporkSlides }
+        {
+          \int_compare:nNnT { \l__sporklst_version_int } < { 0 }
+            { \bool_set_true:N \l__sporklst_overlays_bool }
+        }
+      \dim_zero:N \parindent
+      \skip_zero:N \parskip
+      \input{code/#2.tex}
+      \par
+    \group_end:
+  }
+
+% First line of every generated file: listing name and version count.
+\NewDocumentCommand \sporkListingBegin { m m }
+  {
+    \bool_if:NF \l__sporklst_inside_bool
+      { \msg_error:nnn { spork } { listing-direct } {#1} }
+    \int_set:Nn \l__sporklst_count_int {#2}
+    \int_compare:nNnT { \l__sporklst_version_int } > { #2 - 1 }
+      {
+        \msg_error:nnxxx { spork } { listing-version }
+          {#1} { \int_use:N \l__sporklst_version_int } { \int_eval:n { #2 - 1 } }
+      }
+    \int_set:Nn \l__sporklst_shown_int
+      {
+        \int_compare:nNnTF { \l__sporklst_version_int } < { 0 }
+          { #2 - 1 } { \l__sporklst_version_int }
+      }
+  }
+\NewDocumentCommand \sporkListingEnd { } { }
+
+% Overlay spec for a version list: version v -> step v+1+offset; the last
+% version stays visible on all later steps ("5-").
+\cs_new_protected:Npn \__sporklst_build_spec:n #1
+  {
+    \tl_clear:N \l__sporklst_spec_tl
+    \clist_map_inline:nn {#1}
+      {
+        \tl_if_empty:NF \l__sporklst_spec_tl { \tl_put_right:Nn \l__sporklst_spec_tl { , } }
+        \tl_put_right:Nx \l__sporklst_spec_tl
+          { \int_eval:n { ##1 + 1 + \l__sporklst_offset_int } }
+        \int_compare:nNnT {##1} = { \l__sporklst_count_int - 1 }
+          { \tl_put_right:Nn \l__sporklst_spec_tl { - } }
+      }
+  }
+
+% #1 = version list; #2 if the current version/step is in it, else #3.
+\cs_new_protected:Npn \__sporklst_select:nnn #1#2#3
+  {
+    \bool_if:NTF \l__sporklst_overlays_bool
+      {
+        \__sporklst_build_spec:n {#1}
+        \use:x
+          {
+            \exp_not:N \alt < \exp_not:V \l__sporklst_spec_tl >
+              { \exp_not:n {#2} } { \exp_not:n {#3} }
+          }
+      }
+      {
+        \bool_set_false:N \l__sporklst_found_bool
+        \clist_map_inline:nn {#1}
+          {
+            \int_compare:nNnT {##1} = { \l__sporklst_shown_int }
+              { \bool_set_true:N \l__sporklst_found_bool \clist_map_break: }
+          }
+        \bool_if:NTF \l__sporklst_found_bool {#2} {#3}
+      }
+  }
+
+% One code line: same look as the legacy \blacktt line, one paragraph per
+% line (\parskip = 0 => baselineskip spacing, page breaks allowed between lines).
+\cs_new_protected:Npn \__sporklst_line:n #1
+  { \leavevmode \strut { \color{black} \ttfamily #1 } \par }
+
+% \sporkListingRow{versions}{variants}: one source row.
+\NewDocumentCommand \sporkListingRow { m +m }
+  {
+    \__sporklst_select:nnn {#1} {#2}
+      { \bool_if:NT \l__sporklst_reserve_bool { \__sporklst_line:n { } } }
+  }
+
+% \sporkListingVariant{versions}{tex}: the row's rendering for these versions.
+\NewDocumentCommand \sporkListingVariant { m +m }
+  { \__sporklst_select:nnn {#1} { \__sporklst_line:n {#2} } { } }
+
+\NewDocumentCommand \sporkListingFilbreak { m }
+  { \__sporklst_select:nnn {#1} { \filbreak } { } }
+
+% Colored span: the box is smashed (no effect on line spacing) and its
+% padding is cancelled horizontally so the text does not move.
+\NewDocumentCommand \sporkListingBox { m +m }
+  { \hspace{-\fboxsep} \smash{ #1 {#2} } \hspace{-\fboxsep} }
+
+% \sporkListingMark{name}{xshift}{yshift}; empty shift = default.
+\NewDocumentCommand \sporkListingMark { m m m }
+  {
+    \tl_set:Nx \l__sporklst_markname_tl { \l__sporklst_prefix_tl - #1 }
+    \smash
+      {
+        \rlap
+          {
+            \hspace*{ \tl_if_blank:nTF {#2} { \sporkMarkXShift } {#2} }
+            \raisebox{ \tl_if_blank:nTF {#3} { \sporkMarkYShift } {#3} }
+              { \exp_args:NV \pgfmark \l__sporklst_markname_tl }
+          }
+      }
+  }
+
+\ExplSyntaxOff

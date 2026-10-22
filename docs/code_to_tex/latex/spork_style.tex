@@ -1,0 +1,430 @@
+% spork_style.tex: master style for paper + slides + standalone figures (xelatex only).
+% Part of the code_to_tex package; the build driver copies it to <doc>/copied_styles/ (read-only copy;
+% edit code_to_tex/latex/spork_style.tex instead).
+% Self-contained: must not \input siblings.
+%
+% Every main file, deck, and figure starts with:
+%   \documentclass{article}                 % paper  | \documentclass[aspectratio=169]{beamer} deck | \documentclass[beamer]{standalone} figure
+%   \newif\ifsporkSlides \sporkSlidesfalse  % paper  | \sporkSlidestrue for deck and standalone figure
+%   \input{copied_styles/spork_style.tex}
+%   \input{copied_styles/code_to_tex_support.tex}
+%   \input{<doc>_defs.tex}                  % document-specific packages + macros
+%
+% Naming: everything defined here is \spork... / spork... (colors) / `spork ...` (TikZ keys),
+% so a reader can tell where an unfamiliar macro came from.
+% Document-specific packages (mathpartir, stmaryrd, ...) and notation macros (\abs, ...) go in <doc>_defs.tex.
+%
+% Contents:
+%   1. Mode detection (paper / deck / standalone figure)
+%   2. Packages + fonts
+%   3. Colors
+%   4. Text macros: keys, boxes, code comments, sections, links
+%   5. Overlay intent macros (\sporkReveal, \sporkSlideOnly, \sporkPaperOnly)
+%   6. TikZ styles + overlay intent keys
+%   7. Paper look (titlesec, lists)
+%   8. Slides look (blank Beamer theme, frame title, single-frame hook)
+%   9. \sporkFigMaxWidth
+
+\makeatletter
+
+% ===========================================================================
+% 1. Mode detection
+% ===========================================================================
+% \ifsporkSlides is set by the main file. A standalone figure (class standalone) is always
+% slides mode (its [beamer] option loads Beamer anyway). \ifspork@standalone distinguishes
+% figure from deck where needed (single-frame hook, footline).
+\ifdefined\ifsporkSlides\else
+  \expandafter\newif\csname ifsporkSlides\endcsname
+  \sporkSlidesfalse
+\fi
+\newif\ifspork@standalone
+\@ifclassloaded{standalone}{\spork@standalonetrue\sporkSlidestrue}{}
+\ifsporkSlides
+  \@ifclassloaded{beamer}{}{%
+    \GenericError{}{spork_style.tex: \string\sporkSlidestrue\space but class is not beamer or [beamer]{standalone}}{}{}}
+\else
+  \@ifclassloaded{beamer}{%
+    \GenericError{}{spork_style.tex: class beamer but \string\sporkSlidesfalse; use \string\sporkSlidestrue\space for decks}{}{}}{}
+\fi
+
+% ===========================================================================
+% 2. Packages + fonts
+% ===========================================================================
+\ifsporkSlides
+  % Beamer already loaded xcolor, hyperref, amsmath, pgf. No geometry (conflicts with Beamer).
+  % Add the xcolor name sets the paper gets from package options (too late for options here).
+  \input{dvipsnam.def}
+  \input{svgnam.def}
+  \usepackage{amssymb}
+  \usepackage{amsfonts}
+  \usepackage{mathtools}
+  \usepackage{graphicx}
+  \usepackage{booktabs}
+  \usepackage{colortbl}
+  \usepackage{fontspec}
+  \usepackage{tikz}
+  \ifspork@standalone\else
+    \usepackage{standalone}  % lets the deck \input standalone figure files
+  \fi
+\else
+  \PassOptionsToPackage{usenames,dvipsnames,svgnames,table,hyperref}{xcolor}
+  \usepackage[letterpaper, portrait, margin=2.54cm]{geometry}
+  \usepackage{amsmath}
+  \usepackage{amssymb}
+  \usepackage{amsfonts}
+  \usepackage{mathtools}
+  \usepackage{booktabs}
+  \usepackage{placeins}
+  \usepackage{graphicx}
+  \usepackage{caption}
+  \usepackage[parfill=0pt]{parskip}
+  \usepackage{xcolor}
+  \usepackage{fontspec}
+  \usepackage{titlesec}
+  \usepackage{tikz}
+  \usepackage{beamerarticle}  % defines \only, \uncover, frame, ... for paper; also loads hyperref
+  \usepackage{enumitem}       % after beamerarticle (which redefines enumerate; the other order breaks \end{enumerate})
+  \usepackage{standalone}     % lets the paper \input standalone figure files
+  \usepackage{hyperref}
+  \hypersetup{hidelinks}
+\fi
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning, calc, tikzmark}
+
+% Workaround (standalone.sty 2018/03/26): when a figure is \input, its preamble is gobbled as a macro
+% argument that lands inside skipped conditional branches, so any \if... token in the figure preamble
+% (e.g. its own \newif\ifsporkSlides) mis-nests: "Incomplete \iffalse; all text was ignored after line N".
+% We never use the subpreambles option, so gobble up to \begin{document} without conditionals.
+\ifdefined\sa@gobble
+  \long\def\sa@gobble#1\begin#2{%
+    \def\@tempa{#2}%
+    \ifx\@tempa\sa@gobbleto
+      \expandafter\spork@sa@gobbledone
+    \else
+      \expandafter\sa@gobble
+    \fi}
+  \def\spork@sa@gobbledone{\expandafter\endgroup\expandafter\begin\expandafter{\sa@gobbleto}}
+\fi
+
+% Paper body stays serif (Latin Modern); slides body is sans (Beamer default, \familydefault=\sfdefault).
+\setsansfont{FreeSans}
+\setmonofont{Ubuntu Mono}
+
+\hyphenation{WebGL}
+\sloppy
+
+% ===========================================================================
+% 3. Colors
+% ===========================================================================
+% Titles: black in the paper; magenta on slides. Extra (appendix) slides titles are blue.
+\ifsporkSlides
+  \definecolor{sporkTitleColor}{RGB}{179, 0, 149}
+\else
+  \definecolor{sporkTitleColor}{RGB}{0, 0, 0}
+\fi
+\definecolor{sporkExtraTitleColor}{RGB}{0, 149, 224}
+
+% Keyword emphasis (\sporkKeyA/B) and section-level emphasis (\sporkMainKey/\sporkMinorKey).
+\definecolor{sporkKeyColorA}{RGB}{170, 149, 0}
+\definecolor{sporkKeyColorB}{RGB}{170, 210, 0}
+\definecolor{sporkMainColor}{RGB}{170, 0, 170}
+\definecolor{sporkMinorColor}{RGB}{0, 149, 232}
+
+% Gray typewriter text (section labels).
+\definecolor{sporkGrayttColor}{RGB}{144, 144, 160}
+
+% Box colors. Red and blue have bright text; yellow, green, violet intentionally muted text.
+\definecolor{sporkRedFg}{RGB}{224, 0, 0}
+\definecolor{sporkRedBg}{RGB}{255, 211, 225}
+\definecolor{sporkYellowFg}{RGB}{89, 89, 0}
+\definecolor{sporkYellowBg}{RGB}{255, 232, 0}
+\definecolor{sporkGreenFg}{RGB}{0, 89, 63}
+\definecolor{sporkGreenBg}{RGB}{149, 232, 170}
+\definecolor{sporkBlueFg}{RGB}{0, 97, 232}
+\definecolor{sporkBlueBg}{RGB}{224, 232, 255}
+\definecolor{sporkVioletFg}{RGB}{89, 52, 104}
+\definecolor{sporkVioletBg}{RGB}{218, 204, 255}
+
+% Inverted ("negative") boxes: saturated background, light text. Use sparingly.
+\definecolor{sporkInvRedFg}{RGB}{255, 226, 237}
+\definecolor{sporkInvRedBg}{RGB}{188, 0, 0}
+\definecolor{sporkInvGoldFg}{RGB}{255, 255, 0}
+\definecolor{sporkInvGoldBg}{RGB}{170, 149, 0}
+\definecolor{sporkInvGreenFg}{RGB}{140, 255, 160}
+\definecolor{sporkInvGreenBg}{RGB}{0, 170, 149}
+\definecolor{sporkInvBlueFg}{RGB}{240, 240, 255}
+\definecolor{sporkInvBlueBg}{RGB}{0, 0, 225}
+\definecolor{sporkInvPurpleFg}{RGB}{240, 240, 255}
+\definecolor{sporkInvPurpleBg}{RGB}{137, 0, 170}
+
+% Comments in code listings.
+\definecolor{sporkCommentColor}{RGB}{124, 170, 0}
+
+% ===========================================================================
+% 4. Text macros
+% ===========================================================================
+\newcommand{\sporkKeyA}[1]{\textbf{\color{sporkKeyColorA}#1}}
+\newcommand{\sporkKeyB}[1]{\textbf{\color{sporkKeyColorB}#1}}
+\newcommand{\sporkMainKey}[1]{\textbf{\color{sporkMainColor}#1}}
+\newcommand{\sporkMinorKey}[1]{\textbf{\color{sporkMinorColor}#1}}
+
+% Colored boxes, one argument (also used by generated code listings).
+% \fboxsep is set globally, as in the legacy colorbox_common.tex.
+\setlength{\fboxsep}{1.5pt}
+\newcommand{\spork@box}[2]{{\color{#1Fg}\colorbox{#1Bg}{#2}}}
+\newcommand{\sporkRed}[1]{\spork@box{sporkRed}{#1}}
+\newcommand{\sporkYellow}[1]{\spork@box{sporkYellow}{#1}}
+\newcommand{\sporkGreen}[1]{\spork@box{sporkGreen}{#1}}
+\newcommand{\sporkBlue}[1]{\spork@box{sporkBlue}{#1}}
+\newcommand{\sporkViolet}[1]{\spork@box{sporkViolet}{#1}}
+\newcommand{\sporkInvRed}[1]{\spork@box{sporkInvRed}{#1}}
+\newcommand{\sporkInvGold}[1]{\spork@box{sporkInvGold}{#1}}
+\newcommand{\sporkInvGreen}[1]{\spork@box{sporkInvGreen}{#1}}
+\newcommand{\sporkInvBlue}[1]{\spork@box{sporkInvBlue}{#1}}
+\newcommand{\sporkInvPurple}[1]{\spork@box{sporkInvPurple}{#1}}
+
+% Code listing comment text and horizontal rule.
+\newcommand{\sporkComment}[1]{{\color{sporkCommentColor}\textsf{#1}}}
+\newcommand{\sporkCodeRule}{{\color{lightgray}\hrule}}
+
+% Use at the start of a minipage/parbox holding paragraphs.
+\newcommand{\sporkFixMinipage}{\raggedright \setlength{\parskip}{0.3\baselineskip}}
+
+% \sporkSection{Title}{sec:Name}: \section + \label, with the label shown in gray at the right
+% (like a line number) so readers/agents can find the source file {Name}.tex.
+% \sporkSectionLabelsfalse (e.g. for submission builds) hides the gray text; the \label stays.
+\newif\ifsporkSectionLabels \sporkSectionLabelstrue
+\newcommand{\spork@seclabel}[1]{%
+  \ifsporkSectionLabels\hfill{\small\color{sporkGrayttColor}\texttt{#1}}\fi}
+\newcommand{\sporkSection}[2]{\section[#1]{#1\spork@seclabel{#2}}\label{#2}}
+\newcommand{\sporkSubsection}[2]{\subsection[#1]{#1\spork@seclabel{#2}}\label{#2}}
+
+% \sporkPaperLink{label}{text}: \hyperref in the paper; plain text on slides
+% (labels of the paper don't exist in decks).
+\ifsporkSlides
+  \newcommand{\sporkPaperLink}[2]{#2}
+\else
+  \newcommand{\sporkPaperLink}[2]{\hyperref[#1]{#2}}
+\fi
+
+% ===========================================================================
+% 5. Overlay intent macros
+% ===========================================================================
+% Every overlay goes through these (the build driver lints bare \only< \uncover< \node< ...).
+% The paper is the final, non-animated figure; each element states its paper intent:
+%   \sporkReveal<spec>{x}     slides: \uncover<spec> (keeps layout space)   paper: shown
+%   \sporkSlideOnly<spec>{x}  slides: \only<spec> (no space when hidden)    paper: removed
+%   \sporkPaperOnly{x}        slides: removed                              paper: shown
+% <spec> is optional (default: all slides). Usable in text and inside tikzpicture
+% (wrapping whole \node/\draw commands; then the element doesn't exist when removed).
+% For TikZ elements that should keep their size/anchors when hidden, prefer the keys in section 6.
+\ifsporkSlides
+  \DeclareRobustCommand{\sporkReveal}{\@ifnextchar<{\spork@reveal}{\spork@reveal<1->}}
+  \def\spork@reveal<#1>#2{\uncover<#1>{#2}}
+  \DeclareRobustCommand{\sporkSlideOnly}{\@ifnextchar<{\spork@slideonly}{\spork@slideonly<1->}}
+  \def\spork@slideonly<#1>#2{\only<#1>{#2}}
+  \newcommand{\sporkPaperOnly}[1]{}
+\else
+  \DeclareRobustCommand{\sporkReveal}{\@ifnextchar<{\spork@reveal}{\spork@reveal<>}}
+  \def\spork@reveal<#1>#2{#2}
+  \DeclareRobustCommand{\sporkSlideOnly}{\@ifnextchar<{\spork@slideonly}{\spork@slideonly<>}}
+  \def\spork@slideonly<#1>#2{}
+  \newcommand{\sporkPaperOnly}[1]{#1}
+\fi
+
+% ===========================================================================
+% 6. TikZ styles + overlay intent keys
+% ===========================================================================
+% Figures are sans whatever the body font (paper serif, slides sans).
+\tikzset{every picture/.append style={font=\sffamily}}
+
+% spork arrow: thick, with the arrows.meta equivalent of the legacy `>=stealth` tip
+% (same proportions as PGF's old `stealth`; `>` is set so `<->` etc. also work).
+\tikzset{
+  spork arrow/.style={thick, ->, >={Stealth[length=2.4pt 3 0.5, width'=0pt 0.75, inset'=0pt 0.25]}},
+}
+\tikzset{
+  spork line/.style={thick},
+  % 3cm x 1cm white box; base for the colored nodes.
+  spork normal node/.style={rectangle, minimum width=3cm, minimum height=1cm,
+    text centered, text width=3cm, draw=black, fill=white},
+  % Color styles: draw + fill + text of a box color. Apply to any node/path.
+  spork red style/.style={draw=sporkRedFg, fill=sporkRedBg, text=sporkRedFg},
+  spork yellow style/.style={draw=sporkYellowFg, fill=sporkYellowBg, text=sporkYellowFg},
+  spork green style/.style={draw=sporkGreenFg, fill=sporkGreenBg, text=sporkGreenFg},
+  spork blue style/.style={draw=sporkBlueFg, fill=sporkBlueBg, text=sporkBlueFg},
+  spork violet style/.style={draw=sporkVioletFg, fill=sporkVioletBg, text=sporkVioletFg},
+  spork inv red style/.style={draw=sporkInvRedFg, fill=sporkInvRedBg, text=sporkInvRedFg},
+  spork inv gold style/.style={draw=sporkInvGoldFg, fill=sporkInvGoldBg, text=sporkInvGoldFg},
+  spork inv green style/.style={draw=sporkInvGreenFg, fill=sporkInvGreenBg, text=sporkInvGreenFg},
+  spork inv blue style/.style={draw=sporkInvBlueFg, fill=sporkInvBlueBg, text=sporkInvBlueFg},
+  spork inv purple style/.style={draw=sporkInvPurpleFg, fill=sporkInvPurpleBg, text=sporkInvPurpleFg},
+  % Colored 3cm x 1cm nodes.
+  spork red node/.style={spork normal node, spork red style},
+  spork yellow node/.style={spork normal node, spork yellow style},
+  spork green node/.style={spork normal node, spork green style},
+  spork blue node/.style={spork normal node, spork blue style},
+  spork violet node/.style={spork normal node, spork violet style},
+}
+
+% Overlay intent keys (TikZ counterpart of section 5):
+%   spork reveal=<spec>             slides: invisible outside <spec> (keeps size, anchors, bbox)  paper: shown
+%   spork slide only=<spec>         slides: same as reveal                                         paper: invisible, not in bbox
+%   spork slide only=<spec>{keys}   slides: apply keys on <spec>                                   paper: ignored
+%   spork paper only                slides: invisible, not in bbox                                 paper: shown
+%   spork paper style={keys}        slides: ignored                                                paper: apply keys
+% "Invisible" = opacity 0: the element still exists (anchors usable by other elements), and its text is
+% still in the PDF text layer. To remove an element entirely, wrap the whole command in \sporkSlideOnly / \sporkPaperOnly.
+\tikzset{
+  spork@hidden/.style={opacity=0, text opacity=0},
+  spork@absent/.style={spork@hidden, overlay},
+}
+\ifsporkSlides
+  \tikzset{
+    spork reveal/.code args={<#1>}{\alt<#1>{}{\pgfkeysalso{spork@hidden}}},
+    spork slide only/.code args={<#1>#2}{%
+      \ifx\relax#2\relax
+        \alt<#1>{}{\pgfkeysalso{spork@hidden}}%
+      \else
+        \alt<#1>{\pgfkeysalso{#2}}{}%
+      \fi},
+    spork paper only/.style={spork@absent},
+    spork paper style/.code={},
+  }
+\else
+  \tikzset{
+    spork reveal/.code args={<#1>}{},
+    spork slide only/.code args={<#1>#2}{%
+      \ifx\relax#2\relax\pgfkeysalso{spork@absent}\fi},
+    spork paper only/.code={},
+    spork paper style/.code={\pgfkeysalso{#1}},
+  }
+\fi
+
+% ===========================================================================
+% 7. Paper look
+% ===========================================================================
+\ifsporkSlides\else
+  % Section titles hang into the left margin; subsections in sporkMainColor.
+  \titleformat*{\section}{\normalfont\sffamily\large\bfseries\color{sporkTitleColor}}
+  \titlespacing{\section}{-15mm}{4mm}{2mm}
+  \titleformat*{\subsection}{\normalfont\sffamily\color{sporkMainColor}}
+  \titlespacing{\subsection}{-15mm}{2mm}{1mm}
+
+  \renewcommand*{\theenumi}{\alph{enumi}}
+  \renewcommand*\labelenumi{(\theenumi)}
+  \renewcommand*{\theenumii}{\roman{enumii}}
+  \renewcommand*\labelenumii{\theenumii.}
+\fi
+
+% ===========================================================================
+% 8. Slides look: blank Beamer theme + David's colors
+% ===========================================================================
+\ifsporkSlides
+  % Body ~12pt on the 160x90mm 16:9 page: old 263mm-wide slides' \LARGE text scales to this,
+  % so slide text needs no size wrappers. Only bumps Beamer's default 11pt; an explicit
+  % class size option (other than 11pt) is respected.
+  \def\spork@tmp{{size11.clo}}%
+  \ifx\beamer@size\spork@tmp
+    \renewcommand\normalsize{%
+      \@setfontsize\normalsize\@xiipt{14.5}%
+      \abovedisplayskip 12\p@ \@plus3\p@ \@minus7\p@
+      \abovedisplayshortskip \z@ \@plus3\p@
+      \belowdisplayshortskip 6.5\p@ \@plus3.5\p@ \@minus3\p@
+      \belowdisplayskip \abovedisplayskip
+      \let\@listi\@listI}
+    \DeclareRobustCommand\small{\@setfontsize\small\@xipt{13.6}}
+    \DeclareRobustCommand\footnotesize{\@setfontsize\footnotesize\@xpt\@xiipt}
+    \DeclareRobustCommand\scriptsize{\@setfontsize\scriptsize\@viiipt{9.5}}
+    \DeclareRobustCommand\tiny{\@setfontsize\tiny\@vipt\@viipt}
+    \DeclareRobustCommand\large{\@setfontsize\large\@xivpt{18}}
+    \DeclareRobustCommand\Large{\@setfontsize\Large\@xviipt{22}}
+    \DeclareRobustCommand\LARGE{\@setfontsize\LARGE\@xxpt{25}}
+    \DeclareRobustCommand\huge{\@setfontsize\huge\@xxvpt{30}}
+    \let\Huge=\huge
+    \normalsize
+  \fi
+
+  % Math stays Computer Modern (as on the legacy article-based slides); Beamer doesn't touch math fonts.
+  \usefonttheme{professionalfonts}
+
+  % Blank theme: no navigation symbols, no blue.
+  \setbeamertemplate{navigation symbols}{}
+  \setbeamersize{text margin left=8mm, text margin right=8mm}
+  \setbeamercolor{normal text}{fg=black, bg=white}
+  \setbeamercolor{structure}{fg=sporkTitleColor}
+  \setbeamercolor{alerted text}{fg=sporkRedFg}
+  \setbeamercolor{block title}{fg=sporkTitleColor, bg=}
+  \setbeamercolor{block body}{fg=black, bg=}
+  \setbeamercovered{invisible}
+
+  % Frame title: bold sans magenta, ~15pt (old \huge scaled to the Beamer page),
+  % hanging left of the text margin: 3mm from the page edges, so \sporkTitleTag ends 3mm from the right edge.
+  \setbeamercolor{frametitle}{fg=sporkTitleColor, bg=}
+  \setbeamerfont{frametitle}{family=\sffamily, series=\bfseries, size=\fontsize{15}{18}}
+  \setbeamertemplate{frametitle}{%
+    \nointerlineskip\vskip 2.5mm
+    \moveleft\beamer@leftmargin\hbox to\paperwidth{\hskip 3mm\vbox{\hsize=\dimexpr\paperwidth-6mm\relax
+      \usebeamerfont{frametitle}\usebeamercolor[fg]{frametitle}\raggedright
+      \strut\insertframetitle\strut\par}\hss}%
+    \vskip 1mm}
+  % Frames are top-aligned (like the legacy article-based slides; growing listings don't move).
+  % Use \begin{frame}[c] to center one frame vertically.
+  \beamer@centeredfalse
+  \setbeamercolor{title}{fg=sporkTitleColor, bg=}
+  \setbeamerfont{title}{family=\sffamily, series=\bfseries, size=\fontsize{20}{24}}
+
+  % \sporkTitleTag{x}: right-aligned tag in the frame title, e.g.
+  %   \begin{frame}{Starting out with Exo\sporkTitleTag{\sporkInvBlue{GEMM v1}}}
+  \newcommand{\sporkTitleTag}[1]{\hfill#1}
+
+  % \sporkExtraSlides: subsequent frame titles in sporkExtraTitleColor ("Extra Slides" appendix).
+  \newcommand{\sporkExtraSlides}{\setbeamercolor{frametitle}{fg=sporkExtraTitleColor, bg=}}
+
+  % Bullets: triangles in the title color.
+  \setbeamertemplate{itemize items}[triangle]
+  \setbeamertemplate{enumerate items}[default]
+  \setbeamertemplate{sections/subsections in toc}[default]
+
+  % Footline: small gray frame number at bottom right (deck only).
+  \ifspork@standalone
+    \setbeamertemplate{footline}{}
+  \else
+    \setbeamercolor{page number in head/foot}{fg=sporkGrayttColor}
+    \setbeamerfont{page number in head/foot}{size=\scriptsize}
+    \setbeamertemplate{footline}{%
+      \hfill\usebeamercolor[fg]{page number in head/foot}\usebeamerfont{page number in head/foot}%
+      \insertframenumber\kern2mm\vskip1.5mm}
+  \fi
+
+  % Single-frame build hook (deck only): the build driver runs
+  %   xelatex -jobname=DECK_frame '\def\sporkOnlyFrame{a,b}\input{DECK.tex}'
+  % and only frames with [label=a] / [label=b] are typeset. (\includeonlyframes doesn't expand its argument.)
+  \ifspork@standalone\else
+    \ifdefined\sporkOnlyFrame\expandafter\includeonlyframes\expandafter{\sporkOnlyFrame}\fi
+  \fi
+\else
+  % Paper: slide-only title helpers are no-ops so shared text compiles.
+  \newcommand{\sporkTitleTag}[1]{}
+  \newcommand{\sporkExtraSlides}{}
+\fi
+
+% ===========================================================================
+% 9. \sporkFigMaxWidth
+% ===========================================================================
+% \sporkFigMaxWidth{12cm} in a figure file's preamble: every later tikzpicture wider than that emits
+%   Package spork Warning: picture width <w> exceeds \sporkFigMaxWidth <max>
+% The standalone build is the fast loop for this; the preamble is stripped when the figure is \input.
+\newdimen\spork@figmaxwidth
+\newdimen\spork@tmpdim
+\newcommand{\sporkFigMaxWidth}[1]{%
+  \setlength{\spork@figmaxwidth}{#1}%
+  \tikzset{every picture/.append style={execute at end picture={\spork@checkwidth}}}}
+\def\spork@checkwidth{%
+  \spork@tmpdim=\pgf@picmaxx
+  \advance\spork@tmpdim by -\pgf@picminx
+  \ifdim\spork@tmpdim>\spork@figmaxwidth
+    \PackageWarning{spork}{picture width \the\spork@tmpdim\space exceeds
+      \string\sporkFigMaxWidth\space\the\spork@figmaxwidth}%
+  \fi}
+
+\makeatother
