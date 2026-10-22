@@ -5,9 +5,8 @@
 %   paper:  last listing version, both arrows
 % Marks must be in normal text (not inside a TikZ node), so the listing is plain text and
 % the arrows live in a separate `remember picture, overlay` picture (code_to_tex/README.md, Marks).
-% Wider than the default 4:3 standalone Beamer page (112mm text width), so the standalone
-% preview uses the deck's 16:9 page (standalone passes the option on to Beamer; nothing may
-% precede \documentclass, since that would run when the figure is \input).
+% (Like every figure, the standalone preview uses the deck's 16:9 page; standalone passes the
+% option on to Beamer. Nothing may precede \documentclass, since that would run when the figure is \input.)
 \documentclass[beamer,aspectratio=169]{standalone}
 \newif\ifsporkSlides \sporkSlidestrue
 \input{copied_styles/spork_style.tex}
@@ -20,7 +19,7 @@
 \sporkListing{split}
 \end{minipage}%
 \begin{tikzpicture}[remember picture, overlay, rounded corners=2mm,
-    font=\sffamily\fontsize{9}{11}\selectfont\bfseries]
+    spork figure, font=\bfseries]
   % Vertical arrow segments run at fixed distances from the listing's left edge (mark `left`),
   % right of the longest code line they pass.
   \coordinate (rawX) at ([xshift=88mm]pic cs:split-left);

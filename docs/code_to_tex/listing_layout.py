@@ -232,8 +232,8 @@ class _Layouter:
                         raise self.error(
                             a.lineno,
                             f"conflicting colors in {name}[{version}]: character {i + 1} "
-                            f"({item.text[i]!r}) of line {item.lineno} is {a.color} here "
-                            f"but {colors[i]} by the directive on line {owners[i].lineno}",
+                            f"({item.text[i]!r}) of line {item.lineno} is {a.color} here ({a.text!r}) "
+                            f"but {colors[i]} ({owners[i].text!r}) by the directive on line {owners[i].lineno}",
                         )
         for col, m in marks:
             if 0 < col < len(colors) and colors[col - 1] == ELIDE and colors[col] == ELIDE:

@@ -51,4 +51,5 @@
 
 \definecolor{sporkCommentColor}{RGB}{124, 170, 0}
 \newcommand{\sporkComment}[1]{{\color{sporkCommentColor}\textsf{#1}}}
-\newcommand{\sporkCodeRule}{{\color{lightgray}\hrule}}
+% Simplified; the real one (latex/spork_style.tex) keeps \hrule spacing and list indentation.
+\newcommand{\sporkCodeRule}{\par\nointerlineskip\noindent{\color{lightgray}\rule{\linewidth}{0.4pt}}\par}

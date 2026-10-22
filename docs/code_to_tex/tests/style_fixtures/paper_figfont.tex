@@ -1,0 +1,16 @@
+% Figure fonts in the paper (serif body): every picture is sans; `spork figure` adds the absolute size
+% \sporkFigFont (9pt), and a node's font=\bfseries adds bold to it (stays sans, stays 9pt).
+% Each node prints its font size (\f@size) after a marker word.
+\documentclass{article}
+\newif\ifsporkSlides \sporkSlidesfalse
+\input{copied_styles/spork_style.tex}
+\input{copied_styles/code_to_tex_support.tex}
+\begin{document}
+Body text with an inline picture \tikz[baseline=(n.base)]\node[inner sep=0pt] (n) {INLINESIZE\csname f@size\endcsname};.
+
+\begin{tikzpicture}[spork figure]
+  \node[font=\bfseries] {BOLDNODE\csname f@size\endcsname};
+  \node at (0,-1) {PLAINNODE\csname f@size\endcsname};
+  \node[font=\large] at (0,-2) {LARGENODE\csname f@size\endcsname};
+\end{tikzpicture}
+\end{document}

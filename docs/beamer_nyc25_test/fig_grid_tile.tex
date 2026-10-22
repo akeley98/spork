@@ -3,16 +3,15 @@
 %   1  C with the block grid                                     (paper: shown)
 %   2+ A row tiles and B column tiles   spork reveal             (paper: shown)
 %   2  block 0 emphasized               spork slide only=<2>{...} (paper: plain)
-\documentclass[beamer]{standalone}
+\documentclass[beamer,aspectratio=169]{standalone}
 \newif\ifsporkSlides \sporkSlidestrue
 \input{copied_styles/spork_style.tex}
 \input{copied_styles/code_to_tex_support.tex}
 \sporkFigMaxWidth{7cm}
 \begin{document}
 \begin{standaloneframe}
-\def\gridFont{\sffamily\fontsize{9}{11}\selectfont}
 \begin{tikzpicture}[
-    font=\gridFont,
+    spork figure,
     cell/.style={minimum size=10mm, inner sep=0pt, anchor=north west},
   ]
   % C: 4 x 4 grid of M1 x N1 block tiles; (0,0) is the top left corner.

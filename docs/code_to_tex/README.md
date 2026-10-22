@@ -39,6 +39,9 @@ A line is a **directive** when it starts with exactly `# TeX: `, possibly after 
 The prefix is case-sensitive and has one space after the colon.
 Directive lines never appear in any output.
 The arguments are split like a shell command line (`shlex`): `"quoted text"` is one argument, and backslash escapes work.
+Arguments are recognized by **position and shape**, never by looking up special words:
+the filters are always the first word after the directive name (except for `listing NAME COUNT`),
+and the remaining arguments are told apart by their shape (quoted string, `N:I` count, bare word).
 
 A line that contains `#` together with `#tex`, `# tex` or `tex:` (any case), but is not a valid directive, gets a warning such as `looks like a mistyped directive`.
 Examples are `#TeX: begin a`, `# tex: begin a` and code ending in `# TeX: ...`.
@@ -50,9 +53,11 @@ Examples are `#TeX: begin a`, `# tex: begin a` and code ending in `# TeX: ...`.
 ```
 
 A listing must be declared before any filter mentions it, and each listing name can be declared only once.
-Names use `[A-Za-z_][A-Za-z0-9_]*` and cannot be a color name or `before`/`after`/`start`/`end`.
+Names use `[A-Za-z_][A-Za-z0-9_]*`. Any such name is allowed, even `red` or `end`, because filters are found by position.
 
-Many directives take **filters**. A directive applies to (listing, version) if *any* of its filters matches:
+Every directive except `listing`, `summary` and `filbreak` takes **filters** as its first argument: one word,
+several filters joined by commas with no spaces (`cpu[:4],reorder_loops[0]`).
+A directive applies to (listing, version) if *any* of its filters matches:
 
 | Filter | Matches |
 |---|---|
@@ -63,6 +68,7 @@ Many directives take **filters**. A directive applies to (listing, version) if *
 | `cpu[2:]`, `cpu[:2]` | open-ended ranges |
 
 Indices must be in range, and a slice must not be empty: `cpu[5]` is an error for a listing with 5 versions.
+Space-separated filters (the old syntax, `begin cpu[0] cpu[1]`) are an error with a hint: `filters must be one comma-joined word, without spaces: cpu[0],cpu[1]`.
 
 ### Directives
 
@@ -73,8 +79,11 @@ Indices must be in range, and a slice must not be empty: `cpu[5]` is an error fo
 | `remark FILTERS` / `remark! FILTERS` | the next line is an extra comment line, bold with `!` |
 | `summary` / `summary!` | the next line is a summary line (see below) |
 | `filbreak` | allows a page break here (`\filbreak`) |
-| `color FILTERS COLOR "text" [N:I \| N:*]` | colors text on the next line |
+| `color FILTERS COLOR "text" [N:I \| N:*] ["text" ...] [COLOR ...]` | colors text on the next line |
 | `mark FILTERS NAME ["text" [N:I]] [before\|after\|start\|end] [xshift=DIM] [yshift=DIM]` | puts a TikZ mark on the next line |
+
+Examples: `begin cpu[:4],reorder_loops[0]`, `end cpu[:4]`, `remark! split[2]`, `mark split raw_await end`,
+`mark cpu[1],cpu[3] accum "accum" after`, `color cpu[3:] violet "n" 2:0 "seq" blue "k"`.
 
 **`begin`/`end`.** Each (listing, version) keeps a counter.
 A matching `begin` increments it and a matching `end` decrements it.
@@ -114,15 +123,33 @@ for ...:                     # shown in "full"; "overview" shows "# ... Load A t
 # TeX: color cpu[1] blue "size" 3:*     # exactly 3 matches, color all
 # TeX: color cpu[4] green "m" 2:1       # exactly 2 matches, color the second (0-based)
 # TeX: color cpu elide "k1*32 + "       # replace the text with "..."
+# TeX: color cpu[3:] green "m" "seq" violet "n" 2:0   # several colorings in one directive
 accum += ...
 ```
+
+One directive can apply several colorings that share its filters, which saves vertical space:
+
+```
+colorDirective → "# TeX: color" filters coloring+
+filters        → filter ("," filter)*        (one word, no spaces)
+coloring       → colorName match+             (the color word is sticky until the next color word)
+match          → quotedString index?
+index          → N ":" I  |  N ":*"           (omitted: exactly 1 match)
+```
+
+After the filters, each argument is classified by its shape:
+a quoted string is text to color in the current color, `N:I`/`N:*` refines the quoted string *directly* before it,
+and a bare word must be a color name.
+Errors: an unknown bare word (for example unquoted text), a color name with no quoted string after it,
+quoted text before any color name, and a count that does not directly follow a quoted string.
+Each quoted string is matched and checked on its own, exactly as if it had its own `color` directive.
 
 * Colors: `red yellow green blue violet invRed invGold invGreen invBlue invPurple` map to `\sporkRed` ... `\sporkInvPurple`.
   `elide` replaces the span with `...` in comment style.
 * The text must be quoted. Matches are non-overlapping, left to right, on the raw source line.
 * Match counts: without a count, the text must match **exactly once**. `N:I` requires exactly N matches and colors match I. `N:*` requires exactly N matches and colors all of them.
   A wrong count is an error that tells you how many matches there were.
-* Any number of `color` directives may stack on one line:
+* Any number of `color` directives (and colorings within one directive) may stack on one line:
   * The same character in two different colors (including `elide`) is an error.
   * The same color applied twice does nothing extra.
   * Adjacent or overlapping spans of the same color become **one** box.
@@ -136,6 +163,9 @@ accum += ...
 # TeX: mark cpu[2:] call "f(" 2:1 yshift=0pt
 ```
 
+* The arguments are positional: filters, then the mark NAME, then the optional quoted text (with its optional `N:I` directly after it);
+  the position word and `xshift=`/`yshift=` follow in any order.
+  A mark cannot be named `before`/`after`/`start`/`end` (that is reported as a missing mark name).
 * With text, the position is `before` (the default) or `after` the match. Match counts work as for `color`, but `N:*` is not allowed.
 * Without text, the position is `start` (the default: before the first non-space character) or `end` (after the last character).
 * `xshift=` and `yshift=` take TeX lengths (`pt mm cm in ex em bp pc sp dd cc`). They **replace** the defaults for this mark (see Marks below).
@@ -151,10 +181,10 @@ The generator refuses anything that is probably a mistake, rather than guessing:
   The same rule applies to a `remark` outside every region.
   A `*` filter is lenient: it applies to whichever versions show the line, but it must apply to at least one of them.
 * A `color`/`mark`/`remark`/`summary` with no following line (end of file).
-* Unknown colors, directives, listings or arguments; unquoted or empty match text; `N:I` out of range; conflicting colors; duplicate marks.
+* Unknown colors, directives, listings or arguments; unquoted or empty match text; `N:I` out of range or not directly after a quoted string; conflicting colors; duplicate marks.
 * Tab characters in shown lines (expand them to spaces).
 * An unbalanced `$` in a comment, or a color boundary or mark inside `$...$`.
-* The legacy syntax (`version`, `color line`) is rejected with a hint about the new form.
+* The legacy syntax (`version`, `color line`) and space-separated filters (`begin a b`, `color a b red "x"`, `mark a b m end`) are rejected with a hint about the new form.
 
 ## Outputs (per listing NAME, in OUTDIR)
 
@@ -184,7 +214,9 @@ Annotations nest, for example `⟦remark!:# ⟦blue:note⟧⟧`.
 * Escaped characters: `_ # $ % & { } ~ ^ \`. Spaces become `~`, so indentation survives.
 * Everything from the first `#` on is a comment, set in `\sporkComment` (green sans). Detection is naive: a `#` inside a string also starts a comment.
 * Inside comments, `$...$` passes through as LaTeX math, so a comment cannot contain a literal `$`.
-* Colored spans are `\smash`ed so they do not change line spacing, and their `\fboxsep` padding is cancelled horizontally so the text does not move.
+* Colored spans are `\smash`ed so they do not change line spacing, and their `\fboxsep` padding is cancelled horizontally (with `\kern`) so the text does not move.
+* Each line is an `\hbox`, so it never wraps: an overlong line sticks out into the margin and LaTeX reports `Overfull \hbox` (the build driver lists these warnings).
+  Shorten the line in `samples.py`, elide part of it, or use a smaller font.
 * `remark!`/`summary!` lines are bold, and placeholders are italic.
 * Each version is dedented by the smallest indentation among its non-blank lines.
 
@@ -205,7 +237,7 @@ Inputting `code/NAME.tex` directly is a LaTeX error.
 Notes:
 
 * Slides use top-aligned frames (`\begin{frame}[t]`) when a listing grows. With Beamer's default vertical centering, every line moves when lines are added.
-* Each code line is its own paragraph (`\parskip` is 0, so spacing equals `\baselineskip`). Page breaks may fall between lines, and `filbreak` works.
+* Each code line is its own paragraph holding one unbreakable `\hbox` (`\parskip` is 0, so spacing equals `\baselineskip`). Page breaks may fall between lines, and `filbreak` works.
   So `\sporkListing` needs vertical-mode context: running text, a frame, a `minipage`, or a TikZ node with `text width`.
 * Font size comes from the surrounding text, for example `{\small\sporkListing{cpu}}`.
 * Beamer pitfall: in `\begin{frame}{Title}{\small\sporkListing{cpu}}`, Beamer reads the braced group as the frame *subtitle*, which the spork frame title template does not show.
@@ -241,10 +273,47 @@ On slides they become overlay specs (`1,3,4-`); on paper they are tested against
   xdvipdfmx places node text with a PDF transformation that TeX's position recording does not see; this was the cause of the old `\bugYFix` hack.
   Put the listing in normal text (or a `minipage`) and draw the arrows in a separate `remember picture, overlay` picture, as shown above.
 
+## Tips for frames and figures
+
+* **Standalone figure skeleton.** A figure file compiles on its own (`--figure`) and is `\input` by the paper and decks:
+
+  ```latex
+  \documentclass[beamer,aspectratio=169]{standalone}   % 16:9, like the decks; a 4:3 page clips wide figures
+  \newif\ifsporkSlides \sporkSlidestrue
+  \input{copied_styles/spork_style.tex}
+  \input{copied_styles/code_to_tex_support.tex}
+  \begin{document}
+  \begin{standaloneframe}
+  ...
+  \end{standaloneframe}
+  \end{document}
+  ```
+
+* **Text whose height changes between steps** (for example an `\only<2>{...}` caption with one line on step 1 and three on step 2)
+  makes everything below it jump. Wrap it in Beamer's `overlayarea`, which reserves a fixed height:
+
+  ```latex
+  \begin{overlayarea}{\linewidth}{3\baselineskip}
+    \only<1>{One line.}\only<2>{Three\\ lines\\ here.}
+  \end{overlayarea}
+  ```
+
+* **Projections of marks.** `(pic cs:split-raw_await -| X)` does not work: everything after `pic cs:` (including ` -| X`) is read as the mark name,
+  which is unknown, so the point silently lands at the picture origin (no error or warning). Name the mark position first, then project it:
+
+  ```latex
+  \begin{tikzpicture}[remember picture, overlay]
+    \coordinate (await) at (pic cs:split-raw_await);
+    \coordinate (arrive) at (pic cs:split-raw_arrive);
+    \draw[spork arrow] (arrive) -- (arrive -| await);
+  \end{tikzpicture}
+  ```
+
 ## Differences from the legacy `legacy_code_to_tex.py`
 
 * `version` is renamed `listing`. A single `NAME.tex` holds all versions, replacing `NAME.N.tex` per version.
-* Column-letter `color line` directives are replaced by matching text, with the new color names.
+* Column-letter `color line` directives are replaced by matching text, with the new color names; one `color` directive can apply several colorings.
+* Filters are always one comma-joined word in first position (legacy: space-separated).
 * New: `mark`, the `.dbg` output, dead-directive and conflict errors, duplicate-declaration errors, and errors for an unclosed `begin` or an empty version.
 * Fixed quirks:
   * There are no spurious blank lines after remarks or summaries in the `.txt`.

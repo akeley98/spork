@@ -133,7 +133,7 @@ def test_star_filter_and_multiple_listings():
     # TeX: listing b 2
     # TeX: begin *
     shared
-    # TeX: end b[0] a
+    # TeX: end b[0],a
     # TeX: begin b[1]
     b1
     # TeX: end b[1]
@@ -204,14 +204,14 @@ def test_listing_must_be_declared_before_use():
         ("listing a 0", "bad version count"),
         ("listing a two", "bad version count"),
         ("listing 1a 1", "bad listing name"),
-        ("listing red 1", "reserved"),
-        ("listing end 1", "reserved"),
         ("version a 1", "renamed: use 'listing NAME COUNT'"),
         ("frobnicate", "unknown directive 'frobnicate'"),
         ("", "missing directive name"),
         ("summary x", "takes no arguments"),
         ("filbreak x", "takes no arguments"),
-        ("begin", "needs at least one filter"),
+        ("begin", "needs filters as its first argument"),
+        ('begin "a"', "needs filters.*got quoted text"),
+        ("end red", "needs filters.*got 'red'"),
     ],
 )
 def test_bad_directives(decl, pattern):
@@ -490,7 +490,8 @@ def test_color_index_and_all():
         ("2:2", "need N >= 1 and 0 <= I < N"),
         ("0:0", "need N >= 1"),
         ("2:x", "expected match count"),
-        ("2:1 extra", "unexpected extra argument"),
+        ("2:1 extra", "unknown word 'extra'.*must be quoted"),
+        ("2:1 3:0", "must directly follow a quoted string.*follows '2:1'"),
     ],
 )
 def test_color_bad_count(spec, pattern):
@@ -503,12 +504,14 @@ def test_color_matches_are_non_overlapping():
 
 
 def test_color_syntax_errors():
-    assert_error(colored(["color a blue accum"]), 3, "in quotes")
+    assert_error(colored(["color a blue accum"]), 3, "unknown word 'accum'.*must be quoted: \"accum\"")
     assert_error(colored(['color a blue ""']), 3, "empty text")
-    assert_error(colored(['color a purple "accum"']), 3, "needs a color name")
-    assert_error(colored(['color blue "accum"']), 3, "needs at least one filter")
+    assert_error(colored(['color a purple "accum"']), 3, "unknown word 'purple'.*colors: red, ")
+    assert_error(colored(['color a "accum"']), 3, "before any color name")
+    assert_error(colored(["color a"]), 3, "needs a color name after the filters")
+    assert_error(colored(['color blue "accum"']), 3, "needs filters as its first argument.*got 'blue'")
     assert_error(colored(["color line a"]), 3, "legacy 'color line'")
-    assert_error(colored(['color "a" blue "accum"']), 3, "unexpected quoted text")
+    assert_error(colored(['color "a" blue "accum"']), 3, "needs filters.*got quoted text")
 
 
 def test_all_color_names():
@@ -562,7 +565,10 @@ def test_adjacent_elides_merge():
 
 
 def test_elide_conflicts_with_color():
-    assert_error(colored(['color a elide "m, k"', 'color a red "k]"']), 4, "conflicting colors.*red here but elide")
+    assert_error(
+        colored(['color a elide "m, k"', 'color a red "k]"']), 4,
+        r"conflicting colors.*red here \('k\]'\) but elide \('m, k'\) by the directive on line 3",
+    )
 
 
 def test_color_dead_directive():
@@ -673,6 +679,131 @@ def test_colors_stack_on_one_line():
     assert dbg(src) == "⟦red:accum⟧ += ⟦green:A⟧[m, k] * ⟦violet:B⟧[k, n]  # ⟦yellow:note⟧\n"
 
 
+def test_multi_color_directive_sticky_colors():
+    # color words are sticky until the next color word; N:I applies to the string just before it
+    src = colored(['color a red "accum" "A" green "m" 2:1 "B" elide "  # note"'])
+    assert dbg(src) == "⟦red:accum⟧ += ⟦red:A⟧[⟦green:m⟧, k] * ⟦green:B⟧[k, n]⟦elide:  # note⟧\n"
+    assert dbg(src) == dbg(colored(
+        ['color a red "accum"', 'color a red "A"', 'color a green "m" 2:1', 'color a green "B"', 'color a elide "  # note"']
+    ))
+
+
+def test_multi_color_directive_counts_and_merging():
+    src = colored(['color a violet "k" 2:* "n]" blue "accum" " +="'])
+    assert dbg(src) == "⟦blue:accum +=⟧ A[m, ⟦violet:k⟧] * B[⟦violet:k⟧, ⟦violet:n]⟧  # note\n"
+    # each quoted string is checked on its own: "m" alone is ambiguous
+    e = error(colored(['color a red "accum" "m"']))
+    assert e.lineno == 3 and "'m' matches 2 time(s)" in e.message
+
+
+def test_multi_color_directive_conflict_within_one_directive():
+    assert_error(
+        colored(['color a red "accum" blue "cum"']), 3,
+        r"red here \('accum'\) but blue \('cum'\) by the directive on line 3|blue here \('cum'\) but red \('accum'\)",
+    )
+    # the same color twice in one directive is a no-op
+    assert dbg(colored(['color a red "accum" "accum"'])).startswith("⟦red:accum⟧ +=")
+
+
+@pytest.mark.parametrize(
+    "directive, pattern",
+    [
+        ('color a red', "color 'red' has no quoted text"),
+        ('color a red blue "accum"', "color 'red' has no quoted text"),
+        ('color a red "accum" green', "color 'green' has no quoted text"),
+        ('color a 2:0 red "m"', "must directly follow a quoted string \\(it follows the filters\\)"),
+        ('color a red 2:0 "m"', "must directly follow a quoted string \\(it follows 'red'\\)"),
+        ('color a red "m" green 2:0', "must directly follow a quoted string \\(it follows 'green'\\)"),
+        ('color a red "accum" frob', "unknown word 'frob'"),
+        ('color a red "m" 2:', "expected match count"),
+        ('color a red "accum" before', "unknown word 'before'"),
+    ],
+)
+def test_color_grammar_errors(directive, pattern):
+    assert_error(colored([directive]), 3, pattern)
+
+
+def test_comma_filters_on_every_directive():
+    src = """
+    # TeX: listing a 3
+    # TeX: listing b 2
+    # TeX: begin a[0],a[2],b[1]
+    # TeX: color a[2],b[1] red "x"
+    # TeX: mark a[0],b[1] m end
+    x = 1
+    # TeX: remark! a[2],b[1]
+    # bold
+    # TeX: end a[0],a[2],b[1]
+    # TeX: begin *
+    y
+    # TeX: end *
+    """
+    out = render(src)
+    assert out["a.0.dbg"] == "x = 1⟦@m⟧\ny\n"
+    assert out["a.1.dbg"] == "y\n"
+    assert out["a.2.dbg"] == "⟦red:x⟧ = 1\n⟦remark!:# bold⟧\ny\n"
+    assert out["b.0.dbg"] == "y\n"
+    assert out["b.1.dbg"] == "⟦red:x⟧ = 1⟦@m⟧\n⟦remark!:# bold⟧\ny\n"
+
+
+def test_dead_directive_message_shows_comma_filters():
+    src = """
+    # TeX: listing a 1
+    # TeX: listing b 1
+    # TeX: begin a
+    x
+    # TeX: end a
+    # TeX: color *,* red "y"
+    y
+    """
+    assert_error(src, 6, r"any listing version selected by '\*,\*'")
+
+
+def test_listing_named_like_a_color_or_position():
+    src = """
+    # TeX: listing red 2
+    # TeX: listing end 1
+    # TeX: begin red,end
+    # TeX: color red[1] red "x" blue "y"
+    # TeX: mark end e end
+    x = y
+    # TeX: end red,end
+    """
+    out = render(src)
+    assert out["red.0.dbg"] == "x = y\n"
+    assert out["red.1.dbg"] == "⟦red:x⟧ = ⟦blue:y⟧\n"
+    assert out["end.0.dbg"] == "x = y⟦@e⟧\n"
+
+
+@pytest.mark.parametrize(
+    "directive, pattern",
+    [
+        ("begin a[0] b", "filters must be one comma-joined word, without spaces: a\\[0\\],b$"),
+        ("end a b[1:]", "comma-joined word, without spaces: a,b\\[1:\\]$"),
+        ("begin a, b", "comma-joined word, without spaces: a,b$"),
+        ("begin a ,b", "comma-joined word, without spaces: a,b$"),
+        ("begin a,", "comma-joined word, without spaces: a$"),
+        ("begin a,,b", "empty filter in 'a,,b'"),
+        ("remark! a b", "comma-joined word, without spaces: a,b$"),
+        ("begin a x", "unexpected argument 'x' after the filters of 'begin'"),
+        ('color a b red "x"', "unknown word 'b'.*comma-joined word, without spaces: a,b$"),
+        ('color a b[0] * red "x"', "unknown word 'b\\[0\\]'.*comma-joined word, without spaces: a,b\\[0\\]$"),
+        ("mark a b[1] m end", "bad mark name 'b\\[1\\]'.*comma-joined word, without spaces: a,b\\[1\\]$"),
+        ("mark a b m end", "unexpected mark argument 'm' \\(if 'b' is a filter: .*: a,b, then the mark name\\)"),
+    ],
+)
+def test_old_space_separated_filters_get_a_hint(directive, pattern):
+    src = f"""
+    # TeX: listing a 1
+    # TeX: listing b 2
+    # TeX: begin *
+    # TeX: {directive}
+    # x
+    # TeX: end *
+    """
+    assert_error(src, 4, pattern)
+
+
 # ---------------------------------------------------------------------------
 # mark
 # ---------------------------------------------------------------------------
@@ -717,8 +848,10 @@ def test_mark_on_empty_line():
 @pytest.mark.parametrize(
     "directive, pattern",
     [
-        ('mark a', "expected 'mark FILTERS NAME"),
-        ('mark x before', "expected 'mark FILTERS NAME"),
+        ('mark a', "missing mark name; expected 'mark FILTERS NAME"),
+        ('mark a before', "missing mark name \\('before' is not a name\\)"),
+        ('mark a "A"', "missing mark name"),
+        ('mark x m start', "unknown listing 'x'"),
         ('mark a m before', "needs quoted text"),
         ('mark a m after', "needs quoted text"),
         ('mark a m "A" start', "cannot be combined with text"),

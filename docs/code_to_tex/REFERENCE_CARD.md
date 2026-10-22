@@ -2,6 +2,7 @@
 
 One page to get oriented. Details, in increasing depth:
 
+* Guided walkthrough (writing a deck, figure, and listing in this setup): [PRIMER.md](PRIMER.md)
 * Listing directives, outputs, `\sporkListing`, marks: [README.md](README.md)
 * Every style macro / color / TikZ key: header comments + sections of [latex/spork_style.tex](latex/spork_style.tex)
 * Build driver: `python3 -m code_to_tex.build --help` (run from `spork/docs`)
@@ -15,7 +16,8 @@ spork/docs/
   code_to_tex/                  # this package (python -m code_to_tex, python -m code_to_tex.build)
     latex/spork_style.tex       # master style: the only source of truth for look
     latex/code_to_tex_support.tex
-  <doc>.pdf, <doc>_<deck>.pdf   # viewer copies (open these in evince), gitignored
+  <doc>.pdf, <doc>_<deck>.pdf   # viewer copies (open these in evince), gitignored; deck named <doc> -> <doc>_slides.pdf,
+                                #   deck <doc>_x -> <doc>_x.pdf; only written when there are no LaTeX errors and no undefined refs
   <doc>/                        # one document = one directory = cwd of every build step
     tex_build.json              # {"check": ["exocc","samples.py"], "listing_sources": ["samples.py"]}
     main.tex                    # the paper (fixed name)
@@ -39,7 +41,9 @@ python3 -m code_to_tex.build <doc> --slides <deck> --where fig:dag   # which pag
 ```
 
 Order: copy styles -> `check` (exocc) -> listing generator -> xelatex (reruns until stable).
-Warnings are summarized at the end and never block the build; previews land in `<doc>/preview/`.
+Warnings are summarized at the end and never block the build; previews land in `<doc>/preview/`
+(`--figure` PNGs of all steps share one crop box, so movement between steps is visible).
+The viewer copy is the exception: LaTeX errors or undefined references block it, since evince crashes on such PDFs.
 
 ## Every main file, deck, and figure starts like this
 
@@ -51,11 +55,19 @@ Warnings are summarized at the end and never block the build; previews land in `
 \input{<doc>_defs.tex}                 % optional
 ```
 
-A figure is `\documentclass[beamer]{standalone}` + `\begin{standaloneframe}...\end{standaloneframe}`,
-compiles alone (`--figure`), and is `\input{fig_x.tex}` by the paper and decks.
+A figure is `\documentclass[beamer,aspectratio=169]{standalone}` + `\begin{standaloneframe}...\end{standaloneframe}`
+with `\begin{tikzpicture}[spork figure, ...]`; it compiles alone (`--figure`) and is `\input{fig_x.tex}` by the paper and decks.
+Figure text is sans everywhere; `spork figure` sets the absolute size `\sporkFigFont` (default 9/11pt, redefinable in `<doc>_defs.tex`)
+so paper and slides match, and node `font=\bfseries` / `font=\large` add to it. Don't put `font=\myFont` on the picture
+(node `font=` keys would replace it). Scale for slides with `\scalebox{1.2}{\input{fig_x.tex}}`.
 Example: [beamer_nyc25_test/fig_dag.tex](../beamer_nyc25_test/fig_dag.tex).
 
 ## Overlays: every overlay states its paper intent
+
+`\sporkReveal`, `\sporkSlideOnly`, and `\sporkPaperOnly` wrap content written inline: they decide on which overlay steps,
+and in which output (slides or paper), their braced argument is visible.
+`\sporkListing{NAME}` is the only input-like command: it reads the generated `code/NAME.tex` (from `samples.py`)
+and picks which version appears on each step, or in the paper.
 
 | Intent | Text | TikZ key | Paper |
 |---|---|---|---|
@@ -67,37 +79,59 @@ Elements without a spec appear in both. Bare `\only<..>`, `\node<..>`, `\pause`,
 Frames: `\begin{frame}[label=dag]{Title\sporkTitleTag{\sporkInvBlue{GEMM v1}}}`; `\sporkExtraSlides` for the appendix.
 Pitfall: `\begin{frame}{Title}{...}` makes the braced group an (invisible) subtitle.
 
+### Differences from stock Beamer (surprising even if you know Beamer)
+
+1. Stock `beamerarticle` ignores overlay specs in the paper (`\only<2>{X}` shows X). Here every overlay goes through
+   a wrapper that states its paper intent; bare specs are linted.
+2. Visibility and space are paired: `\sporkReveal` keeps space (like `\uncover`) and stays in the paper;
+   `\sporkSlideOnly` takes no space (like `\only`) and is dropped from the paper.
+3. TikZ keys hide by drawing at opacity 0: layout and anchors stay put (stock `\node<2->` removes the node and can
+   shift the picture), but hidden text remains in the PDF text layer.
+4. `\sporkListing` generates its own steps: version v on step v+1(+offset); the last version persists on later steps.
+5. Frames are top-aligned by default (stock: centered); body is 12pt (stock: 11pt); the title template shows no subtitle.
+6. Figures are standalone files that get `\input`; anything in a figure's own preamble is dropped when included.
+7. Single-frame builds use `\sporkOnlyFrame` (set by `--frame`); don't edit `\includeonlyframes`.
+8. Listing marks are `\pgfmark` (not `\tikzmark`) and don't work inside TikZ node text under xelatex.
+
 ## Code listings
 
-In `samples.py` (currently the filter list ends at the first color name; this syntax may change, see the plan's open questions):
+In `samples.py`. Filters are always the first word after the directive, comma-joined without spaces (`cpu[:4],ring[0]`);
+the other arguments are told apart by shape (quoted text, `N:I`, bare word):
 
 ```python
 # TeX: listing cpu 5                      # versions 0..4
-# TeX: begin cpu[:4]                      # include lines in versions 0..3 (half-open, like Python)
+# TeX: begin cpu[:4],ring[0]              # include lines in cpu versions 0..3 and ring version 0 (half-open, like Python)
 # TeX: color cpu[1] blue "size" 3:*       # next line: exactly 3 matches, color all
-# TeX: color cpu[3:] violet "n" 2:0       # exactly 2 matches, color the first
+# TeX: color cpu[3:] violet "n" 2:0 "seq" green "m"   # several colorings; a color word applies until the next one
 # TeX: color ring[0] elide "k1 * K0 + i1" # replace with ...
 # TeX: mark split raw_await end           # \pgfmark at end of next line: pic cs:split-raw_await
+# TeX: mark cpu[1],cpu[3] acc "accum" after
 # TeX: remark! split[2]                   # next line is an extra (bold) comment line
 # WAR: slot k1 % 3 is free once its old readers arrived
-# TeX: end cpu[:4]
+# TeX: end cpu[:4],ring[0]
 ```
 
+`N:I` / `N:*` goes directly after its quoted text (no count: exactly one match).
 Colors: `red yellow green blue violet invRed invGold invGreen invBlue invPurple elide`.
-Ambiguity is an error: wrong match count, conflicting colors on a character, directives that never apply.
+Ambiguity is an error: wrong match count, conflicting colors on a character, directives that never apply, unknown words,
+space-separated filters (the error message shows the comma-joined form).
+Listing lines never wrap: overlong lines give `Overfull \hbox` warnings.
 Check what you highlighted without reading TeX: `<doc>/code/NAME.N.dbg` (`⟦blue:size⟧`).
 
 In LaTeX: `\sporkListing{cpu}` (slides: version v on step v+1, code grows), `\sporkListing[reserve]{..}` (space kept),
 `\sporkListing[version=2]{cpu}` (paper default: last version), `offset=K`, `prefix=P`.
 Marks only work when the listing is in normal text or a minipage, not inside a TikZ node;
 draw arrows in a separate `\begin{tikzpicture}[remember picture, overlay]`.
+Project marks via a named coordinate: `\coordinate (a) at (pic cs:split-x);` then `(a -| b)`;
+`(pic cs:split-x -| b)` silently lands at the origin.
+Step-varying text of different heights makes content below it jump; wrap it in `\begin{overlayarea}{\linewidth}{H}`.
 Example: [beamer_nyc25_test/fig_split_marks.tex](../beamer_nyc25_test/fig_split_marks.tex).
 
 ## Style macros (all `spork`-prefixed)
 
 `\sporkKeyA \sporkKeyB \sporkMainKey \sporkMinorKey` keywords; `\sporkRed ... \sporkViolet`, `\sporkInvRed ... \sporkInvPurple` highlights;
-`\sporkComment \sporkCodeRule`; `\sporkSection{Title}{sec:X}`; `\sporkPaperLink{label}{text}`;
-TikZ `spork arrow`, `spork line`, `spork normal node`, `spork red style`, `spork inv red style`, `spork red node`, ...
+`\sporkComment`, `\sporkCodeRule` (`\linewidth` wide, works in Beamer columns); `\sporkSection{Title}{sec:X}`; `\sporkPaperLink{label}{text}`;
+TikZ `spork figure`, `spork arrow`, `spork line`, `spork normal node`, `spork red style`, `spork inv red style`, `spork red node`, ...
 Colors `spork<Name>Fg/Bg`, `sporkKeyColorA/B`, `sporkMainColor`, `sporkMinorColor`, `sporkTitleColor`.
 
 ## .gitignore (per document dir)

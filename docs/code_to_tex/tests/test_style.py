@@ -6,7 +6,8 @@ code_to_tex_support.tex (so these tests don't depend on the listing support file
 
 Checks: page counts (overlay steps), paper/slide visibility of every overlay intent
 (text via pdftotext, TikZ fills via exact pixel colors from pdftoppm), the \\sporkOnlyFrame
-single-frame build, fonts, and the \\sporkFigMaxWidth warning.
+single-frame build, fonts (incl. `spork figure` / \\sporkFigFont), \\sporkCodeRule width, and the
+\\sporkFigMaxWidth warning.
 Skipped if xelatex is missing; individual checks skip if poppler tools are missing.
 """
 
@@ -103,7 +104,7 @@ def built(tmp_path_factory):
     open(os.path.join(styles, "code_to_tex_support.tex"), "w").close()
 
     docs = {}
-    for job in ["fig", "paper", "paper_fig", "deck", "frames"]:
+    for job in ["fig", "paper", "paper_fig", "deck", "frames", "rule", "paper_figfont"]:
         _xelatex(work, [job + ".tex"], passes=2)
         docs[job] = Doc(work, job)
     _xelatex(work, ["-jobname=frames_b", r"\def\sporkOnlyFrame{b}\input{frames.tex}"])
@@ -113,7 +114,8 @@ def built(tmp_path_factory):
     return docs
 
 
-@pytest.mark.parametrize("job", ["fig", "paper", "paper_fig", "deck", "frames", "frames_b", "frames_ac"])
+@pytest.mark.parametrize("job", ["fig", "paper", "paper_fig", "deck", "frames", "frames_b", "frames_ac",
+                                 "rule", "paper_figfont"])
 def test_compiles_cleanly(built, job):
     doc = built[job]
     errors = [l for l in doc.log.splitlines() if l.startswith("!")]
@@ -126,7 +128,7 @@ def test_compiles_cleanly(built, job):
 
 @pytest.mark.parametrize("job,pages", [
     ("fig", 3), ("paper", 1), ("paper_fig", 1), ("deck", 8), ("frames", 4),
-    ("frames_b", 2), ("frames_ac", 2),
+    ("frames_b", 2), ("frames_ac", 2), ("rule", 1), ("paper_figfont", 1),
 ])
 def test_page_counts(built, job, pages):
     assert built[job].pages() == pages
@@ -219,3 +221,74 @@ def test_fig_max_width_warning(built, tmp_path):
     log = Doc(work, "figw").log
     assert "Package spork Warning: picture width" in log
     assert "Package spork Warning" not in built["fig"].log
+
+
+def test_fig_page_is_wide(built):
+    # Standalone figures use [beamer,aspectratio=169]: 160mm x 90mm pages.
+    _need("pdfinfo")
+    out = subprocess.run(["pdfinfo", built["fig"].pdf], stdout=subprocess.PIPE, text=True).stdout
+    w, h = (float(x) for x in re.search(r"Page size:\s+([\d.]+) x ([\d.]+) pts", out).groups())
+    assert abs(w / h - 16 / 9) < 0.01
+
+
+def test_figure_fonts_in_paper(built):
+    # Paper body is serif; pictures are sans. `spork figure` sets 9pt (\sporkFigFont) and node font keys
+    # add to it: font=\bfseries stays sans 9pt, font=\large changes only the size. Inline pictures
+    # without the key keep the body size.
+    doc = built["paper_figfont"]
+    text = doc.text()
+    for word in ["INLINESIZE10", "BOLDNODE9", "PLAINNODE9", "LARGENODE12"]:
+        assert word in text, (word, text)
+    fonts = doc.fonts()
+    assert "FreeSansBold" in fonts
+    assert "LMRoman10-Regular" in fonts           # the body
+    assert not re.search(r"LMRoman\S*Bold", fonts)  # the bold node did not fall back to serif bold
+
+
+def _rule_segments(doc, dpi=200, color=(191, 191, 191)):
+    """Horizontal runs of `lightgray` (\\sporkCodeRule) on page 1: [(row, x0_mm, x1_mm)], no antialiasing."""
+    _need("pdftoppm")
+    out = os.path.join(doc.workdir, f"{doc.job}_rule")
+    subprocess.run(["pdftoppm", "-r", str(dpi), "-aa", "no", "-aaVector", "no", "-f", "1", "-l", "1",
+                    "-singlefile", doc.pdf, out], check=True)
+    with open(out + ".ppm", "rb") as f:
+        data = f.read()
+    fields = data.split(maxsplit=4)
+    width, height = int(fields[1]), int(fields[2])
+    pix = fields[4][: width * height * 3]
+    target = bytes(color)
+    segs = []
+    for y in range(height):
+        row = pix[y * width * 3:(y + 1) * width * 3]
+        xs = [x for x in range(width) if row[x * 3:x * 3 + 3] == target]
+        if len(xs) > 20:
+            segs.append((y, xs[0] * 25.4 / dpi, (xs[-1] + 1) * 25.4 / dpi))
+    # One entry per rule (a 0.4pt rule may cover 1-2 pixel rows).
+    rules = []
+    for seg in segs:
+        if rules and seg[0] - rules[-1][0] <= 2:
+            continue
+        rules.append(seg)
+    return rules
+
+
+def _close(a, b, tol=0.5):
+    return abs(a - b) <= tol
+
+
+def test_code_rule_width_slides(built):
+    # 160mm page, 8mm margins: the frame rule is 144mm (\\linewidth), not running to the page edge;
+    # the rule in a 0.4\\textwidth column is 57.6mm.
+    rules = _rule_segments(built["rule"])
+    assert len(rules) == 2, rules
+    (_, x0, x1), (_, c0, c1) = rules
+    assert _close(x0, 8) and _close(x1, 152), rules
+    assert _close(c0, 8) and _close(c1, 8 + 57.6), rules
+
+
+def test_code_rule_width_paper(built):
+    # Letter paper, 2.54cm margins.
+    rules = _rule_segments(built["paper"])
+    assert len(rules) == 1, rules
+    _, x0, x1 = rules[0]
+    assert _close(x0, 25.4) and _close(x1, 215.9 - 25.4), rules

@@ -10,6 +10,7 @@ from __future__ import annotations
 import os
 import shutil
 import stat
+import subprocess
 import sys
 import tarfile
 import textwrap
@@ -566,10 +567,10 @@ def test_frame_command_line(fake_tex):
 # Viewer copies
 
 
-def _result(tmp_path, issues=(), pages=1, name="main"):
+def _result(tmp_path, issues=(), pages=1, name="main", exit_code=0):
     (tmp_path / f"{name}.pdf").write_text("%PDF new")
     job = build.Job(name, f"{name}.tex", "paper", f"{name}.tex", str(tmp_path / "view" / "doc.pdf"))
-    return build.JobResult(job, passes=1, pages=pages, issues=list(issues))
+    return build.JobResult(job, passes=1, pages=pages, issues=list(issues), exit_code=exit_code)
 
 
 def test_viewer_copy_clean(tmp_path, monkeypatch):
@@ -585,18 +586,57 @@ def test_viewer_copy_rules(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     (tmp_path / "view").mkdir()
     (tmp_path / "view" / "doc.pdf").write_text("old")
-    undef = build_log.parse_log("LaTeX Warning: Reference `x' on page 1 undefined on input line 3.\n")
-    msg = build.update_viewer_copy(_result(tmp_path, undef))
-    assert "NOT updated" in msg and "undefined references" in msg
+    blocked = {
+        "undefined references": build_log.parse_log("LaTeX Warning: Reference `x' on page 1 undefined on input line 3.\n"),
+        "undefined references/citations": build_log.parse_log("LaTeX Warning: Citation `k' on page 1 undefined on input line 3.\n"),
+        "1 LaTeX error": build_log.parse_log("! Undefined control sequence.\nl.3 \\foo\n\n"),
+    }
+    for reason, issues in blocked.items():
+        msg = build.update_viewer_copy(_result(tmp_path, issues))
+        assert "NOT updated" in msg and reason in msg, msg
+        assert str(tmp_path / "main.pdf") in msg  # points at the fresh PDF instead
     msg = build.update_viewer_copy(_result(tmp_path, pages=None))
     assert "NOT updated" in msg and "no PDF" in msg
-    # Errors and overfull boxes alone do not block the copy (partial progress is wanted).
-    errs = build_log.parse_log("! Undefined control sequence.\nl.3 \\foo\n\nOverfull \\hbox (1pt too wide) detected at line 2\n\n")
+    msg = build.update_viewer_copy(_result(tmp_path, exit_code=1))
+    assert "NOT updated" in msg and "exited with status 1" in msg
     assert (tmp_path / "view" / "doc.pdf").read_text() == "old"
-    assert "updated" in build.update_viewer_copy(_result(tmp_path, errs))
+    # Box warnings and other warnings never block the copy.
+    warns = build_log.parse_log("Overfull \\hbox (1pt too wide) detected at line 2\n\n"
+                                "Underfull \\hbox (badness 10000) detected at line 4\n\n"
+                                "LaTeX Warning: Something odd on input line 5.\n")
+    assert warns and not build.viewer_copy_blocker(_result(tmp_path, warns))
+    assert "updated" in build.update_viewer_copy(_result(tmp_path, warns))
     assert (tmp_path / "view" / "doc.pdf").read_text() == "%PDF new"
     shutil.rmtree(tmp_path / "view")
     assert "does not exist" in build.update_viewer_copy(_result(tmp_path))
+
+
+def test_run_latex_records_exit_code(fake_tex, monkeypatch):
+    res = build.run_latex(build.Job("doc", "doc.tex", "paper", "doc.tex"))
+    assert res.exit_code == 0
+    monkeypatch.setenv("FAKE_NO_PDF", "1")
+    res = build.run_latex(build.Job("doc", "doc.tex", "paper", "doc.tex"))
+    assert res.exit_code == 1
+
+
+@pytest.mark.parametrize("deck,dirname,expected", [
+    ("nyc26", "amspork3", "amspork3_nyc26.pdf"),
+    ("beamer_nyc25_test", "beamer_nyc25_test", "beamer_nyc25_test_slides.pdf"),
+    ("amspork3_nyc26", "amspork3", "amspork3_nyc26.pdf"),
+    ("amspork3x", "amspork3", "amspork3_amspork3x.pdf"),  # prefix without the underscore
+])
+def test_deck_viewer_name(deck, dirname, expected):
+    assert build.deck_viewer_name(deck, dirname) == expected
+
+
+def test_viewer_copy_paths(tmp_path, monkeypatch):
+    d = tmp_path / "mydoc"
+    d.mkdir()
+    (d / "main.tex").write_text("x")
+    monkeypatch.chdir(d)
+    o = build.parse_args([str(d), "--slides", "mydoc", "--slides", "talk", "--slides", "mydoc_v2"])
+    views = [os.path.basename(j.viewer_copy) for j in build.plan_jobs(o, build.CONFIG_DEFAULTS)]
+    assert views == ["mydoc.pdf", "mydoc_slides.pdf", "mydoc_talk.pdf", "mydoc_v2.pdf"]
 
 
 def test_frame_and_figure_jobs_have_no_viewer_copy(tmp_path):
@@ -604,6 +644,44 @@ def test_frame_and_figure_jobs_have_no_viewer_copy(tmp_path):
     assert all(j.viewer_copy is None for j in build.plan_jobs(o, build.CONFIG_DEFAULTS))
     o = build.parse_args([str(tmp_path), "--figure", "f"])
     assert all(j.viewer_copy is None for j in build.plan_jobs(o, build.CONFIG_DEFAULTS))
+
+
+# ---------------------------------------------------------------------------
+# PNG cropping
+
+
+def test_parse_geometry_and_union():
+    assert build.parse_geometry("11x4+10+5\n") == (10, 5, 21, 9)
+    assert build.parse_geometry("0x0+50+40") is None  # blank image
+    assert build.parse_geometry("garbage") is None
+    assert build.union_box([(10, 5, 21, 9), (2, 7, 15, 30)]) == (2, 5, 21, 30)
+    assert build.union_box([]) is None
+
+
+@pytest.mark.skipif(shutil.which("convert") is None, reason="ImageMagick convert not installed")
+def test_crop_union(tmp_path):
+    # Three "steps": ink moves right and grows down; one page is blank.
+    pngs = []
+    for i, draw in enumerate(["rectangle 10,10 19,19", "rectangle 40,10 49,29", None]):
+        p = str(tmp_path / f"f-{i + 1}.png")
+        cmd = ["convert", "-size", "100x60", "xc:white"]
+        if draw:
+            cmd += ["-fill", "black", "-draw", draw]
+        subprocess.run(cmd + [p], check=True)
+        pngs.append(p)
+    assert build.crop_union(pngs) == (10, 10, 50, 30)
+    assert all(_png_size(p) == (40, 20) for p in pngs)
+    # Step 1's ink stays at the left of the common box, step 2's at the right.
+    def dark(p, x, y):
+        out = subprocess.run(["convert", p, "-format", f"%[fx:p{{{x},{y}}}.intensity]", "info:"],
+                             stdout=subprocess.PIPE, text=True).stdout
+        return float(out) < 0.5
+    assert dark(pngs[0], 0, 0) and not dark(pngs[0], 35, 0)
+    assert not dark(pngs[1], 0, 0) and dark(pngs[1], 35, 0) and dark(pngs[1], 35, 19)
+    # All blank: nothing cropped.
+    blank = str(tmp_path / "b.png")
+    subprocess.run(["convert", "-size", "30x20", "xc:white", blank], check=True)
+    assert build.crop_union([blank]) is None and _png_size(blank) == (30, 20)
 
 
 # ---------------------------------------------------------------------------
@@ -689,6 +767,9 @@ def test_latex_error_with_pdf_is_not_fatal(docdir, capsys):
     out = capsys.readouterr().out
     assert rc == 0
     assert "LaTeX errors" in out and "main.tex:8: Undefined control sequence." in out
+    # ... but the viewer copy is not updated (evince crashes on such PDFs).
+    assert "NOT updated: 1 LaTeX error" in out
+    assert not (docdir.parent / "mydoc.pdf").exists()
 
 
 @needs_xelatex
@@ -719,6 +800,12 @@ def test_frame_unknown_label(docdir, capsys):
     assert rc == 1 and "are the frame labels right" in out
 
 
+def _png_size(path) -> tuple[int, int]:
+    with open(path, "rb") as f:
+        head = f.read(24)
+    return int.from_bytes(head[16:20], "big"), int.from_bytes(head[20:24], "big")
+
+
 @needs_xelatex
 def test_figure_build_and_png(docdir, capsys):
     preview = docdir / "preview"
@@ -728,12 +815,12 @@ def test_figure_build_and_png(docdir, capsys):
     assert _pdf_pages(docdir / "fig.log") == 3  # one page per overlay step
     assert not (docdir / "main.pdf").exists()
     assert sorted(os.listdir(preview)) == ["fig-1.png", "fig-2.png", "fig-3.png"]
-    # Cropped: much smaller than a full 128x96mm Beamer page at 110 dpi (~554x416).
-    with open(preview / "fig-1.png", "rb") as f:
-        head = f.read(24)
-    width = int.from_bytes(head[16:20], "big")
+    # Cropped: much smaller than a full 160x90mm Beamer page at 110 dpi (~693x390), and all
+    # steps cropped to the same (union) box so they stay aligned.
+    sizes = [_png_size(preview / f"fig-{i}.png") for i in (1, 2, 3)]
     if shutil.which("convert"):
-        assert width < 300
+        assert sizes[0][0] < 300
+        assert len(set(sizes)) == 1, sizes
 
 
 @needs_xelatex

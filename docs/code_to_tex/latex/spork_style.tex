@@ -4,7 +4,9 @@
 % Self-contained: must not \input siblings.
 %
 % Every main file, deck, and figure starts with:
-%   \documentclass{article}                 % paper  | \documentclass[aspectratio=169]{beamer} deck | \documentclass[beamer]{standalone} figure
+%   \documentclass{article}                 % paper  | \documentclass[aspectratio=169]{beamer} deck
+%                                           % figure | \documentclass[beamer,aspectratio=169]{standalone}
+%                                           %          (a 4:3 page would clip wide figures in --figure previews)
 %   \newif\ifsporkSlides \sporkSlidesfalse  % paper  | \sporkSlidestrue for deck and standalone figure
 %   \input{copied_styles/spork_style.tex}
 %   \input{copied_styles/code_to_tex_support.tex}
@@ -184,7 +186,12 @@
 
 % Code listing comment text and horizontal rule.
 \newcommand{\sporkComment}[1]{{\color{sporkCommentColor}\textsf{#1}}}
-\newcommand{\sporkCodeRule}{{\color{lightgray}\hrule}}
+% \sporkCodeRule is \linewidth wide in both modes (a bare \hrule spans Beamer's wider \hsize to the page
+% edge) and respects list indentation; vertical spacing is that of an \hrule (no parskip, no interline glue).
+\newcommand{\sporkCodeRule}{%
+  \par\nointerlineskip
+  \moveright\@totalleftmargin\hbox{\color{lightgray}\rule{\linewidth}{0.4pt}}%
+  \prevdepth=-1000pt\relax}
 
 % Use at the start of a minipage/parbox holding paragraphs.
 \newcommand{\sporkFixMinipage}{\raggedright \setlength{\parskip}{0.3\baselineskip}}
@@ -234,8 +241,17 @@
 % ===========================================================================
 % 6. TikZ styles + overlay intent keys
 % ===========================================================================
-% Figures are sans whatever the body font (paper serif, slides sans).
-\tikzset{every picture/.append style={font=\sffamily}}
+% Figures are sans whatever the body font (paper serif, slides sans). Set as the picture's current
+% font (not a `font=` key), so a node's own `font=\bfseries` / `font=\small` adds to it and stays sans.
+\tikzset{every picture/.append style={execute at begin picture={\sffamily}}}
+
+% `spork figure` (opt-in, in the tikzpicture options of a figure): also sets the absolute figure font size
+% \sporkFigFont, so a figure shared by paper (10/11pt body) and slides (12pt body) has the same text size
+% relative to its geometry in both. Node `font=` keys add to it (`font=\bfseries` is 9pt sans bold).
+% Redefine \sporkFigFont (in <doc>_defs.tex) to change it for a whole document. Small inline
+% pictures without the key keep the surrounding size.
+\newcommand{\sporkFigFont}{\fontsize{9}{11}\selectfont}
+\tikzset{spork figure/.style={execute at begin picture={\sporkFigFont}}}
 
 % spork arrow: thick, with the arrows.meta equivalent of the legacy `>=stealth` tip
 % (same proportions as PGF's old `stealth`; `>` is set so `<->` etc. also work).

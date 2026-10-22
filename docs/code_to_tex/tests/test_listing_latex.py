@@ -251,3 +251,32 @@ def test_nyc25_cpu_deck(tmp_path):
     for step in range(1, 6):
         expected = (doc / "code" / f"cpu.{step - 1}.txt").read_text()
         assert squash(page_text(doc, step))[1:] == squash(expected), step
+
+
+LONG_LINE = """\
+# TeX: listing long 1
+# TeX: begin long
+# TeX: color long red "yyyyyyyyyy" blue "zzzzzzzzzz"
+xxxxxxxxxx = yyyyyyyyyy + zzzzzzzzzz  # wwwwwwwwww
+short = 1
+# TeX: end long
+"""
+
+
+@needs_poppler
+@pytest.mark.parametrize("template", [PAPER, DECK])
+def test_overlong_line_never_wraps(tmp_path, template):
+    """An overlong line (with colored boxes and a comment) stays one line and
+    gives an Overfull \\hbox warning instead of silently wrapping."""
+    body = r"\begin{minipage}[t]{2cm}\sporkListing{long}\end{minipage}"
+    if template is DECK:
+        body = r"\begin{frame}[t]{T}" + body + r"\end{frame}"
+    doc = make_doc(tmp_path, body, template, sources=((LONG_LINE, "samples.py"),))
+    _, log = xelatex(doc)
+    ys = {w: word_y(doc, 1, w) for w in ("xxxxxxxxxx", "yyyyyyyyyy", "zzzzzzzzzz", "wwwwwwwwww", "short")}
+    assert None not in ys.values(), ys
+    # same line (the sans comment font has a slightly different yMin), next line clearly lower
+    assert ys["xxxxxxxxxx"] == ys["yyyyyyyyyy"] == ys["zzzzzzzzzz"], ys
+    assert abs(ys["wwwwwwwwww"] - ys["xxxxxxxxxx"]) < 3, ys
+    assert ys["short"] > ys["xxxxxxxxxx"] + 8, ys
+    assert re.search(r"Overfull \\hbox \(\d", log)

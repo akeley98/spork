@@ -6,18 +6,16 @@
 %   4  one RAW + one WAR edge and their nodes emphasized, "split barrier" callout   (slide only)
 %   5  compute nodes red, "Accelerate me!" callout                                   (slide only)
 % Paper only: a legend explaining solid/dashed edges.
-\documentclass[beamer]{standalone}
+\documentclass[beamer,aspectratio=169]{standalone}
 \newif\ifsporkSlides \sporkSlidestrue
 \input{copied_styles/spork_style.tex}
 \input{copied_styles/code_to_tex_support.tex}
 \sporkFigMaxWidth{11cm}
 \begin{document}
 \begin{standaloneframe}
-% Absolute font size: the same in the paper (10pt body) and on slides (12pt body).
-% Any node-level font= replaces the picture font entirely, so bold nodes use \dagFont\bfseries.
-\def\dagFont{\sffamily\fontsize{9}{11}\selectfont}
+% `spork figure`: absolute font size (\sporkFigFont), the same in the paper (10pt body) and on slides (12pt body).
 \begin{tikzpicture}[
-    font=\dagFont,
+    spork figure,
     dag load/.style={minimum width=15mm, minimum height=5.5mm, inner sep=1pt},
     dag compute/.style={draw=black, fill=white, minimum width=15mm, minimum height=10mm},
     % Per-node one-off emphasis (slide only); referenced as `dag X/.try` below.
@@ -40,7 +38,7 @@
     \draw [spork arrow] (A\i.south east) to[out=0, in=180] (C\j.west);
   }
   % Ring buffer slots (3 slots; slot reuse boxed).
-  \node (buf) [spork reveal=<2->, align=right, font=\dagFont\bfseries, anchor=east]
+  \node (buf) [spork reveal=<2->, align=right, font=\bfseries, anchor=east]
     at ($(k0.east)+(0,-6mm)$) {Ring\\buffer:};
   \foreach \i/\s/\boxed in {1/0/1, 2/1/0, 3/2/0, 4/0/1, 5/1/0} {
     \ifnum\boxed=1
@@ -62,7 +60,7 @@
   \node (splitNote) [spork slide only=<4>, spork red style, draw, align=center, anchor=north east]
     at ($(slot5.south east)+(0,-1mm)$) {each edge = one\\\texttt{Arrive}/\texttt{Await} pair};
   % Step 5 (slide only): tensor core callout.
-  \node [spork slide only=<5>, spork inv red style, font=\dagFont\bfseries]
+  \node [spork slide only=<5>, spork inv red style, font=\bfseries]
     at ($(C3.north)!0.5!(C4.north)+(0,3mm)$) {Accelerate me!};
   % Paper only: legend (on slides the speaker explains it).
   \node [spork paper only, anchor=north west, align=left]

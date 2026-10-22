@@ -44,9 +44,6 @@ COLOR_NAMES = tuple(COLOR_MACROS) + (ELIDE,)
 
 MARK_POSITIONS = ("before", "after", "start", "end")
 
-#: Names a listing may not have, because they would make directives ambiguous.
-RESERVED_LISTING_NAMES = frozenset(COLOR_NAMES) | frozenset(MARK_POSITIONS)
-
 _NAME_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\Z")
 _MARK_NAME_RE = re.compile(r"[A-Za-z0-9_]+\Z")
 _FILTER_RE = re.compile(
@@ -110,7 +107,7 @@ class FilterList:
         return None
 
     def __str__(self) -> str:
-        return " ".join(f.text for f in self.filters)
+        return ",".join(f.text for f in self.filters)
 
 
 def parse_filter(token: str, listings: dict[str, int]) -> Filter:
@@ -411,9 +408,9 @@ class _Parser:
         if name == "listing":
             self.parse_listing(lineno, args)
         elif name in ("begin", "end"):
-            self.items.append(RegionDirective(lineno, name == "begin", self.parse_filters(args, name)))
+            self.items.append(RegionDirective(lineno, name == "begin", self.parse_filters_only(args, name)))
         elif name in ("remark", "remark!"):
-            filters = self.parse_filters(args, name)
+            filters = self.parse_filters_only(args, name)
             content = self.take_payload(lineno, name)
             content.kind, content.bold, content.filters = "remark", name == "remark!", filters
             self.add_content(content)
@@ -426,7 +423,7 @@ class _Parser:
             self.expect_no_args(args, name)
             self.items.append(Filbreak(lineno))
         elif name == "color":
-            self.pending.append(self.parse_color(lineno, args))
+            self.pending.extend(self.parse_color(lineno, args))
         elif name == "mark":
             self.pending.append(self.parse_mark(lineno, args))
         elif name == "version":
@@ -448,8 +445,6 @@ class _Parser:
         name, count_txt = args[0].value, args[1].value
         if not _NAME_RE.match(name):
             raise ValueError(f"bad listing name {name!r} (use letters, digits, underscores)")
-        if name in RESERVED_LISTING_NAMES:
-            raise ValueError(f"listing name {name!r} is reserved (it is a color or mark position)")
         if name in self.listings:
             raise ValueError(f"listing {name!r} already declared on line {self.decl_lines[name]}")
         if not count_txt.isdigit() or int(count_txt) < 1:
@@ -458,15 +453,70 @@ class _Parser:
         self.decl_lines[name] = lineno
         self.items.append(ListingDecl(lineno, name, int(count_txt)))
 
+    # -- filters -------------------------------------------------------------
+
+    def looks_like_filter(self, token: Token) -> bool:
+        """Could this token be (part of) a filter list written with spaces?"""
+        if token.quoted:
+            return False
+        parts = [p for p in token.value.split(",") if p]
+        if not parts:
+            return token.value == ","
+        for part in parts:
+            try:
+                parse_filter(part, self.listings)
+            except ValueError:
+                return False
+        return True
+
+    def comma_hint(self, tokens: list[Token]) -> Optional[str]:
+        """Hint for the old space-separated filter syntax, if tokens look like it.
+
+        ``tokens`` starts with the filter word; returns e.g.
+        ``filters must be one comma-joined word: a[0],b`` when the following
+        tokens are filters too, else None.
+        """
+        n = 1
+        while n < len(tokens) and self.looks_like_filter(tokens[n]):
+            n += 1
+        if n == 1 and not tokens[0].value.endswith(","):
+            return None
+        joined = ",".join(p for t in tokens[:n] for p in t.value.split(",") if p)
+        return f"filters must be one comma-joined word, without spaces: {joined}"
+
     def parse_filters(self, tokens: list[Token], what: str) -> FilterList:
+        """Parse the filter word, which is always ``tokens[0]``."""
+        usage = f"'{what}' needs filters as its first argument: one word like *, NAME, NAME[i], NAME[lo:hi], or several joined by commas (a[0],b)"
         if not tokens:
-            raise ValueError(f"'{what}' needs at least one filter (*, NAME, NAME[i], NAME[lo:hi])")
+            raise ValueError(usage)
+        word = tokens[0]
+        if word.quoted:
+            raise ValueError(f"{usage}; got quoted text {word.value!r}")
+        if self.comma_hint(tokens[:1]) or "" in word.value.split(","):
+            # "a," or ",a" or "a,,b": probably spaces after commas
+            hint = self.comma_hint(tokens)
+            raise ValueError(hint or f"empty filter in {word.value!r} (filters are joined by single commas)")
         filters = []
-        for t in tokens:
-            if t.quoted:
-                raise ValueError(f"unexpected quoted text {t.value!r} among the filters of '{what}'")
-            filters.append(parse_filter(t.value, self.listings))
+        for part in word.value.split(","):
+            try:
+                filters.append(parse_filter(part, self.listings))
+            except ValueError:
+                if part in COLOR_NAMES or part in MARK_POSITIONS:
+                    raise ValueError(f"{usage}; got {part!r}") from None
+                raise
         return FilterList(tuple(filters))
+
+    def parse_filters_only(self, tokens: list[Token], what: str) -> FilterList:
+        """``begin``/``end``/``remark``: the filter word and nothing else."""
+        filters = self.parse_filters(tokens, what)
+        if len(tokens) > 1:
+            hint = self.comma_hint(tokens)
+            if hint:
+                raise ValueError(hint)
+            raise ValueError(f"unexpected argument {tokens[1].value!r} after the filters of '{what}'")
+        return filters
+
+    # -- color ---------------------------------------------------------------
 
     @staticmethod
     def parse_count(token: Token, allow_all: bool) -> tuple[int, Optional[int]]:
@@ -483,39 +533,74 @@ class _Parser:
             raise ValueError(f"bad match count {token.value!r}: need N >= 1 and 0 <= I < N")
         return n, i
 
-    def parse_color(self, lineno: int, args: list[Token]) -> ColorDirective:
-        if args and args[0].value == "line" and not args[0].quoted:
+    def parse_color(self, lineno: int, args: list[Token]) -> list[ColorDirective]:
+        """``color FILTERS (COLOR "text" [N:I|N:*] ...)+`` -> one directive per match.
+
+        After the filter word, tokens are classified by shape: a quoted string
+        is text to match (in the current color), ``N:I``/``N:*`` refines the
+        quoted string just before it, and a bare word must be a color name,
+        which stays in effect until the next color name.
+        """
+        if args and args[0].value == "line" and not args[0].quoted and "line" not in self.listings:
             raise ValueError("legacy 'color line' syntax is not supported; use: color FILTERS COLOR \"text\" [N:I|N:*]")
-        split = next((i for i, t in enumerate(args) if not t.quoted and t.value in COLOR_NAMES), None)
-        if split is None:
-            raise ValueError(f"'color' needs a color name (one of: {', '.join(COLOR_NAMES)})")
-        filters = self.parse_filters(args[:split], "color")
-        color = args[split].value
-        rest = args[split + 1:]
-        if not rest or not rest[0].quoted:
-            raise ValueError("'color' needs the text to color, in quotes, after the color name")
-        text = rest[0].value
-        if not text:
-            raise ValueError("empty text to color")
-        count, index = 1, 0
-        if len(rest) >= 2:
-            count, index = self.parse_count(rest[1], allow_all=True)
-        if len(rest) > 2:
-            raise ValueError(f"unexpected extra argument {rest[2].value!r}")
-        return ColorDirective(lineno, filters, color, text, count, index)
+        filters = self.parse_filters(args, "color")
+        result: list[ColorDirective] = []
+        color: Optional[str] = None
+        color_used = True  # has the current color word got a match yet?
+        prev: Optional[Token] = None
+        for pos, t in enumerate(args[1:]):
+            if t.quoted:
+                if color is None:
+                    raise ValueError(f"quoted text {t.value!r} before any color name (expected: color FILTERS COLOR \"text\" ...)")
+                if not t.value:
+                    raise ValueError("empty text to color")
+                result.append(ColorDirective(lineno, filters, color, t.value))
+                color_used = True
+            elif _COUNT_RE.match(t.value) or re.match(r"\d+:", t.value):
+                if prev is None or not prev.quoted:
+                    after = "the filters" if prev is None else repr(prev.value)
+                    raise ValueError(
+                        f"match count {t.value!r} must directly follow a quoted string (it follows {after})"
+                    )
+                result[-1].count, result[-1].index = self.parse_count(t, allow_all=True)
+            elif t.value in COLOR_NAMES:
+                if not color_used:
+                    raise ValueError(f"color {color!r} has no quoted text to match")
+                color, color_used = t.value, False
+            else:
+                raise ValueError(self.unknown_color_word(args[: pos + 2], color))
+            prev = t
+        if color is None:
+            raise ValueError(f"'color' needs a color name after the filters (one of: {', '.join(COLOR_NAMES)})")
+        if not color_used:
+            raise ValueError(f"color {color!r} has no quoted text to match (quote the text: {color} \"text\")")
+        return result
+
+    def unknown_color_word(self, args: list[Token], color: Optional[str]) -> str:
+        """Error message for the bare word ``args[-1]`` (``args[0]`` = filters)."""
+        t = args[-1]
+        message = f"unknown word {t.value!r} in 'color' (expected a color name, a quoted string, or N:I / N:* after a quoted string)"
+        if color is None:
+            hint = self.comma_hint(args) if self.looks_like_filter(t) else None
+            if hint:
+                return f"{message}; {hint}"
+            return f"{message}; colors: {', '.join(COLOR_NAMES)}"
+        return f"{message}; text to match must be quoted: \"{t.value}\""
+
+    # -- mark ----------------------------------------------------------------
 
     def parse_mark(self, lineno: int, args: list[Token]) -> MarkDirective:
-        def is_tail(t: Token) -> bool:
-            return t.quoted or t.value in MARK_POSITIONS or t.value.startswith(("xshift=", "yshift="))
-
-        split = next((i for i, t in enumerate(args) if is_tail(t)), len(args))
-        head, tail = args[:split], args[split:]
-        if len(head) < 2:
-            raise ValueError("expected 'mark FILTERS NAME [\"text\" [N:I]] [before|after|start|end] [xshift=..] [yshift=..]'")
-        filters = self.parse_filters(head[:-1], "mark")
-        name = head[-1].value
+        usage = "expected 'mark FILTERS NAME [\"text\" [N:I]] [before|after|start|end] [xshift=DIM] [yshift=DIM]'"
+        filters = self.parse_filters(args, "mark")
+        if len(args) < 2 or args[1].quoted:
+            raise ValueError(f"missing mark name; {usage}")
+        name = args[1].value
+        if name in MARK_POSITIONS or name.startswith(("xshift=", "yshift=")):
+            raise ValueError(f"missing mark name ({name!r} is not a name); {usage}")
         if not _MARK_NAME_RE.match(name):
-            raise ValueError(f"bad mark name {name!r} (use letters, digits, underscores)")
+            hint = self.comma_hint(args) if self.looks_like_filter(args[1]) else None
+            raise ValueError(f"bad mark name {name!r} (use letters, digits, underscores)" + (f"; {hint}" if hint else ""))
+        tail = args[2:]
         text, count, index = None, 1, 0
         if tail and tail[0].quoted:
             text = tail.pop(0).value
@@ -545,7 +630,12 @@ class _Parser:
             elif _COUNT_RE.match(v):
                 raise ValueError(f"match count {v!r} must directly follow the quoted mark text")
             else:
-                raise ValueError(f"unexpected mark argument {v!r}")
+                message = f"unexpected mark argument {v!r}"
+                if self.looks_like_filter(args[1]):
+                    hint = self.comma_hint(args)
+                    if hint:
+                        message += f" (if {name!r} is a filter: {hint}, then the mark name)"
+                raise ValueError(message)
         if text is None:
             position = position or "start"
             if position not in ("start", "end"):

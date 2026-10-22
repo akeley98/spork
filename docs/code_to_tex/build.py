@@ -7,6 +7,12 @@
 Replaces the old ``spork/docs/amspork3_tex.sh``. See ``endgame_plan/plan_slides.md``
 ("Build driver") for the design. Python 3.10 stdlib only; never uses a shell.
 
+Viewer copies (for evince, which crashes reloading half-written PDFs or PDFs with undefined
+references): the paper goes to ``<viewer_copy_dir>/DIR.pdf`` and deck DECK to ``DIR_slides.pdf``
+(DECK == DIR), ``DECK.pdf`` (DECK starts with ``DIR_``) or ``DIR_DECK.pdf``. They are written only
+when xelatex produced a PDF with no LaTeX errors, exit status 0, and no undefined
+references/citations; box warnings never block. Frame and figure builds have no viewer copy.
+
 Removal policy: the driver only ever deletes or overwrites files it generates itself
 (``copied_styles/*`` copies, ``preview/<job>-N.png``, ``NAME_paperpreview.tex`` with our
 header, viewer-copy temp files, and its own temp directories).
@@ -104,7 +110,10 @@ def make_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("dir", help="document directory (contains main.tex, decks, tex_build.json); becomes the cwd")
     p.add_argument("--slides", metavar="DECK", action="append", default=[],
-                   help="also build slide deck DECK.tex (repeatable)")
+                   help="also build slide deck DECK.tex (repeatable). Viewer copy (in viewer_copy_dir, "
+                        "default ..): DIR_slides.pdf if DECK is the dir name DIR, DECK.pdf if DECK starts "
+                        "with DIR_, else DIR_DECK.pdf; the paper's is DIR.pdf. Copied only after a clean "
+                        "build (PDF, no LaTeX errors, xelatex exit 0, no undefined references)")
     p.add_argument("--no-paper", action="store_true",
                    help="do not build main.tex (default: build it if it exists)")
     p.add_argument("--frame", metavar="LABEL[,LABEL]",
@@ -118,7 +127,8 @@ def make_parser() -> argparse.ArgumentParser:
                    help="skip the check command and the listing generator")
     p.add_argument("--png", action="store_true",
                    help="render the PDFs built in this run to preview/<job>-<page>.png at 110 dpi "
-                        "(--figure pages are cropped; paper pages and slides keep their page bounds)")
+                        "(--figure pages are all cropped to the union of their ink, so steps stay aligned; "
+                        "paper pages and slides keep their page bounds)")
     p.add_argument("--where", metavar="LABEL",
                    help="report the page(s) and frame(s) containing LABEL from main.aux and the deck .aux "
                         "files (the --slides decks, else every beamer deck in the dir). Query only: builds "
@@ -352,6 +362,7 @@ class JobResult:
     log_text: str = ""
     seconds: float = 0.0
     failed: str | None = None  # reason no PDF was produced
+    exit_code: int | None = None  # xelatex exit status of the last pass (None: not run)
 
     @property
     def pdf(self) -> str:
@@ -414,6 +425,7 @@ def run_latex(job: Job, max_passes: int = MAX_PASSES, recorder: bool = True) -> 
             # xelatex could not even start the log; keep its terminal output for the report.
             log_text = proc.stdout.decode("utf-8", errors="replace")
         res.passes = n
+        res.exit_code = proc.returncode
         res.log_text = log_text
         res.pages = build_log.output_pages(log_text)
         after = build_aux.aux_state(job.name)
@@ -449,15 +461,35 @@ def run_latex(job: Job, max_passes: int = MAX_PASSES, recorder: bool = True) -> 
 # Viewer copies
 
 
+def viewer_copy_blocker(res: JobResult) -> str | None:
+    """Why res's PDF must not be copied to the viewer location, or None if it may be.
+
+    evince crashes when reloading a half-written PDF or one with undefined references,
+    so the copy needs a PDF, no LaTeX errors (``! `` lines), xelatex exit status 0, and no
+    undefined references/citations. Overfull/underfull boxes and other warnings never block.
+    """
+    if res.pages is None:
+        return "no PDF produced"
+    errors = [i for i in res.issues if i.kind == "error"]
+    if errors:
+        return f"{len(errors)} LaTeX error{'s' if len(errors) != 1 else ''}"
+    if res.exit_code not in (0, None):
+        return f"xelatex exited with status {res.exit_code}"
+    undefined = [i for i in res.issues if i.kind == "undefined"]
+    if undefined:
+        return "undefined references/citations"
+    return None
+
+
 def update_viewer_copy(res: JobResult) -> str:
     """Copy the PDF to the viewer location (temp file + rename) if the build is clean. Returns a message."""
     dest = res.job.viewer_copy
     if dest is None:
         return ""
-    if res.pages is None:
-        return f"viewer copy {dest} NOT updated: no PDF produced"
-    if build_log.has_undefined_refs(res.issues):
-        return f"viewer copy {dest} NOT updated: undefined references (evince crashes reloading such PDFs)"
+    blocker = viewer_copy_blocker(res)
+    if blocker is not None:
+        return (f"viewer copy {dest} NOT updated: {blocker} "
+                f"(evince crashes reloading such PDFs; the new PDF is {os.path.abspath(res.pdf)})")
     dest_dir = os.path.dirname(dest)
     if not os.path.isdir(dest_dir):
         return f"viewer copy {dest} NOT updated: directory {dest_dir} does not exist"
@@ -504,7 +536,8 @@ def write_paperpreview(name: str, doc_basename: str) -> str:
 # PNG previews
 
 
-# Standalone figure pages are full Beamer pages with the picture in a corner, so crop them;
+# Standalone figure pages are full Beamer pages with the picture in a corner, so crop them
+# (all pages of one figure to the same union box, so steps stay aligned);
 # paper pages and slides keep their real page bounds (that is the point of --frame).
 CROP_KINDS = ("figure", "paperpreview")
 
@@ -538,10 +571,54 @@ def render_png(res: JobResult, out_dir: str = "preview") -> list[str]:
     if convert is None:
         warn("ImageMagick convert not found; PNGs are not cropped")
     else:
-        for png in pngs:
-            subprocess.run([convert, png, "-trim", "+repage", png], stdin=subprocess.DEVNULL,
-                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        crop_union(pngs, convert)
     return pngs
+
+
+_GEOMETRY_RE = re.compile(r"^(\d+)x(\d+)([+-]\d+)([+-]\d+)$")
+
+
+def parse_geometry(text: str) -> tuple[int, int, int, int] | None:
+    """ImageMagick 'WxH+X+Y' -> (x0, y0, x1, y1) (exclusive), or None if malformed/degenerate."""
+    m = _GEOMETRY_RE.match(text.strip())
+    if not m:
+        return None
+    w, h, x, y = (int(g) for g in m.groups())
+    if w <= 0 or h <= 0:
+        return None
+    return (x, y, x + w, y + h)
+
+
+def union_box(boxes: list[tuple[int, int, int, int]]) -> tuple[int, int, int, int] | None:
+    if not boxes:
+        return None
+    return (min(b[0] for b in boxes), min(b[1] for b in boxes),
+            max(b[2] for b in boxes), max(b[3] for b in boxes))
+
+
+def crop_union(pngs: list[str], convert: str = "convert") -> tuple[int, int, int, int] | None:
+    """Crop all pngs (pages of one figure) to the union of their ink bounding boxes.
+
+    One common crop keeps the pages aligned, so step-to-step movement stays visible.
+    Blank pages (no ink) don't contribute. Returns the union box (x0, y0, x1, y1), or None
+    if nothing was cropped.
+    """
+    boxes = []
+    for png in pngs:
+        proc = subprocess.run([convert, png, "-format", "%@", "info:"], stdin=subprocess.DEVNULL,
+                              stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        box = parse_geometry(proc.stdout.decode(errors="replace")) if proc.returncode == 0 else None
+        if box is not None:  # a blank page reports 0x0 (degenerate -> None)
+            boxes.append(box)
+    box = union_box(boxes)
+    if box is None:
+        return None
+    x0, y0, x1, y1 = box
+    geometry = f"{x1 - x0}x{y1 - y0}+{x0}+{y0}"
+    for png in pngs:
+        subprocess.run([convert, png, "-crop", geometry, "+repage", png], stdin=subprocess.DEVNULL,
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    return box
 
 
 # ---------------------------------------------------------------------------
@@ -666,8 +743,20 @@ def format_summary(results: list[JobResult], lint: list, notes: list[str], strea
 # Main
 
 
+def deck_viewer_name(deck: str, doc_basename: str) -> str:
+    """Viewer copy file name of deck DECK in document dir DIR (the paper's is always DIR.pdf).
+
+    DECK == DIR -> DIR_slides.pdf; DECK starts with DIR_ -> DECK.pdf; else DIR_DECK.pdf.
+    """
+    if deck == doc_basename:
+        return f"{doc_basename}_slides.pdf"
+    if deck.startswith(doc_basename + "_"):
+        return f"{deck}.pdf"
+    return f"{doc_basename}_{deck}.pdf"
+
+
 def _deck_job(deck: str, cfg: dict, doc_basename: str) -> Job:
-    viewer = os.path.join(os.path.abspath(cfg["viewer_copy_dir"]), f"{doc_basename}_{deck}.pdf")
+    viewer = os.path.join(os.path.abspath(cfg["viewer_copy_dir"]), deck_viewer_name(deck, doc_basename))
     return Job(deck, f"{deck}.tex", "deck", f"{deck}.tex", viewer)
 
 

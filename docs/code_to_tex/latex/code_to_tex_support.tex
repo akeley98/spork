@@ -145,8 +145,10 @@
 
 % One code line: same look as the legacy \blacktt line, one paragraph per
 % line (\parskip = 0 => baselineskip spacing, page breaks allowed between lines).
+% The line is an \hbox, so it can never wrap: an overlong line sticks out
+% and gives an "Overfull \hbox" warning instead of silently breaking.
 \cs_new_protected:Npn \__sporklst_line:n #1
-  { \leavevmode \strut { \color{black} \ttfamily #1 } \par }
+  { \mode_leave_vertical: \hbox:n { \strut \color{black} \ttfamily #1 } \par }
 
 % \sporkListingRow{versions}{variants}: one source row.
 \NewDocumentCommand \sporkListingRow { m +m }
@@ -163,9 +165,10 @@
   { \__sporklst_select:nnn {#1} { \filbreak } { } }
 
 % Colored span: the box is smashed (no effect on line spacing) and its
-% padding is cancelled horizontally so the text does not move.
+% padding is cancelled horizontally so the text does not move (\kern, not
+% \hspace: no break points).
 \NewDocumentCommand \sporkListingBox { m +m }
-  { \hspace{-\fboxsep} \smash{ #1 {#2} } \hspace{-\fboxsep} }
+  { \tex_kern:D - \fboxsep \smash{ #1 {#2} } \tex_kern:D - \fboxsep }
 
 % \sporkListingMark{name}{xshift}{yshift}; empty shift = default.
 \NewDocumentCommand \sporkListingMark { m m m }
