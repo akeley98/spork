@@ -657,7 +657,8 @@ LINT_EXCLUDE_DIRS = ("copied_styles", "code", "samples", "preview")
 
 
 def lint_sources(job_names: list[str]) -> list:
-    """Lint .tex files (in the document dir) read by the given jobs for bare overlay specs."""
+    """Lint .tex files (in the document dir) read by the given jobs: bare overlay specs, and
+    host-relative sizes in figure files."""
     files: list[str] = []
     for job in job_names:
         for rel in _fls_inputs(job):
@@ -675,6 +676,7 @@ def lint_sources(job_names: list[str]) -> list:
         except OSError:
             continue
         issues.extend(build_log.lint_overlay_text(text, rel))
+        issues.extend(build_log.lint_figure_text(text, rel))
     return issues
 
 
@@ -718,7 +720,7 @@ def format_summary(results: list[JobResult], lint: list, notes: list[str], strea
         counts: dict = {}
         for issue in lint:
             counts[issue] = counts.get(issue, 0) + 1
-        lines.append(f"Overlay lint (bare overlay specs; state paper intent with the spork wrappers): {len(lint)}")
+        lines.append(f"Lint (bare overlay specs, host-relative sizes in figures): {len(lint)}")
         items = list(counts.items())
         for issue, count in items[:15]:
             times = f"  (x{count})" if count > 1 else ""

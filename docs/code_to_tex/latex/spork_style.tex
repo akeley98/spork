@@ -242,7 +242,7 @@
 % 6. TikZ styles + overlay intent keys
 % ===========================================================================
 % Figures are sans whatever the body font (paper serif, slides sans). Set as the picture's current
-% font (not a `font=` key), so a node's own `font=\bfseries` / `font=\small` adds to it and stays sans.
+% font (not a `font=` key), so a node's own `font=\bfseries` / `font=\sporkFigLarge` adds to it and stays sans.
 \tikzset{every picture/.append style={execute at begin picture={\sffamily}}}
 
 % `spork figure` (opt-in, in the tikzpicture options of a figure): also sets the absolute figure font size
@@ -251,6 +251,10 @@
 % Redefine \sporkFigFont (in <doc>_defs.tex) to change it for a whole document. Small inline
 % pictures without the key keep the surrounding size.
 \newcommand{\sporkFigFont}{\fontsize{9}{11}\selectfont}
+% Absolute size steps for figures (LaTeX's \small, \large, ... follow the host body size, so they differ
+% between paper and slides; the build lints them in figure files). Use as node font=\sporkFigLarge\bfseries.
+\newcommand{\sporkFigSmall}{\fontsize{7.5}{9}\selectfont}
+\newcommand{\sporkFigLarge}{\fontsize{11}{13}\selectfont}
 \tikzset{spork figure/.style={execute at begin picture={\sporkFigFont}}}
 
 % spork arrow: thick, with the arrows.meta equivalent of the legacy `>=stealth` tip

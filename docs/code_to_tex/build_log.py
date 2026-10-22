@@ -385,3 +385,45 @@ def lint_overlay_text(text: str, filename: str) -> list[Issue]:
                 msg = f"bare overlay spec {what}<...> (use \\sporkReveal / \\sporkSlideOnly / `spork reveal=` keys)"
             issues.append(Issue("lint", msg, f"{filename}:{lineno}"))
     return issues
+
+
+# ---------------------------------------------------------------------------
+# Figure lint: host-relative sizes in figure files
+#
+# A figure file (\documentclass[...]{standalone}) is \input by both the paper and the decks, whose
+# body sizes and line widths differ. Anything measured relative to the host then differs between the
+# two renderings, while the slides' \scalebox assumes identical geometry.
+
+_FIGURE_RE = re.compile(r"\\documentclass\s*(\[[^\]]*\])?\s*\{standalone\}")
+_FIG_SIZE_RE = re.compile(
+    r"\\(tiny|scriptsize|footnotesize|small|normalsize|large|Large|LARGE|huge|Huge)(?![A-Za-z])"
+)
+_FIG_WIDTH_RE = re.compile(r"\\(linewidth|textwidth|columnwidth|hsize|paperwidth|textheight)(?![A-Za-z])")
+_FIG_LISTING_RE = re.compile(r"\\sporkListing(?![A-Za-z])")
+_FIG_ABS_FONT_RE = re.compile(r"\\(fontsize|sporkFigFont|sporkFigSmall|sporkFigLarge)(?![A-Za-z])")
+
+
+def is_figure_file(text: str) -> bool:
+    return _FIGURE_RE.search(text) is not None
+
+
+def lint_figure_text(text: str, filename: str) -> list[Issue]:
+    """In figure files, warn about sizes relative to the host document (they differ between paper and slides)."""
+    if not is_figure_file(text):
+        return []
+    issues = []
+    absolute_font_seen = False
+    for lineno, raw in enumerate(text.splitlines(), start=1):
+        line = _strip_comment(raw)
+        where = f"{filename}:{lineno}"
+        for m in _FIG_SIZE_RE.finditer(line):
+            issues.append(Issue("lint", f"figure uses \\{m.group(1)} (host-relative size; use \\sporkFigSmall / \\sporkFigLarge / \\fontsize)", where))
+        for m in _FIG_WIDTH_RE.finditer(line):
+            issues.append(Issue("lint", f"figure uses \\{m.group(1)} (differs between paper and slides; use mm)", where))
+        for m in _FIG_ABS_FONT_RE.finditer(line):
+            # A node's `font=\sporkFigLarge` doesn't set the size of a later listing.
+            if not re.search(r"font\s*=\s*[^,\]]*$", line[:m.start()]):
+                absolute_font_seen = True
+        if _FIG_LISTING_RE.search(line) and not absolute_font_seen:
+            issues.append(Issue("lint", "figure has \\sporkListing without an absolute font before it (it would follow the host body size; set \\sporkFigFont or \\fontsize first)", where))
+    return issues

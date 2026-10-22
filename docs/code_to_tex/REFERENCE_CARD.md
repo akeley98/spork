@@ -60,6 +60,9 @@ with `\begin{tikzpicture}[spork figure, ...]`; it compiles alone (`--figure`) an
 Figure text is sans everywhere; `spork figure` sets the absolute size `\sporkFigFont` (default 9/11pt, redefinable in `<doc>_defs.tex`)
 so paper and slides match, and node `font=\bfseries` / `font=\large` add to it. Don't put `font=\myFont` on the picture
 (node `font=` keys would replace it). Scale for slides with `\scalebox{1.2}{\input{fig_x.tex}}`.
+
+**In figures, don't use** `\small`/`\large`/... or `\linewidth`/`\textwidth`/`\columnwidth`: they follow the host document,
+so paper and slides would differ. Use `\sporkFigSmall`/`\sporkFigLarge`, `\fontsize`, and mm (the build lints this).
 Example: [beamer_nyc25_test/fig_dag.tex](../beamer_nyc25_test/fig_dag.tex).
 
 ## Overlays: every overlay states its paper intent

@@ -109,7 +109,8 @@ Don't use Beamer's own `\only<..>`, `\pause`, `\node<..>`: the build warns, beca
 ```
 
 * Write the figure once, at paper size. `spork figure` gives it a fixed 9pt sans font, so paper and slides look alike;
-  bold nodes are just `font=\bfseries`.
+  bold nodes are just `font=\bfseries`. Inside figures, size things in mm and use `\sporkFigSmall`/`\sporkFigLarge` instead of
+  `\small`/`\large`, and never `\linewidth`: those follow the host document, so the paper and slide versions would drift apart.
 * Use it in a frame, scaled up: `\scalebox{1.2}{\input{fig_dag.tex}}`. In the paper: `\input{fig_dag.tex}` inside a `figure`.
 * Look at it alone, step by step: `--figure fig_dag --png` (all steps cropped to the same box, so you see movement),
   and the paper rendering: `--figure fig_dag --paper --png`.

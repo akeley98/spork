@@ -400,6 +400,27 @@ def test_lint_overlay_specs():
     assert all(i.kind == "lint" for i in issues)
 
 
+def test_lint_figure_host_relative_sizes():
+    fig = textwrap.dedent(r"""
+        \documentclass[beamer,aspectratio=169]{standalone}
+        \begin{document}
+        \node [font=\small] {bad}; \node [font=\sporkFigLarge\bfseries] {ok};
+        \node [text width=0.3\linewidth] {bad}; \node [text width=40mm] {ok};
+        % \Large in a comment is fine
+        \sporkListing{early}
+        \fontsize{9}{10.5}\selectfont
+        \sporkListing{ok}
+        \smallskip \textwidthX
+        \end{document}
+    """)
+    issues = build_log.lint_figure_text(fig, "fig.tex")
+    lines = [int(i.where.split(":")[1]) for i in issues]
+    assert lines == [4, 5, 7]
+    assert "\\small" in issues[0].text and "\\linewidth" in issues[1].text and "sporkListing" in issues[2].text
+    # Not a figure file (paper, deck): host-relative sizes are fine there.
+    assert build_log.lint_figure_text(fig.replace("{standalone}", "{beamer}"), "deck.tex") == []
+
+
 # ---------------------------------------------------------------------------
 # Aux files: rerun state and --where
 
