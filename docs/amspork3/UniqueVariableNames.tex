@@ -1,11 +1,11 @@
-\magicSubsection{Unique Variable Names}{sec:UniqueVariableNames}
+\sporkSubsection{Unique Variable Names}{sec:UniqueVariableNames}
 
 Variable names $\sporkx$ are \emph{unique} across all $\sporkproc$s in the program, so no name shadows another.
 
 A $\sporkx$-binder binds the name $\sporkx$ for the remainder of the enclosing block or for the loop body;
 assignment and reduction are not binders.
-If $\sporkx$ appears in $\sporks: \sporkStmt$, then it is \myKeyA{bound} if the $\sporkx$-binder appears in $\sporks$;
-otherwise it is \myKeyA{free}.
+If $\sporkx$ appears in $\sporks: \sporkStmt$, then it is \sporkKeyA{bound} if the $\sporkx$-binder appears in $\sporks$;
+otherwise it is \sporkKeyA{free}.
 
 Rules that duplicate syntax take care to preserve uniqueness.
 $\sporkalphaRename(\sporks)$ renames every bound variable in $\sporks$ to a fresh name,

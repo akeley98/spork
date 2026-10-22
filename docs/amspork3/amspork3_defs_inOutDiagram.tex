@@ -25,10 +25,10 @@
 \newif\ifvd@breakTL \newif\ifvd@breakTR \newif\ifvd@breakBL \newif\ifvd@breakBR
 \newcommand\vd@ifempty[3]{\if\relax\detokenize{#1}\relax #2\else #3\fi}
 \tikzset{
-  vertCtor/.style={draw=mainColor, text=mainColor, inner sep=3pt},
+  vertCtor/.style={draw=sporkMainColor, text=sporkMainColor, inner sep=3pt},
   vertVal/.style={draw=black!33, inner sep=2pt, align=left},
   vertEmpty/.style={draw=black!33, inner sep=1pt, align=left},
-  vertStub/.style={draw=mainColor, line width=1pt},
+  vertStub/.style={draw=sporkMainColor, line width=1pt},
 }
 % Manual overrides, given as \inOutDiagram[options]{...} or \inOutDiagramSides[options]{...}:
 %   tl break, tr break, bl break, br break = false (default) | true

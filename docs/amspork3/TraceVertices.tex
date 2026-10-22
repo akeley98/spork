@@ -1,4 +1,4 @@
-\magicSubsection{Trace Vertices}{sec:TraceVertices}
+\sporkSubsection{Trace Vertices}{sec:TraceVertices}
 
 Each vertex $\sporkvert: \sporkVert$ is an integer/trace-event pair $(\sporkz,\sporktr)$.
 $\sporktrV: \sporkTr^* \to \mathcal{P}(\sporkVert)$ converts a trace (sequence)
@@ -15,7 +15,7 @@ where an observer $\sporkob: \sporkOb$ is a pair $(\sporktid, \sporkqtl)$;
 and, \textbf{(b)} pending await sets $\sporkAwIn(\sporktr)$ and $\sporkAwOut(\sporktr)$.
 They are defined per-trace-event-constructor in Figure~\ref{fig:InOutSets}.
 
-\input{amspork3/InOutSets.tex}
+\input{InOutSets.tex}
 
 For reasons that will become clearer in Section~\ref{sec:SyncEnv} (Synchronization Environment),
 we define querying the ``environment effect'' (read/mutate tag at some $x[z_i^*]$) of $\sporkTrPostAccess$ vertices.

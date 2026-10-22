@@ -1,0 +1,27 @@
+# exocc output for samples.py: generated samples.c / samples.h (+ debug/), only kept as proof the listings compile
+samples/
+# python3 -m code_to_tex output from samples.py: NAME.tex (all versions, overlays), NAME.N.txt (plain), NAME.N.dbg (⟦...⟧ formatting)
+code/
+# build driver's copies of code_to_tex/latex/*.tex (spork_style.tex, code_to_tex_support.tex) + extra_styles; read-only, edit the originals instead
+copied_styles/
+# build driver --png renders: cropped page/frame/figure-step PNGs for agents to look at
+preview/
+# build driver --figure NAME --paper wrappers (regenerated on every such build)
+*_paperpreview.tex
+
+# LaTeX auxiliary files (Beamer adds .nav/.snm/.toc/.vrb; -recorder adds .fls; tikzmark positions live in .aux)
+*.aux
+*.log
+*.out
+*.fls
+*.nav
+*.snm
+*.toc
+*.vrb
+# BibTeX
+*.bbl
+*.blg
+
+# Build outputs: main.pdf, DECK.pdf, --frame jobs, standalone figure PDFs.
+# Caution: this also ignores hand-made PDF images; un-ignore those individually (!img/foo.pdf) or keep them in a subdirectory with its own rule.
+*.pdf

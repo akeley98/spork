@@ -1,3 +1,15 @@
+%% amspork3_defs.tex: document-specific packages and macros for amspork3 (paper and decks).
+%% Loaded by main.tex (and decks) after copied_styles/spork_style.tex and code_to_tex_support.tex.
+%% Generic look (colors, boxes, \spork... text macros, TikZ styles) lives in spork_style.tex;
+%% only notation specific to this document goes here.
+
+%% Math notation packages (formerly from the legacy whitepaper_common.tex).
+\usepackage[mathscr]{euscript}
+\usepackage{mathpartir}
+\usepackage{stmaryrd}
+
+\newcommand{\abs}[1]{\left\vert #1 \right\vert}
+
 \newcommand{\sporkGrammarStuff}{
     \footnotesize
     \centering
@@ -132,8 +144,8 @@
 %% Expression Grammar
 \newcommand{\sporkBinOp}{\mathord{\hyperref[fig:expr]{\textrm{BinOp}}}}
 \newcommand{\sporkexpr}{\mathord{\hyperref[fig:expr]{e}}}  % Naming convention exception (avoid clash with edge e)
-\newcommand{\sporkeLo}{\mathord{\hyperref[fig:expr]{e_\textrm{lo}}}}
-\newcommand{\sporkeHi}{\mathord{\hyperref[fig:expr]{e_\textrm{hi}}}}
+\newcommand{\sporkeLo}{\mathord{\hyperref[fig:expr]{e_{\textrm{lo}}}}}
+\newcommand{\sporkeHi}{\mathord{\hyperref[fig:expr]{e_{\textrm{hi}}}}}
 \newcommand{\sporkExpr}{\mathord{\hyperref[fig:expr]{\textrm{Expr}}}}
 
 %% Statement Grammar
@@ -202,14 +214,14 @@
 \newcommand{\sporktrV}{\mathord{\hyperref[eq:trV]{\textsf{trV}}}}
 \newcommand{\sporkob}{\mathord{\hyperref[sec:TraceVertices]{\textsf{ob}}}}
 \newcommand{\sporkOb}{\mathord{\hyperref[sec:TraceVertices]{\textsf{Ob}}}}
-\newcommand{\sporkObIn}{\mathord{\hyperref[fig:InOutSets]{\textsf{Ob}^\textrm{in}}}}
-\newcommand{\sporkObOut}{\mathord{\hyperref[fig:InOutSets]{\textsf{Ob}^\textrm{out}}}}
-\newcommand{\sporkAwIn}{\mathord{\hyperref[fig:InOutSets]{\textsf{Aw}^\textrm{in}}}}
-\newcommand{\sporkAwOut}{\mathord{\hyperref[fig:InOutSets]{\textsf{Aw}^\textrm{out}}}}
+\newcommand{\sporkObIn}{\mathord{\hyperref[fig:InOutSets]{\textsf{Ob}^{\textrm{in}}}}}
+\newcommand{\sporkObOut}{\mathord{\hyperref[fig:InOutSets]{\textsf{Ob}^{\textrm{out}}}}}
+\newcommand{\sporkAwIn}{\mathord{\hyperref[fig:InOutSets]{\textsf{Aw}^{\textrm{in}}}}}
+\newcommand{\sporkAwOut}{\mathord{\hyperref[fig:InOutSets]{\textsf{Aw}^{\textrm{out}}}}}
 \newcommand{\sporkvMask}{\mathord{\hyperref[eq:vMask]{\textsf{vMask}}}}
 \newcommand{\sporkvEff}{\mathord{\hyperref[eq:vEff]{\textsf{vEff}}}}
 % InOutSets layout macros (\inOutDiagram, \inOutDiagramSides)
-\input{amspork3/amspork3_defs_inOutDiagram.tex}
+\input{amspork3_defs_inOutDiagram.tex}
 % \sporkVPost[s], \sporkvPost[s]: optional subscript goes inside the stack (V_s over "post").
 \newcommand{\sporkVPost}[1][]{\mathord{\hyperref[eq:vEff]{\underset{\textrm{post}}{\sporkSubOpt{\textsf{V}}{#1}}}}}  % Formerly \sporkVNew
 \newcommand{\sporkvPost}[1][]{\mathord{\hyperref[eq:vEff]{\underset{\textrm{post}}{\sporkSubOpt{\textsf{v}}{#1}}}}}  % Formerly \sporkvNew

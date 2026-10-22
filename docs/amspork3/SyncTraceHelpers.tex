@@ -12,11 +12,11 @@
 \inferrule*[right=Tr-ConvergentTid]{
   \sporkqtlConvergent(\sporkqtlInit) \\
   \sporkTidAll = \sporktidMap(\sporksigma) \\
-  \sporktr^*_\textsf{pre} =
+  \sporktr^*_{\textsf{pre}} =
   \textbf{(}\sporkTrPreAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTidAll, \sporkQtlPre, \varnothing) \textbf{)}_{
     (\sporkx, \sporkz_i^*) \in \sporkWunroll(\sporkwz)
   }\\
-  \sporktr^*_\textsf{post} =
+  \sporktr^*_{\textsf{post}} =
   \textbf{(}\sporkTrPostAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTidAll, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask, \sporkAwPost) \textbf{)}_{
     (\sporkx, \sporkz_i^*) \in \sporkWunroll(\sporkwz)
   }\\
@@ -25,16 +25,16 @@
   \sporktrAccessHelper(\sporksigma, \sporktr^*, \sporkmut,
   \sporkwz \# (\sporktidMap, \sporkQtlPre, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask),
   \sporkAwPost)
-  = \sporktr^* \sporkConcatChk \sporktr^*_\textsf{pre} \sporkConcatChk \sporktr^*_\textsf{post}
+  = \sporktr^* \sporkConcatChk \sporktr^*_{\textsf{pre}} \sporkConcatChk \sporktr^*_{\textsf{post}}
 }\\
 \inferrule*[right=Tr-SeparateTid]{
   \neg\sporkqtlConvergent(\sporkqtlInit) \\
   \sporkTidAll = \sporktidMap(\sporksigma) \\
-  \sporktr^*_\textsf{pre} =
+  \sporktr^*_{\textsf{pre}} =
   \textbf{(}\sporkTrPreAccess(\sporkmut, \sporkx, \sporkz_i^*, \{ \sporktid \}, \sporkQtlPre, \varnothing) \textbf{)}_{
     (\sporkx, \sporkz_i^*) \in \sporkWunroll(\sporkwz), \sporktid \in \sporkTidAll
   }\\
-  \sporktr^*_\textsf{post} =
+  \sporktr^*_{\textsf{post}} =
   \textbf{(}\sporkTrPostAccess(\sporkmut, \sporkx, \sporkz_i^*, \{ \sporktid \}, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask, \sporkAwPost) \textbf{)}_{
     (\sporkx, \sporkz_i^*) \in \sporkWunroll(\sporkwz), \sporktid \in \sporkTidAll
   }\\
@@ -43,13 +43,13 @@
   \sporktrAccessHelper(\sporksigma, \sporktr^*, \sporkmut,
   \sporkwz \# (\sporktidMap, \sporkQtlPre, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask),
   \sporkAwPost)
-  = \sporktr^* \sporkConcatChk \sporktr^*_\textsf{pre} \sporkConcatChk \sporktr^*_\textsf{post}
+  = \sporktr^* \sporkConcatChk \sporktr^*_{\textsf{pre}} \sporkConcatChk \sporktr^*_{\textsf{post}}
 }\\
 \sporkinstrBarrierHelper(\quad,\sporksigma) = \{ \} \\
-\sporkinstrBarrierHelper(\texttt{\color{barriercolor}>>$\sporkwz_\textrm{bar}$}, \sporksigma) =
+\sporkinstrBarrierHelper(\texttt{\color{barriercolor}>>$\sporkwz_{\textrm{bar}}$}, \sporksigma) =
 \{ \sporkPendingAwait(\sporkx, \sporkz_i^*, \sporkz) \mid
-  (\sporkx, \sporkz_i^*, \sporkz_\textsf{arrive}) \in \sporkWvalues({\color{barriercolor}{\sporkwz_\textrm{bar}}}, \sporksigma)
-   \land \sporkz \ge \sporkz_\textsf{arrive} \}
+  (\sporkx, \sporkz_i^*, \sporkz_{\textsf{arrive}}) \in \sporkWvalues({\color{barriercolor}{\sporkwz_{\textrm{bar}}}}, \sporksigma)
+   \land \sporkz \ge \sporkz_{\textsf{arrive}} \}
 \end{mathpar}
 \caption{Synchronization Trace Helpers: $\sporktrAccessHelper, \sporkinstrBarrierHelper$.\\
 For each accessed $\sporkx[\sporkz_i^*]$ in the window,
@@ -58,8 +58,8 @@ $\sporktrAccessHelper$ adds one or many $\sporkTrPreAccess$ events followed by o
 (an event includes all threads given by the $\sporktidMap$)
 and ``many'' is the non-convergent case
 (each thread gets its own events).\\
-$\sporkinstrBarrierHelper$ is defined for both alternatives of $\sporkfBarZ$ (Figure~\ref{fig:stmt}): no trailing barrier expression, or \texttt{\color{barriercolor}>>$\sporkwz_\textrm{bar}$}.\\
-\redBox{TODO:} handwave away undefined ordering of tuple comprehension.}
+$\sporkinstrBarrierHelper$ is defined for both alternatives of $\sporkfBarZ$ (Figure~\ref{fig:stmt}): no trailing barrier expression, or \texttt{\color{barriercolor}>>$\sporkwz_{\textrm{bar}}$}.\\
+\sporkRed{TODO:} handwave away undefined ordering of tuple comprehension.}
 \label{fig:SyncTraceHelpers}
 \hrule
 \end{figure}

@@ -51,14 +51,14 @@
   \sporkRule{\texttt{$\sporkx$: $\sporkprim$[$\sporkz^*$, $\sporkSub{\sporkexpr_1}{\sporkexpr_2}$, $\sporkexpr^*$] @ $\sporkmem$}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }\\
 \inferrule*[right=D-Alloc]{
-  \text{$\sporkmem$ is not SMEM \redBox{TODO}} \\\\
+  \text{$\sporkmem$ is not SMEM \sporkRed{TODO}} \\\\
   \sporksigma' = \sporksigma[(\sporkx, \sporkz^*) \mapsto \bot \mid (\sporkx, \sporkz^*) \in \sporkWunroll(\sporkx[0\texttt{:}\sporkz_1, \ldots, 0\texttt{:}\sporkz_n])]
 }
 {
   \sporkRule{\sporkSub{\texttt{$\sporkx$: $\sporkprim$[$\sporkz_1, \ldots, \sporkz_n$] @ $\sporkmem$}}{\texttt{pass}}, \sporkSub{\sporksigma}{\sporksigma'}, \sporktr^*}
 }\\
 \inferrule*[right=D-Free]{
-  \text{$\sporkx$ is not in SMEM \redBox{TODO}} \\
+  \text{$\sporkx$ is not in SMEM \sporkRed{TODO}} \\
   \sporksigma' = \sporksigma|_{\textrm{dom}(\sporksigma) \setminus (\{\sporkx\} \times \mathbb{N}^*)}
 }
 {
@@ -78,8 +78,8 @@
   \sporkRule{\texttt{$\sporkf$($\sporkwzH^*$)>>$\sporkSub{\sporkwH_1}{\sporkwH_2}$}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }\\
 \inferrule*[right=\sporkDInstrSub]{
-  \sporkfBehavior = \texttt{def($\sporkformalParam^*$):$\sporks_\textrm{body}$} \\
-  \sporks' = \sporkalphaRename(\sporks_\textrm{body})[\sporkx_1 \sporkWindowSub \sporkwz_1][\sporkx_2 \sporkWindowSub \sporkwz_2][...]
+  \sporkfBehavior = \texttt{def($\sporkformalParam^*$):$\sporks_{\textrm{body}}$} \\
+  \sporks' = \sporkalphaRename(\sporks_{\textrm{body}})[\sporkx_1 \sporkWindowSub \sporkwz_1][\sporkx_2 \sporkWindowSub \sporkwz_2][...]
 }
 {
   \sporkRule{\sporkSub{\texttt{$\sporkf$($\sporkwz_1$, $\sporkwz_2, ...$)$\sporkfBarZ$}}{\sporks'}, \sporksigma, \sporktr^*}

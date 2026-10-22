@@ -1,4 +1,4 @@
-\magicSubsection{Synchronization Environment Concatenation}{sec:SyncEnvConcat}
+\sporkSubsection{Synchronization Environment Concatenation}{sec:SyncEnvConcat}
 % ``concatenation'' maybe dumb
 
 Define helper
@@ -13,14 +13,14 @@ Define helper
 \end{align}
 Define $\sporkenv \sporkConcatEnv \sporktr_d$ by cases; all cases are total except $\sporkTrPreAccess$:
 
-\mainKey{Case 1/3:} $\sporktr_d = \sporkTrPostAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTidPost, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask, \sporkAwPost)$
+\sporkMainKey{Case 1/3:} $\sporktr_d = \sporkTrPostAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTidPost, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask, \sporkAwPost)$
 \begin{align}
     \sporkenv \sporkConcatEnv \sporktr_d =
     % \sporkenv \cup \{ ((\sporkmut, \sporkx, \sporkz_i^*), (\sporkTidPost \times \{\sporkqtlInit\}, \sporkAwPost, \sporkQtlMask)) \}
     \sporkenv \cup \{ ((\sporkmut, \sporkx, \sporkz_i^*), (\sporkObOut(\sporktr_d) \cap (\sporkTid \times \sporkQtlMask), \sporkAwOut(\sporktr_d), \sporkQtlMask)) \}
     \label{eq:envConcatPost}
 \end{align}
-\mainKey{Case 2/3:} $\sporktr_d$ is constructed with $\sporkTrFence$, $\sporkTrArrive$, or $\sporkTrAwait$.
+\sporkMainKey{Case 2/3:} $\sporktr_d$ is constructed with $\sporkTrFence$, $\sporkTrArrive$, or $\sporkTrAwait$.
 \begin{align}
     & \sporkenv \sporkConcatEnv \sporktr_d = \{ (\sporkenvEff, \lambda(\sporkenvVis)) \mid (\sporkenvEff, \sporkenvVis) \in \sporkenv \}
     \label{eq:envConcatSync} \\
@@ -33,7 +33,7 @@ Define $\sporkenv \sporkConcatEnv \sporktr_d$ by cases; all cases are total exce
       \sporkenvVis & \text{otherwise}
     \end{cases} \notag
 \end{align}
-\mainKey{Case 3/3:} $\sporktr_d = \sporkTrPreAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTidPre, \sporkQtlPre, \sporkAwFree)$
+\sporkMainKey{Case 3/3:} $\sporktr_d = \sporkTrPreAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTidPre, \sporkQtlPre, \sporkAwFree)$
 \begin{align}
     & \sporkenv \sporkConcatEnv \sporktr_d = \begin{cases}
         \sporkenv & \textsf{isLegal} \\

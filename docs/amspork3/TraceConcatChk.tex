@@ -1,4 +1,4 @@
-\magicSubsection{Trace Concatenation Check}{sec:TraceConcatChk}
+\sporkSubsection{Trace Concatenation Check}{sec:TraceConcatChk}
 
 The checked concatenation $\sporktr^* \sporkConcatChk \sporktr_d$
 can fail only for $\sporktr_d$ constructed from the $\sporkTrPreAccess$ constructor.
@@ -16,7 +16,7 @@ define helpers $\sporktrReach$, $\sporktrVPost$, $\sporkmutReqs$:
 \begin{align}
     {\color{gray}\bullet\,} &
     \sporktrReach: \sporkTr^* \times \sporkVPost \to \mathcal{P}(\sporkVert)
-    \codecomment{\,(Vertices with path from given source $\sporkTrPostAccess$ vertex)}
+    \sporkComment{\,(Vertices with path from given source $\sporkTrPostAccess$ vertex)}
     \notag \\
     & \sporktrReach(\sporktr^*, \sporkvPost[s]) = \{
         \sporkvert_d \in \sporkVert_G \mid \sporkPATH(\sporkVert_G, \sporkEdge_G, \sporkvPost[s], \sporkvert_d) \} \label{eq:trReach} \\
@@ -27,14 +27,14 @@ define helpers $\sporktrReach$, $\sporktrVPost$, $\sporkmutReqs$:
     {\color{gray}\bullet\,} &
     \sporktrVPost: \sporkTr^* \times \mathcal{P}(\sporkEnvEff) \to \mathcal{P}(\sporkVPost) \notag \\
     & \sporktrVPost(\sporktr^*, \sporkEnvEff_a) = \{
-    \codecomment{\,($\sporkTrPostAccess$-constructed vertices, filtered by $(\sporkmut, \sporkx, \sporkz_i^*)$)}
+    \sporkComment{\,($\sporkTrPostAccess$-constructed vertices, filtered by $(\sporkmut, \sporkx, \sporkz_i^*)$)}
     \notag \\
     & \quad (\sporkz, \sporkTrPostAccess(\sporkmut, \sporkx, \sporkz_i^*, \_, \_, \_, \_, \_))
       \in \sporktrV(\sporktr^*)
       \mid (\sporkmut, \sporkx, \sporkz_i^*) \in \sporkEnvEff_a \}
     \label{eq:trVPost} \\
     {\color{gray}\bullet\,} & \sporkmutReqs: \sporkMut \to \mathcal{P}(\sporkMut)
-    \codecomment{\,(Will be used to ignore read/read pairs)} \notag \\
+    \sporkComment{\,(Will be used to ignore read/read pairs)} \notag \\
     & \sporkmutReqs(\sporkread) = \{\sporkmutate\} \quad \sporkmutReqs(\sporkmutate) = \{ \sporkread, \sporkmutate \}
     \label{eq:mutReqs}
 \end{align}
@@ -46,24 +46,24 @@ For $\sporktr_d = \sporkTrPreAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTidPr
     \end{cases}
     \label{eq:concatChk} \\
     \text{where \textsf{isLegal} = }
-    & \textbf{let } \sporktr^*_\textrm{cat} = \sporktr^* \sporkConcatRaw \sporktr_d \textbf{ in} \notag \\
-    \codecomment{(newly added vertex)\quad}
+    & \textbf{let } \sporktr^*_{\textrm{cat}} = \sporktr^* \sporkConcatRaw \sporktr_d \textbf{ in} \notag \\
+    \sporkComment{(newly added vertex)\quad}
     & \textbf{let } \sporkvert_d = (\abs{\sporktr^*}, \sporktr_d) \textbf{ in} \notag \\
-    \codecomment{(mutates and maybe reads at $\sporkx[\sporkz_i^*]$)\quad}
+    \sporkComment{(mutates and maybe reads at $\sporkx[\sporkz_i^*]$)\quad}
     & \textbf{let } \sporkEnvEff_a = \sporkmutReqs(\sporkmut) \times \{ \sporkx \} \times \{ \sporkz_i^* \} \textbf{ in} \notag \\
-    \codecomment{(all prior matching $\sporkTrPostAccess$...\quad}
-    & \textbf{let } \sporkVPost[s] = \sporktrVPost(\sporktr^*_\textrm{cat}, \sporkEnvEff_a) \textbf{ in} \notag \\
-    \codecomment{...must have a path to $\sporkvert_d$)\quad}
+    \sporkComment{(all prior matching $\sporkTrPostAccess$...\quad}
+    & \textbf{let } \sporkVPost[s] = \sporktrVPost(\sporktr^*_{\textrm{cat}}, \sporkEnvEff_a) \textbf{ in} \notag \\
+    \sporkComment{...must have a path to $\sporkvert_d$)\quad}
     & \forall \sporkvPost[s] \in \sporkVPost[s].\quad
-    \sporkvert_d \in \sporktrReach(\sporktr^*_\textrm{cat}, \sporkvPost[s])
+    \sporkvert_d \in \sporktrReach(\sporktr^*_{\textrm{cat}}, \sporkvPost[s])
 \end{align}
 $\sporktr^* \sporkConcatChk \sporktr_d = \sporktr^* \sporkConcatRaw \sporktr_d$ for all other $\sporktr_d$.
 %% XXX
 %% \begin{itemize}
 %%   \item $\sporktrReach: \sporkTr^* \times \mathcal{P}(\sporkQtl) \times \sporkVert \to \mathcal{P}(\sporkVert)$
-%%   \codecomment{\# Vertices with path from given source vertex}
+%%   \sporkComment{\# Vertices with path from given source vertex}
 %%   \item $\sporktrVPost: \sporkTr^* \times \mathcal{P}(\sporkMut \times \sporkX \times \sporkZ^*)$
-%%   \codecomment{\# $\sporkTrPostAccess$ vertices with given $(\sporkmut, \sporkx, \sporkz^*)$ ``key''}
+%%   \sporkComment{\# $\sporkTrPostAccess$ vertices with given $(\sporkmut, \sporkx, \sporkz^*)$ ``key''}
 %% \end{itemize}
 %% \begin{gather}
 %% \inferrule*{

@@ -1,7 +1,7 @@
 % TrArrive/TrAwait are paired side by side to make the arrive/await pairing clear.
 % Fence/Req diagrams put their quadrants on the sides to save vertical space.
 \begin{figure}[h]
-\codehrule
+\sporkCodeRule
 \centering
 \inOutDiagram
   {\sporkTrPostAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTidPost, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask, \sporkAwPost)}
@@ -12,11 +12,11 @@
 
 \smallskip
 \inOutDiagram[br break=true]
-  {\sporkTrArrive(\sporkTidArrive, \sporkQtlArrive, \sporkx, \sporkz_i^*, \sporkz_\textrm{arrive})}
+  {\sporkTrArrive(\sporkTidArrive, \sporkQtlArrive, \sporkx, \sporkz_i^*, \sporkz_{\textrm{arrive}})}
   {\sporkTidArrive \times \sporkQtlArrive}
   {}
   {}
-  {\{ \sporkPendingAwait(\sporkx, \sporkz_i^*, \sporkz_a) \mid \sporkz_a \ge \sporkz_\textrm{arrive}\}}
+  {\{ \sporkPendingAwait(\sporkx, \sporkz_i^*, \sporkz_a) \mid \sporkz_a \ge \sporkz_{\textrm{arrive}}\}}
 \hfill
 \inOutDiagram
   {\sporkTrAwait(\sporkTidAwait, \sporkQtlAwait, \sporkaw)}
@@ -46,5 +46,5 @@ Note, the use of ``all possible thread IDs'' $\sporkTid$ in $(\sporkTid \times \
 $\sporkTrPostAccess$ vertices are \emph{sources} with only outbound edges; $\sporkTrPreAccess$ vertices are \emph{sinks} with only inbound edges.
 }
 \label{fig:InOutSets}
-\codehrule
+\sporkCodeRule
 \end{figure}

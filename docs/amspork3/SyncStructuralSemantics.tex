@@ -25,12 +25,12 @@
   \sporkRule{\sporkSub{\sporkwH_1}{\sporkwH_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 {
-  \sporkRule{\texttt{Await($\sporkSub{\sporkwH_1}{\sporkwH_2}$, $\sporkQtlAwait$, $\sporkz_\textrm{lag}$)} \#\sporktidMap, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
+  \sporkRule{\texttt{Await($\sporkSub{\sporkwH_1}{\sporkwH_2}$, $\sporkQtlAwait$, $\sporkz_{\textrm{lag}}$)} \#\sporktidMap, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 \end{mathpar}
 \caption{Synchronization Structural Semantics.
 Note, $\sporksigma(\sporkx)$ is used to store ``arrive counts'' for barrier variables $\sporkx$.
-\redBox{TODO} link to additional semantics about commit group and mbarrier, which will also increment arrive counts
+\sporkRed{TODO} link to additional semantics about commit group and mbarrier, which will also increment arrive counts
 (\textsc{Tr-Arrive} and instruction \texttt{>>} barriers currently leave $\sporksigma$ unchanged); re-evaluate \textsc{S-ZeroArriveCounts} for mbarrier.
 }
 \label{fig:SyncStructuralSemantics}

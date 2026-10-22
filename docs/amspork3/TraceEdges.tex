@@ -1,19 +1,19 @@
-\magicSubsection{Trace Edges}{sec:TraceEdges}
+\sporkSubsection{Trace Edges}{sec:TraceEdges}
 
 Pairs of vertices are conditionally connected by edges into a DAG based on the overlap of the source vertex's outbound sets and destination vertex's inbound sets;
 each edge is labelled by the observers and pending awaits $(\sporkOb_e, \sporkAw_e)$ found in the overlap,
 with at least one set non-empty.
-The observers are further filtered by a given $\sporkQtlMask$ (\redBox{todo} explain this wart).
+The observers are further filtered by a given $\sporkQtlMask$ (\sporkRed{todo} explain this wart).
 Edges can only go from lower-indexed vertices in the trace to higher-indexed vertices.
 
 The set of graph edges $\sporktrE: \sporkTr^* \times \mathcal{P}(\sporkQtl) \to \mathcal{P}(\sporkEdge)$ is given by
 \begin{align}
     & \sporkEdgeArrow{(\sporkz_1, \sporktr_1)}{\sporkOb_e, \sporkAw_e}{(\sporkz_2, \sporktr_2)} \in \sporktrE(\sporktr^*, \sporkQtlMask) \iff & \\
-    & (\sporkz_1, \sporktr_1), (\sporkz_2, \sporktr_2) \in \sporktrV(\sporktr^*) \land{} \sporkz_1 < \sporkz_2 & \codecomment{(pick 2 vertices in trace order)} \\
+    & (\sporkz_1, \sporktr_1), (\sporkz_2, \sporktr_2) \in \sporktrV(\sporktr^*) \land{} \sporkz_1 < \sporkz_2 & \sporkComment{(pick 2 vertices in trace order)} \\
     \land{} & \sporkOb_e = \sporkObOut(\sporktr_1) \cap \sporkObIn(\sporktr_2) \cap (\sporkTid\times\sporkQtlMask) &
-    \codecomment{(common observers, filtered by $\sporkQtlMask$)} \\
+    \sporkComment{(common observers, filtered by $\sporkQtlMask$)} \\
     \land{} & \sporkAw_e = \sporkAwOut(\sporktr_1) \cap \sporkAwIn(\sporktr_2) &
-    \codecomment{(common pending awaits)} \\
+    \sporkComment{(common pending awaits)} \\
     \land{} & (\sporkOb_e \ne \varnothing \lor \sporkAw_e \ne \varnothing) &
-    \codecomment{(at least one commonality)}
+    \sporkComment{(at least one commonality)}
 \end{align}

@@ -17,16 +17,16 @@
 \inferrule*[right=W-SubInterval]{
 }
 {
-  \sporkx[\sporkc^*][\sporkexpr_\text{Llo}\texttt{:}\sporkexpr_\text{Lhi}, \sporkc_L^*][\sporkexpr_\text{Rlo}\texttt{:}\sporkexpr_\text{Rhi}, \sporkc_R^*]
+  \sporkx[\sporkc^*][\sporkexpr_{\text{Llo}}\texttt{:}\sporkexpr_{\text{Lhi}}, \sporkc_L^*][\sporkexpr_{\text{Rlo}}\texttt{:}\sporkexpr_{\text{Rhi}}, \sporkc_R^*]
   \to
-  \sporkx[\sporkc^*, \sporkexpr_\text{Llo}+\sporkexpr_\text{Rlo}\texttt{:}\sporkexpr_\text{Llo}+\sporkexpr_\text{Rhi}][\sporkc_L^*][\sporkc_R^*]
+  \sporkx[\sporkc^*, \sporkexpr_{\text{Llo}}+\sporkexpr_{\text{Rlo}}\texttt{:}\sporkexpr_{\text{Llo}}+\sporkexpr_{\text{Rhi}}][\sporkc_L^*][\sporkc_R^*]
 }\\
 \inferrule*[right=W-SubMixed]{
 }
 {
-  \sporkx[\sporkc^*][\sporkexpr_\text{Llo}\texttt{:}\sporkexpr_\text{Lhi}, \sporkc_L^*][\sporkc_R, \sporkc_R^*]
+  \sporkx[\sporkc^*][\sporkexpr_{\text{Llo}}\texttt{:}\sporkexpr_{\text{Lhi}}, \sporkc_L^*][\sporkc_R, \sporkc_R^*]
   \to
-  \sporkx[\sporkc^*, \sporkexpr_\text{Llo}+\sporkc_R][\sporkc_L^*][\sporkc_R^*]
+  \sporkx[\sporkc^*, \sporkexpr_{\text{Llo}}+\sporkc_R][\sporkc_L^*][\sporkc_R^*]
 }
 \inferrule*[right=W-SubDone]{
 }
@@ -37,7 +37,7 @@
 \caption{Window substitution $\sporks[\mathbf{\sporkx_1} \sporkWindowSub \mathbf{\sporkx_2}[\sporkcz_2^*]]$.
 Window substitution steps each window $\sporkw$ in $\sporks$ fully according to the \textsc{W-Sub*} rules (with fixed $\mathbf{\sporkx_1},\mathbf{\sporkx_2}$).
 These $\sporkw$ may be annotated ($\sporkw \# \sporkwinAnn$); the annotation is unchanged by the stepping.
-Note $\sporkexpr_\text{Lhi}$ is discarded; bounds-check is a separate step.
+Note $\sporkexpr_{\text{Lhi}}$ is discarded; bounds-check is a separate step.
 }
 \label{fig:WindowSubSemantics}
 \hrule

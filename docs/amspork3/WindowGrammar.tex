@@ -2,10 +2,10 @@
 \sporkGrammarStuff
 \begin{tabular}{rrll}
 \toprule
-  $\sporkqtl : \sporkQtl$ & $\Coloneqq$ & \texttt{cuda\_in\_order\_ram\_qual}... & qualitative timeline (\redBox{todo table link}) \\
+  $\sporkqtl : \sporkQtl$ & $\Coloneqq$ & \texttt{cuda\_in\_order\_ram\_qual}... & qualitative timeline (\sporkRed{todo table link}) \\
   $\sporkwinAnn : \sporkWinAnn$ & $\Coloneqq$ & $(\sporktidMap, \sporkQtlPre, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask)$ & window annotation \\
   $\sporkc$ & $\Coloneqq$ & $\sporkexpr | \sporkeLo\texttt{:}\sporkeHi$ & window \textbf{c}oordinate (point $\sporkexpr$ or interval $\sporkeLo\texttt{:}\sporkeHi$) \\
-  $\sporkcz$ & $\Coloneqq$ & $\sporkz | \sporkz_\text{lo}\texttt{:}\sporkz_\text{hi}$ & $\sporkZ$-constant window coordinate \\
+  $\sporkcz$ & $\Coloneqq$ & $\sporkz | \sporkz_{\text{lo}}\texttt{:}\sporkz_{\text{hi}}$ & $\sporkZ$-constant window coordinate \\
   $\sporkw$ & $\Coloneqq$ & $\sporkx[\sporkc^*]$ & non-annotated window \\
   $\sporkwz$ & $\Coloneqq$ & $\sporkx[\sporkcz^*]$ & non-annotated $\sporkZ$-constant-indexed window \\
   % Only emph the "optionally" the first time to not be annoying.

@@ -26,15 +26,15 @@
   &$|$& \texttt{$\sporkx$: barrier[$\sporkexpr^*$] @ $\sporkbarMech$} & barrier allocation \sporkbinder \\
   &$|$& \texttt{Fence($\sporkQtlArrive, \sporkQtlAwait$)} $\#\sporktidMap$ & fence synchronization statement \\
   &$|$& \texttt{Arrive($\sporkQtlArrive$) >> $\sporkwH^*$} $\#\sporktidMap$ & arrive synchronization statement \\
-  &$|$& \texttt{Await($\sporkwScalarH$, $\sporkQtlAwait$, $\sporkz_\textrm{lag}$)} $\#\sporktidMap$ & await synchronization statement (expects one barrier) \\
+  &$|$& \texttt{Await($\sporkwScalarH$, $\sporkQtlAwait$, $\sporkz_{\textrm{lag}}$)} $\#\sporktidMap$ & await synchronization statement (expects one barrier) \\
 \bottomrule
 \end{tabular}
 \begin{tabular}{rrll}
 \toprule
   $\sporkfBarH$ & $\Coloneqq$ & & no trailing barrier expression (blank syntax for instr \texttt{$\sporkf$($\sporkwH^*$)}) \\
-  &$|$& \texttt{>> $\sporkwH_\textrm{bar}$} & trailing barrier expression (for instr \texttt{$\sporkf$($\sporkwH^*$) >> $\sporkwH_\textrm{bar}$}) \\
+  &$|$& \texttt{>> $\sporkwH_{\textrm{bar}}$} & trailing barrier expression (for instr \texttt{$\sporkf$($\sporkwH^*$) >> $\sporkwH_{\textrm{bar}}$}) \\
   $\sporkfBarZ$ & $\Coloneqq$ & & no trailing barrier expression \\
-  &$|$& \texttt{>> $\sporkwz_\textrm{bar}$} & trailing barrier expression, non-annotated $\sporkZ$-constant-indexed \\
+  &$|$& \texttt{>> $\sporkwz_{\textrm{bar}}$} & trailing barrier expression, non-annotated $\sporkZ$-constant-indexed \\
 \bottomrule
 \end{tabular}
 \caption{Statement Grammar}

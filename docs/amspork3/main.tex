@@ -1,32 +1,25 @@
-% Humans and agents: ./amspork3_tex.sh
+% Humans and agents: cd spork/docs && python3 -m code_to_tex.build amspork3
 % Typically each section, subsection, and figure goes in its own file.
 % The label {sec|fig}:{name} matches the stored file name amspork3/{name}.tex
-% Put all \newcommand inside amspork3/amspork3_defs.tex
-% (other than pre-existing whitepaper_common.tex commands);
+% Put all \newcommand inside amspork3_defs.tex
+% (other than the \spork... commands from copied_styles/spork_style.tex);
 % for really large commands, you may place it in a separate file
-% input from amspork3/amspork3_defs.tex ONLY.
+% input from amspork3_defs.tex ONLY.
 % I hate having to hunt down mystery macros scattered in random files.
-\input{whitepaper_common.tex}
-
-\tikzstyle{redstyle} = [draw=redBoxFg, fill=redBoxBg, text=redBoxFg]
-\tikzstyle{yellowstyle} = [draw=yellowBoxFg, fill=yellowBoxBg, text=yellowBoxFg]
-\tikzstyle{greenstyle} = [draw=greenBoxFg, fill=greenBoxBg, text=greenBoxFg]
-\tikzstyle{bluestyle} = [draw=blueBoxFg, fill=blueBoxBg, text=blueBoxFg]
-\tikzstyle{violetstyle} = [draw=violetBoxFg, fill=violetBoxBg, text=violetBoxFg]
-\tikzstyle{nRedstyle} = [draw=nRedBoxFg, fill=nRedBoxBg, text=nRedBoxFg]
-\tikzstyle{nGoldstyle} = [draw=nGoldBoxFg, fill=nGoldBoxBg, text=nGoldBoxFg]
-\tikzstyle{nGreenstyle} = [draw=nGreenBoxFg, fill=nGreenBoxBg, text=nGreenBoxFg]
-\tikzstyle{nBluestyle} = [draw=nBlueBoxFg, fill=nBlueBoxBg, text=nBlueBoxFg]
-\tikzstyle{nPurplestyle} = [draw=nPurpleBoxFg, fill=nPurpleBoxBg, text=nPurpleBoxFg]
+% \input paths are relative to this directory (the build's working directory).
+\documentclass[11pt]{article}
+\newif\ifsporkSlides \sporkSlidesfalse
+\input{copied_styles/spork_style.tex}
+\input{copied_styles/code_to_tex_support.tex}
+\input{amspork3_defs.tex}
 
 \begin{document}
 
-\input{amspork3/amspork3_defs.tex}
-\input{amspork3/Abstract.tex}
-\input{amspork3/Conventions.tex}
-\input{amspork3/Grammar.tex}
-\input{amspork3/Semantics.tex}
-\input{amspork3/TraceChecks.tex}
-\input{amspork3/SyncEnv.tex}
+\input{Abstract.tex}
+\input{Conventions.tex}
+\input{Grammar.tex}
+\input{Semantics.tex}
+\input{TraceChecks.tex}
+\input{SyncEnv.tex}
 
 \end{document}
