@@ -61,11 +61,16 @@ class Issue:
     key: what to deduplicate on (e.g. label name, or (file, line)).
     text: human-readable one-line description (without location).
     where: "file:line" if known, else "".
+    log_line: 1-based line of the (first) occurrence in the .log, so the full context can be found.
+    context: for errors, TeX's own excerpt (the "! ..." line through "l.NNN ..." and the rest of the source line).
+    log_line and context don't take part in comparison, so repeats of the same issue still group together.
     """
 
     kind: str
     text: str
     where: str = ""
+    log_line: int | None = dataclasses.field(default=None, compare=False, hash=False)
+    context: tuple[str, ...] = dataclasses.field(default=(), compare=False, hash=False)
 
 
 # Display order and headings.
@@ -190,46 +195,83 @@ class _FileTracker:
             i += 1
 
 
-def _join_continuations(lines: list[str]) -> list[str]:
-    """Join ``(pkg)   more text`` continuation lines onto their package warning."""
-    out: list[str] = []
+def _join_continuations(lines: list[str]) -> list[tuple[str, int]]:
+    """Join ``(pkg)   more text`` continuation lines onto their package warning.
+
+    Returns (line, 1-based log line number of its first physical line).
+    """
+    out: list[tuple[str, int]] = []
     pkg = None
-    for line in lines:
+    for lineno, line in enumerate(lines, start=1):
         m = _PKG_WARNING_RE.match(line)
         if m:
             pkg = m.group(1)
-            out.append(line)
+            out.append((line, lineno))
             continue
         if pkg is not None and out and line.startswith("(" + pkg + ")"):
-            out[-1] = out[-1] + " " + line[len(pkg) + 2:].strip()
+            prev, prev_no = out[-1]
+            out[-1] = (prev + " " + line[len(pkg) + 2:].strip(), prev_no)
             continue
         pkg = None
-        out.append(line)
+        out.append((line, lineno))
     return out
+
+
+# Lines of TeX's error excerpt kept in Issue.context (the "! ..." line counts).
+ERROR_CONTEXT_LINES = 8
+
+
+class _IssueList(list):
+    """Stamps the log line being parsed onto issues appended without one."""
+
+    current_log_line: int | None = None
+
+    def append(self, issue: Issue) -> None:
+        if issue.log_line is None and self.current_log_line is not None:
+            issue = dataclasses.replace(issue, log_line=self.current_log_line)
+        super().append(issue)
 
 
 def parse_log(log_text: str, doc_dir: str | None = None) -> list[Issue]:
     """Extract all interesting issues from a log, in log order (duplicates kept)."""
-    issues: list[Issue] = []
+    issues = _IssueList()
     tracker = _FileTracker(doc_dir)
     lines = _join_continuations(log_text.splitlines())
     skip_parens_until_blank = False
-    pending_error: tuple[str, str | None] | None = None  # (message, file)
+    # (message, file, log line of the "! " line, context lines so far)
+    pending_error: tuple[str, str | None, int, list[str]] | None = None
+    # After "l.NNN <before>", TeX prints the rest of the source line on the next line.
+    error_tail_index: int | None = None
 
     def loc(file: str | None, line: str | int | None) -> str:
         if line is None:
             return _display_path(file, doc_dir) if file else ""
         return f"{_display_path(file, doc_dir)}:{line}"
 
-    for line in lines:
+    def flush_error(source_line: str | None) -> None:
+        msg, file, log_no, context = pending_error
+        issues.append(Issue("error", msg, loc(file, source_line), log_no,
+                            tuple(context[:ERROR_CONTEXT_LINES])))
+
+    for line, log_lineno in lines:
+        issues.current_log_line = log_lineno
+        if error_tail_index is not None:
+            if line.strip():
+                err = issues[error_tail_index]
+                issues[error_tail_index] = dataclasses.replace(err, context=err.context + (line,))
+            error_tail_index = None
         if pending_error is not None:
             m = _ERROR_LINE_RE.match(line)
             if m:
-                issues.append(Issue("error", pending_error[0], loc(pending_error[1], m.group(1))))
+                pending_error[3].append(line)
+                flush_error(m.group(1))
+                error_tail_index = len(issues) - 1
                 pending_error = None
             elif line == "":
-                issues.append(Issue("error", pending_error[0], loc(pending_error[1], None)))
+                flush_error(None)
                 pending_error = None
+            else:
+                pending_error[3].append(line)
         if skip_parens_until_blank:
             if line == "":
                 skip_parens_until_blank = False
@@ -242,8 +284,8 @@ def parse_log(log_text: str, doc_dir: str | None = None) -> list[Issue]:
 
         if line.startswith("! "):
             if pending_error is not None:
-                issues.append(Issue("error", pending_error[0], loc(pending_error[1], None)))
-            pending_error = (line[2:].strip(), cur)
+                flush_error(None)
+            pending_error = (line[2:].strip(), cur, log_lineno, [line])
             # The error context (source excerpt, help text) may contain unbalanced parens.
             skip_parens_until_blank = True
             continue
@@ -308,8 +350,8 @@ def parse_log(log_text: str, doc_dir: str | None = None) -> list[Issue]:
         tracker.feed(line)
 
     if pending_error is not None:
-        issues.append(Issue("error", pending_error[0], loc(pending_error[1], None)))
-    return issues
+        flush_error(None)
+    return list(issues)
 
 
 def has_undefined_refs(issues: list[Issue]) -> bool:

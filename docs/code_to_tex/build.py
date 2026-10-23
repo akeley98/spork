@@ -696,6 +696,9 @@ def format_summary(results: list[JobResult], lint: list, notes: list[str], strea
         else:
             head += f"{res.pages} page{'s' if res.pages != 1 else ''}, {res.passes} pass{'es' if res.passes != 1 else ''}, {res.seconds:.1f}s"
         lines.append(head)
+        # The full xelatex output, for reading errors with context; [NAME.log:N] below points into it.
+        log_name = res.job.name + ".log"
+        lines.append(f"  LaTeX log: {os.path.abspath(log_name)}")
         grouped = build_log.group_issues(res.issues)
         for kind, items in grouped.items():
             any_problem = True
@@ -706,14 +709,16 @@ def format_summary(results: list[JobResult], lint: list, notes: list[str], strea
             for issue, count in items[:limit]:
                 where = f"{issue.where}: " if issue.where else ""
                 times = f"  (x{count})" if count > 1 else ""
-                lines.append(f"    {where}{issue.text}{times}")
+                at_log = f"  [{log_name}:{issue.log_line}]" if issue.log_line else ""
+                lines.append(f"    {where}{issue.text}{times}{at_log}")
+                lines.extend("      | " + ln[:200] for ln in issue.context)
             if len(items) > limit:
-                lines.append(f"    ... {len(items) - limit} more (see {res.job.name}.log)")
+                lines.append(f"    ... {len(items) - limit} more (see {log_name})")
         if res.pages is None:
             any_problem = True
             tail = [ln for ln in res.log_text.splitlines() if ln.strip()][-8:]
             if tail:
-                lines.append("  last log lines:")
+                lines.append(f"  last lines of {log_name}:")
                 lines.extend("    " + ln[:200] for ln in tail)
     if lint:
         any_problem = True

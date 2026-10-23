@@ -377,6 +377,37 @@ def test_summary_format():
     assert "BUILD SUMMARY" in clean
 
 
+def test_summary_points_into_latex_log():
+    """Errors carry TeX's own context excerpt and their .log line; the summary names the full log."""
+    log = textwrap.dedent(r"""
+        (./main.tex
+        Some preamble chatter
+        ! Undefined control sequence.
+        l.6 Some text \undefinedmacro
+                                     {here} and more.
+        The control sequence at the end of the top line
+        of your error message was never \def'ed.
+
+        LaTeX Warning: Reference `fig:x' on page 1 undefined on input line 8.
+        )
+    """).lstrip("\n")
+    issues = build_log.parse_log(log)
+    err = [i for i in issues if i.kind == "error"][0]
+    assert err.log_line == 3 and err.where.endswith("main.tex:6")
+    assert err.context == ("! Undefined control sequence.", "l.6 Some text \\undefinedmacro",
+                           "                             {here} and more.")
+    undef = [i for i in issues if i.kind == "undefined"][0]
+    assert undef.log_line == 9
+    # log_line/context don't affect grouping of repeated issues.
+    assert build_log.Issue("error", "x", "f:1", 5, ("a",)) == build_log.Issue("error", "x", "f:1", 99)
+    job = build.Job("main", "main.tex", "paper", "main.tex")
+    s = build.format_summary([build.JobResult(job, passes=1, pages=1, issues=issues)], [], [])
+    assert f"LaTeX log: {os.path.abspath('main.log')}" in s
+    assert "Undefined control sequence.  [main.log:3]" in s
+    assert "      | l.6 Some text \\undefinedmacro" in s
+    assert "[main.log:9]" in s
+
+
 # ---------------------------------------------------------------------------
 # Lint
 

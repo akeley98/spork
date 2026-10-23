@@ -43,7 +43,9 @@ python3 -m code_to_tex.build <doc> --slides <deck> --where fig:dag   # which pag
 ```
 
 Order: copy styles -> `check` (exocc) -> listing generator -> xelatex (reruns until stable).
-Warnings are summarized at the end and never block the build; previews land in `<doc>/preview/`
+Warnings are summarized at the end and never block the build. The summary names each job's full LaTeX log
+(`<doc>/<job>.log`) and points into it as `[main.log:914]`; errors also show TeX's own context excerpt.
+Previews land in `<doc>/preview/`
 (`--figure` PNGs of all steps share one crop box, so movement between steps is visible).
 The viewer copy is the exception: LaTeX errors or undefined references block it, since evince crashes on such PDFs.
 
