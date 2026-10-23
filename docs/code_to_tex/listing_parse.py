@@ -395,10 +395,11 @@ class _Parser:
                     f"(write {CHARS} {_quote(d.text)} to match substrings)"
                 )
             mode = f"{CHARS} " if not whole_word else ""
+            carets = ''.join("^" if i in matches else " " for i in range(len(content.text)))
             raise self.error(
                 d.lineno,
                 f"{mode}{d.text!r} matches {len(matches)} time(s) on line {content.lineno}, "
-                f"expected {count}{hint}",
+                f"expected {count}{hint}\n{content.text}\n{carets}",
             )
         return matches if index is None else [matches[index]]
 

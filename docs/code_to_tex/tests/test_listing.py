@@ -41,11 +41,19 @@ def error(src):
     return info.value
 
 
-def assert_error(src, lineno, pattern):
+def assert_error(src, lineno, pattern, *, carets=None, src_lineno=None):
     e = error(src)
     assert e.lineno == lineno, str(e)
     assert re.search(pattern, e.message), str(e)
     assert str(e) == f"t.py:{lineno}: {e.message}"
+    if carets is not None:
+        # Message should contain verbatim copy of buggy line
+        # and with carets underneath marking error location.
+        assert src_lineno is not None
+        message_lines = [line for line in e.message.split("\n") if line]
+        src_lines = src.split("\n")
+        message_src_line_index = message_lines.index(src_lines[src_lineno - 1])  # ValueError if missing
+        assert message_lines[message_src_line_index + 1] == carets
 
 
 SIMPLE = """
@@ -472,8 +480,17 @@ def test_color_match_count_required():
 
 
 def test_color_wrong_explicit_count():
-    assert_error(colored(['color a green "k" 3:0']), 3, "matches 2 time.*expected 3")
-    assert_error(colored(['color a green "zzz"']), 3, "matches 0 time")
+    srctxt = "C[m, n] += A[m, k] * B[k, n]  # note"
+    carets = "                ^      ^            "
+    assert_error(
+        colored(['color a green "k" 3:0'], line=srctxt),
+        3, "matches 2 time.*expected 3", src_lineno=4, carets=carets
+    )
+    carets = "                                    "
+    assert_error(
+        colored(['color a green "zzz"'], line=srctxt),
+        3, "matches 0 time", src_lineno=4, carets=carets
+    )
 
 
 def test_color_index_and_all():
@@ -876,10 +893,14 @@ def test_chars_mode_matches_substrings():
 
 def test_chars_mode_applies_to_one_match_only():
     line = "accum = m + mm"
+    crts = "        ^     "
     # chars applies to "m" right after it; the following "accum" and "mm" are whole-word again
     src = colored(['color a red chars "m" 4:1 "accum" blue "mm"'], line=line)
     assert dbg(src) == "⟦red:accum⟧ = ⟦red:m⟧ + ⟦blue:mm⟧\n"
-    assert_error(colored(['color a red chars "m" 4:0 "m" 2:0'], line=line), 3, "'m' matches 1 time.*expected 2")
+    assert_error(
+        colored(['color a red chars "m" 4:0 "m" 2:0'], line=line),
+        3, "'m' matches 1 time.*expected 2", src_lineno=4, carets=crts
+    )
 
 
 def test_chars_mode_in_marks():
