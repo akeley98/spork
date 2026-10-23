@@ -400,8 +400,18 @@
   % \sporkExtraSlides: subsequent frame titles in sporkExtraTitleColor ("Extra Slides" appendix).
   \newcommand{\sporkExtraSlides}{\setbeamercolor{frametitle}{fg=sporkExtraTitleColor, bg=}}
 
-  % Bullets: triangles in the title color.
-  \setbeamertemplate{itemize items}[triangle]
+  % Lists: labels in black, as in the paper. (Beamer otherwise colors them with structure = title color.)
+  % Itemize bullets as in article (bullet, bold dash, asterisk); enumerate keeps the compact Beamer default.
+  \setbeamertemplate{itemize item}{\textbullet}
+  \setbeamertemplate{itemize subitem}{\normalfont\bfseries\textendash}
+  \setbeamertemplate{itemize subsubitem}{\textasteriskcentered}
+  \setbeamercolor{itemize item}{fg=black}
+  \setbeamercolor{itemize subitem}{fg=black}
+  \setbeamercolor{itemize subsubitem}{fg=black}
+  \setbeamercolor{enumerate item}{fg=black}
+  \setbeamercolor{enumerate subitem}{fg=black}
+  \setbeamercolor{enumerate subsubitem}{fg=black}
+  \setbeamercolor{description item}{fg=black}
   \setbeamertemplate{enumerate items}[default]
   \setbeamertemplate{sections/subsections in toc}[default]
 
