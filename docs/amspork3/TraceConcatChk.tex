@@ -46,16 +46,16 @@ For $\sporktr_d = \sporkTrPreAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTidPr
     \end{cases}
     \label{eq:concatChk} \\
     \text{where \textsf{isLegal} = }
-    & \textbf{let } \sporktr^*_{\textrm{cat}} = \sporktr^* \sporkConcatRaw \sporktr_d \textbf{ in} \notag \\
+    & \textbf{let } \sporktr^*_\mathrm{cat} = \sporktr^* \sporkConcatRaw \sporktr_d \textbf{ in} \notag \\
     \sporkComment{(newly added vertex)\quad}
     & \textbf{let } \sporkvert_d = (\abs{\sporktr^*}, \sporktr_d) \textbf{ in} \notag \\
     \sporkComment{(mutates and maybe reads at $\sporkx[\sporkz_i^*]$)\quad}
     & \textbf{let } \sporkEnvEff_a = \sporkmutReqs(\sporkmut) \times \{ \sporkx \} \times \{ \sporkz_i^* \} \textbf{ in} \notag \\
     \sporkComment{(all prior matching $\sporkTrPostAccess$...\quad}
-    & \textbf{let } \sporkVPost[s] = \sporktrVPost(\sporktr^*_{\textrm{cat}}, \sporkEnvEff_a) \textbf{ in} \notag \\
+    & \textbf{let } \sporkVPost[s] = \sporktrVPost(\sporktr^*_\mathrm{cat}, \sporkEnvEff_a) \textbf{ in} \notag \\
     \sporkComment{...must have a path to $\sporkvert_d$)\quad}
     & \forall \sporkvPost[s] \in \sporkVPost[s].\quad
-    \sporkvert_d \in \sporktrReach(\sporktr^*_{\textrm{cat}}, \sporkvPost[s])
+    \sporkvert_d \in \sporktrReach(\sporktr^*_\mathrm{cat}, \sporkvPost[s])
 \end{align}
 $\sporktr^* \sporkConcatChk \sporktr_d = \sporktr^* \sporkConcatRaw \sporktr_d$ for all other $\sporktr_d$.
 %% XXX

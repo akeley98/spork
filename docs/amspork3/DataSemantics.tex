@@ -79,8 +79,8 @@
 }\\
 \inferrule*[right=\sporkDInstrSub]{
   % Note, not using \formalParam due to the need to access x_1, x_2 by name
-  \sporkfBehavior = \texttt{def($\sporkx_1$:$\sporkprim_1[\sporkexpr_1^*]$ @ $\sporkmem_1$, $\sporkx_2$:$\sporkprim_2[\sporkexpr_2^*]$ @ $\sporkmem_2, ...$):$\sporks_{\textrm{body}}$} \\
-  \sporks' = \sporkalphaRename(\sporks_{\textrm{body}})[\sporkx_1 \sporkWindowSub \sporkwz_1][\sporkx_2 \sporkWindowSub \sporkwz_2][...]
+  \sporkfBehavior = \texttt{def($\sporkx_1$:$\sporkprim_1[\sporkexpr_1^*]$ @ $\sporkmem_1$, $\sporkx_2$:$\sporkprim_2[\sporkexpr_2^*]$ @ $\sporkmem_2, ...$):$\sporks_\mathrm{body}$} \\
+  \sporks' = \sporkalphaRename(\sporks_\mathrm{body})[\sporkx_1 \sporkWindowSub \sporkwz_1][\sporkx_2 \sporkWindowSub \sporkwz_2][...]
 }
 {
   \sporkRule{\sporkSub{\texttt{$\sporkf$($\sporkwz_1$, $\sporkwz_2, ...$)$\sporkfBarZ$}}{\sporks'}, \sporksigma, \sporktr^*}

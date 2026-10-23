@@ -469,3 +469,32 @@ def lint_figure_text(text: str, filename: str) -> list[Issue]:
         if _FIG_LISTING_RE.search(line) and not absolute_font_seen:
             issues.append(Issue("lint", "figure has \\sporkListing without an absolute font before it (it would follow the host body size; set \\sporkFigFont or \\fontsize first)", where))
     return issues
+
+
+# ---------------------------------------------------------------------------
+# Sub/superscript lint: overlay-aware text commands
+#
+# beamerarticle (loaded by spork_style.tex in the paper) makes \textrm, \textsf, ... overlay-aware, so
+# `x_\textrm{lo}` fails ("Missing { inserted"), and the usual fix `x_{\textrm{lo}}` adds noise braces.
+# \mathrm, \mathsf, \mathtt, ... aren't redefined and work unbraced (fontspec maps them to the document fonts).
+
+_SCRIPT_TEXT_CMDS = {"textrm": "mathrm", "textsf": "mathsf", "texttt": "mathtt", "textbf": "mathbf",
+                     "textit": "mathit", "textmd": "mathrm", "textnormal": "mathrm", "textup": "mathrm",
+                     "textsc": "mathrm", "textsl": "mathit"}
+_SCRIPT_TEXT_RE = re.compile(
+    r"[_^]\s*(?:\\(?P<bare>" + "|".join(_SCRIPT_TEXT_CMDS) + r")(?![A-Za-z])"
+    r"|\{\s*\\(?P<braced>" + "|".join(_SCRIPT_TEXT_CMDS) + r")\{[^{}]*\}\s*\})"
+)
+
+
+def lint_script_text(text: str, filename: str) -> list[Issue]:
+    """Warn about `_\\textrm{..}` (fails with beamerarticle) and `_{\\textrm{..}}` (braces only to work around it)."""
+    issues = []
+    for lineno, raw in enumerate(text.splitlines(), start=1):
+        line = _strip_comment(raw)
+        for m in _SCRIPT_TEXT_RE.finditer(line):
+            cmd = m.group("bare") or m.group("braced")
+            issues.append(Issue("lint", f"sub/superscript \\{cmd}: consider \\{_SCRIPT_TEXT_CMDS[cmd]} "
+                                        "(works unbraced; \\text.. is overlay-aware under beamerarticle)",
+                                f"{filename}:{lineno}"))
+    return issues

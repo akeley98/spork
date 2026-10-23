@@ -452,6 +452,23 @@ def test_lint_figure_host_relative_sizes():
     assert build_log.lint_figure_text(fig.replace("{standalone}", "{beamer}"), "deck.tex") == []
 
 
+def test_lint_script_text_commands():
+    text = textwrap.dedent(r"""
+        $e_\textrm{lo}$ $x^\textsf{pre}$
+        $e_{\textrm{hi}}$ $e_ {\texttt{k1}}$
+        $e_\mathrm{lo}$ $x^\mathsf{pre}$ $e_\text{Llo}$
+        $\sigma|_{\textrm{dom}(\sigma) \setminus X}$
+        % $e_\textrm{commented}$
+        $e_\textrmX{y}$
+    """)
+    issues = build_log.lint_script_text(text, "f.tex")
+    assert [(int(i.where.split(":")[1]), i.text.split(":")[0]) for i in issues] == [
+        (2, "sub/superscript \\textrm"), (2, "sub/superscript \\textsf"),
+        (3, "sub/superscript \\textrm"), (3, "sub/superscript \\texttt"),
+    ]
+    assert "consider \\mathsf" in issues[1].text and "consider \\mathtt" in issues[3].text
+
+
 # ---------------------------------------------------------------------------
 # Aux files: rerun state and --where
 

@@ -677,6 +677,7 @@ def lint_sources(job_names: list[str]) -> list:
             continue
         issues.extend(build_log.lint_overlay_text(text, rel))
         issues.extend(build_log.lint_figure_text(text, rel))
+        issues.extend(build_log.lint_script_text(text, rel))
     return issues
 
 
@@ -725,7 +726,7 @@ def format_summary(results: list[JobResult], lint: list, notes: list[str], strea
         counts: dict = {}
         for issue in lint:
             counts[issue] = counts.get(issue, 0) + 1
-        lines.append(f"Lint (bare overlay specs, host-relative sizes in figures): {len(lint)}")
+        lines.append(f"Lint (bare overlay specs, host-relative sizes in figures, \\text.. in sub/superscripts): {len(lint)}")
         items = list(counts.items())
         for issue, count in items[:15]:
             times = f"  (x{count})" if count > 1 else ""
