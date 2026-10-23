@@ -462,11 +462,10 @@ def test_lint_script_text_commands():
         $e_\textrmX{y}$
     """)
     issues = build_log.lint_script_text(text, "f.tex")
-    assert [(int(i.where.split(":")[1]), i.text.split(":")[0]) for i in issues] == [
-        (2, "sub/superscript \\textrm"), (2, "sub/superscript \\textsf"),
-        (3, "sub/superscript \\textrm"), (3, "sub/superscript \\texttt"),
-    ]
-    assert "consider \\mathsf" in issues[1].text and "consider \\mathtt" in issues[3].text
+    # Only the unbraced form (which doesn't compile) is flagged; braced forms are a style choice.
+    assert [int(i.where.split(":")[1]) for i in issues] == [2, 2]
+    assert "\\textrm fails" in issues[0].text and "consider \\mathrm" in issues[0].text
+    assert "\\textsf fails" in issues[1].text and "consider \\mathsf" in issues[1].text
 
 
 # ---------------------------------------------------------------------------

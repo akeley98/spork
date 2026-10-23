@@ -475,26 +475,25 @@ def lint_figure_text(text: str, filename: str) -> list[Issue]:
 # Sub/superscript lint: overlay-aware text commands
 #
 # beamerarticle (loaded by spork_style.tex in the paper) makes \textrm, \textsf, ... overlay-aware, so
-# `x_\textrm{lo}` fails ("Missing { inserted"), and the usual fix `x_{\textrm{lo}}` adds noise braces.
+# `x_\textrm{lo}` fails ("Missing { inserted"). Only that compile-breaking unbraced form is linted.
 # \mathrm, \mathsf, \mathtt, ... aren't redefined and work unbraced (fontspec maps them to the document fonts).
 
 _SCRIPT_TEXT_CMDS = {"textrm": "mathrm", "textsf": "mathsf", "texttt": "mathtt", "textbf": "mathbf",
                      "textit": "mathit", "textmd": "mathrm", "textnormal": "mathrm", "textup": "mathrm",
                      "textsc": "mathrm", "textsl": "mathit"}
 _SCRIPT_TEXT_RE = re.compile(
-    r"[_^]\s*(?:\\(?P<bare>" + "|".join(_SCRIPT_TEXT_CMDS) + r")(?![A-Za-z])"
-    r"|\{\s*\\(?P<braced>" + "|".join(_SCRIPT_TEXT_CMDS) + r")\{[^{}]*\}\s*\})"
+    r"[_^]\s*\\(?P<cmd>" + "|".join(_SCRIPT_TEXT_CMDS) + r")(?![A-Za-z])"
 )
 
 
 def lint_script_text(text: str, filename: str) -> list[Issue]:
-    """Warn about `_\\textrm{..}` (fails with beamerarticle) and `_{\\textrm{..}}` (braces only to work around it)."""
+    """Warn about unbraced `_\\textrm{..}`, which fails to compile under beamerarticle."""
     issues = []
     for lineno, raw in enumerate(text.splitlines(), start=1):
         line = _strip_comment(raw)
         for m in _SCRIPT_TEXT_RE.finditer(line):
-            cmd = m.group("bare") or m.group("braced")
-            issues.append(Issue("lint", f"sub/superscript \\{cmd}: consider \\{_SCRIPT_TEXT_CMDS[cmd]} "
-                                        "(works unbraced; \\text.. is overlay-aware under beamerarticle)",
+            cmd = m.group("cmd")
+            issues.append(Issue("lint", f"unbraced sub/superscript \\{cmd} fails under beamerarticle "
+                                        f"(\"Missing {{ inserted\"); consider \\{_SCRIPT_TEXT_CMDS[cmd]}",
                                 f"{filename}:{lineno}"))
     return issues

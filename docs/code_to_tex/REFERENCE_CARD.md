@@ -100,7 +100,7 @@ Pitfall: `\begin{frame}{Title}{...}` makes the braced group an (invisible) subti
 7. Single-frame builds use `\sporkOnlyFrame` (set by `--frame`); don't edit `\includeonlyframes`.
 8. Listing marks are `\pgfmark` (not `\tikzmark`) and don't work inside TikZ node text under xelatex.
 9. `\textrm`, `\textsf`, `\texttt`, ... are overlay-aware even in the paper, so `x_\textrm{lo}` fails:
-   write `x_\mathrm{lo}` / `x_\mathsf{pre}` / `x_\mathtt{k1}` (no extra braces; the build lints this).
+   write `x_\mathrm{lo}` / `x_\mathsf{pre}` / `x_\mathtt{k1}`.
 
 ## Code listings
 
