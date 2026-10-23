@@ -12,7 +12,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Optional
 
-from .listing_layout import CODE, MATH, ListingLayout, RenderLine
+from .listing_layout import BACKTICK, CODE, MATH, MONO, ListingLayout, RenderLine
 from .listing_parse import COLOR_MACROS, ELIDE, MarkDirective
 
 ELLIPSIS = "..."
@@ -80,17 +80,31 @@ def tex_mark(mark: MarkDirective) -> str:
 
 
 def _tex_chars(line: RenderLine, run: _Run, marks, in_box: bool) -> str:
+    r"""One run of same-colored characters.  Comment text goes in one
+    ``\sporkComment`` group per run (``\textsf`` in a box, keeping the box
+    colors); backticked text inside it in ``\texttt`` (keeping the comment or
+    box color), closed and reopened around box boundaries; backticks vanish."""
     out = []
-    comment_open = False
+    comment_open = mono_open = False
     for p in range(run.start, run.end):
         if p > run.start:
             out.extend(tex_mark(m) for m in marks.get(p, ()))
         style, c = line.styles[p], line.text[p]
+        if style == BACKTICK:  # not rendered; closes monospace text
+            if mono_open:
+                out.append("}")
+                mono_open = False
+            continue
         if style != CODE and not comment_open:
             # Inside a box keep the box colors; only switch to the comment font.
             out.append(r"\textsf{" if in_box else r"\sporkComment{")
             comment_open = True
+        if (style == MONO) != mono_open:
+            out.append(r"\texttt{" if style == MONO else "}")
+            mono_open = not mono_open
         out.append(c if style == MATH else _TEX_ESCAPES.get(c, c))
+    if mono_open:
+        out.append("}")
     if comment_open:
         out.append("}")
     return "".join(out)

@@ -31,7 +31,7 @@ if True:
     # TeX: begin cpu[4]
     # TeX: color cpu[3:] green "m" "seq"
     for m in seq(0, M):
-      # TeX: color cpu[3:] violet "n" 2:0 "seq"
+      # TeX: color cpu[3:] violet "n" "seq"
       for n in seq(0, N):
         # TeX: color cpu[1] blue "f32"
         # TeX: color cpu[2] blue "@ DRAM"
@@ -40,9 +40,9 @@ if True:
         # TeX: color cpu[3] blue "k" "seq"
         # TeX: color cpu[4] blue "k"
         for k in seq(0, K):
-          # TeX: color cpu[4] green "m" 2:1 violet "n"
+          # TeX: color cpu[4] green "m" violet "n"
           accum += A[m, k] * B[k, n]
-        # TeX: color cpu[4] green "m" 2:0 violet "n"
+        # TeX: color cpu[4] green "m" violet "n"
         C[m, n] = accum
         # TeX: end cpu[4]
 # TeX: end cpu[:4]
@@ -111,7 +111,7 @@ if False:
           for m0 in seq(0, M0):
             # TeX: color loops[1] violet "N0"
             for n0 in seq(0, N0):
-              # Compute dot products
+              # Dot products into `accum`
     # Note: N1/N0 = 16
               # TeX: end loops
               pass
@@ -220,9 +220,9 @@ def nyc25_gemm_ring(M: size, N: size, K: size, A: f32[M, K] @ CudaGmemLinear, B:
         # TeX: color split[0] yellow "war"
         war: barrier[(K/K0 + 3) @ ring_buffer_by(3)] @ CudaMbarrierPreArrive(3)
         # TeX: begin ring[0]
-        # TeX: color ring[0],split[2] green "A_smem" blue "3" 2:1
+        # TeX: color ring[0],split[2] green "A_smem" blue "3"
         A_smem: f32[3, M1, K0] @ CudaSmemLinear  # CUDA shared memory
-        # TeX: color ring[0],split[2] violet "B_smem" blue "3" 2:1
+        # TeX: color ring[0],split[2] violet "B_smem" blue "3"
         B_smem: f32[3, K0, N1] @ CudaSmemLinear  # CUDA shared memory
         # TeX: begin ring[1]
         # TeX: color ring blue "k1"
@@ -233,7 +233,7 @@ def nyc25_gemm_ring(M: size, N: size, K: size, A: f32[M, K] @ CudaGmemLinear, B:
           if k1 < K / K0:
             # TeX: end ring[1]
             # TeX: remark! split[2]
-            # WAR: slot k1 % 3 is free once its old readers arrived
+            # WAR: slot `k1 % 3` is free once its old readers arrived
             # TeX: color split[2] yellow "Await" "war[k1]"
             # TeX: mark split war_await end
             Await(war[k1], cuda_in_order, 0)
@@ -268,8 +268,9 @@ def nyc25_gemm_ring(M: size, N: size, K: size, A: f32[M, K] @ CudaGmemLinear, B:
           # TeX: color ring[1] red "if k1 >= 1"
           if k1 >= 1:
           # TeX: end ring[1]
+            # TeX: color split[1] red "`cp.async`"
             # TeX: remark split[1:]
-            # RAW: wait for the cp.async fill of this slot
+            # RAW: wait for the `cp.async` fill of this slot
             # TeX: color split[1] yellow "Await" "raw[k1]"
             # TeX: mark split raw_await end
             Await(raw[k1], cuda_in_order, 0)

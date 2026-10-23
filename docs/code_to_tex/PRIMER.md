@@ -1,7 +1,8 @@
 # Primer: writing slides (and the paper) in this setup
 
 A walkthrough of the workflow, not of Beamer in general. Terse lookup: [REFERENCE_CARD.md](REFERENCE_CARD.md).
-Everything below exists in working form in [`spork/docs/beamer_nyc25_test/`](../beamer_nyc25_test/); open those files alongside.
+Everything below exists in working form in [`beamer_nyc25_test/`](beamer_nyc25_test/) (in this package); open those files alongside.
+Build it with `cd spork/docs && python3 -m code_to_tex.build code_to_tex/beamer_nyc25_test --slides beamer_nyc25_test --png`.
 
 ## 0. The mental model
 
@@ -88,7 +89,7 @@ Don't use Beamer's own `\only<..>`, `\pause`, `\node<..>`: the build warns, beca
 
 ## 5. A figure
 
-`<doc>/fig_dag.tex` (see [beamer_nyc25_test/fig_dag.tex](../beamer_nyc25_test/fig_dag.tex)):
+`<doc>/fig_dag.tex` (see [beamer_nyc25_test/fig_dag.tex](beamer_nyc25_test/fig_dag.tex)):
 
 ```latex
 \documentclass[beamer,aspectratio=169]{standalone}
@@ -136,6 +137,9 @@ In `<doc>/samples.py`, around real code:
 * `color` colors the next code line: a color word, then the quoted text to match. `3:*` means "exactly 3 matches, color all";
   `2:0` "exactly 2, color the first". With no count, exactly one match is required. If anything is ambiguous, the build stops with
   `samples.py:LINE: ...` rather than guessing.
+* Matching is whole-word: `"m"` finds the loop variable in `for m in seq(0, M):`, not the `m` inside other words.
+  To color part of a word, put `chars` before the text: `green chars "smem"` colors the end of `A_smem`.
+* In comments, `` `accum` `` is set in the code font (the backticks disappear) and `$O(n^2)$` is math; `` `$` `` is a literal dollar.
 * `begin`/`end` with a filter change which lines a version shows, so code can grow from version to version.
   `remark! cpu[2]` + a comment line adds a bold comment that only that version shows; `elide "long text"` replaces text with `...`.
 * Check the result without building TeX: `<doc>/code/cpu.1.dbg` shows version 1 with `⟦blue:size⟧` markers.
@@ -159,7 +163,7 @@ Then, after the listing (which must be in normal text or a minipage, not inside 
 ```
 
 Always go through a `\coordinate` first: `(pic cs:split-x -| b)` silently lands at the page origin.
-Marks need two LaTeX passes; the build does them. Example: [fig_split_marks.tex](../beamer_nyc25_test/fig_split_marks.tex).
+Marks need two LaTeX passes; the build does them. Example: [fig_split_marks.tex](beamer_nyc25_test/fig_split_marks.tex).
 
 ## 8. Reading the build summary
 

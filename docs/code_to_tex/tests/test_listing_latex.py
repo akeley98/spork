@@ -280,3 +280,38 @@ def test_overlong_line_never_wraps(tmp_path, template):
     assert abs(ys["wwwwwwwwww"] - ys["xxxxxxxxxx"]) < 3, ys
     assert ys["short"] > ys["xxxxxxxxxx"] + 8, ys
     assert re.search(r"Overfull \\hbox \(\d", log)
+
+
+DOLLAR_BACKTICK = """\
+# TeX: listing db 1
+# TeX: begin db
+# TeX: color db red "`accum`" blue chars "cc" 2:1 violet "$O(n^2)$"
+# TeX: mark db m chars "B_s"
+x = `q`  # add into `accum` / `acc` / `B_smem`, cost $O(n^2)$ or $f`$, `$5`
+# TeX: color db green "`cp.async`"
+# TeX: remark db
+# RAW: wait for the `cp.async` fill of slot `k1 % 3` ($k_1$)
+# TeX: end db
+"""
+
+
+@needs_poppler
+@pytest.mark.parametrize("template", [PAPER, DECK])
+def test_dollar_backtick_line_compiles(tmp_path, template):
+    """TestDollarBacktickInteractions (test_listing.py), compiled: monospace text,
+    a literal `$5`, math outside backticks, a backtick inside math, a box around a
+    whole backtick region, a box boundary and a mark inside one."""
+    body = r"\sporkListing{db}"
+    if template is DECK:
+        body = r"\begin{frame}[t]{T}" + body + r"\end{frame}"
+    doc = make_doc(tmp_path, body, template, sources=((DOLLAR_BACKTICK, "samples.py"),))
+    _, log = xelatex(doc, passes=2)
+    assert "Missing $ inserted" not in log
+    text = re.sub(r"\s+", " ", page_text(doc, 1))
+    assert "x = `q`" in text  # backticks in code are literal
+    assert "add into accum / acc / B_smem, cost" in text  # comment backticks are not rendered
+    assert "$5" in text  # literal dollar from `$5`
+    assert "`" not in text.split("x = `q`", 1)[1]  # no backtick in comments (the one in $f`$ is math)
+    assert "wait for the cp.async fill of slot k1 % 3" in text
+    aux = (doc / "main.aux").read_text()
+    assert re.search(r"\\savepointas\{db-m(-\d+)?\}", aux)

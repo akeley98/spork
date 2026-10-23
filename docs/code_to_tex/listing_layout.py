@@ -32,8 +32,10 @@ from .listing_parse import (
     RegionDirective,
 )
 
-#: Character classes for `RenderLine.styles`.
-CODE, COMMENT, MATH = "code", "comment", "math"
+#: Character classes for `RenderLine.styles`: code; comment text; ``$...$``
+#: math in a comment (dollars included); text between backticks in a comment
+#: (monospace); the backtick delimiters themselves (not rendered in TeX).
+CODE, COMMENT, MATH, MONO, BACKTICK = "code", "comment", "math", "mono", "backtick"
 
 
 @dataclass(frozen=True)
@@ -199,7 +201,7 @@ class _Layouter:
         for item, kind, bold, text, colors, marks in raw:
             text, colors = text[dedent:], tuple(colors[dedent:])
             marks = tuple(sorted(((max(0, col - dedent), m) for col, m in marks), key=lambda cm: cm[0]))
-            styles = self.char_styles(item, text, colors, marks)
+            styles = self.char_styles(item, text, colors, marks, name, version, dedent)
             lines.append(RenderLine(item, kind, bold, text, colors, styles, marks))
         return lines
 
@@ -240,40 +242,70 @@ class _Layouter:
                 raise self.error(m.lineno, f"mark {m.name!r} is inside elided text in {name}[{version}]")
         return colors, marks
 
-    def char_styles(self, item, text: str, colors: tuple, marks: tuple) -> tuple[str, ...]:
-        """Classify characters as code / comment / math; check math boundaries.
+    def char_styles(self, item, text: str, colors: tuple, marks: tuple, name: str, version: int, dedent: int) -> tuple[str, ...]:
+        """Classify characters as code / comment / math / mono / backtick; check boundaries.
 
-        Comments start at the first ``#`` (naive, as in the legacy script);
-        inside comments ``$...$`` is LaTeX math, passed through unescaped.
+        Comments start at the first ``#`` (naive, as in the legacy script).
+        Inside comments, ``$...$`` is LaTeX math (passed through unescaped)
+        and backticks pair left to right around monospace code text, in which
+        ``$`` is literal.  Whichever delimiter opens first wins: a backtick
+        inside math is a math character, a ``$`` inside backticks is literal.
         """
         styles = []
-        math_regions = []
+        regions = {"$": [], "`": []}  # delimiter -> [(start, end)], end exclusive
         in_comment = False
-        math_start = None
+        open_delim, open_at = None, 0
         for i, c in enumerate(text):
             in_comment = in_comment or c == "#"
-            if in_comment and c == "$":
-                if math_start is None:
-                    math_start = i
+            if not in_comment:
+                styles.append(CODE)
+            elif open_delim is None:
+                if c in regions:
+                    open_delim, open_at = c, i
+                    styles.append(MATH if c == "$" else BACKTICK)
                 else:
-                    math_regions.append((math_start, i + 1))
-                    math_start = None
-                styles.append(MATH)
-            elif math_start is not None:
-                styles.append(MATH)
+                    styles.append(COMMENT)
+            elif c == open_delim:
+                regions[c].append((open_at, i + 1))
+                open_delim = None
+                styles.append(MATH if c == "$" else BACKTICK)
             else:
-                styles.append(COMMENT if in_comment else CODE)
-        if math_start is not None:
+                styles.append(MATH if open_delim == "$" else MONO)
+        if open_delim == "$":
             raise self.error(
                 item.lineno,
-                "unbalanced '$' in comment (text between $...$ in comments is LaTeX math, "
-                "so comments cannot contain a literal '$')",
+                "unbalanced '$' in comment (text between $...$ in comments is LaTeX math; "
+                "write `$` for a literal '$')",
             )
-        for lo, hi in math_regions:
+        if open_delim == "`":
+            raise self.error(
+                item.lineno,
+                "odd number of backticks in comment (text between `...` in comments is monospace code)",
+            )
+        for lo, hi in regions["$"]:
             for p in range(lo + 1, hi):
                 if colors[p - 1] != colors[p]:
                     raise self.error(item.lineno, "a color span starts or ends inside $...$ math")
             for col, m in marks:
                 if lo < col < hi:
                     raise self.error(m.lineno, f"mark {m.name!r} is inside $...$ math")
+        for lo, hi in regions["`"]:
+            # A colored span covers both backticks of a pair or neither (it
+            # may start or end between them, inside the monospace text).
+            first, last = colors[lo], colors[hi - 1]
+            if first != last or (first is not None and any(colors[p] != first for p in range(lo, hi))):
+                culprit = next(
+                    (
+                        a for a in item.annotations
+                        if isinstance(a, ColorDirective) and a.filters.matches(name, version)
+                        and any((s <= lo + dedent < e) != (s <= hi - 1 + dedent < e) for s, e in a.spans)
+                    ),
+                    None,
+                )
+                raise self.error(
+                    culprit.lineno if culprit else item.lineno,
+                    f"in {name}[{version}], a color span on line {item.lineno} contains only one of the "
+                    f"backticks of `{text[lo + 1:hi - 1]}` (color the whole `...` including both backticks, "
+                    "or only text between them)",
+                )
         return tuple(styles)

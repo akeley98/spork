@@ -39,9 +39,11 @@ A line is a **directive** when it starts with exactly `# TeX: `, possibly after 
 The prefix is case-sensitive and has one space after the colon.
 Directive lines never appear in any output.
 The arguments are split like a shell command line (`shlex`): `"quoted text"` is one argument, and backslash escapes work.
-Arguments are recognized by **position and shape**, never by looking up special words:
+Arguments are recognized by **position and shape**:
 the filters are always the first word after the directive name (except for `listing NAME COUNT`),
 and the remaining arguments are told apart by their shape (quoted string, `N:I` count, bare word).
+The only bare words with a meaning of their own are the color names (in `color`), the mark positions and shifts (in `mark`),
+and the match mode `chars`, which is reserved directly before a quoted match text (see [Matching](#matching)).
 
 A line that contains `#` together with `#tex`, `# tex` or `tex:` (any case), but is not a valid directive, gets a warning such as `looks like a mistyped directive`.
 Examples are `#TeX: begin a`, `# tex: begin a` and code ending in `# TeX: ...`.
@@ -79,11 +81,11 @@ Space-separated filters (the old syntax, `begin cpu[0] cpu[1]`) are an error wit
 | `remark FILTERS` / `remark! FILTERS` | the next line is an extra comment line, bold with `!` |
 | `summary` / `summary!` | the next line is a summary line (see below) |
 | `filbreak` | allows a page break here (`\filbreak`) |
-| `color FILTERS COLOR "text" [N:I \| N:*] ["text" ...] [COLOR ...]` | colors text on the next line |
-| `mark FILTERS NAME ["text" [N:I]] [before\|after\|start\|end] [xshift=DIM] [yshift=DIM]` | puts a TikZ mark on the next line |
+| `color FILTERS COLOR [chars] "text" [N:I \| N:*] [[chars] "text" ...] [COLOR ...]` | colors text on the next line |
+| `mark FILTERS NAME [[chars] "text" [N:I]] [before\|after\|start\|end] [xshift=DIM] [yshift=DIM]` | puts a TikZ mark on the next line |
 
 Examples: `begin cpu[:4],reorder_loops[0]`, `end cpu[:4]`, `remark! split[2]`, `mark split raw_await end`,
-`mark cpu[1],cpu[3] accum "accum" after`, `color cpu[3:] violet "n" 2:0 "seq" blue "k"`.
+`mark cpu[1],cpu[3] accum "accum" after`, `color cpu[3:] violet "n" "seq" blue "k"`.
 
 **`begin`/`end`.** Each (listing, version) keeps a counter.
 A matching `begin` increments it and a matching `end` decrements it.
@@ -120,11 +122,12 @@ for ...:                     # shown in "full"; "overview" shows "# ... Load A t
 **`color`** colors text on the *next non-directive line*: a source line, or the text of a `remark`/`summary` when the directive comes before that `remark`/`summary`.
 
 ```python
-# TeX: color cpu[1] blue "size" 3:*     # exactly 3 matches, color all
-# TeX: color cpu[4] green "m" 2:1       # exactly 2 matches, color the second (0-based)
-# TeX: color cpu elide "k1*32 + "       # replace the text with "..."
-# TeX: color cpu[3:] green "m" "seq" violet "n" 2:0   # several colorings in one directive
-accum += ...
+# TeX: color cpu[1] blue "k" 2:*        # exactly 2 matches (whole words), color all
+# TeX: color cpu[4] green "m" violet "n" # the m of A[m, k] and the n of B[k, n] (not the m of accum)
+# TeX: color cpu[2] red chars "cum"     # chars: substring match, here inside the word accum
+# TeX: color cpu[3] blue "k" 2:1        # exactly 2 matches, color the second (0-based)
+# TeX: color cpu[0] elide "k] * B[k"    # replace the text with "..."
+accum += A[m, k] * B[k, n]
 ```
 
 One directive can apply several colorings that share its filters, which saves vertical space:
@@ -133,22 +136,24 @@ One directive can apply several colorings that share its filters, which saves ve
 colorDirective → "# TeX: color" filters coloring+
 filters        → filter ("," filter)*        (one word, no spaces)
 coloring       → colorName match+             (the color word is sticky until the next color word)
-match          → quotedString index?
+match          → mode? quotedString index?
+mode           → "chars"                      (omitted: whole-word matching)
 index          → N ":" I  |  N ":*"           (omitted: exactly 1 match)
 ```
 
 After the filters, each argument is classified by its shape:
 a quoted string is text to color in the current color, `N:I`/`N:*` refines the quoted string *directly* before it,
-and a bare word must be a color name.
+`chars` sets the match mode of the quoted string *directly* after it, and any other bare word must be a color name.
 Errors: an unknown bare word (for example unquoted text), a color name with no quoted string after it,
-quoted text before any color name, and a count that does not directly follow a quoted string.
+quoted text before any color name, a count that does not directly follow a quoted string,
+and `chars` that is not directly followed by a quoted string.
 Each quoted string is matched and checked on its own, exactly as if it had its own `color` directive.
 
 * Colors: `red yellow green blue violet invRed invGold invGreen invBlue invPurple` map to `\sporkRed` ... `\sporkInvPurple`.
   `elide` replaces the span with `...` in comment style.
-* The text must be quoted. Matches are non-overlapping, left to right, on the raw source line.
+* The text must be quoted. Matches are whole-word by default (see [Matching](#matching)), non-overlapping, left to right, on the raw source line.
 * Match counts: without a count, the text must match **exactly once**. `N:I` requires exactly N matches and colors match I. `N:*` requires exactly N matches and colors all of them.
-  A wrong count is an error that tells you how many matches there were.
+  A wrong count is an error that tells you how many matches there were (and how many more occur inside longer words).
 * Any number of `color` directives (and colorings within one directive) may stack on one line:
   * The same character in two different colors (including `elide`) is an error.
   * The same color applied twice does nothing extra.
@@ -163,14 +168,32 @@ Each quoted string is matched and checked on its own, exactly as if it had its o
 # TeX: mark cpu[2:] call "f(" 2:1 yshift=0pt
 ```
 
-* The arguments are positional: filters, then the mark NAME, then the optional quoted text (with its optional `N:I` directly after it);
-  the position word and `xshift=`/`yshift=` follow in any order.
+* The arguments are positional: filters, then the mark NAME, then the optional quoted text (with an optional `chars` directly before it
+  and its optional `N:I` directly after it); the position word and `xshift=`/`yshift=` follow in any order.
+  A mark may be named `chars` (`mark cpu chars chars "cum"` is a mark named `chars` at a substring match).
   A mark cannot be named `before`/`after`/`start`/`end` (that is reported as a missing mark name).
 * With text, the position is `before` (the default) or `after` the match. Match counts work as for `color`, but `N:*` is not allowed.
 * Without text, the position is `start` (the default: before the first non-space character) or `end` (after the last character).
 * `xshift=` and `yshift=` take TeX lengths (`pt mm cm in ex em bp pc sp dd cc`). They **replace** the defaults for this mark (see Marks below).
 * Mark names use `[A-Za-z0-9_]+` and must be unique within each listing version. The same name may sit on different lines in different versions.
-* Errors: a mark inside elided text or inside `$...$` math.
+* Errors: a mark inside elided text or inside `$...$` math. A mark between backticks in a comment is fine.
+
+### Matching
+
+The quoted text of `color` and `mark` is found in the raw source line, exactly as written in `samples.py` (backticks and `$` included).
+
+* **Whole-word (default).** At each end of the text that is a word character (ASCII `[A-Za-z0-9_]`),
+  the neighbouring source character must not be a word character (or the text must be at the line edge).
+  An end that is not a word character imposes nothing.
+  So `"i"` matches the `i` of `i = 1`, `x[i]` and `` `i` ``, but not the one in `if`, `in`, `i1` or `_i`;
+  `"@proc"` only checks the character after the `c`; `"f32[M, K]"` only the one before the `f`;
+  `" + "` is a plain substring match. `$` and the backtick are not word characters.
+* **`chars`** (written directly before one quoted text, for that text only) matches any substring:
+  `color cpu[1] green chars "m" 2:0 "seq"` colors the first `m` of the line even inside a word, and `"seq"` is whole-word again.
+  Use it to color part of an identifier (`green chars "smem"` in `A_smem`).
+* Counts (`N:I`, `N:*`) count matches of the selected mode. A whole-word count error also reports how many occurrences sit inside longer words.
+* The grammar leaves room for more named modes in the same place (`match → mode? quotedString index?`);
+  `chars` is the only one so far.
 
 ### Anti-ambiguity errors
 
@@ -184,6 +207,9 @@ The generator refuses anything that is probably a mistake, rather than guessing:
 * Unknown colors, directives, listings or arguments; unquoted or empty match text; `N:I` out of range or not directly after a quoted string; conflicting colors; duplicate marks.
 * Tab characters in shown lines (expand them to spaces).
 * An unbalanced `$` in a comment, or a color boundary or mark inside `$...$`.
+* An odd number of backticks in a comment, or a color span that contains only one of the two backticks of a pair
+  (see [Comments: math and code](#comments-math-and-code)).
+  Like tabs, these are only checked on lines that some listing version shows (including remark and summary text, and summary placeholders).
 * The legacy syntax (`version`, `color line`) and space-separated filters (`begin a b`, `color a b red "x"`, `mark a b m end`) are rejected with a hint about the new form.
 
 ## Outputs (per listing NAME, in OUTDIR)
@@ -213,12 +239,31 @@ Annotations nest, for example `⟦remark!:# ⟦blue:note⟧⟧`.
 * Each line is `\texttt` in black.
 * Escaped characters: `_ # $ % & { } ~ ^ \`. Spaces become `~`, so indentation survives.
 * Everything from the first `#` on is a comment, set in `\sporkComment` (green sans). Detection is naive: a `#` inside a string also starts a comment.
-* Inside comments, `$...$` passes through as LaTeX math, so a comment cannot contain a literal `$`.
+* Inside comments, `$...$` passes through as LaTeX math and `` `...` `` is set in the code font (see below).
 * Colored spans are `\smash`ed so they do not change line spacing, and their `\fboxsep` padding is cancelled horizontally (with `\kern`) so the text does not move.
 * Each line is an `\hbox`, so it never wraps: an overlong line sticks out into the margin and LaTeX reports `Overfull \hbox` (the build driver lists these warnings).
   Shorten the line in `samples.py`, elide part of it, or use a smaller font.
 * `remark!`/`summary!` lines are bold, and placeholders are italic.
 * Each version is dedented by the smallest indentation among its non-blank lines.
+
+### Comments: math and code
+
+In the comment part of a line (from the first `#`, detected naively as above), and in remark and summary text:
+
+* `$...$` is LaTeX math, passed through unescaped.
+* Backticks pair left to right. The text between a pair is set in `\texttt` (the listing's code font) in the surrounding color:
+  the comment color in plain comment text, the box colors inside a colored box. The backticks themselves are not rendered.
+  Example: ``# accumulate into `accum` `` renders as "# accumulate into" in the comment font followed by `accum` in the code font.
+* Whichever delimiter opens first wins: inside backticks `$` is a literal character (`` `$` `` is how to write a literal `$` in a comment,
+  `` `$5` `` renders `$5` in the code font), and inside `$...$` a backtick is a math character.
+* In code (before the `#`) backticks and `$` are ordinary, escaped characters.
+* Errors (only on lines that are shown): an unbalanced `$`, or an odd number of backticks outside math.
+* Colors and marks match the raw text, delimiters included:
+  * a color span may cover a whole `` `...` `` region (both backticks) or a whole `$...$` region (both dollars);
+  * a color span may start or end *between* backticks (the monospace text is split around the box), but not inside `$...$`;
+  * a color span that contains exactly one backtick of a pair is an error;
+  * a mark may sit between backticks, but not inside `$...$`.
+* The `.txt` and `.dbg` outputs show the source text, backticks and dollars included.
 
 ## LaTeX: `\sporkListing`
 

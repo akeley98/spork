@@ -44,6 +44,11 @@ COLOR_NAMES = tuple(COLOR_MACROS) + (ELIDE,)
 
 MARK_POSITIONS = ("before", "after", "start", "end")
 
+#: Match modes: a bare word written directly before a quoted match text.
+#: Without a mode, matching is whole-word (see `find_matches`).
+CHARS = "chars"
+MATCH_MODES = (CHARS,)
+
 _NAME_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\Z")
 _MARK_NAME_RE = re.compile(r"[A-Za-z0-9_]+\Z")
 _FILTER_RE = re.compile(
@@ -180,6 +185,7 @@ class ColorDirective:
     text: str
     count: int = 1  # number of matches required on the target line
     index: Optional[int] = 0  # which match to color; None = all
+    mode: Optional[str] = None  # match mode (None = whole-word, "chars" = substring)
     spans: tuple[tuple[int, int], ...] = ()  # resolved, raw-line columns
 
 
@@ -194,6 +200,7 @@ class MarkDirective:
     yshift: Optional[str]
     count: int = 1  # number of matches of text required on the target line
     index: int = 0  # which match to mark
+    mode: Optional[str] = None  # match mode, as for ColorDirective
     column: int = 0  # resolved, raw-line column
 
 
@@ -274,13 +281,33 @@ def tokenize(body: str) -> list[Token]:
     return tokens
 
 
-def find_matches(line: str, needle: str) -> list[int]:
-    """Start columns of non-overlapping matches of needle, left to right."""
+def is_word_char(c: str) -> bool:
+    """ASCII word character ``[A-Za-z0-9_]`` (what whole-word matching checks)."""
+    return c == "_" or ("a" <= c <= "z") or ("A" <= c <= "Z") or ("0" <= c <= "9")
+
+
+def find_matches(line: str, needle: str, whole_word: bool = True) -> list[int]:
+    """Start columns of non-overlapping matches of needle, left to right.
+
+    With ``whole_word``, an end of ``needle`` that is a word character must
+    not touch a word character of ``line`` (or must be at the line edge);
+    ends that are not word characters impose nothing.  ``"i"`` matches the
+    ``i`` of ``i = 1`` but not of ``if`` or ``i1``; ``"@proc"`` only checks
+    after the ``c``.  Without it, any substring matches.
+    """
+    check_start = whole_word and is_word_char(needle[0])
+    check_end = whole_word and is_word_char(needle[-1])
     result = []
     pos = line.find(needle)
     while pos >= 0:
+        end = pos + len(needle)
+        if (check_start and pos > 0 and is_word_char(line[pos - 1])) or (
+            check_end and end < len(line) and is_word_char(line[end])
+        ):
+            pos = line.find(needle, pos + 1)
+            continue
         result.append(pos)
-        pos = line.find(needle, pos + len(needle))
+        pos = line.find(needle, end)
     return result
 
 
@@ -355,14 +382,22 @@ class _Parser:
     def select_matches(self, d: Annotation, content: ContentLine) -> list[int]:
         """Check the match count and return the selected match columns."""
         count, index = d.count, d.index
-        matches = find_matches(content.text, d.text)
+        whole_word = d.mode != CHARS
+        matches = find_matches(content.text, d.text, whole_word)
         if len(matches) != count:
             hint = "" if count != 1 or len(matches) < 2 else (
                 f"; add N:I (e.g. {len(matches)}:0) to pick one match or N:* to use all"
             )
+            inside = len(find_matches(content.text, d.text, whole_word=False)) - len(matches) if whole_word else 0
+            if inside > 0:
+                hint += (
+                    f"; matching is whole-word, and {inside} more occurrence(s) are inside longer words "
+                    f"(write {CHARS} {_quote(d.text)} to match substrings)"
+                )
+            mode = f"{CHARS} " if not whole_word else ""
             raise self.error(
                 d.lineno,
-                f"{d.text!r} matches {len(matches)} time(s) on line {content.lineno}, "
+                f"{mode}{d.text!r} matches {len(matches)} time(s) on line {content.lineno}, "
                 f"expected {count}{hint}",
             )
         return matches if index is None else [matches[index]]
@@ -501,7 +536,7 @@ class _Parser:
             try:
                 filters.append(parse_filter(part, self.listings))
             except ValueError:
-                if part in COLOR_NAMES or part in MARK_POSITIONS:
+                if part in COLOR_NAMES or part in MARK_POSITIONS or part in MATCH_MODES:
                     raise ValueError(f"{usage}; got {part!r}") from None
                 raise
         return FilterList(tuple(filters))
@@ -533,13 +568,21 @@ class _Parser:
             raise ValueError(f"bad match count {token.value!r}: need N >= 1 and 0 <= I < N")
         return n, i
 
+    @staticmethod
+    def check_mode(mode: Optional[str], following: Optional[Token]) -> None:
+        """A match mode word must be directly followed by a quoted string."""
+        if mode is not None and (following is None or not following.quoted):
+            got = "nothing" if following is None else repr(following.value)
+            raise ValueError(f"match mode {mode!r} must be directly followed by a quoted string (got {got})")
+
     def parse_color(self, lineno: int, args: list[Token]) -> list[ColorDirective]:
-        """``color FILTERS (COLOR "text" [N:I|N:*] ...)+`` -> one directive per match.
+        """``color FILTERS (COLOR ([MODE] "text" [N:I|N:*])+)+`` -> one directive per match.
 
         After the filter word, tokens are classified by shape: a quoted string
         is text to match (in the current color), ``N:I``/``N:*`` refines the
-        quoted string just before it, and a bare word must be a color name,
-        which stays in effect until the next color name.
+        quoted string just before it, a match mode word (``chars``) applies to
+        the quoted string just after it, and any other bare word must be a
+        color name, which stays in effect until the next color name.
         """
         if args and args[0].value == "line" and not args[0].quoted and "line" not in self.listings:
             raise ValueError("legacy 'color line' syntax is not supported; use: color FILTERS COLOR \"text\" [N:I|N:*]")
@@ -548,14 +591,20 @@ class _Parser:
         color: Optional[str] = None
         color_used = True  # has the current color word got a match yet?
         prev: Optional[Token] = None
+        mode: Optional[str] = None  # match mode word just read, applies to the next token
         for pos, t in enumerate(args[1:]):
+            self.check_mode(mode, t)
             if t.quoted:
                 if color is None:
                     raise ValueError(f"quoted text {t.value!r} before any color name (expected: color FILTERS COLOR \"text\" ...)")
                 if not t.value:
                     raise ValueError("empty text to color")
-                result.append(ColorDirective(lineno, filters, color, t.value))
-                color_used = True
+                result.append(ColorDirective(lineno, filters, color, t.value, mode=mode))
+                color_used, mode = True, None
+            elif t.value in MATCH_MODES:
+                if color is None:
+                    raise ValueError(f"match mode {t.value!r} before any color name (expected: color FILTERS COLOR {t.value} \"text\" ...)")
+                mode = t.value
             elif _COUNT_RE.match(t.value) or re.match(r"\d+:", t.value):
                 if prev is None or not prev.quoted:
                     after = "the filters" if prev is None else repr(prev.value)
@@ -570,6 +619,7 @@ class _Parser:
             else:
                 raise ValueError(self.unknown_color_word(args[: pos + 2], color))
             prev = t
+        self.check_mode(mode, None)
         if color is None:
             raise ValueError(f"'color' needs a color name after the filters (one of: {', '.join(COLOR_NAMES)})")
         if not color_used:
@@ -579,7 +629,10 @@ class _Parser:
     def unknown_color_word(self, args: list[Token], color: Optional[str]) -> str:
         """Error message for the bare word ``args[-1]`` (``args[0]`` = filters)."""
         t = args[-1]
-        message = f"unknown word {t.value!r} in 'color' (expected a color name, a quoted string, or N:I / N:* after a quoted string)"
+        message = (
+            f"unknown word {t.value!r} in 'color' (expected a color name, a quoted string, "
+            f"{' / '.join(MATCH_MODES)} before a quoted string, or N:I / N:* after a quoted string)"
+        )
         if color is None:
             hint = self.comma_hint(args) if self.looks_like_filter(t) else None
             if hint:
@@ -590,7 +643,7 @@ class _Parser:
     # -- mark ----------------------------------------------------------------
 
     def parse_mark(self, lineno: int, args: list[Token]) -> MarkDirective:
-        usage = "expected 'mark FILTERS NAME [\"text\" [N:I]] [before|after|start|end] [xshift=DIM] [yshift=DIM]'"
+        usage = "expected 'mark FILTERS NAME [[chars] \"text\" [N:I]] [before|after|start|end] [xshift=DIM] [yshift=DIM]'"
         filters = self.parse_filters(args, "mark")
         if len(args) < 2 or args[1].quoted:
             raise ValueError(f"missing mark name; {usage}")
@@ -601,7 +654,10 @@ class _Parser:
             hint = self.comma_hint(args) if self.looks_like_filter(args[1]) else None
             raise ValueError(f"bad mark name {name!r} (use letters, digits, underscores)" + (f"; {hint}" if hint else ""))
         tail = args[2:]
-        text, count, index = None, 1, 0
+        text, count, index, mode = None, 1, 0, None
+        if tail and not tail[0].quoted and tail[0].value in MATCH_MODES:
+            mode = tail.pop(0).value
+            self.check_mode(mode, tail[0] if tail else None)
         if tail and tail[0].quoted:
             text = tail.pop(0).value
             if not text:
@@ -644,7 +700,12 @@ class _Parser:
             position = position or "before"
             if position not in ("before", "after"):
                 raise ValueError(f"mark position '{position}' cannot be combined with text (use before/after)")
-        return MarkDirective(lineno, filters, name, text, position, xshift, yshift, count, index)
+        return MarkDirective(lineno, filters, name, text, position, xshift, yshift, count, index, mode)
+
+
+def _quote(text: str) -> str:
+    """``text`` as a double-quoted directive argument."""
+    return '"' + text.replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
 def _directive_name(d: Annotation) -> str:

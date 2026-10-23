@@ -465,22 +465,22 @@ def test_color_single_match():
 
 
 def test_color_match_count_required():
-    e = error(colored(['color a green "m"']))
+    e = error(colored(['color a green "k"']))
     assert e.lineno == 3
     assert "matches 2 time(s) on line 4, expected 1" in e.message
     assert "2:0" in e.message  # hint
 
 
 def test_color_wrong_explicit_count():
-    assert_error(colored(['color a green "m" 3:0']), 3, "matches 2 time.*expected 3")
+    assert_error(colored(['color a green "k" 3:0']), 3, "matches 2 time.*expected 3")
     assert_error(colored(['color a green "zzz"']), 3, "matches 0 time")
 
 
 def test_color_index_and_all():
-    assert dbg(colored(['color a green "m" 2:1'])) == "accu⟦green:m⟧ += A[m, k] * B[k, n]  # note\n".replace(
+    assert dbg(colored(['color a green chars "m" 2:1'])) == "accu⟦green:m⟧ += A[m, k] * B[k, n]  # note\n".replace(
         "accu⟦green:m⟧ += A[m", "accum += A[⟦green:m⟧"
     )
-    assert dbg(colored(['color a green "m" 2:0'])) == "accu⟦green:m⟧ += A[m, k] * B[k, n]  # note\n"
+    assert dbg(colored(['color a green chars "m" 2:0'])) == "accu⟦green:m⟧ += A[m, k] * B[k, n]  # note\n"
     assert dbg(colored(['color a red "k" 2:*'])) == "accum += A[m, ⟦red:k⟧] * B[⟦red:k⟧, n]  # note\n"
 
 
@@ -500,7 +500,7 @@ def test_color_bad_count(spec, pattern):
 
 def test_color_matches_are_non_overlapping():
     # "aa" in "aaaa" matches twice (columns 0 and 2), not three times.
-    assert dbg(colored(['color a red "aa" 2:1'], line="aaaa")) == "aa⟦red:aa⟧\n"
+    assert dbg(colored(['color a red chars "aa" 2:1'], line="aaaa")) == "aa⟦red:aa⟧\n"
 
 
 def test_color_syntax_errors():
@@ -527,16 +527,16 @@ def test_same_color_twice_is_noop_and_spans_merge():
     assert out["a.0.dbg"] == "⟦red:accum +=⟧ 1\n"
     assert out["a.tex"].count(r"\sporkListingBox") == 1
     # overlapping same-color spans merge too
-    out = render(colored(['color a red "accu"', 'color a red "cum +"'], line="accum += 1"))
+    out = render(colored(['color a red chars "accu"', 'color a red chars "cum +"'], line="accum += 1"))
     assert out["a.0.dbg"] == "⟦red:accum +⟧= 1\n"
 
 
 def test_adjacent_different_colors_stay_separate():
-    assert dbg(colored(['color a red "ab"', 'color a blue "cd"'], line="abcd")) == "⟦red:ab⟧⟦blue:cd⟧\n"
+    assert dbg(colored(['color a red chars "ab"', 'color a blue chars "cd"'], line="abcd")) == "⟦red:ab⟧⟦blue:cd⟧\n"
 
 
 def test_conflicting_colors():
-    e = error(colored(['color a red "accum"', 'color a blue "cum +"']))
+    e = error(colored(['color a red "accum"', 'color a blue chars "cum +"']))
     assert e.lineno == 4
     assert "conflicting colors in a[0]" in e.message
     assert "line 3" in e.message
@@ -560,7 +560,7 @@ def test_elide():
 
 
 def test_adjacent_elides_merge():
-    out = render(colored(['color a elide "ab"', 'color a elide "cd"'], line="xabcdx"))
+    out = render(colored(['color a elide chars "ab"', 'color a elide chars "cd"'], line="xabcdx"))
     assert out["a.0.txt"] == "x...x\n"
 
 
@@ -681,24 +681,24 @@ def test_colors_stack_on_one_line():
 
 def test_multi_color_directive_sticky_colors():
     # color words are sticky until the next color word; N:I applies to the string just before it
-    src = colored(['color a red "accum" "A" green "m" 2:1 "B" elide "  # note"'])
+    src = colored(['color a red "accum" "A" green chars "m" 2:1 "B" elide "  # note"'])
     assert dbg(src) == "⟦red:accum⟧ += ⟦red:A⟧[⟦green:m⟧, k] * ⟦green:B⟧[k, n]⟦elide:  # note⟧\n"
     assert dbg(src) == dbg(colored(
-        ['color a red "accum"', 'color a red "A"', 'color a green "m" 2:1', 'color a green "B"', 'color a elide "  # note"']
+        ['color a red "accum"', 'color a red "A"', 'color a green chars "m" 2:1', 'color a green "B"', 'color a elide "  # note"']
     ))
 
 
 def test_multi_color_directive_counts_and_merging():
     src = colored(['color a violet "k" 2:* "n]" blue "accum" " +="'])
     assert dbg(src) == "⟦blue:accum +=⟧ A[m, ⟦violet:k⟧] * B[⟦violet:k⟧, ⟦violet:n]⟧  # note\n"
-    # each quoted string is checked on its own: "m" alone is ambiguous
-    e = error(colored(['color a red "accum" "m"']))
-    assert e.lineno == 3 and "'m' matches 2 time(s)" in e.message
+    # each quoted string is checked on its own: "k" alone is ambiguous
+    e = error(colored(['color a red "accum" "k"']))
+    assert e.lineno == 3 and "'k' matches 2 time(s)" in e.message
 
 
 def test_multi_color_directive_conflict_within_one_directive():
     assert_error(
-        colored(['color a red "accum" blue "cum"']), 3,
+        colored(['color a red "accum" blue chars "cum"']), 3,
         r"red here \('accum'\) but blue \('cum'\) by the directive on line 3|blue here \('cum'\) but red \('accum'\)",
     )
     # the same color twice in one directive is a no-op
@@ -805,6 +805,119 @@ def test_old_space_separated_filters_get_a_hint(directive, pattern):
 
 
 # ---------------------------------------------------------------------------
+# Whole-word matching (default) and the `chars` match mode
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "line, expected",
+    [
+        ("i = 1", "⟦red:i⟧ = 1"),
+        ("if i in xs:", "if ⟦red:i⟧ in xs:"),  # not the i of "if" / "in"
+        ("i1 = i", "i1 = ⟦red:i⟧"),  # not the i of "i1"
+        ("x[i]", "x[⟦red:i⟧]"),  # punctuation neighbours are fine
+        ("(i)", "(⟦red:i⟧)"),
+        ("$i$", "$⟦red:i⟧$"),  # $ is not a word character
+        ("`i`", "`⟦red:i⟧`"),  # nor is the backtick
+        ("_i i", "_i ⟦red:i⟧"),  # _ is a word character
+        ("ïi", "ï⟦red:i⟧"),  # word characters are ASCII only: ï is a boundary
+    ],
+)
+def test_whole_word_single_letter(line, expected):
+    assert dbg(colored(['color a red "i"'], line=line)) == expected + "\n"
+
+
+@pytest.mark.parametrize("line", ["if x:", "for n in xs:", "i1 = 2", "xi = 3", "_i = 4", "i0i = 5"])
+def test_whole_word_no_match_inside_words(line):
+    e = error(colored(['color a red "i"'], line=line))
+    assert "matches 0 time(s)" in e.message
+    # the error points at chars
+    assert 'occurrence(s) are inside longer words (write chars "i" to match substrings)' in e.message
+
+
+def test_whole_word_only_checks_word_character_ends():
+    # "@proc": only the end after "c" is checked, so "x@proc" matches but "@procs" does not.
+    assert dbg(colored(['color a blue "@proc"'], line="x@proc")) == "x⟦blue:@proc⟧\n"
+    assert_error(colored(['color a blue "@proc"'], line="@procs"), 3, "matches 0 time")
+    # "f32[M, K]": only the start before "f" is checked.
+    assert dbg(colored(['color a blue "f32[M, K]"'], line="A: f32[M, K]x")) == "A: ⟦blue:f32[M, K]⟧x\n"
+    assert_error(colored(['color a blue "f32[M, K]"'], line="xf32[M, K]"), 3, "matches 0 time")
+    # Both ends non-word: a pure substring match.
+    assert dbg(colored(['color a blue " + "'], line="a + b")) == "a⟦blue: + ⟧b\n"
+    assert dbg(colored(['color a blue "+"'], line="a+b")) == "a⟦blue:+⟧b\n"
+
+
+def test_whole_word_counts_count_whole_words():
+    # n occurs in "for", "n", "in", "N": only one whole word
+    line = "for n in seq(0, N):"
+    assert dbg(colored(['color a violet "n"'], line=line)) == "for ⟦violet:n⟧ in seq(0, N):\n"
+    e = error(colored(['color a violet "n" 2:0'], line=line))
+    assert "'n' matches 1 time(s) on line 4, expected 2" in e.message
+    assert "1 more occurrence(s) are inside longer words" in e.message
+    assert dbg(colored(['color a red "k" 2:*'])) == "accum += A[m, ⟦red:k⟧] * B[⟦red:k⟧, n]  # note\n"
+
+
+def test_whole_word_skips_rejected_candidates_one_char_at_a_time():
+    # The rejected "ab" of "abab" must not hide the whole-word "ab" that overlaps it.
+    assert dbg(colored(['color a red "ab"'], line="aab ab")) == "aab ⟦red:ab⟧\n"
+    assert dbg(colored(['color a red "aa"'], line="aaa aa")) == "aaa ⟦red:aa⟧\n"
+
+
+def test_chars_mode_matches_substrings():
+    line = "for n in seq(0, N):"
+    assert dbg(colored(['color a violet chars "n" 2:0'], line=line)) == "for ⟦violet:n⟧ in seq(0, N):\n"
+    assert dbg(colored(['color a violet chars "n" 2:1'], line=line)) == "for n i⟦violet:n⟧ seq(0, N):\n"
+    # coloring part of an identifier
+    assert dbg(colored(['color a green chars "smem"'], line="A_smem = 0")) == "A_⟦green:smem⟧ = 0\n"
+    e = error(colored(['color a green chars "n"'], line=line))
+    assert e.message.startswith("chars 'n' matches 2 time(s)")
+    assert "inside longer words" not in e.message
+
+
+def test_chars_mode_applies_to_one_match_only():
+    line = "accum = m + mm"
+    # chars applies to "m" right after it; the following "accum" and "mm" are whole-word again
+    src = colored(['color a red chars "m" 4:1 "accum" blue "mm"'], line=line)
+    assert dbg(src) == "⟦red:accum⟧ = ⟦red:m⟧ + ⟦blue:mm⟧\n"
+    assert_error(colored(['color a red chars "m" 4:0 "m" 2:0'], line=line), 3, "'m' matches 1 time.*expected 2")
+
+
+def test_chars_mode_in_marks():
+    line = "accum = 0"
+    assert dbg(colored(['mark a x chars "cum"'], line=line)) == "ac⟦@x⟧cum = 0\n"
+    assert dbg(colored(['mark a x chars "cu" after yshift=0pt'], line=line)) == "accu⟦@x yshift=0pt⟧m = 0\n"
+    assert_error(colored(['mark a x "cum"'], line=line), 3, "matches 0 time.*write chars \"cum\"")
+    # a mark named "chars" is fine: the mark name is positional
+    assert dbg(colored(['mark a chars "accum" after'], line=line)) == "accum⟦@chars⟧ = 0\n"
+    assert dbg(colored(['mark a chars chars "cum"'], line=line)) == "ac⟦@chars⟧cum = 0\n"
+
+
+@pytest.mark.parametrize(
+    "directive, pattern",
+    [
+        ('color a red chars', "match mode 'chars' must be directly followed by a quoted string \\(got nothing\\)"),
+        ('color a red chars blue "x"', "match mode 'chars' must be directly followed by a quoted string \\(got 'blue'\\)"),
+        ('color a red chars chars "x"', "must be directly followed by a quoted string \\(got 'chars'\\)"),
+        ('color a red chars 2:0 "x"', "must be directly followed by a quoted string \\(got '2:0'\\)"),
+        ('color a red "accum" chars', "got nothing"),
+        ('color a chars "accum"', "match mode 'chars' before any color name"),
+        ('color a red "accum" 1:0 chars', "got nothing"),
+        ('color a red "chars"', "matches 0 time"),  # quoted, it is just text
+        ('mark a m chars', "match mode 'chars' must be directly followed by a quoted string \\(got nothing\\)"),
+        ('mark a m chars end', "must be directly followed by a quoted string \\(got 'end'\\)"),
+        ('mark a m "accum" chars', "unexpected mark argument 'chars'"),
+        ('color chars red "x"', "needs filters as its first argument.*got 'chars'"),
+    ],
+)
+def test_chars_mode_errors(directive, pattern):
+    assert_error(colored([directive]), 3, pattern)
+
+
+def test_unknown_word_error_mentions_chars():
+    assert_error(colored(['color a red substr "accum"']), 3, "unknown word 'substr'.*chars before a quoted string")
+
+
+# ---------------------------------------------------------------------------
 # mark
 # ---------------------------------------------------------------------------
 
@@ -833,7 +946,7 @@ def test_mark_tex_and_shifts():
 
 
 def test_mark_at_box_boundary_is_outside_box_and_inside_otherwise():
-    t = tex(colored(['color a blue "accum"', 'mark a x "accum"', 'mark a y "accum" after', 'mark a z "cum"'], line="accum = 0"))
+    t = tex(colored(['color a blue "accum"', 'mark a x "accum"', 'mark a y "accum" after', 'mark a z chars "cum"'], line="accum = 0"))
     assert (
         r"\sporkListingMark{x}{}{}\sporkListingBox{\sporkBlue}{ac\sporkListingMark{z}{}{}cum}\sporkListingMark{y}{}{}~=~0"
         in t
@@ -887,7 +1000,7 @@ def test_duplicate_mark_in_one_version():
 
 
 def test_mark_inside_elide():
-    assert_error(colored(['color a elide "accum"', 'mark a m "cum"']), 4, "inside elided text")
+    assert_error(colored(['color a elide "accum"', 'mark a m chars "cum"']), 4, "inside elided text")
     # at the boundary it is fine
     assert dbg(colored(['color a elide "accum"', 'mark a m "accum" after'])).startswith("⟦elide:accum⟧⟦@m⟧")
 
@@ -945,6 +1058,231 @@ def test_color_boundary_inside_math():
 
 def test_mark_inside_math():
     assert_error(colored(['mark a m "n"'], line="x  # $O(n)$"), 3, "inside \\$...\\$ math")
+
+
+# ---------------------------------------------------------------------------
+# Backticks in comments, and how they interact with $...$ math
+# ---------------------------------------------------------------------------
+
+
+def tex_variant(src, v=0):
+    """The TeX of the single row's variant for version v (one-line listings)."""
+    m = re.search(r"\\sporkListingVariant\{[0-9,]*\b%d\b[0-9,]*\}\{(.*)\}%%\n" % v, tex(src))
+    assert m, tex(src)
+    return m[1]
+
+
+ODD_BACKTICK_SOURCE = """\
+# TeX: listing a 2
+# TeX: begin a
+x = 1  # see `x`
+# TeX: remark a[1]
+# remark with an odd ` backtick
+# TeX: end a
+# a lone ` backtick in a comment that no listing shows
+# TeX: begin a[0]
+# TeX: summary
+# summary with an odd ` backtick
+y = 2  # lone ` backtick, shown in a[0] only
+# TeX: end a[0]
+"""
+
+
+class TestDollarBacktickInteractions:
+    """Comment text: `$...$` is math, `` `...` `` is monospace, whichever opens first wins.
+
+    Matching (color/mark) always runs on the raw source text, backticks and dollars included.
+    """
+
+    # -- rendering ---------------------------------------------------------
+
+    def test_backticks_render_as_texttt_without_the_backticks(self):
+        assert tex_variant(colored([], line="x = 1  # into `accum` now")) == (
+            r"x~=~1~~\sporkComment{\#~into~\texttt{accum}~now}"
+        )
+
+    def test_backtick_dollar_is_a_literal_dollar(self):
+        assert tex_variant(colored([], line="x  # costs `$5`")) == r"x~~\sporkComment{\#~costs~\texttt{\$5}}"
+        # several dollars, and a lone one, inside backticks: all literal, no "unbalanced $"
+        assert tex_variant(colored([], line="x  # `$a$` `$`")) == r"x~~\sporkComment{\#~\texttt{\$a\$}~\texttt{\$}}"
+
+    def test_math_outside_backticks_stays_math(self):
+        assert tex_variant(colored([], line="x  # $O(n^2)$ for `n_i`")) == (
+            r"x~~\sporkComment{\#~$O(n^2)$~for~\texttt{n\_i}}"
+        )
+
+    def test_backtick_inside_math_is_a_math_character(self):
+        # $ opens first, so the backtick is part of the math (passed to TeX as is),
+        # and does not count toward the backtick pairing
+        assert tex_variant(colored([], line="x  # $f`$ and `y`")) == r"x~~\sporkComment{\#~$f`$~and~\texttt{y}}"
+
+    def test_backticks_in_code_are_literal(self):
+        # not in a comment: untouched, and an odd number is fine
+        assert tex_variant(colored([], line="s = `a` + `")) == "s~=~`a`~+~`"
+
+    def test_unbalanced_dollar_still_an_error_and_suggests_backticks(self):
+        assert_error(colored([], line="x  # costs $5"), 3, "unbalanced '\\$'.*write `\\$` for a literal")
+
+    # -- colors and marks vs backticks ----------------------------------------
+
+    def test_color_covering_whole_backtick_region(self):
+        src = colored(['color a red "`accum`"'], line="x  # into `accum`")
+        assert dbg(src) == "x  # into ⟦red:`accum`⟧\n"
+        assert tex_variant(src) == r"x~~\sporkComment{\#~into~}\sporkListingBox{\sporkRed}{\textsf{\texttt{accum}}}"
+
+    def test_color_inside_backtick_region_whole_word(self):
+        # the backtick is not a word character: "accum" matches between backticks
+        src = colored(['color a red "accum"'], line="x  # into `accum` now")
+        assert tex_variant(src) == (
+            r"x~~\sporkComment{\#~into~}\sporkListingBox{\sporkRed}{\textsf{\texttt{accum}}}\sporkComment{~now}"
+        )
+
+    def test_color_boundary_inside_backtick_region_is_allowed(self):
+        src = colored(['color a red chars "cum"'], line="x  # `accum`")
+        assert dbg(src) == "x  # `ac⟦red:cum⟧`\n"
+        assert tex_variant(src) == (
+            r"x~~\sporkComment{\#~\texttt{ac}}\sporkListingBox{\sporkRed}{\textsf{\texttt{cum}}}"
+        )
+
+    def test_elide_inside_backtick_region(self):
+        src = colored(['color a elide chars "ccu"'], line="x  # `accum`")
+        assert tex_variant(src) == r"x~~\sporkComment{\#~\texttt{a}}\sporkComment{...}\sporkComment{\texttt{m}}"
+
+    @pytest.mark.parametrize(
+        "match",
+        [
+            'chars "`acc"',  # opening backtick only
+            '"accum`"',  # closing backtick only
+            '"# `accum"',
+            'chars "m` and `b"',  # closing of one pair, opening of the next
+        ],
+    )
+    def test_match_containing_exactly_one_backtick_is_an_error(self, match):
+        assert_error(
+            colored([f"color a red {match}"], line="x  # `accum` and `b`"), 3,
+            r"in a\[0\], a color span on line 4 contains only one of the backticks of `(accum|b)`",
+        )
+
+    def test_backticks_colored_but_not_the_text_between_is_an_error(self):
+        # both backticks red but the text between blue: the red boxes would hold only a backtick each
+        src = colored(['color a red chars "`" 2:* blue "accum"'], line="x  # `accum`")
+        assert_error(src, 3, "contains only one of the backticks of `accum`")
+
+    def test_two_same_color_spans_covering_a_region_merge(self):
+        src = colored(['color a red chars "`ac" chars "cum`"'], line="x  # `accum`")
+        assert dbg(src) == "x  # ⟦red:`accum`⟧\n"
+
+    def test_marks_inside_backtick_region_are_fine(self):
+        src = colored(['mark a m chars "cum"', 'mark a b "`accum`"', 'mark a e "`accum`" after'], line="x  # `accum`")
+        assert dbg(src) == "x  # ⟦@b⟧`ac⟦@m⟧cum`⟦@e⟧\n"
+        assert tex_variant(src) == (
+            r"x~~\sporkComment{\#~\sporkListingMark{b}{}{}\texttt{ac\sporkListingMark{m}{}{}cum}}\sporkListingMark{e}{}{}"
+        )
+
+    # -- colors and marks vs math (unchanged rules) ---------------------------
+
+    def test_color_boundary_inside_math_is_an_error(self):
+        assert_error(colored(['color a red "n^"'], line="x  # $O(n^2)$"), 4, "inside \\$...\\$ math")
+
+    def test_mark_inside_math_is_an_error(self):
+        assert_error(colored(['mark a m "n"'], line="x  # $O(n)$"), 3, "inside \\$...\\$ math")
+
+    def test_whole_math_region_colored_is_fine(self):
+        src = colored(['color a red "$O(n^2)$"'], line="x  # $O(n^2)$")
+        assert dbg(src) == "x  # ⟦red:$O(n^2)$⟧\n"
+        assert tex_variant(src) == r"x~~\sporkComment{\#~}\sporkListingBox{\sporkRed}{\textsf{$O(n^2)$}}"
+
+    def test_dollar_in_backticks_does_not_create_a_math_region(self):
+        # the $ in `$` is literal, so a color boundary next to it is not "inside math"
+        src = colored(['color a red chars "a$"'], line="x  # `a$b`")
+        assert dbg(src) == "x  # `⟦red:a$⟧b`\n"
+
+    # -- odd number of backticks: an error only where the line is shown ---------
+
+    def test_odd_backticks_in_unshown_lines_are_fine(self):
+        # Line 7 is outside every region, and the summary (line 10) is not shown in a[1]
+        # (a trailing placeholder is dropped); fix only the lines that are shown somewhere.
+        src = (
+            ODD_BACKTICK_SOURCE.replace("# remark with an odd ` backtick", "# remark with `even` backticks")
+            .replace("y = 2  # lone ` backtick, shown in a[0] only", "y = 2")
+            .replace("# summary with an odd ` backtick", "# summary with `even` backticks")
+        )
+        out = render(src)
+        assert out["a.0.txt"] == "x = 1  # see `x`\n# summary with `even` backticks\ny = 2\n"
+        assert out["a.1.txt"] == "x = 1  # see `x`\n# remark with `even` backticks\n"
+
+    def test_odd_backticks_outside_every_region_generate_fine(self, tmp_path):
+        src = tmp_path / "s.py"
+        src.write_text(
+            "# TeX: listing a 1\n"
+            "# a lone ` backtick in a comment that no listing shows\n"
+            "# TeX: begin a\n"
+            "x = 1  # see `x`\n"
+            "# TeX: end a\n"
+            "# and another one ` here\n"
+        )
+        generate(str(src), str(tmp_path / "code"))
+        assert (tmp_path / "code" / "a.0.txt").read_text() == "x = 1  # see `x`\n"
+
+    def test_odd_backticks_in_shown_line_is_an_error(self, tmp_path):
+        src = tmp_path / "s.py"
+        src.write_text(
+            "# TeX: listing a 1\n"
+            "# TeX: begin a\n"
+            "x = 1  # see `x\n"
+            "# TeX: end a\n"
+        )
+        with pytest.raises(ListingError) as info:
+            generate(str(src), str(tmp_path / "code"))
+        assert str(info.value) == (
+            f"{src}:3: odd number of backticks in comment (text between `...` in comments is monospace code)"
+        )
+
+    @pytest.mark.parametrize(
+        "fix, lineno",
+        [
+            ("remark", 5),  # remark text shown in a[1]
+            ("summary", 10),  # summary text shown as a line in a[0]
+            ("code", 11),  # comment of a code line shown in a[0]
+        ],
+    )
+    def test_odd_backticks_in_shown_remark_summary_and_code_lines(self, fix, lineno):
+        # Start from ODD_BACKTICK_SOURCE, fix the two other shown lines, keep the one under test odd.
+        src = ODD_BACKTICK_SOURCE
+        fixes = {
+            "remark": ("# remark with an odd ` backtick", "# remark with `even` backticks"),
+            "summary": ("# summary with an odd ` backtick", "# summary with `even` backticks"),
+            "code": ("y = 2  # lone ` backtick, shown in a[0] only", "y = 2"),
+        }
+        for name, (old, new) in fixes.items():
+            if name != fix:
+                src = src.replace(old, new)
+        assert_error(src, lineno, "odd number of backticks in comment")
+
+    def test_odd_backticks_in_summary_placeholder_is_an_error(self):
+        # outside a region the summary still shows (as "# ... text"), so it is checked
+        src = """
+        # TeX: listing a 1
+        # TeX: begin a
+        x = 1
+        # TeX: end a
+        # TeX: summary
+        # odd ` here
+        # TeX: begin a
+        y = 2
+        # TeX: end a
+        """
+        assert_error(src, 6, "odd number of backticks")
+        assert txt(src.replace("odd ` here", "`even` here")) == "x = 1\n# ... `even` here\ny = 2\n"
+
+    # -- plain-text outputs keep the source text --------------------------------
+
+    def test_txt_and_dbg_keep_backticks_and_dollars(self):
+        src = colored(['color a red "`accum`"', 'color a blue "$O(n)$"', 'mark a m chars "$5"'],
+                      line="x = 1  # `accum` is $O(n)$, costs `$5`")
+        out = render(src)
+        assert out["a.0.txt"] == "x = 1  # `accum` is $O(n)$, costs `$5`\n"
+        assert out["a.0.dbg"] == "x = 1  # ⟦red:`accum`⟧ is ⟦blue:$O(n)$⟧, costs `⟦@m⟧$5`\n"
 
 
 # ---------------------------------------------------------------------------

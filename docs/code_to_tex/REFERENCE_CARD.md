@@ -7,7 +7,8 @@ One page to get oriented. Details, in increasing depth:
 * Every style macro / color / TikZ key: header comments + sections of [latex/spork_style.tex](latex/spork_style.tex)
 * Build driver: `python3 -m code_to_tex.build --help` (run from `spork/docs`)
 * Design rationale and known pitfalls: `endgame_plan/plan_slides.md` ("Implementation notes")
-* Worked example of everything: [`spork/docs/beamer_nyc25_test/`](../beamer_nyc25_test/)
+* Worked example of everything: [`beamer_nyc25_test/`](beamer_nyc25_test/) in this package
+  (build: `cd spork/docs && python3 -m code_to_tex.build code_to_tex/beamer_nyc25_test --slides beamer_nyc25_test`)
 
 ## Directory layout
 
@@ -16,6 +17,7 @@ spork/docs/
   code_to_tex/                  # this package (python -m code_to_tex, python -m code_to_tex.build)
     latex/spork_style.tex       # master style: the only source of truth for look
     latex/code_to_tex_support.tex
+    beamer_nyc25_test/          # the worked example: a <doc>/ directory like the one below
   <doc>.pdf, <doc>_<deck>.pdf   # viewer copies (open these in evince), gitignored; deck named <doc> -> <doc>_slides.pdf,
                                 #   deck <doc>_x -> <doc>_x.pdf; only written when there are no LaTeX errors and no undefined refs
   <doc>/                        # one document = one directory = cwd of every build step
@@ -63,7 +65,7 @@ so paper and slides match, and node `font=\bfseries` / `font=\large` add to it. 
 
 **In figures, don't use** `\small`/`\large`/... or `\linewidth`/`\textwidth`/`\columnwidth`: they follow the host document,
 so paper and slides would differ. Use `\sporkFigSmall`/`\sporkFigLarge`, `\fontsize`, and mm (the build lints this).
-Example: [beamer_nyc25_test/fig_dag.tex](../beamer_nyc25_test/fig_dag.tex).
+Example: [beamer_nyc25_test/fig_dag.tex](beamer_nyc25_test/fig_dag.tex).
 
 ## Overlays: every overlay states its paper intent
 
@@ -105,7 +107,8 @@ the other arguments are told apart by shape (quoted text, `N:I`, bare word):
 # TeX: listing cpu 5                      # versions 0..4
 # TeX: begin cpu[:4],ring[0]              # include lines in cpu versions 0..3 and ring version 0 (half-open, like Python)
 # TeX: color cpu[1] blue "size" 3:*       # next line: exactly 3 matches, color all
-# TeX: color cpu[3:] violet "n" 2:0 "seq" green "m"   # several colorings; a color word applies until the next one
+# TeX: color cpu[3:] violet "n" "seq" green "m"   # several colorings; a color word applies until the next one
+# TeX: color cpu[2] green chars "smem" "k" 2:1  # chars: substring match (inside A_smem); "k" is whole-word again
 # TeX: color ring[0] elide "k1 * K0 + i1" # replace with ...
 # TeX: mark split raw_await end           # \pgfmark at end of next line: pic cs:split-raw_await
 # TeX: mark cpu[1],cpu[3] acc "accum" after
@@ -114,9 +117,13 @@ the other arguments are told apart by shape (quoted text, `N:I`, bare word):
 # TeX: end cpu[:4],ring[0]
 ```
 
-`N:I` / `N:*` goes directly after its quoted text (no count: exactly one match).
+Matching is whole-word: an end of the quoted text that is a letter, digit or `_` must not touch another one in the source
+(`"i"` skips `if`, `in`, `i1`; `"@proc"` only checks after the `c`). `chars` directly before one quoted text matches substrings.
+`N:I` / `N:*` goes directly after its quoted text (no count: exactly one match) and counts matches of that mode.
+In code comments, `$...$` is LaTeX math and `` `...` `` is monospace code; `` `$` `` gives a literal `$`; unbalanced `$` or an odd number of backticks is an error.
 Colors: `red yellow green blue violet invRed invGold invGreen invBlue invPurple elide`.
 Ambiguity is an error: wrong match count, conflicting colors on a character, directives that never apply, unknown words,
+a color span holding only one backtick of a `` `...` `` pair or ending inside `$...$`,
 space-separated filters (the error message shows the comma-joined form).
 Listing lines never wrap: overlong lines give `Overfull \hbox` warnings.
 Check what you highlighted without reading TeX: `<doc>/code/NAME.N.dbg` (`⟦blue:size⟧`).
@@ -128,7 +135,7 @@ draw arrows in a separate `\begin{tikzpicture}[remember picture, overlay]`.
 Project marks via a named coordinate: `\coordinate (a) at (pic cs:split-x);` then `(a -| b)`;
 `(pic cs:split-x -| b)` silently lands at the origin.
 Step-varying text of different heights makes content below it jump; wrap it in `\begin{overlayarea}{\linewidth}{H}`.
-Example: [beamer_nyc25_test/fig_split_marks.tex](../beamer_nyc25_test/fig_split_marks.tex).
+Example: [beamer_nyc25_test/fig_split_marks.tex](beamer_nyc25_test/fig_split_marks.tex).
 
 ## Style macros (all `spork`-prefixed)
 

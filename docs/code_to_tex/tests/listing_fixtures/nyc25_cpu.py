@@ -24,7 +24,7 @@ if True:
     # TeX: begin cpu[4]
     # TeX: color cpu[3:] green "m" "seq"
     for m in seq(0, M):
-      # TeX: color cpu[3:] violet "n" 2:0 "seq"
+      # TeX: color cpu[3:] violet "n" "seq"
       for n in seq(0, N):
         # TeX: color cpu[1] blue "f32"
         # TeX: color cpu[2] blue "DRAM"
@@ -33,9 +33,9 @@ if True:
         # TeX: color cpu[3:] blue "k"
         # TeX: color cpu[3] blue "seq"
         for k in seq(0, K):
-          # TeX: color cpu[4] green "m" 2:1 violet "n"
+          # TeX: color cpu[4] green "m" violet "n"
           accum += A[m, k] * B[k, n]
-        # TeX: color cpu[4] green "m" 2:0 violet "n"
+        # TeX: color cpu[4] green "m" violet "n"
         C[m, n] = accum
         # TeX: end cpu[4]
 # TeX: end cpu[:4]
