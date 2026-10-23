@@ -1,11 +1,18 @@
 % Humans and agents: cd spork/docs && python3 -m code_to_tex.build amspork3
+%
+% The build system is vibe coded with almost 0 human oversight.
+% Please flag problems/bugs/misleading docs.
+% Start at ../code_to_tex/REFERENCE_CARD.md
+%
 % Typically each section, subsection, and figure goes in its own file.
-% The label {sec|fig}:{name} matches the stored file name {name}.tex (in this directory)
-% Put all \newcommand inside amspork3_defs.tex
+% The label {sec|fig}:{name} matches the stored file name {name}.tex (in this directory).
+%
+% I hate having to hunt down mystery macros scattered in random files.
+% So all \newcommand and similar must go inside amspork3_defs.tex
 % (other than the \spork... commands from copied_styles/spork_style.tex);
 % for really large commands, you may place it in a separate file
-% input from amspork3_defs.tex ONLY.
-% I hate having to hunt down mystery macros scattered in random files.
+% that is input from amspork3_defs.tex ONLY.
+%
 % \input paths are relative to this directory (the build's working directory).
 \documentclass[11pt]{article}
 \newif\ifsporkSlides \sporkSlidesfalse
