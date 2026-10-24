@@ -12,13 +12,26 @@
 \input{copied_styles/code_to_tex_support.tex}
 \input{amspork3_defs.tex}
 
-% One tab of the "Bugs on the Horizon" top bar: #1 = overlay steps where it is active.
-% From step 2 on, inactive tabs are gray; the active one is purple with a thick purple bar under it.
-\newcommand{\ropeTab}[3]{%
-  {\sporkSlideOnly<2->{\color{sporkGrayttColor}}\sporkSlideOnly<#1>{\color{sporkMainColor}}%
-  \textbf{#2}\\#3\par}%
+% \ropeBar{N}{S1}{S2}{S3}{S4}: the four "ropes" (bug classes) bar, first used in "Bugs on the Horizon".
+% Each argument is an overlay spec (use 0 for "never"):
+%   N  = steps where the bar is neutral (all black text, light gray bars);
+%   Sk = steps where rope k is on (purple text, thick purple bar); wins over N.
+% On any other step, rope k is off (gray text, light gray bar).
+% That's the 17 states: neutral, or any on/off combination of the 4 ropes.
+\newcommand{\ropeTab}[4]{% #1 = neutral steps, #2 = on steps, #3 = heading, #4 = name
+  {\color{sporkGrayttColor}\sporkSlideOnly<#1>{\usebeamercolor[fg]{normal text}}%
+  \sporkSlideOnly<#2>{\color{sporkMainColor}}%
+  \textbf{#3}\\#4\par}%
   \vspace{0.8mm}%
-  {\color{sporkGrayttColor!35}\sporkSlideOnly<#1>{\color{sporkMainColor}}\rule{\linewidth}{1.2mm}}%
+  {\color{sporkGrayttColor!35}\sporkSlideOnly<#2>{\color{sporkMainColor}}\rule{\linewidth}{1.2mm}}%
+}
+\newcommand{\ropeBar}[5]{%
+  \begin{columns}[T]
+  \begin{column}{0.24\textwidth}\ropeTab{#1}{#2}{Rope 1/4:}{Dataflow Logic}\end{column}
+  \begin{column}{0.24\textwidth}\ropeTab{#1}{#3}{Rope 2/4:}{Instruction Usage}\end{column}
+  \begin{column}{0.24\textwidth}\ropeTab{#1}{#4}{Rope 3/4:}{Inter-thread Sync}\end{column}
+  \begin{column}{0.24\textwidth}\ropeTab{#1}{#5}{Rope 4/4:}{Intra-thread Sync}\end{column}
+  \end{columns}%
 }
 
 \title{Exo-GPU}
@@ -117,23 +130,7 @@ Challenge: \sporkKeyB{maximize} both
 
 % Top bar of bugs.
 % Each is highlighted in turn.
-\begin{columns}[T]
-\begin{column}{0.24\textwidth}
-\ropeTab{2-3}{Rope 1/4:}{Dataflow Logic}
-\end{column}
-
-\begin{column}{0.24\textwidth}
-\ropeTab{4-6}{Rope 2/4:}{Instruction Usage}
-\end{column}
-
-\begin{column}{0.24\textwidth}
-\ropeTab{7}{Rope 3/4:}{Inter-thread Sync}
-\end{column}
-
-\begin{column}{0.24\textwidth}
-\ropeTab{8-}{Rope 4/4:}{Intra-thread Sync}
-\end{column}
-\end{columns}
+\ropeBar{1}{2-3}{4-6}{7}{8-}
 
 \vfill
 
@@ -265,29 +262,38 @@ More interesting:\\
 \begin{frame}[label=LangChecking]{Language Design: Checking}
 What do I mean by ``checking''?
 
-\vfill
+% Fixed gap (not \vfill): the bottom differs in height between the rope bar and the USL text,
+% which would shift everything above on step 4.
+\vspace{10mm}
 
-% TASK: Place "bad things didn't happen" in right column.
-% Place "But also" in left column (revealed RTL).
-% Under both is dataflow logic//intruction usage/inter-thread sync/intra-thread sync
-% Divider centered-ish above Instruction Usage
-% since "bad things didn't happen" encompasses sync bugs and some instr usage bugs.
-Bare minimum:\\``\sporkKeyA{Bad Things Didn't Happen}''
-\begin{itemize}
-  \sporkReveal<2->{\item Race freedom}
-  \sporkReveal<2->{\item Instr \emph{hard requirements} met}
-\end{itemize}
-\vfill
+% Right column ("bad things didn't happen") first, then left column ("but also").
+% The divider sits above the middle of rope 2/4 (Instruction Usage): race freedom and
+% instruction hard requirements cover ropes 2/4-4/4; functional equivalence covers 1/4-2/4.
+% \vrule spans the taller of the two top-aligned minipages.
+\begin{minipage}[t]{0.35\textwidth}
 \sporkReveal<3->{But also:}
 \begin{itemize}
   \sporkReveal<3->{\item Actually implements\\intended algorithm}
   \sporkReveal<3->{\item (\sporkKeyA{functionally equivalent})}
 \end{itemize}
+\end{minipage}\hfill\vrule\hfill
+\begin{minipage}[t]{0.6\textwidth}
+Bare minimum:\\``\sporkKeyA{Bad Things Didn't Happen}''
+\begin{itemize}
+  \sporkReveal<2->{\item Race freedom}
+  \sporkReveal<2->{\item Instr \emph{hard requirements} met}
+\end{itemize}
+\end{minipage}
 
-% TASK: rope tab shows at the bottom, except final reveal replaces with this USL text.
+\vfill
+
+% Rope bar at the bottom, replaced by the USL text on the final step.
+\sporkSlideOnly<-3>{\ropeBar{1}{3}{2-3}{2}{2}}
+\sporkSlideOnly<4>{
 User-schedulable language (USL):\\
 \sporkKeyA{Algorithm:} simple program\\
 \sporkKeyA{Schedule:} explicitly guides conversion to optimized code
+}
 \end{frame}
 
 \begin{frame}[label=ExoRewrites]{Prior Work: Exo Rewrites}
