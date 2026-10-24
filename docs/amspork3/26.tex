@@ -264,7 +264,7 @@ What do I mean by ``checking''?
 
 % Fixed gap (not \vfill): the bottom differs in height between the rope bar and the USL text,
 % which would shift everything above on step 4.
-\vspace{10mm}
+\vspace{6mm}
 
 % Right column ("bad things didn't happen") first, then left column ("but also").
 % The divider sits above the middle of rope 2/4 (Instruction Usage): race freedom and
@@ -301,10 +301,56 @@ What do I mean by ``checking''?
 % Rope bar at the bottom, replaced by the USL text on the final step.
 \sporkSlideOnly<-3>{\ropeBar{1}{3}{2-3}{2}{2}}
 \sporkSlideOnly<4->{
-User-schedulable language (USL):\\
-\sporkKeyA{Algorithm:} simple program\\
-\sporkKeyA{Schedule:} explicitly guides \sporkKeyB{checked} conversion to optimized code
+User-schedulable language (\sporkKeyA{USL}):
+\begin{columns}[T]
+\begin{column}{0.25\textwidth}
+\sporkKeyA{Algorithm:}\\simple program
+\end{column}
+\begin{column}{0.4\textwidth}
+\sporkKeyA{Schedule:} explicitly guides\\\sporkKeyB{functionality-preserving}\\conversion to optimized code
+\end{column}
+\end{columns}
 }
+\end{frame}
+
+\begin{frame}[label=Scope]{Language Scope}
+
+Single CPU drives single GPU
+\vspace{4mm}
+
+\begin{columns}[T]
+\begin{column}{0.35\linewidth}
+\sporkReveal<2->{
+Control/data separation
+\begin{itemize}
+  \item sizes, loop indices, booleans\\
+  $\in$ \sporkKeyB{control types}
+  \sporkReveal<3->{\item arrays contain \sporkKeyA{data}}
+  \sporkReveal<4->{\item \sporkKeyB{Control types} only in
+    \begin{itemize}
+      \item control flow
+      \item array indexing
+    \end{itemize}
+  }
+\end{itemize}
+}
+
+\end{column}
+\begin{column}{0.65\linewidth}
+\sporkSlideOnly<-4>{
+  \sporkListing[offset=0]{lang_scope}
+}
+\sporkSlideOnly<5->{
+\begin{itemize}
+  \item Sync checking is the main project focus
+  \item ...but the language design is \sporkKeyA{holistic},\\
+  for goal of USL end-to-end checking
+  \item Expect sync check semantics\\
+  to generalize beyond restrictions.
+\end{itemize}
+}
+\end{column}
+\end{columns}
 \end{frame}
 
 \begin{frame}[label=ExoRewrites]{Prior Work: Exo Rewrites}

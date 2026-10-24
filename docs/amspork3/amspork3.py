@@ -131,5 +131,33 @@ def example(
           Sm80_cp_async_1d(A_tile[k, m:m+8], A[k, m:m+8], dst=bf16, src=bf16, size0=8)
   # TeX: end lang_control
 
-lang_control_example = example
+lang_control_example = example  # Preserve for exocc compilation (typo checking)
 del example
+
+
+# TeX: listing lang_scope 4
+# TeX: begin lang_scope
+@proc
+# TeX: color lang_scope[1] blue "sz: size"
+def lang_scope_example(sz: size):
+  # TeX: end lang_scope
+  # Weird to have alloc here but gives something for CPU code to point to.
+  # TeX: begin lang_scope
+  # TeX: color lang_scope[2] blue "S: f32[sz]"
+  S: f32[sz] @ CudaGmemLinear
+  # TeX: color lang_scope[0] red "with CudaDeviceFunction"
+  with CudaDeviceFunction(blockDim=128):
+    # TeX: color lang_scope[1] blue "task"
+    # TeX: color lang_scope[3] red "for"
+    for task in cuda_tasks(
+        # TeX: color lang_scope[3] blue "sz"
+        0, (sz + 127) / 128):
+      # TeX: color lang_scope[2] blue "tmp: f32[128]"
+      tmp: f32[128] @ CudaSmemLinear
+      # TeX: color lang_scope[1] blue "tid"
+      for tid in cuda_threads(0, 128):
+        # TeX: color lang_scope[3] red "if" blue "task" "tid" "sz"
+        if task * 128 + tid < sz:
+          # TeX: color lang_scope[3] red "tmp" "S" blue "tid" 2:* "task"
+          tmp[tid] = S[task * 128 + tid]
+  # TeX: end lang_scope
