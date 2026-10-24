@@ -154,9 +154,9 @@ Take full control. Make no mistakes.
 \end{itemize}
 }
 
-% Instruction Usage except header text
+% Instruction Usage
 \sporkSlideOnly<4-6>{
-\textbf{Accelerator instructions replace loops:}\\
+\textbf{Accelerator instructions (\texttt{instr}) replace loops:}\\
 \begin{columns}[T]
 \begin{column}{0.05\textwidth}
 \end{column}
@@ -261,5 +261,41 @@ More interesting:\\
 }
 
 \end{frame}
+
+\begin{frame}[label=LangChecking]{Language Design: Checking}
+What do I mean by ``checking''?
+
+\vfill
+
+% TASK: Place "bad things didn't happen" in right column.
+% Place "But also" in left column (revealed RTL).
+% Under both is dataflow logic//intruction usage/inter-thread sync/intra-thread sync
+% Divider centered-ish above Instruction Usage
+% since "bad things didn't happen" encompasses sync bugs and some instr usage bugs.
+Bare minimum:\\``\sporkKeyA{Bad Things Didn't Happen}''
+\begin{itemize}
+  \sporkReveal<2->{\item Race freedom}
+  \sporkReveal<2->{\item Instr \emph{hard requirements} met}
+\end{itemize}
+\vfill
+\sporkReveal<3->{But also:}
+\begin{itemize}
+  \sporkReveal<3->{\item Actually implements\\intended algorithm}
+  \sporkReveal<3->{\item (\sporkKeyA{functionally equivalent})}
+\end{itemize}
+
+% TASK: rope tab shows at the bottom, except final reveal replaces with this USL text.
+User-schedulable language (USL):\\
+\sporkKeyA{Algorithm:} simple program\\
+\sporkKeyA{Schedule:} explicitly guides conversion to optimized code
+\end{frame}
+
+\begin{frame}[label=ExoRewrites]{Prior Work: Exo Rewrites}
+
+\end{frame}
+
+% USL:
+% Scope:
+% Rewrites e.g. tiling, segue into traces (emphasize each is imperative, also optional)
 
 \end{document}
