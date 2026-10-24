@@ -1,5 +1,5 @@
-# exocc output for samples.py: generated samples.c / samples.h (+ debug/), only kept as proof the listings compile
-samples/
+# exocc output for amspork3.py: generated amspork3.c / amspork3.h (+ debug/), only kept as proof the listings compile
+amspork3/
 # python3 -m code_to_tex output from samples.py: NAME.tex (all versions, overlays), NAME.N.txt (plain), NAME.N.dbg (⟦...⟧ formatting)
 code/
 # build driver's copies of code_to_tex/latex/*.tex (spork_style.tex, code_to_tex_support.tex) + extra_styles; read-only, edit the originals instead

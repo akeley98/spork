@@ -1,0 +1,231 @@
+% Humans and agents: from parent dir,
+% python3 -m code_to_tex.build amspork3 --slides 26
+%
+% The build system is vibe coded with almost 0 human oversight.
+% Please flag problems/bugs/misleading docs.
+% Start at ../code_to_tex/REFERENCE_CARD.md
+%
+% One frame: append to CLI `--frame ... --skip-code --png`
+\documentclass[aspectratio=169]{beamer}
+\newif\ifsporkSlides \sporkSlidestrue
+\input{copied_styles/spork_style.tex}
+\input{copied_styles/code_to_tex_support.tex}
+\input{amspork3_defs.tex}
+
+\title{Exo-GPU}
+\subtitle{Safe, Imperative, User-schedulable Programming for Tensor Cores}
+\author{David Zhao Akeley \and Yuka Ikarashi \and Jonathan Ragan-Kelley}
+\date{Hypothetical RQE Talk}
+
+\begin{document}
+
+\begin{frame}[label=title]
+\titlepage
+\end{frame}
+
+\begin{frame}[label=langs]{CUDA GPU Languages}
+We want top performance, correctness \hfill (good luck)
+
+\vfill
+
+\begin{columns}[T]
+\sporkReveal<2->{
+\begin{column}{0.49\textwidth}
+\sporkKeyB{Direct} control, \sporkKeyA{less} checking
+\begin{itemize}
+  \item CUDA C++, PTX Assembly
+  \item You program \emph{individual threads}
+\end{itemize}
+Make your own decisions:
+\sporkReveal<3->{
+\begin{itemize}
+  \item Where to synchronize
+  \item Where to store tiles
+  \item Tensor core, async copy usage
+\end{itemize}
+Minimalist helpers, risk of bugs
+\begin{itemize}
+  \item CuTe, thunderkittens
+  \item asm wrappers, type checking
+}
+\end{itemize}
+\end{column}
+}
+\sporkReveal<4->{
+\begin{column}{0.49\textwidth}
+\sporkKeyA{Less} control, \sporkKeyB{more} checking
+\begin{itemize}
+  \item Triton, TileLang, cuTile
+  \item You program \emph{tiles}
+\end{itemize}
+Compiler generally decides
+\sporkReveal<5->{
+\begin{itemize}
+  \item Mapping work to threads
+  \item Mapping tiles to memory
+  \item Instruction \& barrier selection
+\end{itemize}
+Fewer possible bugs
+\begin{itemize}
+  \item Tiles parallelized magically
+  \item Syncs added for you
+}
+\end{itemize}
+\end{column}
+}
+\end{columns}
+
+\vfill
+\end{frame}
+
+\begin{frame}[label=ourGoals]{Our Goals}
+
+CUDA C++ provides \sporkKeyA{some checking}
+\begin{itemize}
+  \item e.g. CuTe checks thread/value layout for asm instructions
+  \sporkReveal<2->{
+  \item no built-in synchronization checking
+  }
+\end{itemize}
+\sporkReveal<3->{
+Tile languages provide \sporkKeyA{some control}
+\begin{itemize}
+  \item Tuning: pipeline depth, tile sizes, memory types (sometimes)
+  \sporkReveal<4->{
+    \item Macroscopic only: few micro-optimizations
+  }
+\end{itemize}
+}
+\vfill
+\sporkReveal<5->{
+Challenge: \sporkKeyB{maximize} both
+}
+
+\vfill
+\end{frame}
+
+\begin{frame}[label=Bugs]{Bugs on the Horizon}
+
+% Top bar of bugs.
+% Each is highlighted in turn.
+% TASK: make the "active" one more obvious than just the purple coloring.
+\begin{columns}[T]
+\begin{column}{0.24\textwidth}
+\sporkSlideOnly<2-3>{\color{sporkMainColor}}
+\textbf{Rope 1/4:}\\Dataflow Logic
+\end{column}
+
+\begin{column}{0.24\textwidth}
+\sporkSlideOnly<4-6>{\color{sporkMainColor}}
+\textbf{Rope 2/4:}\\Instruction Usage
+\end{column}
+
+\begin{column}{0.24\textwidth}
+\sporkSlideOnly<7>{\color{sporkMainColor}}
+\textbf{Rope 3/4:}\\Inter-thread Sync
+\end{column}
+
+\begin{column}{0.24\textwidth}
+\sporkSlideOnly<8->{\color{sporkMainColor}}
+\textbf{Rope 4/4:}\\Intra-thread Sync
+\end{column}
+\end{columns}
+
+\vfill
+
+\sporkSlideOnly<1>{\Huge
+Take full control. Make no mistakes.
+}
+
+% Dataflow Logic
+\sporkSlideOnly<2-3>{
+\begin{itemize}
+  \item Tile/re-order loops
+  \item Store tiles in fast memory
+  \item Local partial accumulators
+  \sporkReveal<3>{
+    \item ...often done for cache efficiency
+    \item ...accidentally change output values?
+  }
+\end{itemize}
+}
+
+% Instruction Usage except header text
+\sporkSlideOnly<4-6>{
+\textbf{Accelerator instructions replace loops:}\\
+\begin{columns}[T]
+\begin{column}{0.05\textwidth}
+\end{column}
+\begin{column}{0.45\textwidth}
+\sporkSlideOnly<4-5>{
+% TASK: draw arrow like ~/Documents/spork/docs/code_to_tex/beamer_nyc25_test/fig_split_marks.tex
+% connecting "for i" line to Sm80_cp_async_1d, on the left margin.
+\sporkListing{intro_cp_async}
+}
+% Recycle the listing's space now (so no reveal)
+\sporkSlideOnly<6>{
+\vphantom{Some space here}\\
+What could possibly \sporkKeyA{go wrong}?\\
+\begin{itemize}
+  \item Hard-wired data layout:
+  \begin{itemize}
+    \item strides, swizzle
+    \item memory type
+  \end{itemize}
+  \item \sporkKeyA{Thread convergence}
+  \item Does it even do what we want?
+\end{itemize}
+}
+\end{column}
+\begin{column}{0.5\textwidth}
+% TASK: draw arrow like ~/Documents/spork/docs/code_to_tex/beamer_nyc25_test/fig_split_marks.tex
+% connecting "for m" line to Sm90_tk_mma_row_col, on the right margin.
+\sporkReveal<5-6>{\sporkListing{intro_mma}}
+\end{column}
+\end{columns}
+}
+
+% Inter-thread Sync
+\sporkSlideOnly<7>{
+Classic synchronization bug: \sporkKeyA{two threads race}
+\begin{itemize}
+  \item Access same memory; one access mutates (write)
+  % \item Well-trodden fixes (\texttt{\_\_syncthreads()} etc.)
+\end{itemize}
+}
+
+\sporkSlideOnly<8->{
+\begin{columns}[T]
+\begin{column}{0.5\textwidth}
+More interesting:\\
+\sporkKeyA{explicitly async} instructions
+\begin{itemize}
+  \item Executions not ordered\\
+  \sporkKeyA{even in one thread}!
+  \sporkReveal<10>{
+    \item Normal barriers don't work here
+    \item Wait using \sporkKeyB{specialized barriers}
+  }
+\end{itemize}
+% TASK: Investigate why this doesn't fix items moving for \sporkListing[version=1]{intra_thread}
+\vphantom{Filler line to avoid sporkSlideOnly{sporkListing} jitter}
+\vphantom{Filler line to avoid sporkSlideOnly{sporkListing} jitter}
+\vphantom{Filler line to avoid sporkSlideOnly{sporkListing} jitter}
+\vphantom{Filler line to avoid sporkSlideOnly{sporkListing} jitter}
+\end{column}
+\begin{column}{0.5\textwidth}
+\sporkSlideOnly<9>{
+  \sporkListing[version=0]{intra_thread}
+}
+\sporkSlideOnly<10>{
+  \sporkListing[version=1]{intra_thread}
+}
+\end{column}
+\end{columns}
+}
+
+\vfill
+\end{frame}
+
+
+\end{document}
