@@ -269,30 +269,41 @@ What do I mean by ``checking''?
 % Right column ("bad things didn't happen") first, then left column ("but also").
 % The divider sits above the middle of rope 2/4 (Instruction Usage): race freedom and
 % instruction hard requirements cover ropes 2/4-4/4; functional equivalence covers 1/4-2/4.
-% \vrule spans the taller of the two top-aligned minipages.
+% \vrule spans the taller of the two top-aligned columns.
+% Step 5 (after the USL text) boxes the right column as "necessary but not sufficient"
+% for a USL (the label is `overlay`,
+% so it stays out of the bounding box and the divider doesn't grow).
 \begin{minipage}[t]{0.35\textwidth}
-\sporkReveal<3->{But also:}
+% \leavevmode: \uncover in vertical mode emits color specials before the first line, so
+% the [t] minipage would take its baseline from those and hang a line low.
+\leavevmode\sporkReveal<3->{But also:}
 \begin{itemize}
   \sporkReveal<3->{\item Actually implements\\intended algorithm}
   \sporkReveal<3->{\item (\sporkKeyA{functionally equivalent})}
 \end{itemize}
 \end{minipage}\hfill\vrule\hfill
-\begin{minipage}[t]{0.6\textwidth}
-Bare minimum:\\``\sporkKeyA{Bad Things Didn't Happen}''
-\begin{itemize}
-  \sporkReveal<2->{\item Race freedom}
-  \sporkReveal<2->{\item Instr \emph{hard requirements} met}
-\end{itemize}
-\end{minipage}
+\begin{tikzpicture}[baseline=(bm.base)]
+  \node [inner sep=1.5mm, anchor=north west] (bm) {\begin{minipage}[t]{\dimexpr0.6\textwidth-3mm}
+  Bare minimum:\\``\sporkKeyA{Bad Things Didn't Happen}''
+  \begin{itemize}
+    \sporkReveal<2->{\item Race freedom}
+    \sporkReveal<2->{\item Instr \emph{hard requirements} met}
+  \end{itemize}
+  \end{minipage}};
+  \draw [spork reveal=<5->, draw=sporkMinorColor, very thick, rounded corners=2mm]
+    (bm.north west) rectangle (bm.south east);
+  \node [spork reveal=<5->, overlay, anchor=north east, text=sporkMinorColor, font=\bfseries]
+    at ([yshift=-0.5mm]bm.south east) {Necessary but not sufficient};
+\end{tikzpicture}
 
 \vfill
 
 % Rope bar at the bottom, replaced by the USL text on the final step.
 \sporkSlideOnly<-3>{\ropeBar{1}{3}{2-3}{2}{2}}
-\sporkSlideOnly<4>{
+\sporkSlideOnly<4->{
 User-schedulable language (USL):\\
 \sporkKeyA{Algorithm:} simple program\\
-\sporkKeyA{Schedule:} explicitly guides conversion to optimized code
+\sporkKeyA{Schedule:} explicitly guides \sporkKeyB{checked} conversion to optimized code
 }
 \end{frame}
 
