@@ -165,3 +165,56 @@ def lang_scope_example(sz: size):
           # TeX: mark lang_scope[0] gpu_bot start
           tmp[tid] = S[task * 128 + tid]
   # TeX: end lang_scope
+
+
+# TeX: listing tiling 3
+@proc
+def tiling_example(M: size, N: size, K: size):
+  # We just need some content-free loops for illustrating loop tiling rewrites
+  assert M % 32 == 0
+  assert N % 32 == 0
+  # TeX: begin tiling[0]
+  # TeX: color tiling[0] green "m" elide "(0, M)"
+  # TeX: mark tiling[0] m_end end
+  for m in seq(0, M):
+    # TeX: color tiling[0] violet "n" elide "(0, N)"
+    # TeX: mark tiling[0] n_end end
+    for n in seq(0, N):
+      # TeX: color tiling[0] blue "k" elide "(0, K)"
+      for k in seq(0, K):
+        # TeX: end tiling[0]
+        pass
+  # TeX: begin tiling[1]
+  # TeX: color tiling[1] green "mo" elide "(0, M/32)"
+  # TeX: mark tiling[1] mo_start start
+  for mo in seq(0, M/32):
+    # TeX: color tiling[1] green "mi" elide "(0, 32)"
+    # TeX: mark tiling[1] mi_start start
+    # TeX: mark tiling[1] mi_end end
+    for mi in seq(0, 32):
+      # TeX: color tiling[1] violet "no" elide "(0, N/32)"
+      # TeX: mark tiling[1] no_start start
+      # TeX: mark tiling[1] no_end end
+      for no in seq(0, N/32):
+        # TeX: color tiling[1] violet "ni" elide "(0, 32)"
+        # TeX: mark tiling[1] ni_start start
+        for ni in seq(0, 32):
+          # TeX: color tiling[1] blue "k" elide "(0, K)"
+          for k in seq(0, K):
+            # TeX: end tiling[1]
+            pass
+  # TeX: begin tiling[2]
+  # TeX: color tiling[2] green "mo" elide "(0, M/32)"
+  for mo in seq(0, M/32):
+    # TeX: color tiling[2] violet "no" elide "(0, N/32)"
+    # TeX: mark tiling[2] no_start start
+    for no in seq(0, N/32):
+      # TeX: color tiling[2] green "mi" elide "(0, 32)"
+      # TeX: mark tiling[2] mi_start start
+      for mi in seq(0, 32):
+        # TeX: color tiling[2] violet "ni" elide "(0, 32)"
+        for ni in seq(0, 32):
+          # TeX: color tiling[2] blue "k" elide "(0, K)"
+          for k in seq(0, K):
+            # TeX: end tiling[2]
+            pass

@@ -374,6 +374,53 @@ Control/data separation
 \end{frame}
 
 \begin{frame}[label=ExoRewrites]{Prior Work: Exo Rewrites}
+Exo-GPU built on top of Exo
+
+Library of (imperative program $\to$ imperative program) rewrites
+(CPU only)
+
+\vphantom{Extra line}
+
+\sporkReveal<2->{Example: loop split, loop reordering}
+
+% Versions 0, 1, 2 of `tiling` side by side (step 2, 3, 4), with green/violet arrows for
+% the loop movement: split m, n (step 3), then reorder mi below no (step 4).
+% 10.5pt code so the three columns fit; each copy has its own mark prefix.
+\vspace{2mm}
+{\fontsize{10.5}{13}\selectfont
+\begin{minipage}[t]{34.5mm}
+\sporkReveal<2->{\sporkListing[version=0, prefix=tilingA]{tiling}}
+\end{minipage}\hfill
+\begin{minipage}[t]{44mm}
+\sporkReveal<3->{\sporkListing[version=1, prefix=tilingB]{tiling}}
+\end{minipage}\hfill
+\begin{minipage}[t]{44mm}
+\sporkReveal<4->{\sporkListing[version=2, prefix=tilingC]{tiling}}
+\end{minipage}\par
+\begin{tikzpicture}[remember picture, overlay]
+  \foreach \m in {m_end, n_end} {
+    \coordinate (A\m) at ([xshift=1mm]pic cs:tilingA-\m);
+  }
+  \foreach \m in {mo_start, mi_start, no_start, ni_start} {
+    \coordinate (B\m) at ([xshift=-1mm]pic cs:tilingB-\m);
+  }
+  \foreach \m in {mi_end, no_end} {
+    \coordinate (B\m) at ([xshift=1mm]pic cs:tilingB-\m);
+  }
+  \foreach \m in {mi_start, no_start} {
+    \coordinate (C\m) at ([xshift=-1mm]pic cs:tilingC-\m);
+  }
+  % Loop split: m -> mo, mi; n -> no, ni.
+  \draw [spork reveal=<3->, spork arrow, draw=sporkGreenFg] (Am_end) to[out=0, in=180] (Bmo_start);
+  \draw [spork reveal=<3->, spork arrow, draw=sporkGreenFg] (Am_end) to[out=0, in=180] (Bmi_start);
+  \draw [spork reveal=<3->, spork arrow, draw=sporkVioletFg] (An_end) to[out=0, in=180] (Bno_start);
+  \draw [spork reveal=<3->, spork arrow, draw=sporkVioletFg] (An_end) to[out=0, in=180] (Bni_start);
+  % Loop reorder: mi moves below no.
+  \draw [spork reveal=<4->, spork arrow, draw=sporkGreenFg] (Bmi_end) to[out=0, in=180] (Cmi_start);
+  \draw [spork reveal=<4->, spork arrow, draw=sporkVioletFg] (Bno_end) to[out=0, in=180] (Cno_start);
+\end{tikzpicture}
+}
+
 
 \end{frame}
 
