@@ -12,6 +12,15 @@
 \input{copied_styles/code_to_tex_support.tex}
 \input{amspork3_defs.tex}
 
+% One tab of the "Bugs on the Horizon" top bar: #1 = overlay steps where it is active.
+% From step 2 on, inactive tabs are gray; the active one is purple with a thick purple bar under it.
+\newcommand{\ropeTab}[3]{%
+  {\sporkSlideOnly<2->{\color{sporkGrayttColor}}\sporkSlideOnly<#1>{\color{sporkMainColor}}%
+  \textbf{#2}\\#3\par}%
+  \vspace{0.8mm}%
+  {\color{sporkGrayttColor!35}\sporkSlideOnly<#1>{\color{sporkMainColor}}\rule{\linewidth}{1.2mm}}%
+}
+
 \title{Exo-GPU}
 \subtitle{Safe, Imperative, User-schedulable Programming for Tensor Cores}
 \author{David Zhao Akeley \and Yuka Ikarashi \and Jonathan Ragan-Kelley}
@@ -108,26 +117,21 @@ Challenge: \sporkKeyB{maximize} both
 
 % Top bar of bugs.
 % Each is highlighted in turn.
-% TASK: make the "active" one more obvious than just the purple coloring.
 \begin{columns}[T]
 \begin{column}{0.24\textwidth}
-\sporkSlideOnly<2-3>{\color{sporkMainColor}}
-\textbf{Rope 1/4:}\\Dataflow Logic
+\ropeTab{2-3}{Rope 1/4:}{Dataflow Logic}
 \end{column}
 
 \begin{column}{0.24\textwidth}
-\sporkSlideOnly<4-6>{\color{sporkMainColor}}
-\textbf{Rope 2/4:}\\Instruction Usage
+\ropeTab{4-6}{Rope 2/4:}{Instruction Usage}
 \end{column}
 
 \begin{column}{0.24\textwidth}
-\sporkSlideOnly<7>{\color{sporkMainColor}}
-\textbf{Rope 3/4:}\\Inter-thread Sync
+\ropeTab{7}{Rope 3/4:}{Inter-thread Sync}
 \end{column}
 
 \begin{column}{0.24\textwidth}
-\sporkSlideOnly<8->{\color{sporkMainColor}}
-\textbf{Rope 4/4:}\\Intra-thread Sync
+\ropeTab{8-}{Rope 4/4:}{Intra-thread Sync}
 \end{column}
 \end{columns}
 
@@ -158,9 +162,14 @@ Take full control. Make no mistakes.
 \end{column}
 \begin{column}{0.45\textwidth}
 \sporkSlideOnly<4-5>{
-% TASK: draw arrow like ~/Documents/spork/docs/code_to_tex/beamer_nyc25_test/fig_split_marks.tex
-% connecting "for i" line to Sm80_cp_async_1d, on the left margin.
 \sporkListing{intro_cp_async}
+% Loop -> instruction arrow in the left margin (marks: amspork3.py).
+\begin{tikzpicture}[remember picture, overlay, rounded corners=2mm]
+  \coordinate (loop) at ([xshift=-1mm]pic cs:intro_cp_async-loop);
+  \coordinate (instr) at ([xshift=-1mm]pic cs:intro_cp_async-instr);
+  \coordinate (leftX) at ([xshift=-5mm]loop);
+  \draw [spork arrow, draw=sporkMainColor] (loop) -- (leftX) -- (instr -| leftX) -- (instr);
+\end{tikzpicture}
 }
 % Recycle the listing's space now (so no reveal)
 \sporkSlideOnly<6>{
@@ -178,9 +187,17 @@ What could possibly \sporkKeyA{go wrong}?\\
 }
 \end{column}
 \begin{column}{0.5\textwidth}
-% TASK: draw arrow like ~/Documents/spork/docs/code_to_tex/beamer_nyc25_test/fig_split_marks.tex
-% connecting "for m" line to Sm90_tk_mma_row_col, on the right margin.
 \sporkReveal<5-6>{\sporkListing{intro_mma}}
+% Loop -> instruction arrow in the right margin (marks: amspork3.py), right of the
+% longest line it passes; fixed distance from the listing's left edge (mark `left`).
+\sporkSlideOnly<5-6>{
+\begin{tikzpicture}[remember picture, overlay, rounded corners=2mm]
+  \coordinate (rightX) at ([xshift=58mm]pic cs:intro_mma-left);
+  \coordinate (loop) at ([xshift=1mm]pic cs:intro_mma-loop);
+  \coordinate (instr) at ([xshift=1mm]pic cs:intro_mma-instr);
+  \draw [spork arrow, draw=sporkMainColor] (loop) -- (loop -| rightX) -- (instr -| rightX) -- (instr);
+\end{tikzpicture}
+}
 \end{column}
 \end{columns}
 }
@@ -207,19 +224,18 @@ More interesting:\\
     \item Wait using \sporkKeyB{specialized barriers}
   }
 \end{itemize}
-% TASK: Investigate why this doesn't fix items moving for \sporkListing[version=1]{intra_thread}
-\vphantom{Filler line to avoid sporkSlideOnly{sporkListing} jitter}
-\vphantom{Filler line to avoid sporkSlideOnly{sporkListing} jitter}
-\vphantom{Filler line to avoid sporkSlideOnly{sporkListing} jitter}
-\vphantom{Filler line to avoid sporkSlideOnly{sporkListing} jitter}
 \end{column}
 \begin{column}{0.5\textwidth}
+% Fixed height: version 1 is a line taller than version 0, and the \vfill around the
+% columns would otherwise shift everything on step 10.
+\begin{overlayarea}{\linewidth}{42mm}
 \sporkSlideOnly<9>{
   \sporkListing[version=0]{intra_thread}
 }
 \sporkSlideOnly<10>{
   \sporkListing[version=1]{intra_thread}
 }
+\end{overlayarea}
 \end{column}
 \end{columns}
 }

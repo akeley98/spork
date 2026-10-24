@@ -25,9 +25,11 @@ def instr_usage_example(src: f32[4] @ CudaGmemLinear):
       for tid in cuda_threads(0, 1):
         # Manual loop for cp.async vs cp.async instr
         # TeX: begin intro_cp_async
+        # TeX: mark intro_cp_async loop start
         for i in seq(0, 4):
           dst[i] = src[i]
         # Replace with 4-at-once $\textbf{async}$ copy
+        # TeX: mark intro_cp_async instr start
         Sm80_cp_async_1d(
         # TeX: color intro_cp_async elide "dst=f32, src=f32, size0=4"
           dst[:], src[:], dst=f32, src=f32, size0=4)
@@ -37,6 +39,8 @@ def instr_usage_example(src: f32[4] @ CudaGmemLinear):
         B: f32[N, K] @ CudaRmemLinear
         # Manual loops for wgmma
         # TeX: begin intro_mma
+        # TeX: mark intro_mma left start
+        # TeX: mark intro_mma loop end
         for m in seq(0, M):
           for n in seq(0, N):
             for k in seq(0, K):
@@ -49,6 +53,7 @@ def instr_usage_example(src: f32[4] @ CudaGmemLinear):
       for wg in cuda_threads(0, 1, unit=cuda_warpgroup):
         # TeX: begin intro_mma
         # Replace with tensor core
+        # TeX: mark intro_mma instr end
         Sm90_tk_mma_row_col(
           # TeX: color intro_mma elide ":, :, :" ":, :" 3:1 ":, :" 3:2 "D=f32, A=f32, B=f32, N=N, K=K"
           C[:, :, :], A[:, :], B[:, :], D=f32, A=f32, B=f32, N=N, K=K)
