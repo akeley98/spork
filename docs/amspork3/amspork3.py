@@ -92,3 +92,44 @@ def intra_thread_example(src: f32[4] @ CudaGmemLinear):
         # TeX: remark intra_thread[1]
         # (`Fence` will be explained later)
         # TeX: end intra_thread
+
+
+# TeX: listing lang_control 5
+# TeX: begin lang_control
+@proc
+def example(
+  M: size, N: size, K: size,
+  # TeX: color lang_control[1] green "A: bf16[K, M]" elide "global memory"
+  # TeX: color lang_control[2] violet "A" "@ CudaGmemLinear" elide "proc parameter"
+  # TeX: color lang_control[0],lang_control[3:] elide "# proc parameter global memory"
+  A: bf16[K, M] @ CudaGmemLinear # proc parameter global memory
+):
+# TeX: end lang_control
+  assert M >= 256
+  assert K >= 32
+  # TeX: begin lang_control
+  # TeX: color lang_control[1] blue "C: f32[N, M]" elide "global memory"
+  # TeX: color lang_control[2] violet "C" "@ CudaGmemLinear" elide "allocated in-proc"
+  # TeX: color lang_control[0],lang_control[3:] elide "# allocated in-proc global memory"
+  C: f32[N, M] @ CudaGmemLinear # allocated in-proc global memory
+  with CudaDeviceFunction(blockDim=128):
+    # TeX: color lang_control[3] green "task" "cuda_tasks(0, 24)"
+    # TeX: color lang_control[:3],lang_control[4:] elide  "# Parallel loop"
+    for task in cuda_tasks(0, 24):  # Parallel loop
+      # TeX: color lang_control[1] blue "A_tile: bf16[32, 256]" elide "shared memory"
+      # TeX: color lang_control[2] yellow "A_tile" "@ CudaSmemLinear" elide "allocated in-proc"
+      # TeX: color lang_control[0],lang_control[3:] elide "# allocated in-proc shared memory"
+      A_tile: bf16[32, 256] @ CudaSmemLinear # allocated in-proc shared memory
+      # TeX: color lang_control[3] blue "k" "seq(0, 32)"
+      # TeX: color lang_control[:3],lang_control[4:] elide  "# Sequential loop"
+      for k in seq(0, 32):  # Sequential loop
+        # TeX: color lang_control[3] green "m" "cuda_threads(0, 32)"
+        # TeX: color lang_control[:3],lang_control[4:] elide  "# Parallel loop"
+        for m in cuda_threads(0, 32):  # Parallel loop
+          # TeX: color lang_control elide "dst=bf16, src=bf16, size0=8"
+          # TeX: color lang_control[4] yellow "A_tile[k, m:m+8]" violet "A[k, m:m+8]"
+          Sm80_cp_async_1d(A_tile[k, m:m+8], A[k, m:m+8], dst=bf16, src=bf16, size0=8)
+  # TeX: end lang_control
+
+lang_control_example = example
+del example
