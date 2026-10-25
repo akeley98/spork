@@ -89,6 +89,7 @@ create a `sporkfigure` environment in the document and `\input` shared TikZ comm
 * `sporkfigure[scale=S, <tikzpicture options>]` is a `tikzpicture` scaled as a whole by `S` (default 1 in paper and slides).
   Text inside is sans at 11pt (`\sporkFigFont`, the paper body size; slides are 12pt), so a body has the same geometry
   in paper and slides and needs no compensating scale. Use `scale` only for a real layout reason (e.g. fitting a column).
+  (David Zhao Akeley: unless instructed otherwise, please don't try to "compensate" for the 11/12 difference).
   Node `font=\bfseries` / `font=\sporkFigLarge` add to that font.
 * Node names exist only inside their `sporkfigure`: referring to a name the figure doesn't define
   (renamed, misspelled, from another figure) is an error (`No shape named C2 is known`), never a silent wrong arrow.
