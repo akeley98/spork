@@ -14,25 +14,25 @@
 \input{copied_styles/code_to_tex_support.tex}
 \input{amspork3_defs.tex}
 
-% \ropeBar{N}{S1}{S2}{S3}{S4}: the four "ropes" (bug classes) bar, first used in "Bugs on the Horizon".
+% \riskBar{N}{S1}{S2}{S3}{S4}: bar of the four risk categories (bug classes), first used in "Bugs on the Horizon".
 % Each argument is an overlay spec (use 0 for "never"):
 %   N  = steps where the bar is neutral (all black text, light gray bars);
-%   Sk = steps where rope k is on (purple text, thick purple bar); wins over N.
-% On any other step, rope k is off (gray text, light gray bar).
-% That's the 17 states: neutral, or any on/off combination of the 4 ropes.
-\newcommand{\ropeTab}[4]{% #1 = neutral steps, #2 = on steps, #3 = heading, #4 = name
+%   Sk = steps where risk k is on (purple text, thick purple bar); wins over N.
+% On any other step, risk k is off (gray text, light gray bar).
+% That's the 17 states: neutral, or any on/off combination of the 4 risks.
+\newcommand{\riskTab}[4]{% #1 = neutral steps, #2 = on steps, #3 = heading, #4 = name
   {\color{sporkGrayttColor}\sporkSlideOnly<#1>{\usebeamercolor[fg]{normal text}}%
   \sporkSlideOnly<#2>{\color{sporkMainColor}}%
   \textbf{#3}\\#4\par}%
   \vspace{0.8mm}%
   {\color{sporkGrayttColor!35}\sporkSlideOnly<#2>{\color{sporkMainColor}}\rule{\linewidth}{1.2mm}}%
 }
-\newcommand{\ropeBar}[5]{%
+\newcommand{\riskBar}[5]{%
   \begin{columns}[T]
-  \begin{column}{0.24\textwidth}\ropeTab{#1}{#2}{Rope 1/4:}{Dataflow Logic}\end{column}
-  \begin{column}{0.24\textwidth}\ropeTab{#1}{#3}{Rope 2/4:}{Instruction Usage}\end{column}
-  \begin{column}{0.24\textwidth}\ropeTab{#1}{#4}{Rope 3/4:}{Inter-thread Sync}\end{column}
-  \begin{column}{0.24\textwidth}\ropeTab{#1}{#5}{Rope 4/4:}{Intra-thread Sync}\end{column}
+  \begin{column}{0.24\textwidth}\riskTab{#1}{#2}{Risk 1/4:}{Dataflow Logic}\end{column}
+  \begin{column}{0.24\textwidth}\riskTab{#1}{#3}{Risk 2/4:}{Instruction Usage}\end{column}
+  \begin{column}{0.24\textwidth}\riskTab{#1}{#4}{Risk 3/4:}{Inter-thread Sync}\end{column}
+  \begin{column}{0.24\textwidth}\riskTab{#1}{#5}{Risk 4/4:}{Intra-thread Sync}\end{column}
   \end{columns}%
 }
 
@@ -132,7 +132,7 @@ Challenge: \sporkKeyB{maximize} both
 
 % Top bar of bugs.
 % Each is highlighted in turn.
-\ropeBar{1}{2-3}{4-6}{7}{8-}
+\riskBar{1}{2-3}{4-6}{7}{8-}
 
 \vfill
 
@@ -264,13 +264,13 @@ More interesting:\\
 \begin{frame}[label=LangChecking]{Language Design: Checking}
 What do I mean by ``checking''?
 
-% Fixed gap (not \vfill): the bottom differs in height between the rope bar and the USL text,
+% Fixed gap (not \vfill): the bottom differs in height between the risk bar and the USL text,
 % which would shift everything above on step 4.
 \vspace{6mm}
 
 % Right column ("bad things didn't happen") first, then left column ("but also").
-% The divider sits above the middle of rope 2/4 (Instruction Usage): race freedom and
-% instruction hard requirements cover ropes 2/4-4/4; functional equivalence covers 1/4-2/4.
+% The divider sits above the middle of risk 2/4 (Instruction Usage): race freedom and
+% instruction hard requirements cover risks 2/4-4/4; functional equivalence covers 1/4-2/4.
 % \vrule spans the taller of the two top-aligned columns.
 % Step 5 (after the USL text) boxes the right column as "necessary but not sufficient"
 % for a USL (the label is `overlay`,
@@ -300,8 +300,8 @@ What do I mean by ``checking''?
 
 \vfill
 
-% Rope bar at the bottom, replaced by the USL text on the final step.
-\sporkSlideOnly<-3>{\ropeBar{1}{3}{2-3}{2}{2}}
+% Risk bar at the bottom, replaced by the USL text on the final step.
+\sporkSlideOnly<-3>{\riskBar{1}{3}{2-3}{2}{2}}
 \sporkSlideOnly<4->{
 User-schedulable language (\sporkKeyA{USL}):
 \begin{columns}[T]
