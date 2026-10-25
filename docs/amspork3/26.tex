@@ -36,6 +36,15 @@
   \end{columns}%
 }
 
+% TikZ styles for commentary on a diagram: a neutral gray box (keyword colors inside stay
+% meaningful) tied to what it describes by a gray `annotation line`.
+% Plain black!N grays on purpose, so restyling sporkGrayttColor doesn't change them.
+\tikzset{
+  annotation/.style={rectangle, draw=black!45, fill=black!5, rounded corners=1mm,
+    inner sep=1.5mm, align=left},
+  annotation line/.style={draw=black!45, thick},
+}
+
 \title{Exo-GPU}
 \subtitle{Safe, Imperative, User-schedulable Programming for Tensor Cores}
 \author{David Zhao Akeley \and Yuka Ikarashi \and Jonathan Ragan-Kelley}
@@ -434,7 +443,8 @@ Library of (imperative \texttt{proc} $\to$ imperative \texttt{proc}) rewrites
 % p_0 -> p_1 ->* p_n; the dashed ->* stands in for the hidden p_2, ... (zero or more rewrite steps).
 % Rewrite arrows are blue, labelled "Exo Rewrites" under the ->*.
 \begin{frame}[label=ExoRewriteFlow]{Prior Work: Exo Rewrites}
-\begin{center}
+% \begingroup, not a brace group: {...} right after the title would be read as a subtitle.
+\begingroup\centering
 \begin{tikzpicture}[node distance=6mm,
     flow node/.style={rectangle, draw, minimum height=10mm, align=center, inner sep=1.5mm},
     proc node/.style={flow node, minimum width=12mm}]
@@ -452,7 +462,7 @@ Library of (imperative \texttt{proc} $\to$ imperative \texttt{proc}) rewrites
   \draw [spork arrow] (checks) -- (code);
 
   % p_0 ... p_n are all imperative procs: bracket above.
-  \coordinate (allTop) at ([yshift=6mm]proc1.north);
+  \coordinate (allTop) at ([yshift=5mm]proc1.north);
   \draw [spork line, draw=black]
     ([yshift=1.5mm]proc0.north west) |- (allTop -| procN.north east)
     -- ([yshift=1.5mm]procN.north east);
@@ -461,21 +471,27 @@ Library of (imperative \texttt{proc} $\to$ imperative \texttt{proc}) rewrites
 
   % Revealed annotations (spork reveal keys keep their space, so nothing moves).
   % Step 2: algorithm, left-aligned with p_0's box.
-  \node [spork reveal=<2->, anchor=north west, inner sep=0pt, align=left]
-    at ([yshift=-3mm]proc0.south west) {\sporkKeyA{Algorithm}:\\initial \texttt{proc}};
-  % Step 3: schedule under the rewrites label, plus the "optional" disclaimer.
-  \node (schedule) [spork reveal=<3->, below=2mm of rewrites, inner sep=0pt, align=center]
+  \node (algNote) [annotation, spork reveal=<2->, anchor=north west]
+    at ([yshift=-2.5mm]proc0.south west) {\sporkKeyA{Algorithm}:\\initial \texttt{proc}};
+  \draw [annotation line, spork reveal=<2->] (algNote.north -| proc0.south) -- (proc0.south);
+  % Step 3: schedule under the rewrites label; the "optional" disclaimer outside the box.
+  \node (schedNote) [annotation, spork reveal=<3->, below=2mm of rewrites, align=center]
     {\sporkKeyA{Schedule}\\(metaprogramming)};
-  \node [spork reveal=<3->, below=1.5mm of schedule, inner sep=0pt, font=\small]
+  \draw [annotation line, spork reveal=<3->] (schedNote.north) -- (rewrites.south);
+  \node [spork reveal=<3->, below=1mm of schedNote, inner sep=0pt, font=\small]
     {(optional: $p_0$ may use all features)};
   % Step 4: transitive functional equivalence, piggy-backing on the bracket label.
-  \node [spork reveal=<4->, above=0.5mm of allProcs, inner sep=0pt]
+  \node (eqNote) [annotation, spork reveal=<4->, above=2mm of allProcs]
     {Transitive functional equivalence: $p_0 \equiv p_1 \equiv \cdots \equiv p_n$};
+  \draw [annotation line, spork reveal=<4->] (eqNote.south) -- (allProcs.north);
   % Step 5: backend checks and codegen only see the final proc.
-  \node [spork reveal=<5->, anchor=north, inner sep=0pt]
-    at ([yshift=-3mm]$(checks.south west)!0.5!(code.south east)$) {Only for \sporkKeyA{final proc} $p_n$};
-\end{tikzpicture}
-\end{center}
+  \coordinate (checksCode) at ($(checks.south)!0.5!(code.south)$);
+  \node (finalNote) [annotation, spork reveal=<5->, anchor=north] at ([yshift=-2.5mm]checksCode)
+    {Only for \sporkKeyA{final proc} $p_n$};
+  \draw [annotation line, spork reveal=<5->] (checks.south) -- (checks.south |- finalNote.north);
+  \draw [annotation line, spork reveal=<5->] (code.south) -- (code.south |- finalNote.north);
+\end{tikzpicture}\par
+\endgroup
 
 % filll: beats the fill glue that top-aligned frames add at the bottom, so the
 % citations sit at the bottom instead of halfway down the free space.
