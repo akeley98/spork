@@ -520,9 +520,48 @@ Problem: Exo rewrites written against \sporkKeyA{deterministic}, sequential sema
 
 \end{frame}
 
-% Rewrites & parallelism
-% Deterministic: <s, sigma> -> <s', sigma'>
-% How do we reason about parallelism
-% We don't (IOU)
+\begin{frame}[label=SketchTrace]{Sketch: Trace Semantics}
+New GPU semantics are \sporkKeyA{still deterministic}
+
+\begin{itemize}
+  \item Programs now produce a sequence of trace events:
+\end{itemize}
+
+\begin{equation*}
+% TODO \sporktr'^* inconsistent with main.tex deal with later
+\langle \sporks, \sporksigma, \sporkGreen{$\sporktr^*$} \rangle
+\to
+\langle \sporks', \sporksigma', \sporkGreen{$\sporktr'^*$} \rangle
+\end{equation*}
+
+\begingroup\centering
+\begin{sporkfigure}
+\node(reads) [spork green style, spork reveal=<2->] { read at $\sporkx[\sporkz^*]$ };
+\node (mutates) [spork green style, anchor=west, spork reveal=<2->] at ([xshift=6mm]reads.east) { mutate at $\sporkx[\sporkz^*]$ };
+\node (syncs) [spork green style, anchor=west, spork reveal=<2->] at ([xshift=6mm]mutates.east) { synchronization };
+\node (text) [anchor=east] at([xshift=-6mm]reads.west) {\textbf{Trace Events:}};
+\end{sporkfigure}\par
+\endgroup
+
+\vphantom{Another wild gap appears.}
+
+\sporkReveal<3->{Parallelizing a statement has \sporkKeyA{no effect on} $\sporksigma$:}
+
+\begin{columns}[T]
+\begin{column}{0.64\linewidth}
+\begin{itemize}
+  \sporkReveal<3->{\item \texttt{with CudaDeviceFunction:} is like \texttt{if True:}}
+  \sporkReveal<4->{\item parallel loops are like sequential loops}
+  \sporkReveal<5->{\item async instrs just ignore the async}
+\end{itemize}
+\end{column}
+\begin{column}{0.36\linewidth}
+\vfill
+\sporkReveal<6->{Only the produced trace \sporkGreen{$\sporktr^*$} changes.}
+\vfill
+\end{column}
+\end{columns}
+
+\end{frame}
 
 \end{document}
