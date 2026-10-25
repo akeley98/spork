@@ -1,0 +1,23 @@
+% Body of the Exo rewrite flow diagram (ported from spork_nyc25.tex "Exo Rewrites" /
+% nyc25_exo_cpu_flow.tex): raw TikZ, \input inside a sporkfigure by 26.tex (frame ExoRewriteFlow, scale=1.3333).
+% p_0 -> p_1 ->* p_n -> backend checks -> C/CUDA; the dashed ->* stands in for the hidden p_2, ...
+% (zero or more rewrite steps). Rewrite arrows are blue, labelled "Exo Rewrites" under the ->*.
+% Its node names are its interface:
+%   proc0, proc1, procN (procs), checks, code, rewrites (the "Exo Rewrites" label).
+% No overlay steps; frames add their own annotations around it.
+\tikzset{
+  flow node/.style={rectangle, draw, minimum height=7.5mm, align=center, inner sep=1.1mm},
+  proc node/.style={flow node, minimum width=9mm},
+}
+\node (proc0) [proc node] {$p_0$};
+\node (proc1) [proc node, right=4.5mm of proc0] {$p_1$};
+\node (procN) [proc node, right=22.5mm of proc1] {$p_n$};
+\node (checks) [flow node, spork yellow style, text width=12.75mm, right=4.5mm of procN] {Backend\\checks};
+\node (code) [flow node, text width=12.75mm, right=4.5mm of checks] {C/CUDA};
+
+\draw [spork arrow, draw=sporkBlueFg] (proc0) -- (proc1);
+\draw [spork arrow, draw=sporkBlueFg, dash pattern=on 1.9pt off 1.5pt] (proc1) --
+  node [above=0.2mm, font=\fontsize{13}{15}\selectfont, text=sporkBlueFg] {$*$}
+  node (rewrites) [below=0.75mm, text=sporkBlueFg] {Exo Rewrites} (procN);
+\draw [spork arrow] (procN) -- (checks);
+\draw [spork arrow] (checks) -- (code);

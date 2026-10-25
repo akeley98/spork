@@ -438,59 +438,46 @@ Library of (imperative \texttt{proc} $\to$ imperative \texttt{proc}) rewrites
 
 \end{frame}
 
-% Rewrite flow diagram with mystery backend checks
-% (ported from spork_nyc25.tex "Exo Rewrites" / nyc25_exo_cpu_flow.tex)
-% p_0 -> p_1 ->* p_n; the dashed ->* stands in for the hidden p_2, ... (zero or more rewrite steps).
-% Rewrite arrows are blue, labelled "Exo Rewrites" under the ->*.
+% Rewrite flow diagram with mystery backend checks: the shared body fig_exoRewriteFlow_body.tex
+% (p_0 -> p_1 ->* p_n -> checks -> C/CUDA), plus this frame's bracket and annotations.
+% scale=1.3333 (12/9): the body is drawn at the 9pt figure font, magnified to the 12pt slide body size.
 \begin{frame}[label=ExoRewriteFlow]{Prior Work: Exo Rewrites}
 % \begingroup, not a brace group: {...} right after the title would be read as a subtitle.
 \begingroup\centering
-\begin{tikzpicture}[node distance=6mm,
-    flow node/.style={rectangle, draw, minimum height=10mm, align=center, inner sep=1.5mm},
-    proc node/.style={flow node, minimum width=12mm}]
-  \node (proc0) [proc node] {$p_0$};
-  \node (proc1) [proc node, right=of proc0] {$p_1$};
-  \node (procN) [proc node, right=30mm of proc1] {$p_n$};
-  \node (checks) [flow node, spork yellow style, text width=17mm, right=of procN] {Backend\\checks};
-  \node (code) [flow node, text width=17mm, right=of checks] {C/CUDA};
-
-  \draw [spork arrow, draw=sporkBlueFg] (proc0) -- (proc1);
-  \draw [spork arrow, draw=sporkBlueFg, dash pattern=on 2.5pt off 2pt] (proc1) --
-    node [above=0.3mm, font=\Large, text=sporkBlueFg] {$*$}
-    node (rewrites) [below=1mm, text=sporkBlueFg] {Exo Rewrites} (procN);
-  \draw [spork arrow] (procN) -- (checks);
-  \draw [spork arrow] (checks) -- (code);
+% annotation/.append style: undo the 12/9 magnification of the deck-wide annotation padding.
+\begin{sporkfigure}[scale=1.3333, annotation/.append style={inner sep=1.1mm, rounded corners=0.75mm}]
+  \input{fig_exoRewriteFlow_body.tex}
 
   % p_0 ... p_n are all imperative procs: bracket above.
-  \coordinate (allTop) at ([yshift=5mm]proc1.north);
+  \coordinate (allTop) at ([yshift=3.75mm]proc1.north);
   \draw [spork line, draw=black]
-    ([yshift=1.5mm]proc0.north west) |- (allTop -| procN.north east)
-    -- ([yshift=1.5mm]procN.north east);
-  \node [above=0.5mm, text=black, font=\bfseries]
+    ([yshift=1.1mm]proc0.north west) |- (allTop -| procN.north east)
+    -- ([yshift=1.1mm]procN.north east);
+  \node [above=0.4mm, text=black, font=\bfseries]
     at ($(allTop -| proc0.north west)!0.5!(allTop -| procN.north east)$) (allProcs) {All imperative procs};
 
   % Revealed annotations (spork reveal keys keep their space, so nothing moves).
   % Step 2: algorithm, left-aligned with p_0's box.
   \node (algNote) [annotation, spork reveal=<2->, anchor=north west]
-    at ([yshift=-2.5mm]proc0.south west) {\sporkKeyA{Algorithm}:\\initial \texttt{proc}};
+    at ([yshift=-1.9mm]proc0.south west) {\sporkKeyA{Algorithm}:\\initial \texttt{proc}};
   \draw [annotation line, spork reveal=<2->] (algNote.north -| proc0.south) -- (proc0.south);
   % Step 3: schedule under the rewrites label; the "optional" disclaimer outside the box.
-  \node (schedNote) [annotation, spork reveal=<3->, below=2mm of rewrites, align=center]
+  \node (schedNote) [annotation, spork reveal=<3->, below=1.5mm of rewrites, align=center]
     {\sporkKeyA{Schedule}\\(metaprogramming)};
   \draw [annotation line, spork reveal=<3->] (schedNote.north) -- (rewrites.south);
-  \node [spork reveal=<3->, below=1mm of schedNote, inner sep=0pt, font=\small]
+  \node [spork reveal=<3->, below=0.75mm of schedNote, inner sep=0pt, font=\fontsize{8.2}{10.2}\selectfont]
     {(optional: $p_0$ may use all features)};
   % Step 4: transitive functional equivalence, piggy-backing on the bracket label.
-  \node (eqNote) [annotation, spork reveal=<4->, above=2mm of allProcs]
+  \node (eqNote) [annotation, spork reveal=<4->, above=1.5mm of allProcs]
     {Transitive functional equivalence: $p_0 \equiv p_1 \equiv \cdots \equiv p_n$};
   \draw [annotation line, spork reveal=<4->] (eqNote.south) -- (allProcs.north);
   % Step 5: backend checks and codegen only see the final proc.
   \coordinate (checksCode) at ($(checks.south)!0.5!(code.south)$);
-  \node (finalNote) [annotation, spork reveal=<5->, anchor=north] at ([yshift=-2.5mm]checksCode)
+  \node (finalNote) [annotation, spork reveal=<5->, anchor=north] at ([yshift=-1.9mm]checksCode)
     {Only for \sporkKeyA{final proc} $p_n$};
   \draw [annotation line, spork reveal=<5->] (checks.south) -- (checks.south |- finalNote.north);
   \draw [annotation line, spork reveal=<5->] (code.south) -- (code.south |- finalNote.north);
-\end{tikzpicture}\par
+\end{sporkfigure}\par
 \endgroup
 
 % filll: beats the fill glue that top-aligned frames add at the bottom, so the
