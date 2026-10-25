@@ -45,6 +45,26 @@
   annotation line/.style={draw=black!45, thick},
 }
 
+% Trace event boxes (simplified InOutSets.tex look, black/white): a constructor box with small
+% attached \sporkObIn (left) / \sporkObOut (right) boxes, named <name>-in / <name>-out.
+% #1 = node name, #2 = main node options (placement), #3 = access line (e.g. read $\sporkx[\sporkz^*]$).
+\tikzset{
+  tr event/.style={rectangle, draw, thick, align=center, inner sep=1.5mm, minimum height=12mm},
+  tr access/.style={tr event, minimum width=30mm},
+  tr ob/.style={rectangle, draw, thick, inner sep=1mm, minimum height=7mm},
+}
+\newcommand{\trObGap}{0.8pt}  % gap between event and Ob boxes: one `thick` line
+\newcommand{\trPre}[3]{%
+  \node (#1) [tr access, #2] {$\sporkTrPreAccess$\\#3};
+  \node (#1-in) [tr ob, anchor=east] at ([xshift=-\trObGap]#1.west) {$\sporkObIn$};}
+\newcommand{\trPost}[3]{%
+  \node (#1) [tr access, #2] {$\sporkTrPostAccess$\\#3};
+  \node (#1-out) [tr ob, anchor=west] at ([xshift=\trObGap]#1.east) {$\sporkObOut$};}
+\newcommand{\trFence}[2]{%
+  \node (#1) [tr event, #2] {$\sporkTrFence$};
+  \node (#1-in) [tr ob, anchor=east] at ([xshift=-\trObGap]#1.west) {$\sporkObIn$};
+  \node (#1-out) [tr ob, anchor=west] at ([xshift=\trObGap]#1.east) {$\sporkObOut$};}
+
 \title{Exo-GPU}
 \subtitle{Safe, Imperative, User-schedulable Programming for Tensor Cores}
 \author{David Zhao Akeley \and Yuka Ikarashi \and Jonathan Ragan-Kelley}
@@ -539,7 +559,7 @@ New GPU semantics are \sporkKeyA{still deterministic}
 \node(reads) [spork green style, spork reveal=<2->] { read at $\sporkx[\sporkz^*]$ };
 \node (mutates) [spork green style, anchor=west, spork reveal=<2->] at ([xshift=6mm]reads.east) { mutate at $\sporkx[\sporkz^*]$ };
 \node (syncs) [spork green style, anchor=west, spork reveal=<2->] at ([xshift=6mm]mutates.east) { synchronization };
-\node (text) [anchor=east] at([xshift=-6mm]reads.west) {\textbf{Trace Events:}};
+\node (text) [anchor=east] at([xshift=-4mm]reads.west) {\textbf{Trace Event Categories:}};
 \end{sporkfigure}\par
 \endgroup
 
@@ -601,82 +621,115 @@ New GPU semantics are \sporkKeyA{still deterministic}
 \endgroup
 \end{frame}
 
-% TASK: series of slides. A bit wordy, I will look and review later.
-%
-% Slide 1. Sequential-Parallel Equivalence
-%
-% * Applies to the fully-scheduled $p_n$ only
-%
-% * Trace defines \sporkKeyA{one execution order} producing the promised output $\sporksigma$
-%
-% * Relevant property: each ``read x[z^*]'' gets the most recent ``mutate x[z^*]'' value
-%
-%   (Use \sporkx, \sporkz, \spork* macros everywhere).
-%
-% * Figure at bottom, left to right:
-%   [mutate x[0]] [mutate x[1]] [mutate x[0]] [read x[1]] [read x[0]] [mutate x[0]]
-%   Just assume the audience is comprehending English and gets the left-to-right convention.
-%
-% * Reveal arrow to [read x[0]] from immediately prior [mutate x[0]], arrow is blue, relevant x[0] placed in sporkBlue one time only.
-%
-% * Another reveal, same for x[1]
-%
-% * Reveal red DOTTED arrow from oldest [mutate x[0]] to [read x[0]] with text "Must not read \sporkKeyA{older} values"
-%
-% * Reveal red DOTTED arrow from newest [mutate x[0]] to [read x[0]] with text "Must not read \sporkKeyA{future} values"
-%
-% This may not all fit; I'll review later. Overfull/overlapping text is ok. The red arrows can be outside the blue arrows.
-%
-% Next figures will be built out of trace event boxes.
-% They are vaguely like InOutSets.tex but simplified.
-%
-% Layout for TrPreAccess or TrPostAccess:
-%
-% Top line: TrPreAccess|TrPostAccess
-% Bottom line: read|mutate x[z^*]
-%
-% Layout for TrFence:
-%
-% Centered: TrFence
-%
-% TrPreAccess will have \sporkObIn (no args) as a small attached box to the left.
-% TrPostAccess will have \sporkObOut (no args) as a small attached box to the right.
-% TrFence will have both.
-% Everything is black/white by default (don't duplicate the magenta from main.tex article)
-%
-% Slide 2. Simple Trace Events
-%
-% * Observer: generalized thread
-%
-% * Per-event observers: inbound and outbound sets
-%
-% Figure:
-%
-% * Reveal one row: text "Upon read x[z^*]", TrPreAccess box, TrPostAccess box
-%
-% * Reveal one row: text "Upon mutate x[z^*]", TrPreAccess box, TrPostAccess box
-%
-% * Reveal one row: text "Upon synchronization", TrFence box, text "later: split barrier"
-%
-% Slide 3. Trace Edges
-%
-% [I'm ignoring the tr event / vertex distinction for the slides]
-% [Also ignoring pending await until later]
-%
-% Edge forms between trace events tr and tr' when
-%
-% * tr precedes tr' in trace order
-%
-% * A common observer exists in the outbound set of tr and inbound set of tr'
-%
-% Reveal figure: TrPostAccess x[z^*] then TrPreAccess x[z^*] boxes.
-% Connect outbound set/inbound set sub-boxes with edge labelled with Ob^out \cap Ob^in \ne \varnothing
-% [this is a lie because of Qtl_{mask} ignore for the slide deck]
-%
-% Reveal figure: TrPostAccess x[z^*] -> TrFence -> TrPreAccess x[z^*]
-% No need to label edges
-%
-% Reveal: bracket the TrFence with "transitive, can be multiple synchronizations"
+% Sequential-parallel equivalence: the trace as one execution order. Six trace events left to
+% right; reveals: the blue read-from arrows for x[0] then x[1] (above / below), then the red
+% dotted "must not" arrows for x[0] (outside the blue ones).
+% \seqX{<spec>}{i}: x[i], highlighted in \sporkBlue on <spec> only (0: never); otherwise an invisible box of
+% the same size (white on the white event box), so nothing moves between steps.
+\newcommand{\seqX}[2]{{\colorlet{seqXfg}{.}\colorlet{seqXbg}{white}%
+  \sporkSlideOnly<#1>{\colorlet{seqXfg}{sporkBlueFg}\colorlet{seqXbg}{sporkBlueBg}}%
+  \color{seqXfg}\colorbox{seqXbg}{$\sporkx[#2]$}}}
+\begin{frame}[label=SeqParEquiv]{Sequential-Parallel Equivalence}
+\begin{itemize}
+  \item Applies to the fully-scheduled $p_n$ only
+  \item Trace defines \sporkKeyA{one execution order} producing the promised output $\sporksigma$
+  \item Relevant property: each ``read $\sporkx[\sporkz^*]$'' gets the value of the
+    most recent ``mutate $\sporkx[\sporkz^*]$''
+\end{itemize}
 
+\begingroup\centering
+\begin{sporkfigure}
+  \tikzset{seq event/.style={rectangle, draw, thick, align=center, inner sep=1mm,
+    minimum width=15mm}}
+  \node (e0) [seq event] {mutate\\\seqX{0}{0}};
+  \node (e1) [seq event, right=5mm of e0] {mutate\\\seqX{3}{1}};
+  \node (e2) [seq event, right=5mm of e1] {mutate\\\seqX{2}{0}};
+  \node (e3) [seq event, right=5mm of e2] {read\\\seqX{3}{1}};
+  \node (e4) [seq event, right=5mm of e3] {read\\\seqX{2}{0}};
+  \node (e5) [seq event, right=5mm of e4] {mutate\\\seqX{0}{0}};
+
+  % Square arrows to keep the figure short: blue read-from arrows 3mm out, red ones 6mm out
+  % above (outside the blue) and 3mm below (no horizontal overlap with the blue x[1]).
+  \draw [spork reveal=<2->, spork arrow, draw=sporkBlueFg]
+    ([xshift=2mm]e2.north) -- ++(0, 3mm) -| ([xshift=2mm]e4.north);
+  \draw [spork reveal=<3->, spork arrow, draw=sporkBlueFg]
+    (e1.south) -- ++(0, -3mm) -| (e3.south);
+  \draw [spork reveal=<4->, spork arrow, draw=sporkRedFg, densely dotted]
+    (e0.north) -- ++(0, 6mm) -| node (olderMid) [pos=0.25, inner sep=0pt] {} ([xshift=-2mm]e4.north);
+  \node [spork reveal=<4->, above=0.5mm of olderMid] {Must not read \sporkKeyA{older} values};
+  \draw [spork reveal=<5->, spork arrow, draw=sporkRedFg, densely dotted]
+    (e5.south) -- ++(0, -3mm) -| node (futureMid) [pos=0.25, inner sep=0pt] {} (e4.south);
+  \node [spork reveal=<5->, below=0.5mm of futureMid] {Must not read \sporkKeyA{future} values};
+\end{sporkfigure}\par
+\endgroup
+\end{frame}
+
+% Simple trace events, one row per statement kind (TrPreAccess, TrPostAccess, TrFence boxes:
+% preamble macros). Ignores pending await and the qtl details for the slides.
+\begin{frame}[label=SimpleTrEvents]{Simple Trace Events}
+\begin{itemize}
+  \item \sporkKeyA{Observer}: generalized thread
+  \item Per-event observers: \sporkKeyA{inbound} $\sporkObIn$ and \sporkKeyA{outbound} $\sporkObOut$ sets
+\end{itemize}
+
+\vspace{4mm}
+\begingroup\centering
+\begin{sporkfigure}
+  \begin{scope}[spork reveal=<2->]
+    \node [anchor=east] at (0, 0) {Upon read $\sporkx[\sporkz^*]$};
+    \trPre{r1}{anchor=west, xshift=11mm}{read $\sporkx[\sporkz^*]$}
+    \trPost{r2}{right=6mm of r1}{read $\sporkx[\sporkz^*]$}
+  \end{scope}
+  \begin{scope}[spork reveal=<3->]
+    \node [anchor=east] at (0, -17mm) {Upon mutate $\sporkx[\sporkz^*]$};
+    \trPre{m1}{anchor=west, xshift=11mm, yshift=-17mm}{mutate $\sporkx[\sporkz^*]$}
+    \trPost{m2}{right=6mm of m1}{mutate $\sporkx[\sporkz^*]$}
+  \end{scope}
+  \begin{scope}[spork reveal=<4->]
+    \node [anchor=east] at (0, -34mm) {Upon synchronization};
+    \trFence{f1}{anchor=west, xshift=11mm, yshift=-34mm}
+    \node [anchor=west, text=sporkGrayttColor] at ([xshift=6mm]f1-out.east) {later: split barrier};
+  \end{scope}
+\end{sporkfigure}\par
+\endgroup
+\end{frame}
+
+% Trace edges. Ignores the trace event / vertex distinction, pending await, and Qtl_mask
+% (so the Ob^out \cap Ob^in label is a simplification).
+\begin{frame}[label=TraceEdges]{Trace Edges}
+Edge forms between trace events $\sporktr$ and $\sporktr'$ when
+\begin{itemize}
+  \item $\sporktr$ precedes $\sporktr'$ in trace order
+  \item A \sporkKeyA{common observer} exists in the outbound set of $\sporktr$ and inbound set of $\sporktr'$
+\end{itemize}
+
+\vspace{4mm}
+\begingroup\centering
+\begin{sporkfigure}
+  % Step 2: direct edge.
+  \begin{scope}[spork reveal=<2->]
+    \trPost{a1}{}{mutate $\sporkx[\sporkz^*]$}
+    \trPre{a2}{right=72mm of a1}{read $\sporkx[\sporkz^*]$}
+    \draw [spork arrow] (a1-out) -- node [above] {$\sporkObOut \cap \sporkObIn \ne \varnothing$} (a2-in);
+  \end{scope}
+  % Step 3: edges through a fence; same columns as step 2.
+  \begin{scope}[spork reveal=<3->]
+    \trPost{b1}{below=8mm of a1}{mutate $\sporkx[\sporkz^*]$}
+    \trPre{b2}{below=8mm of a2}{read $\sporkx[\sporkz^*]$}
+    \trFence{bf}{at={($(b1-out.east)!0.5!(b2-in.west)$)}}
+    \draw [spork arrow] (b1-out) -- (bf-in);
+    \draw [spork arrow] (bf-out) -- (b2-in);
+  \end{scope}
+  % Step 4: bracket under the fence (Scope-style, ticks pointing up).
+  \begin{scope}[spork reveal=<4->]
+    \coordinate (brY) at ([yshift=-2mm]bf.south);
+    \draw [line width=1.2pt]
+      ([yshift=1.5mm]brY -| bf-in.west) -- (brY -| bf-in.west)
+      -- node (brMid) [midway, inner sep=0pt] {} (brY -| bf-out.east) -- ([yshift=1.5mm]brY -| bf-out.east);
+    \node [below=1mm of brMid, align=center] {Transitive: can be\\multiple synchronizations};
+  \end{scope}
+\end{sporkfigure}\par
+\endgroup
+\end{frame}
 
 \end{document}
