@@ -550,17 +550,29 @@ New GPU semantics are \sporkKeyA{still deterministic}
 \begin{columns}[T]
 \begin{column}{0.64\linewidth}
 \begin{itemize}
-  \sporkReveal<3->{\item \texttt{with CudaDeviceFunction:} {\color{sporkGrayttColor}is like} \texttt{if True:}}
+  \sporkReveal<3->{\item \tikzmark{trTop}\texttt{with CudaDeviceFunction:} {\color{sporkGrayttColor}is like} \texttt{if True:}}
   \sporkReveal<4->{\item parallel loops {\color{sporkGrayttColor}are like} sequential loops}
-  \sporkReveal<5->{\item async instrs {\color{sporkGrayttColor}just ignore the async}}
+  \sporkReveal<5->{\item \tikzmark{trBot}async instrs {\color{sporkGrayttColor}just ignore the async}}
 \end{itemize}
 \end{column}
 \begin{column}{0.36\linewidth}
-\vfill
-\sporkReveal<6->{Only the produced trace \sporkGreen{$\sporktr^*$} changes.}
-\vfill
+\tikzmark{trCol}%
 \end{column}
 \end{columns}
+% Step 6: bracket (Scope-style, ticks pointing left) at the column boundary around the three
+% parallelization bullets, with the conclusion to its right.
+\sporkSlideOnly<6->{
+\begin{tikzpicture}[remember picture, overlay]
+  \coordinate (trX) at ([xshift=-2mm]pic cs:trCol);
+  \coordinate (trTop) at ([yshift=1.6ex]pic cs:trTop);
+  \coordinate (trBot) at ([yshift=-1.0ex]pic cs:trBot);
+  \draw [line width=1.2pt, draw=sporkGreenFg]
+    ([xshift=-1.5mm]trTop -| trX) -- (trTop -| trX)
+    -- node (trMid) [midway, inner sep=0pt] {} (trBot -| trX) -- ([xshift=-1.5mm]trBot -| trX);
+  \node [anchor=west, text width=0.33\linewidth, align=left] at ([xshift=3mm]trMid)
+    {Only the produced trace \sporkGreen{$\sporktr^*$} changes.};
+\end{tikzpicture}
+}
 
 \end{frame}
 
