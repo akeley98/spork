@@ -601,4 +601,82 @@ New GPU semantics are \sporkKeyA{still deterministic}
 \endgroup
 \end{frame}
 
+% TASK: series of slides. A bit wordy, I will look and review later.
+%
+% Slide 1. Sequential-Parallel Equivalence
+%
+% * Applies to the fully-scheduled $p_n$ only
+%
+% * Trace defines \sporkKeyA{one execution order} producing the promised output $\sporksigma$
+%
+% * Relevant property: each ``read x[z^*]'' gets the most recent ``mutate x[z^*]'' value
+%
+%   (Use \sporkx, \sporkz, \spork* macros everywhere).
+%
+% * Figure at bottom, left to right:
+%   [mutate x[0]] [mutate x[1]] [mutate x[0]] [read x[1]] [read x[0]] [mutate x[0]]
+%   Just assume the audience is comprehending English and gets the left-to-right convention.
+%
+% * Reveal arrow to [read x[0]] from immediately prior [mutate x[0]], arrow is blue, relevant x[0] placed in sporkBlue one time only.
+%
+% * Another reveal, same for x[1]
+%
+% * Reveal red DOTTED arrow from oldest [mutate x[0]] to [read x[0]] with text "Must not read \sporkKeyA{older} values"
+%
+% * Reveal red DOTTED arrow from newest [mutate x[0]] to [read x[0]] with text "Must not read \sporkKeyA{future} values"
+%
+% This may not all fit; I'll review later. Overfull/overlapping text is ok. The red arrows can be outside the blue arrows.
+%
+% Next figures will be built out of trace event boxes.
+% They are vaguely like InOutSets.tex but simplified.
+%
+% Layout for TrPreAccess or TrPostAccess:
+%
+% Top line: TrPreAccess|TrPostAccess
+% Bottom line: read|mutate x[z^*]
+%
+% Layout for TrFence:
+%
+% Centered: TrFence
+%
+% TrPreAccess will have \sporkObIn (no args) as a small attached box to the left.
+% TrPostAccess will have \sporkObOut (no args) as a small attached box to the right.
+% TrFence will have both.
+% Everything is black/white by default (don't duplicate the magenta from main.tex article)
+%
+% Slide 2. Simple Trace Events
+%
+% * Observer: generalized thread
+%
+% * Per-event observers: inbound and outbound sets
+%
+% Figure:
+%
+% * Reveal one row: text "Upon read x[z^*]", TrPreAccess box, TrPostAccess box
+%
+% * Reveal one row: text "Upon mutate x[z^*]", TrPreAccess box, TrPostAccess box
+%
+% * Reveal one row: text "Upon synchronization", TrFence box, text "later: split barrier"
+%
+% Slide 3. Trace Edges
+%
+% [I'm ignoring the tr event / vertex distinction for the slides]
+% [Also ignoring pending await until later]
+%
+% Edge forms between trace events tr and tr' when
+%
+% * tr precedes tr' in trace order
+%
+% * A common observer exists in the outbound set of tr and inbound set of tr'
+%
+% Reveal figure: TrPostAccess x[z^*] then TrPreAccess x[z^*] boxes.
+% Connect outbound set/inbound set sub-boxes with edge labelled with Ob^out \cap Ob^in \ne \varnothing
+% [this is a lie because of Qtl_{mask} ignore for the slide deck]
+%
+% Reveal figure: TrPostAccess x[z^*] -> TrFence -> TrPreAccess x[z^*]
+% No need to label edges
+%
+% Reveal: bracket the TrFence with "transitive, can be multiple synchronizations"
+
+
 \end{document}
