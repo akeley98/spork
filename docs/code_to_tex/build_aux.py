@@ -183,6 +183,13 @@ def where(label: str, aux_paths: list[str]) -> tuple[list[WhereHit], bool]:
     hits = collect(lambda n: n == label)
     if hits:
         return hits, True
+    # A frame with an overlay spec (\begin{frame}<3>[label=x]) only writes x<3>, not x: match its first slide label.
+    hits = []
+    for h in collect(lambda n: (m := _FRAME_SLIDE_LABEL_RE.match(n)) is not None and m.group(1) == label):
+        if not any(o.aux == h.aux and o.frame is h.frame for o in hits):
+            hits.append(h)
+    if hits:
+        return hits, True
     hits = collect(lambda n: label in n and not _FRAME_SLIDE_LABEL_RE.match(n))
     return hits, False
 

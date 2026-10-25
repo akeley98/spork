@@ -80,15 +80,16 @@ create a `sporkfigure` environment in the document and `\input` shared TikZ comm
 \end{figure}
 
 % one slide: the same body plus this slide's additions, placed relative to the body's nodes
-\begin{sporkfigure}[scale=1.2]
+\begin{sporkfigure}
   \input{fig_dag_body.tex}
   \node [spork red style, draw, below=2mm of C2] {only on this slide};
 \end{sporkfigure}
 ```
 
-* `sporkfigure[scale=S, <tikzpicture options>]` is a `tikzpicture` scaled as a whole by `S` (default 1; a slides default is TBD).
-  Text inside is sans at the fixed size `\sporkFigFont` (9/11pt, redefinable in `<doc>_defs.tex`), so a body has the same
-  geometry in paper and slides and `scale` only magnifies it. Node `font=\bfseries` / `font=\sporkFigLarge` add to that font.
+* `sporkfigure[scale=S, <tikzpicture options>]` is a `tikzpicture` scaled as a whole by `S` (default 1 in paper and slides).
+  Text inside is sans at 11pt (`\sporkFigFont`, the paper body size; slides are 12pt), so a body has the same geometry
+  in paper and slides and needs no compensating scale. Use `scale` only for a real layout reason (e.g. fitting a column).
+  Node `font=\bfseries` / `font=\sporkFigLarge` add to that font.
 * Node names exist only inside their `sporkfigure`: referring to a name the figure doesn't define
   (renamed, misspelled, from another figure) is an error (`No shape named C2 is known`), never a silent wrong arrow.
 * The build warns when a `sporkfigure`, after scaling, is wider than `\linewidth` (paper and each slide checked separately).

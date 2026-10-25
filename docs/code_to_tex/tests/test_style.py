@@ -239,7 +239,7 @@ def test_per_slide_addition(built):
 
 def test_sporkfigure_scale(built):
     # MEASURE at scale 1 and scale 2 (text is scaled with the picture); TikZ's own scale=0.5 inside
-    # a node still applies (HALF at 2 x 0.5 is about the size of normal 9pt text).
+    # a node still applies (HALF at 2 x 0.5 is about the size of normal 11pt text).
     widths = [x1 - x0 for w, x0, x1 in built["sporkfig"].words(1) if w == "MEASURE"]
     assert len(widths) == 2, widths
     assert abs(widths[1] / widths[0] - 2) < 0.02, widths
@@ -348,12 +348,12 @@ def test_standalone_class_rejected(built):
 
 
 def test_figure_fonts_in_paper(built):
-    # Paper body is serif; pictures are sans. sporkfigure sets 9pt (\sporkFigFont) and node font keys
-    # add to it: font=\bfseries stays sans 9pt, font=\large changes only the size. Plain inline
+    # Paper body is serif; pictures are sans. sporkfigure sets 11pt (\sporkFigFont) and node font keys
+    # add to it: font=\bfseries stays sans 11pt, font=\large changes only the size. Plain inline
     # pictures keep the body size.
     doc = built["paper_figfont"]
     text = doc.text()
-    for word in ["INLINESIZE10", "BOLDNODE9", "PLAINNODE9", "LARGENODE12"]:
+    for word in ["INLINESIZE10", "BOLDNODE11", "PLAINNODE11", "LARGENODE12"]:
         assert word in text, (word, text)
     fonts = doc.fonts()
     assert "FreeSansBold" in fonts

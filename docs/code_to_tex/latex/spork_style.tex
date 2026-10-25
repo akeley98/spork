@@ -228,14 +228,17 @@
 
 % `spork figure` (internal: every sporkfigure applies it, section 9): also sets the absolute figure font size
 % \sporkFigFont, so a figure shared by paper (10/11pt body) and slides (12pt body) has the same text size
-% relative to its geometry in both. Node `font=` keys add to it (`font=\bfseries` is 9pt sans bold).
+% relative to its geometry in both. Node `font=` keys add to it (`font=\bfseries` is 11pt sans bold).
+% 11pt = the paper body size (decided 2026-10-25; slides are 12pt, one step bigger), so figures need no
+% compensating scale: sporkfigure's default scale is 1 everywhere.
 % Redefine \sporkFigFont (in <doc>_defs.tex) to change it for a whole document. Plain tikzpictures
 % (small inline pictures, listing-mark overlays) keep the surrounding size.
-\newcommand{\sporkFigFont}{\fontsize{9}{11}\selectfont}
+\newcommand{\sporkFigFont}{\fontsize{11}{13.6}\selectfont}
 % Absolute size steps for figures (LaTeX's \small, \large, ... follow the host body size, so they differ
 % between paper and slides; the build lints them in fig_*_body.tex files). Use as node font=\sporkFigLarge\bfseries.
-\newcommand{\sporkFigSmall}{\fontsize{7.5}{9}\selectfont}
-\newcommand{\sporkFigLarge}{\fontsize{11}{13}\selectfont}
+% Same values as LaTeX's 11pt \footnotesize and \large.
+\newcommand{\sporkFigSmall}{\fontsize{9}{11}\selectfont}
+\newcommand{\sporkFigLarge}{\fontsize{12}{14}\selectfont}
 \tikzset{spork figure/.style={execute at begin picture={\sporkFigFont}}}
 
 % spork arrow: thick, with the arrows.meta equivalent of the legacy `>=stealth` tip
@@ -418,9 +421,10 @@
 % ===========================================================================
 % \begin{sporkfigure}[scale=S, <tikzpicture options>] ... \end{sporkfigure}
 % A tikzpicture with `spork figure` (fixed sans \sporkFigFont), typeset into a box and then scaled as a
-% whole (text included) by S with \scalebox. Default S = \sporkFigScale (1 in both modes; one macro so a
-% slides default can be chosen later). The body has the same geometry in paper and slides; `scale` only
-% magnifies it. Inline like a tikzpicture: use it inside figure/center/columns as you would a picture.
+% whole (text included) by S with \scalebox. Default S = \sporkFigScale = 1 in both modes (decided
+% 2026-10-25: \sporkFigFont is 11pt, the paper body size, so slides need no compensating scale; use
+% `scale` only for real layout reasons such as fitting a column). The body has the same geometry in
+% paper and slides; `scale` only magnifies it. Inline like a tikzpicture: use it inside figure/center/columns as you would a picture.
 % `scale=` in the options is the sporkfigure scale (not TikZ's coordinate scale); `scale=` on scopes,
 % nodes or styles inside the body is TikZ's as usual. Overlay keys inside animate per Beamer step.
 %

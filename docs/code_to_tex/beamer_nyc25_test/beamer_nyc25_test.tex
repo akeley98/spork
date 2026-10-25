@@ -80,7 +80,8 @@
 \end{column}
 \begin{column}{0.48\textwidth}
 \centering
-\begin{sporkfigure}[scale=0.95]
+% Shrunk to fit the half-width column (the body is drawn for the full paper width).
+\begin{sporkfigure}[scale=0.8]
 \input{fig_grid_tile_body.tex}
 \end{sporkfigure}
 \end{column}
@@ -135,7 +136,7 @@ Save the needed block of \sporkGreen{A}, \sporkViolet{B} in SMEM.
 \sporkSlideOnly<3>{Next step: use accelerator instructions for the \sporkKeyA{GMEM}$\to$\sporkKeyB{SMEM} copies.}
 \end{overlayarea}
 \begin{center}
-\begin{sporkfigure}[scale=1.2]
+\begin{sporkfigure}
 \input{fig_sync_flow_body.tex}
 \end{sporkfigure}
 \end{center}
@@ -150,7 +151,7 @@ Save the needed block of \sporkGreen{A}, \sporkViolet{B} in SMEM.
     \sporkSlideOnly<4>{Split Barriers}%
     \sporkSlideOnly<5>{Tensor Cores}}
 \begin{center}
-\begin{sporkfigure}[scale=1.2]
+\begin{sporkfigure}
 \input{fig_dag_body.tex}
 \end{sporkfigure}
 \end{center}
@@ -172,7 +173,8 @@ Save the needed block of \sporkGreen{A}, \sporkViolet{B} in SMEM.
 % (ring buffer and WAR edges revealed, no step-4/5 emphasis).
 \begin{frame}<3>[label=dag_war]{WAR Hazard Close-up}
 \begin{center}
-\begin{sporkfigure}
+% Shrunk so the note above the figure and the caption below both fit on the slide.
+\begin{sporkfigure}[scale=0.85]
 \input{fig_dag_body.tex}
 \draw [spork arrow, very thick, draw=sporkRedFg]
   ($(C1.north east)+(0,-2mm)$) to[out=40, in=200] (B3.west);
@@ -184,7 +186,6 @@ Save the needed block of \sporkGreen{A}, \sporkViolet{B} in SMEM.
 \sporkCodeRule
 \vspace{2mm}
 Each WAR edge keeps a slot from being refilled while it is still read.
-\vspace{3mm}
 \end{frame}
 
 % ---------------------------------------------------------------------------

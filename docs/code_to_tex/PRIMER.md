@@ -90,13 +90,14 @@ Don't use Beamer's own `\only<..>`, `\pause`, `\node<..>`: the build warns, beca
 
 ## 5. A figure
 
-A figure is a `sporkfigure`: a `tikzpicture` with a fixed 9pt sans font, scaled as a whole (text included) by `scale=`.
+A figure is a `sporkfigure`: a `tikzpicture` with a fixed 11pt sans font (the paper body size), so it looks the same
+in the paper and on slides. `scale=` (default 1) magnifies it as a whole; use it only for a real layout reason.
 Write it where it is used; a figure used in one place is just that:
 
 ```latex
 \begin{figure}
   \centering
-  \begin{sporkfigure}[node distance=5mm]       % any tikzpicture options; scale= is the figure's magnification
+  \begin{sporkfigure}[node distance=5mm]       % any tikzpicture options
     \node (A) [spork green style] {Load A};
     \node (C) [draw, right=of A] {compute};
     \draw [spork arrow] (A) -- (C);
@@ -125,10 +126,13 @@ and `\input` it inside a `sporkfigure` at each place:
   \caption{...}\label{fig:dag}
 \end{figure}
 
-% talk.tex, frame `dag`: the same body, magnified
+% talk.tex, frame `dag`: the same body, same size
 \begin{center}
-\begin{sporkfigure}[scale=1.2]\input{fig_dag_body.tex}\end{sporkfigure}
+\begin{sporkfigure}\input{fig_dag_body.tex}\end{sporkfigure}
 \end{center}
+
+% talk.tex, a frame where it shares the slide with a listing: shrunk to fit a half-width column
+\begin{sporkfigure}[scale=0.8]\input{fig_dag_body.tex}\end{sporkfigure}
 ```
 
 **Per-slide additions.** A slide can add its own elements next to the body's nodes, inside its own `sporkfigure`;

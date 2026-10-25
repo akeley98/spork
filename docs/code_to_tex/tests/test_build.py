@@ -508,6 +508,9 @@ def test_read_aux_deck(tmp_path):
     out = "\n".join(build_aux.format_where("lab:nolabel", *build_aux.where("lab:nolabel", [str(p)]), "doc"))
     assert "frame #2" in out and "no label" in out
     assert build_aux.frame_labels(str(p)) == {"intro", "second", "only3"}
+    # A frame with an overlay spec only has only3<3>; --where only3 still finds the frame (once).
+    hits, exact = build_aux.where("only3", [str(p)])
+    assert exact and len(hits) == 1 and hits[0].frame.labels == ["only3"] and hits[0].frame.first_page == 7
 
 
 def test_read_aux_paper(tmp_path):
