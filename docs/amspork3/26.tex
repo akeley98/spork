@@ -576,4 +576,29 @@ New GPU semantics are \sporkKeyA{still deterministic}
 
 \end{frame}
 
+% Rewrite flow again, now for Exo-GPU: rewrites preserve sigma but not the trace, so the
+% backend checks analyze traces (sequential-parallel equivalence comes in a later frame).
+\begin{frame}[label=ExoGPURewrites]{Exo-GPU Rewrites}
+\begingroup\centering
+\begin{sporkfigure}
+  \input{fig_exoRewriteFlow_body.tex}
+
+  % Steps 2, 3: side by side under the rewrites label, each with a vertical line into it.
+  \coordinate (row) at ([yshift=-3mm]rewrites.south);
+  \node (sigmaNote) [annotation, spork reveal=<2->, anchor=north east]
+    at ([xshift=-1mm]row) {Rewrites preserve\\output $\sporksigma$ only};
+  \draw [annotation line, spork reveal=<2->]
+    ([xshift=-4mm]rewrites.south |- sigmaNote.north) -- ([xshift=-4mm]rewrites.south);
+  \node (traceNote) [annotation, spork reveal=<3->, anchor=north west]
+    at ([xshift=1mm]row) {Output traces\\\sporkGreen{$\sporktr^*$} may change};
+  \draw [annotation line, spork reveal=<3->]
+    ([xshift=4mm]rewrites.south |- traceNote.north) -- ([xshift=4mm]rewrites.south);
+  % Step 4: above the backend checks.
+  \node (checkNote) [annotation, spork reveal=<4->, anchor=south]
+    at ([yshift=3mm]checks.north) {Analyze possible traces.\\Must preserve\\\sporkKeyA{sequential-parallel equivalence}};
+  \draw [annotation line, spork reveal=<4->] (checkNote.south) -- (checks.north);
+\end{sporkfigure}\par
+\endgroup
+\end{frame}
+
 \end{document}
