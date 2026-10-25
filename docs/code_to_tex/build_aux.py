@@ -133,7 +133,8 @@ def read_aux(path: str) -> AuxInfo:
                 number = vals[0] if vals else ""
                 page = vals[1] if len(vals) > 1 else ""
                 fm = _FRAME_SLIDE_LABEL_RE.match(name)
-                if fm and fm.group(2) == "1" and fm.group(1) not in pending_frame_labels:
+                # Usually NAME<1>; a frame with an overlay spec (\begin{frame}<3>) starts at NAME<3>.
+                if fm and fm.group(1) not in pending_frame_labels:
                     pending_frame_labels.append(fm.group(1))
                 lab = Label(name, number, page)
                 info.labels.append(lab)

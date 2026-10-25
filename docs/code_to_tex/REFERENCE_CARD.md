@@ -25,7 +25,8 @@ spork/docs/
     main.tex                    # the paper (fixed name)
     <deck>.tex                  # any number of Beamer decks (--slides <deck>)
     <doc>_defs.tex              # document-specific packages + \newcommands
-    <Name>.tex                  # sections and figures; \label{sec:Name} / \label{fig:Name}
+    <Name>.tex                  # sections; \label{sec:Name} / \label{fig:Name}
+    fig_<name>_body.tex         # optional shared figure bodies: raw TikZ, \input inside a sporkfigure (see Figures)
     samples.py                  # listing source; must pass exocc
     code/  copied_styles/  samples/  preview/    # generated, gitignored
 ```
@@ -38,36 +39,67 @@ python3 -m code_to_tex.build <doc>                                   # paper
 python3 -m code_to_tex.build <doc> --slides <deck>                   # paper + deck
 python3 -m code_to_tex.build <doc> --slides <deck> --no-paper
 python3 -m code_to_tex.build <doc> --slides <deck> --frame dag --skip-code --png   # one frame, ~1s
-python3 -m code_to_tex.build <doc> --figure fig_dag [--paper] --png  # one figure alone (slides / paper rendering)
+python3 -m code_to_tex.build <doc> --png                             # paper pages as PNGs
 python3 -m code_to_tex.build <doc> --slides <deck> --where fig:dag   # which page/frame shows a label
 ```
 
 Order: copy styles -> `check` (exocc) -> listing generator -> xelatex (reruns until stable).
 Warnings are summarized at the end and never block the build. The summary names each job's full LaTeX log
 (`<doc>/<job>.log`) and points into it as `[main.log:914]`; errors also show TeX's own context excerpt.
-Previews land in `<doc>/preview/`
-(`--figure` PNGs of all steps share one crop box, so movement between steps is visible).
+Previews land in `<doc>/preview/`; figures are only seen in context (a frame's PNGs, or the paper page found with `--where`).
 The viewer copy is the exception: LaTeX errors or undefined references block it, since evince crashes on such PDFs.
 
-## Every main file, deck, and figure starts like this
+## Every main file and deck starts like this
 
 ```latex
-\documentclass{article}               % paper | [aspectratio=169]{beamer} deck | [beamer,aspectratio=169]{standalone} figure
-\newif\ifsporkSlides \sporkSlidesfalse % paper | \sporkSlidestrue for deck and figure
+\documentclass{article}               % paper | [aspectratio=169]{beamer} deck
+\newif\ifsporkSlides \sporkSlidesfalse % paper | \sporkSlidestrue for a deck
 \input{copied_styles/spork_style.tex}
 \input{copied_styles/code_to_tex_support.tex}
 \input{<doc>_defs.tex}                 % optional
 ```
 
-A figure is `\documentclass[beamer,aspectratio=169]{standalone}` + `\begin{standaloneframe}...\end{standaloneframe}`
-with `\begin{tikzpicture}[spork figure, ...]`; it compiles alone (`--figure`) and is `\input{fig_x.tex}` by the paper and decks.
-Figure text is sans everywhere; `spork figure` sets the absolute size `\sporkFigFont` (default 9/11pt, redefinable in `<doc>_defs.tex`)
-so paper and slides match, and node `font=\bfseries` / `font=\large` add to it. Don't put `font=\myFont` on the picture
-(node `font=` keys would replace it). Scale for slides with `\scalebox{1.2}{\input{fig_x.tex}}`.
+## Figures
 
-**In figures, don't use** `\small`/`\large`/... or `\linewidth`/`\textwidth`/`\columnwidth`: they follow the host document,
-so paper and slides would differ. Use `\sporkFigSmall`/`\sporkFigLarge`, `\fontsize`, and mm (the build lints this).
-Example: [beamer_nyc25_test/fig_dag.tex](beamer_nyc25_test/fig_dag.tex).
+Draw TikZ figures in a `sporkfigure` environment, written wherever the figure is used (a figure and its caption can live in one file).
+In cases where figures are shared across the paper and slides, or between multiple slides,
+create a `sporkfigure` environment in the document and `\input` shared TikZ commands from `fig_<name>_body.tex`
+(no preamble, not compilable alone); a slide can add its own elements next to the body's nodes:
+
+```latex
+% fig_dag_body.tex: the shared figure; its node names (A1, B4, C2, ...) are its interface
+\node (C2) [dag compute] {compute};
+...
+
+% paper
+\begin{figure}
+  \begin{sporkfigure}
+    \input{fig_dag_body.tex}
+  \end{sporkfigure}
+  \caption{...}\label{fig:dag}
+\end{figure}
+
+% one slide: the same body plus this slide's additions, placed relative to the body's nodes
+\begin{sporkfigure}[scale=1.2]
+  \input{fig_dag_body.tex}
+  \node [spork red style, draw, below=2mm of C2] {only on this slide};
+\end{sporkfigure}
+```
+
+* `sporkfigure[scale=S, <tikzpicture options>]` is a `tikzpicture` scaled as a whole by `S` (default 1; a slides default is TBD).
+  Text inside is sans at the fixed size `\sporkFigFont` (9/11pt, redefinable in `<doc>_defs.tex`), so a body has the same
+  geometry in paper and slides and `scale` only magnifies it. Node `font=\bfseries` / `font=\sporkFigLarge` add to that font.
+* Node names exist only inside their `sporkfigure`: referring to a name the figure doesn't define
+  (renamed, misspelled, from another figure) is an error (`No shape named C2 is known`), never a silent wrong arrow.
+* The build warns when a `sporkfigure`, after scaling, is wider than `\linewidth` (paper and each slide checked separately).
+* Overlay keys in a body (`spork reveal=<2->`, ...) animate on slides; the paper shows the final figure.
+  Variations needed by one slide only go in that slide's `sporkfigure`, not in the body.
+  Step numbers in a body are shared by every frame that uses it; frame-specific timing belongs in the frame.
+* No `remember picture` / listing marks inside a `sporkfigure` (scaling breaks their positions under xelatex).
+
+**In figure bodies, don't use** `\small`/`\large`/... or `\linewidth`/`\textwidth`/`\columnwidth`: they follow the host document,
+so paper and slides would differ. Use `\sporkFigSmall`/`\sporkFigLarge`, `\fontsize`, and mm (the build lints `fig_*_body.tex`).
+Example: [beamer_nyc25_test/fig_dag_body.tex](beamer_nyc25_test/fig_dag_body.tex).
 
 ## Overlays: every overlay states its paper intent
 
@@ -96,7 +128,8 @@ Pitfall: `\begin{frame}{Title}{...}` makes the braced group an (invisible) subti
    shift the picture), but hidden text remains in the PDF text layer.
 4. `\sporkListing` generates its own steps: version v on step v+1(+offset); the last version persists on later steps.
 5. Frames are top-aligned by default (stock: centered); body is 12pt (stock: 11pt); the title template shows no subtitle.
-6. Figures are standalone files that get `\input`; anything in a figure's own preamble is dropped when included.
+6. Figures are raw TikZ bodies drawn inside `sporkfigure`, whose node names are local to it (stock TikZ keeps
+   every node name for the rest of the document).
 7. Single-frame builds use `\sporkOnlyFrame` (set by `--frame`); don't edit `\includeonlyframes`.
 8. Listing marks are `\pgfmark` (not `\tikzmark`) and don't work inside TikZ node text under xelatex.
 9. `\textrm`, `\textsf`, `\texttt`, ... are overlay-aware even in the paper, so `x_\textrm{lo}` fails:
@@ -134,18 +167,18 @@ Check what you highlighted without reading TeX: `<doc>/code/NAME.N.dbg` (`⟦blu
 
 In LaTeX: `\sporkListing{cpu}` (slides: version v on step v+1, code grows), `\sporkListing[reserve]{..}` (space kept),
 `\sporkListing[version=2]{cpu}` (paper default: last version), `offset=K`, `prefix=P`.
-Marks only work when the listing is in normal text or a minipage, not inside a TikZ node;
+Marks only work when the listing is in normal text or a minipage, not inside a TikZ node or a `sporkfigure`;
 draw arrows in a separate `\begin{tikzpicture}[remember picture, overlay]`.
 Project marks via a named coordinate: `\coordinate (a) at (pic cs:split-x);` then `(a -| b)`;
 `(pic cs:split-x -| b)` silently lands at the origin.
 Step-varying text of different heights makes content below it jump; wrap it in `\begin{overlayarea}{\linewidth}{H}`.
-Example: [beamer_nyc25_test/fig_split_marks.tex](beamer_nyc25_test/fig_split_marks.tex).
+Example: [beamer_nyc25_test/split_marks.tex](beamer_nyc25_test/split_marks.tex) (a plain `\input` snippet, not a figure body).
 
 ## Style macros (all `spork`-prefixed)
 
 `\sporkKeyA \sporkKeyB \sporkMainKey \sporkMinorKey` keywords; `\sporkRed ... \sporkViolet`, `\sporkInvRed ... \sporkInvPurple` highlights;
 `\sporkComment`, `\sporkCodeRule` (`\linewidth` wide, works in Beamer columns); `\sporkSection{Title}{sec:X}`; `\sporkPaperLink{label}{text}`;
-TikZ `spork figure`, `spork arrow`, `spork line`, `spork normal node`, `spork red style`, `spork inv red style`, `spork red node`, ...
+environment `sporkfigure`; TikZ `spork arrow`, `spork line`, `spork normal node`, `spork red style`, `spork inv red style`, `spork red node`, ...
 Colors `spork<Name>Fg/Bg`, `sporkKeyColorA/B`, `sporkMainColor`, `sporkMinorColor`, `sporkTitleColor`.
 
 ## .gitignore (per document dir)
@@ -159,8 +192,6 @@ code/
 copied_styles/
 # --png renders for agents
 preview/
-# generated --figure --paper wrappers
-*_paperpreview.tex
 # LaTeX auxiliary files (tikzmark positions live in .aux)
 *.aux
 *.log
@@ -172,6 +203,6 @@ preview/
 *.vrb
 *.bbl
 *.blg
-# build outputs (main.pdf, decks, --frame jobs, standalone figures)
+# build outputs (main.pdf, decks, --frame jobs)
 *.pdf
 ```

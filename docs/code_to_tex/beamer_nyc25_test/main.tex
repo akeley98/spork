@@ -1,4 +1,4 @@
-% Paper side of the beamer_nyc25_test smoke test: \input the same figure files and
+% Paper side of the beamer_nyc25_test smoke test: \input the same figure bodies (inside sporkfigure) and
 % \sporkListing the same listings as the deck, and say what each should look like.
 % Build:  cd spork/docs && python3 -m code_to_tex.build code_to_tex/beamer_nyc25_test
 \documentclass{article}
@@ -53,11 +53,14 @@ its arguments elided as \texttt{(...)}; the per-thread accumulate code collapsed
 Figure~\ref{fig:dag} is the final DAG: all revealed elements (ring buffer row and WAR edges)
 are present; the WAR edges are \emph{dashed} (paper-only style) and a legend below the
 figure explains them (paper-only node). Nothing from the slide-only steps appears:
-no red or inverted nodes, no thick red edges, no ``each edge'' or ``Accelerate me!'' callouts.
+no red or inverted nodes, no thick red edges, no ``each edge'' or ``Accelerate me!'' callouts,
+and none of the additions of the deck's ``WAR Hazard Close-up'' frame (which reuses the same body).
 
 \begin{figure}[ht]
 \centering
-\input{fig_dag.tex}
+\begin{sporkfigure}
+\input{fig_dag_body.tex}
+\end{sporkfigure}
 \caption{Loop-skewed producer/consumer DAG with a 3-slot ring buffer.}
 \label{fig:dag}
 \end{figure}
@@ -68,7 +71,9 @@ and the ``Accelerate me!'' callouts of slide~3 are absent.
 
 \begin{figure}[ht]
 \centering
-\input{fig_sync_flow.tex}
+\begin{sporkfigure}
+\input{fig_sync_flow_body.tex}
+\end{sporkfigure}
 \caption{The ``classic'' GPU GEMM main loop with its two synchronizations.}
 \label{fig:sync_flow}
 \end{figure}
@@ -78,18 +83,21 @@ but block~0 is plain (its inverted green is slide-only).
 
 \begin{figure}[ht]
 \centering
-\input{fig_grid_tile.tex}
+\begin{sporkfigure}
+\input{fig_grid_tile_body.tex}
+\end{sporkfigure}
 \caption{Thread block tiling of C.}
 \label{fig:grid_tile}
 \end{figure}
 
 Figure~\ref{fig:split_marks} is a figure holding a listing: the last version of \texttt{split}
 (WAR lines yellow, bold WAR remark) with both the red RAW arrow and the blue WAR arrow,
-drawn between listing marks.
+drawn between listing marks. It is a plain \texttt{\textbackslash input} snippet, not a sporkfigure
+(marks need unscaled positions).
 
 \begin{figure}[ht]
 \centering
-\input{fig_split_marks.tex}
+\input{split_marks.tex}
 \caption{Split barriers in code.}
 \label{fig:split_marks}
 \end{figure}

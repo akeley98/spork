@@ -65,8 +65,6 @@ def test_parse_args_modes(tmp_path):
     d = str(tmp_path)
     o = build.parse_args([d, "--slides", "deck", "--frame", "a, b"])
     assert o.frame == ["a", "b"] and not o.build_paper
-    o = build.parse_args([d, "--figure", "fig.tex", "--paper"])
-    assert o.figure == "fig" and o.figure_paper and not o.build_paper
     o = build.parse_args([d, "--slides", "deck", "--no-paper"])
     assert not o.build_paper and o.slides == ["deck"]
     o = build.parse_args([d, "--where", "lab"])
@@ -78,11 +76,12 @@ def test_parse_args_modes(tmp_path):
 @pytest.mark.parametrize("argv", [
     ["--frame", "a"],                                  # no deck
     ["--slides", "a", "--slides", "b", "--frame", "x"],  # two decks
-    ["--paper"],                                       # --paper without --figure
-    ["--figure", "f", "--slides", "d"],
+    ["--figure", "fig_dag"],                           # removed: figures are sporkfigures, seen in context
+    ["--figure", "fig_dag", "--paper"],
+    ["--paper"],
     ["--slides", "../evil"],
     ["--slides", "d", "--frame", "a{b}"],
-    ["--figure", "f", "--arxiv", "x.tar.gz"],
+    ["--slides", "d", "--frame", "x", "--arxiv", "x.tar.gz"],
 ])
 def test_parse_args_errors(tmp_path, argv, capsys):
     with pytest.raises(SystemExit) as e:
@@ -304,8 +303,8 @@ CANNED_LOG = textwrap.dedent(r"""
 
     LaTeX Warning: Label `fig:dup' multiply defined.
 
-    Package spork Warning: figure wider than \sporkFigMaxWidth
-    (spork)                by 3pt on input line 9.
+    Package spork Warning: sporkfigure is 500.0pt wide after scaling, > \linewidth
+    (spork)                469.75pt on input line 9.
 
     Package hyperref Warning: Token not allowed in a PDF string (Unicode):
     (hyperref)                removing `math shift' on input line 30.
@@ -338,7 +337,8 @@ def test_parse_canned_log(tmp_path):
     assert err.text == "Undefined control sequence." and err.where == "main.tex:20"
     assert by_kind["multiply"][0].text == "label `fig:dup' multiply defined"
     spork = by_kind["spork"][0]
-    assert spork.text == "spork: figure wider than \\sporkFigMaxWidth by 3pt" and spork.where == "main.tex:9"
+    assert spork.text == "spork: sporkfigure is 500.0pt wide after scaling, > \\linewidth 469.75pt"
+    assert spork.where == "main.tex:9"
     assert any("Token not allowed" in i.text for i in by_kind["other"])
     # Noise is dropped.
     assert not any("multiply-defined labels" in i.text for i in issues)
@@ -433,8 +433,8 @@ def test_lint_overlay_specs():
 
 def test_lint_figure_host_relative_sizes():
     fig = textwrap.dedent(r"""
-        \documentclass[beamer,aspectratio=169]{standalone}
-        \begin{document}
+        % figure body: raw TikZ, no preamble
+        \coordinate (o) at (0,0);
         \node [font=\small] {bad}; \node [font=\sporkFigLarge\bfseries] {ok};
         \node [text width=0.3\linewidth] {bad}; \node [text width=40mm] {ok};
         % \Large in a comment is fine
@@ -442,14 +442,15 @@ def test_lint_figure_host_relative_sizes():
         \fontsize{9}{10.5}\selectfont
         \sporkListing{ok}
         \smallskip \textwidthX
-        \end{document}
     """)
-    issues = build_log.lint_figure_text(fig, "fig.tex")
+    issues = build_log.lint_figure_text(fig, "fig_dag_body.tex")
     lines = [int(i.where.split(":")[1]) for i in issues]
     assert lines == [4, 5, 7]
     assert "\\small" in issues[0].text and "\\linewidth" in issues[1].text and "sporkListing" in issues[2].text
-    # Not a figure file (paper, deck): host-relative sizes are fine there.
-    assert build_log.lint_figure_text(fig.replace("{standalone}", "{beamer}"), "deck.tex") == []
+    assert build_log.lint_figure_text(fig, os.path.join("figs", "fig_dag_body.tex"))[0].where.startswith("figs")
+    # Not a figure body (paper, deck, a figure written inline, a listing-mark snippet): sizes are fine there.
+    for name in ["deck.tex", "main.tex", "fig_dag.tex", "split_marks.tex", "fig_body.tex"]:
+        assert build_log.lint_figure_text(fig, name) == [], name
 
 
 def test_lint_script_text_commands():
@@ -486,6 +487,8 @@ DECK_AUX = textwrap.dedent(r"""
     \newlabel{second<2>}{{3}{5}{}{Doc-Start}{}}
     \newlabel{second<3>}{{3}{6}{}{Doc-Start}{}}
     \@writefile{nav}{\headcommand {\beamer@framepages {4}{6}}}
+    \newlabel{only3<3>}{{4}{7}{}{Doc-Start}{}}
+    \@writefile{nav}{\headcommand {\beamer@framepages {7}{7}}}
     """)
 
 
@@ -494,7 +497,8 @@ def test_read_aux_deck(tmp_path):
     p.write_text(DECK_AUX)
     info = build_aux.read_aux(str(p))
     assert [(f.number, f.first_page, f.last_page, f.labels) for f in info.frames] == [
-        (1, 1, 2, ["intro"]), (2, 3, 3, []), (3, 4, 6, ["second"])]
+        (1, 1, 2, ["intro"]), (2, 3, 3, []), (3, 4, 6, ["second"]),
+        (4, 7, 7, ["only3"])]  # \begin{frame}<3>[label=only3] writes only only3<3>
     hits, exact = build_aux.where("lab:hello", [str(p)])
     assert exact and hits[0].frame.labels == ["intro"] and hits[0].label.page == "1"
     hits, exact = build_aux.where("second", [str(p)])
@@ -503,7 +507,7 @@ def test_read_aux_deck(tmp_path):
     assert not exact and [h.label.name for h in hits] == ["lab:hello", "lab:nolabel"]
     out = "\n".join(build_aux.format_where("lab:nolabel", *build_aux.where("lab:nolabel", [str(p)]), "doc"))
     assert "frame #2" in out and "no label" in out
-    assert build_aux.frame_labels(str(p)) == {"intro", "second"}
+    assert build_aux.frame_labels(str(p)) == {"intro", "second", "only3"}
 
 
 def test_read_aux_paper(tmp_path):
@@ -621,7 +625,7 @@ def test_stale_pdf_does_not_count(fake_tex, monkeypatch):
 
 def test_frame_command_line(fake_tex):
     job = build.plan_jobs(
-        build.Options(str(fake_tex), ".", ["doc"], False, ["a", "b"], None, False, True, False, None, None, False),
+        build.Options(str(fake_tex), ".", ["doc"], False, ["a", "b"], True, False, None, None, False),
         build.CONFIG_DEFAULTS,
     )[0]
     assert job.name == "doc_frame"
@@ -707,67 +711,9 @@ def test_viewer_copy_paths(tmp_path, monkeypatch):
     assert views == ["mydoc.pdf", "mydoc_slides.pdf", "mydoc_talk.pdf", "mydoc_v2.pdf"]
 
 
-def test_frame_and_figure_jobs_have_no_viewer_copy(tmp_path):
+def test_frame_jobs_have_no_viewer_copy(tmp_path):
     o = build.parse_args([str(tmp_path), "--slides", "d", "--frame", "x"])
     assert all(j.viewer_copy is None for j in build.plan_jobs(o, build.CONFIG_DEFAULTS))
-    o = build.parse_args([str(tmp_path), "--figure", "f"])
-    assert all(j.viewer_copy is None for j in build.plan_jobs(o, build.CONFIG_DEFAULTS))
-
-
-# ---------------------------------------------------------------------------
-# PNG cropping
-
-
-def test_parse_geometry_and_union():
-    assert build.parse_geometry("11x4+10+5\n") == (10, 5, 21, 9)
-    assert build.parse_geometry("0x0+50+40") is None  # blank image
-    assert build.parse_geometry("garbage") is None
-    assert build.union_box([(10, 5, 21, 9), (2, 7, 15, 30)]) == (2, 5, 21, 30)
-    assert build.union_box([]) is None
-
-
-@pytest.mark.skipif(shutil.which("convert") is None, reason="ImageMagick convert not installed")
-def test_crop_union(tmp_path):
-    # Three "steps": ink moves right and grows down; one page is blank.
-    pngs = []
-    for i, draw in enumerate(["rectangle 10,10 19,19", "rectangle 40,10 49,29", None]):
-        p = str(tmp_path / f"f-{i + 1}.png")
-        cmd = ["convert", "-size", "100x60", "xc:white"]
-        if draw:
-            cmd += ["-fill", "black", "-draw", draw]
-        subprocess.run(cmd + [p], check=True)
-        pngs.append(p)
-    assert build.crop_union(pngs) == (10, 10, 50, 30)
-    assert all(_png_size(p) == (40, 20) for p in pngs)
-    # Step 1's ink stays at the left of the common box, step 2's at the right.
-    def dark(p, x, y):
-        out = subprocess.run(["convert", p, "-format", f"%[fx:p{{{x},{y}}}.intensity]", "info:"],
-                             stdout=subprocess.PIPE, text=True).stdout
-        return float(out) < 0.5
-    assert dark(pngs[0], 0, 0) and not dark(pngs[0], 35, 0)
-    assert not dark(pngs[1], 0, 0) and dark(pngs[1], 35, 0) and dark(pngs[1], 35, 19)
-    # All blank: nothing cropped.
-    blank = str(tmp_path / "b.png")
-    subprocess.run(["convert", "-size", "30x20", "xc:white", blank], check=True)
-    assert build.crop_union([blank]) is None and _png_size(blank) == (30, 20)
-
-
-# ---------------------------------------------------------------------------
-# Paper preview wrapper
-
-
-def test_paperpreview_wrapper(tmp_path, monkeypatch):
-    monkeypatch.chdir(tmp_path)
-    (tmp_path / "fig.tex").write_text("x")
-    out = build.write_paperpreview("fig", "mydoc")
-    text = (tmp_path / out).read_text()
-    assert "\\sporkSlidesfalse" in text and "\\input{fig.tex}" in text and "mydoc_defs" not in text
-    (tmp_path / "mydoc_defs.tex").write_text("")
-    text = (tmp_path / build.write_paperpreview("fig", "mydoc")).read_text()
-    assert "\\input{mydoc_defs.tex}" in text
-    (tmp_path / "other_paperpreview.tex").write_text("hand written\n")
-    with pytest.raises(build.BuildError, match="refusing"):
-        build.write_paperpreview("other", "mydoc")
 
 
 # ---------------------------------------------------------------------------
@@ -789,8 +735,11 @@ def test_full_build_paper_and_deck(docdir, capsys):
     assert (docdir.parent / "mydoc.pdf").exists() and (docdir.parent / "mydoc_deck.pdf").exists()
     assert "viewer copy updated" in out
     assert "main: pass 2" in out  # labels needed a second pass
-    # Lint reports the bare specs in the shared figure (read by main.tex) and the deck.
-    assert "fig.tex:10: bare overlay spec \\node<...>" in out
+    # Lint reports the bare specs in the figure body (read by main.tex) and the deck,
+    # and the host-relative size in the body.
+    assert "fig_demo_body.tex:7: bare overlay spec \\uncover<...>" in out
+    assert "fig_demo_body.tex:8: bare overlay spec \\node<...>" in out
+    assert "fig_demo_body.tex:9: figure body uses \\small" in out
     assert "deck.tex:13" in out
     assert not os.access(docdir / "copied_styles" / "spork_style.tex", os.W_OK)
 
@@ -875,29 +824,12 @@ def _png_size(path) -> tuple[int, int]:
 
 
 @needs_xelatex
-def test_figure_build_and_png(docdir, capsys):
-    preview = docdir / "preview"
-    preview.mkdir()
-    (preview / "fig-9.png").write_bytes(b"stale")
-    assert build.main([str(docdir), "--figure", "fig", "--png"]) == 0
-    assert _pdf_pages(docdir / "fig.log") == 3  # one page per overlay step
-    assert not (docdir / "main.pdf").exists()
-    assert sorted(os.listdir(preview)) == ["fig-1.png", "fig-2.png", "fig-3.png"]
-    # Cropped: much smaller than a full 160x90mm Beamer page at 110 dpi (~693x390), and all
-    # steps cropped to the same (union) box so they stay aligned.
-    sizes = [_png_size(preview / f"fig-{i}.png") for i in (1, 2, 3)]
-    if shutil.which("convert"):
-        assert sizes[0][0] < 300
-        assert len(set(sizes)) == 1, sizes
-
-
-@needs_xelatex
-def test_figure_paper_build(docdir, capsys):
-    assert build.main([str(docdir), "--figure", "fig", "--paper", "--png"]) == 0
-    wrapper = (docdir / "fig_paperpreview.tex").read_text()
-    assert "\\input{mydoc_defs.tex}" in wrapper
-    assert _pdf_pages(docdir / "fig_paperpreview.log") == 1
-    assert os.listdir(docdir / "preview") == ["fig_paperpreview-1.png"]
+def test_paper_png_is_whole_page(docdir, capsys):
+    # --png renders whole pages (no cropping): a letter page at 110 dpi.
+    assert build.main([str(docdir), "--png"]) == 0
+    assert os.listdir(docdir / "preview") == ["main-1.png"]
+    w, h = _png_size(docdir / "preview" / "main-1.png")
+    assert abs(w - 935) <= 2 and abs(h - 1210) <= 2, (w, h)
 
 
 @needs_xelatex
@@ -935,6 +867,6 @@ def test_arxiv(docdir, tmp_path, capsys):
         names = sorted(tar.getnames())
         readme = tar.extractfile("00README.json").read().decode()
     assert names == ["00README.json", "copied_styles/code_to_tex_support.tex",
-                     "copied_styles/spork_style.tex", "fig.tex", "main.tex", "mydoc_defs.tex"]
+                     "copied_styles/spork_style.tex", "fig_demo_body.tex", "main.tex", "mydoc_defs.tex"]
     assert '"compiler": "xelatex"' in readme and '"usage": "toplevel"' in readme
     assert sorted(os.listdir(docdir)) == before  # the document dir was not touched

@@ -317,22 +317,31 @@ On slides they become overlay specs (`1,3,4-`); on paper they are tested against
 * **Known limitation (xelatex):** marks inside the *text of a TikZ node* are recorded at the wrong position.
   xdvipdfmx places node text with a PDF transformation that TeX's position recording does not see; this was the cause of the old `\bugYFix` hack.
   Put the listing in normal text (or a `minipage`) and draw the arrows in a separate `remember picture, overlay` picture, as shown above.
+  For the same reason (positions inside a scaled box), neither the listing nor the arrows go inside a `sporkfigure`;
+  [beamer_nyc25_test/split_marks.tex](beamer_nyc25_test/split_marks.tex) is a plain `\input` snippet.
 
 ## Tips for frames and figures
 
-* **Standalone figure skeleton.** A figure file compiles on its own (`--figure`) and is `\input` by the paper and decks:
-
-  ```latex
-  \documentclass[beamer,aspectratio=169]{standalone}   % 16:9, like the decks; a 4:3 page clips wide figures
-  \newif\ifsporkSlides \sporkSlidestrue
-  \input{copied_styles/spork_style.tex}
-  \input{copied_styles/code_to_tex_support.tex}
-  \begin{document}
-  \begin{standaloneframe}
-  ...
-  \end{standaloneframe}
-  \end{document}
-  ```
+* **Figures are `sporkfigure` environments** (`latex/spork_style.tex` section 9; walkthrough in [PRIMER.md](PRIMER.md) section 5).
+  `\begin{sporkfigure}[scale=S, <tikzpicture options>]` is a `tikzpicture` with the fixed sans figure font `\sporkFigFont`,
+  typeset into a box and scaled as a whole by `S` (default `\sporkFigScale`, 1 in both modes for now).
+  A figure used in several places keeps its TikZ in `fig_<name>_body.tex` (no preamble), `\input` inside a `sporkfigure`
+  at each place, and a slide can add elements placed relative to the body's nodes. There is no standalone figure build:
+  look at figures in context (`--frame LABEL --png`, or the paper page `--where fig:x` names, with `--png`).
+  * **Node names are local.** Stock TikZ keeps every node name for the rest of the document, so a picture referring to
+    a name it doesn't define silently uses whatever picture defined it last (and `name prefix` silently falls back
+    to the unprefixed name). In a `sporkfigure`, (1) every name it creates (nodes, coordinates, `alias=`, pic and matrix
+    nodes, nested pictures) is forgotten at `\end{sporkfigure}`, so any later reference is pgf's
+    ``No shape named `C2' is known``; and (2) a reference to a node defined in another picture (for example an earlier plain
+    `tikzpicture`) is the error ``No shape named `C2' is known in this sporkfigure (that name belongs to another picture)``.
+    So two figures may use the same names freely, and a renamed node in a shared body fails loudly in every figure that
+    still uses the old name. Plain tikzpictures (listing-mark overlays, inline `\tikz`) keep stock behavior.
+    This relies on PGF internals (pgf 3.1.x; listed in the style's comments): the per-node macros
+    `\pgf@sh@{ns,np,nt,pi,ma,sa}@NAME`, the `\pgf@nodecallback` hook, and `\pgf@shape@interpictureshift`.
+  * **Width warning.** A `sporkfigure` wider than `\linewidth` after scaling (paper column, frame, Beamer column)
+    gives `Package spork Warning: sporkfigure is <w> wide after scaling, > \linewidth <lw>` in the build summary.
+  * `remember picture` on a `sporkfigure` warns: recorded positions are wrong inside a scaled box under xelatex,
+    so listing marks and decorations are drawn in plain pictures outside it (see [Marks](#marks)).
 
 * **Text whose height changes between steps** (for example an `\only<2>{...}` caption with one line on step 1 and three on step 2)
   makes everything below it jump. Wrap it in Beamer's `overlayarea`, which reserves a fixed height:

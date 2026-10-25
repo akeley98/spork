@@ -6,8 +6,9 @@ code_to_tex_support.tex (so these tests don't depend on the listing support file
 
 Checks: page counts (overlay steps), paper/slide visibility of every overlay intent
 (text via pdftotext, TikZ fills via exact pixel colors from pdftoppm), the \\sporkOnlyFrame
-single-frame build, fonts (incl. `spork figure` / \\sporkFigFont), \\sporkCodeRule width, and the
-\\sporkFigMaxWidth warning.
+single-frame build, fonts (incl. sporkfigure / \\sporkFigFont), \\sporkCodeRule width, and the
+sporkfigure environment: scaling, per-slide additions to a shared body, the width warning, and
+local node names (references to names it doesn't define are errors).
 Skipped if xelatex is missing; individual checks skip if poppler tools are missing.
 """
 
@@ -24,7 +25,7 @@ STYLE = os.path.join(os.path.dirname(HERE), "latex", "spork_style.tex")
 
 pytestmark = pytest.mark.skipif(shutil.which("xelatex") is None, reason="xelatex not installed")
 
-# Fill colors used in fixtures/fig.tex (values from spork_style.tex).
+# Fill colors used in fixtures/fig_intent_body.tex (values from spork_style.tex).
 RED_BG = (255, 211, 225)        # REVEALKEY: spork reveal=<2->
 INV_GREEN_BG = (0, 170, 149)    # SLIDEKEY: spork slide only=<3>
 INV_BLUE_BG = (0, 0, 225)       # PAPERKEY: spork paper only
@@ -56,7 +57,7 @@ class Doc:
             self.log = f.read()
 
     def pages(self):
-        # Beamer/standalone write one /Type /Page per page; avoid needing pdfinfo.
+        # Beamer writes one /Type /Page per page; avoid needing pdfinfo.
         if shutil.which("pdfinfo"):
             out = subprocess.run(["pdfinfo", self.pdf], stdout=subprocess.PIPE, text=True).stdout
             return int(re.search(r"^Pages:\s+(\d+)", out, re.M).group(1))
@@ -88,9 +89,22 @@ class Doc:
             counts[c] = counts.get(c, 0) + 1
         return {c for c, n in counts.items() if n >= 20}
 
+    def words(self, page=None):
+        """[(word, xMin, xMax)] from pdftotext -bbox (points)."""
+        _need("pdftotext")
+        args = ["pdftotext", "-bbox"]
+        if page is not None:
+            args += ["-f", str(page), "-l", str(page)]
+        out = subprocess.run(args + [self.pdf, "-"], stdout=subprocess.PIPE, text=True).stdout
+        return [(m.group(3), float(m.group(1)), float(m.group(2)))
+                for m in re.finditer(r'xMin="([\d.]+)"[^>]*xMax="([\d.]+)"[^>]*>([^<]*)<', out)]
+
     def fonts(self):
         _need("pdffonts")
         return subprocess.run(["pdffonts", self.pdf], stdout=subprocess.PIPE, text=True).stdout
+
+
+STYLE_JOBS = ["paper", "paper_fig", "deck", "frames", "rule", "paper_figfont", "sporkfig", "sporkfig_deck"]
 
 
 @pytest.fixture(scope="module")
@@ -104,7 +118,7 @@ def built(tmp_path_factory):
     open(os.path.join(styles, "code_to_tex_support.tex"), "w").close()
 
     docs = {}
-    for job in ["fig", "paper", "paper_fig", "deck", "frames", "rule", "paper_figfont"]:
+    for job in STYLE_JOBS:
         _xelatex(work, [job + ".tex"], passes=2)
         docs[job] = Doc(work, job)
     _xelatex(work, ["-jobname=frames_b", r"\def\sporkOnlyFrame{b}\input{frames.tex}"])
@@ -114,8 +128,7 @@ def built(tmp_path_factory):
     return docs
 
 
-@pytest.mark.parametrize("job", ["fig", "paper", "paper_fig", "deck", "frames", "frames_b", "frames_ac",
-                                 "rule", "paper_figfont"])
+@pytest.mark.parametrize("job", STYLE_JOBS + ["frames_b", "frames_ac"])
 def test_compiles_cleanly(built, job):
     doc = built[job]
     errors = [l for l in doc.log.splitlines() if l.startswith("!")]
@@ -127,8 +140,9 @@ def test_compiles_cleanly(built, job):
 
 
 @pytest.mark.parametrize("job,pages", [
-    ("fig", 3), ("paper", 1), ("paper_fig", 1), ("deck", 8), ("frames", 4),
+    ("paper", 1), ("paper_fig", 1), ("deck", 11), ("frames", 4),
     ("frames_b", 2), ("frames_ac", 2), ("rule", 1), ("paper_figfont", 1),
+    ("sporkfig", 1), ("sporkfig_deck", 3),
 ])
 def test_page_counts(built, job, pages):
     assert built[job].pages() == pages
@@ -171,7 +185,8 @@ def _fig_expectations():
     }
 
 
-@pytest.mark.parametrize("job,first_page", [("fig", 1), ("deck", 5)])
+# Frame "fig" (pages 5-7) and frame "fig_add" (pages 8-10, the same body plus an addition) of deck.tex.
+@pytest.mark.parametrize("job,first_page", [("deck", 5), ("deck", 8)])
 def test_figure_slides_intent(built, job, first_page):
     doc = built[job]
     for step, (colors, texts) in _fig_expectations().items():
@@ -211,30 +226,131 @@ def test_fonts(built):
     assert "FreeSans" in deck and "UbuntuMono" in deck.replace(" ", "")
 
 
-def test_fig_max_width_warning(built, tmp_path):
-    work = built["fig"].workdir
-    with open(os.path.join(work, "fig.tex")) as f:
-        src = f.read()
-    with open(os.path.join(work, "figw.tex"), "w") as f:
-        f.write(src.replace(r"\begin{document}", "\\sporkFigMaxWidth{3cm}\n\\begin{document}", 1))
-    _xelatex(work, ["figw.tex"])
-    log = Doc(work, "figw").log
-    assert "Package spork Warning: picture width" in log
-    assert "Package spork Warning" not in built["fig"].log
+def test_per_slide_addition(built):
+    # frame fig_add: the body's nodes plus ADDEDNODE right of the body's `rev` node, on every step;
+    # frame fig (same body) and the paper don't have it.
+    deck = built["deck"]
+    for page in (8, 9, 10):
+        words = {w: (x0, x1) for w, x0, x1 in deck.words(page)}
+        assert "ADDEDNODE" in words and words["ADDEDNODE"][0] > words["REVEALKEY"][1]
+    assert not any("ADDEDNODE" in deck.text(p) for p in (5, 6, 7))
+    assert "ADDEDNODE" not in built["paper_fig"].text()
 
 
-def test_fig_page_is_wide(built):
-    # Standalone figures use [beamer,aspectratio=169]: 160mm x 90mm pages.
-    _need("pdfinfo")
-    out = subprocess.run(["pdfinfo", built["fig"].pdf], stdout=subprocess.PIPE, text=True).stdout
-    w, h = (float(x) for x in re.search(r"Page size:\s+([\d.]+) x ([\d.]+) pts", out).groups())
-    assert abs(w / h - 16 / 9) < 0.01
+def test_sporkfigure_scale(built):
+    # MEASURE at scale 1 and scale 2 (text is scaled with the picture); TikZ's own scale=0.5 inside
+    # a node still applies (HALF at 2 x 0.5 is about the size of normal 9pt text).
+    widths = [x1 - x0 for w, x0, x1 in built["sporkfig"].words(1) if w == "MEASURE"]
+    assert len(widths) == 2, widths
+    assert abs(widths[1] / widths[0] - 2) < 0.02, widths
+    assert "HALF" in built["sporkfig"].text()
+
+
+def _width_warnings(log):
+    log = log.replace("\n", "")  # unwrap (the test runs xelatex without max_print_line)
+    return re.findall(r"Package spork Warning: sporkfigure is ([\d.]+)pt wide after scaling, "
+                      r"> \\linewidth ([\d.]+)pt", log)
+
+
+def test_width_warning_paper(built):
+    # sporkfig.tex: figure 1 (~125mm) fits, figure 2 (~2 x 125mm) doesn't; paper_fig fits.
+    warnings = _width_warnings(built["sporkfig"].log)
+    assert len(warnings) == 1, warnings
+    w, lw = (float(x) for x in warnings[0])
+    assert w > lw and abs(lw - 469.75) < 0.1
+    for job in ["paper_fig", "paper_figfont", "deck"]:
+        assert "Package spork Warning" not in built[job].log, job
+
+
+def test_width_warning_slides(built):
+    # sporkfig_deck.tex: frame "fits" (~115mm x 1.2) has no warning, frame "wide" (x 1.5) has one,
+    # measured against the frame's 144mm \\linewidth.
+    warnings = _width_warnings(built["sporkfig_deck"].log)
+    assert len(warnings) == 1, warnings
+    w, lw = (float(x) for x in warnings[0])
+    assert w > lw and abs(lw - 409.71) < 0.1
+    # Overlays inside the scaled figure: STEPTWO only on step 2 of frame "fits".
+    assert ["STEPTWO" in built["sporkfig_deck"].text(p) for p in (1, 2)] == [False, True]
+
+
+# Error cases: each value is (document body, start of pgf's error message naming the node).
+# Positive control: sporkfig.tex references all these kinds of names inside the figure that defines them
+# (and compiles cleanly, test_compiles_cleanly), so the errors below come from forgetting, not from typos.
+_NAME_PREAMBLE = r"""\documentclass{article}
+\newif\ifsporkSlides \sporkSlidesfalse
+\input{copied_styles/spork_style.tex}
+\input{copied_styles/code_to_tex_support.tex}
+\begin{document}
+"""
+_NAME_ERRORS = {
+    # misspelled / renamed inside the figure
+    "undefined": (r"\begin{sporkfigure}\node (A) {a}; \draw (A) -- (Nope);\end{sporkfigure}",
+                  "No shape named `Nope' is known"),
+    # a name defined only in an earlier sporkfigure (the silent-wrong-arrow case of stock TikZ)
+    "earlier_fig": (r"\begin{sporkfigure}\node (C2) {c};\end{sporkfigure}"
+                    r"\begin{sporkfigure}\node (A) {a}; \draw (A) -- (C2);\end{sporkfigure}",
+                    "No shape named `C2' is known"),
+    # a name defined only in an earlier plain picture
+    "earlier_plain": (r"\tikz\node (P) {p};"
+                      r"\begin{sporkfigure}\node (A) {a}; \draw (A) -- (P.east);\end{sporkfigure}",
+                      "No shape named `P' is known in this sporkfigure"),
+    # a later plain picture referring to a sporkfigure's node
+    "later_plain": (r"\begin{sporkfigure}\node (C2) {c};\end{sporkfigure}\tikz\draw (0,0) -- (C2);",
+                    "No shape named `C2' is known"),
+    # alias, pic, matrix cell, coordinate, prefixed names are forgotten too
+    "alias": (r"\begin{sporkfigure}\node[alias=Al] (Q) {q};\end{sporkfigure}"
+              r"\begin{sporkfigure}\node (A) {a}; \draw (A) -- (Al);\end{sporkfigure}",
+              "No shape named `Al' is known"),
+    "pic": (r"\begin{sporkfigure}\pic (pp-) {code={\node (inner) {I};}};\end{sporkfigure}"
+            r"\begin{sporkfigure}\node (A) {a}; \draw (A) -- (pp-inner);\end{sporkfigure}",
+            "No shape named `pp-inner' is known"),
+    "matrix": (r"\begin{sporkfigure}\matrix (m) {\node (m1) {M}; \\};\end{sporkfigure}"
+               r"\begin{sporkfigure}\node (A) {a}; \draw (A) -- (m1);\end{sporkfigure}",
+               "No shape named `m1' is known"),
+    "coordinate": (r"\begin{sporkfigure}\coordinate (cc) at (1,1);\end{sporkfigure}"
+                   r"\begin{sporkfigure}\node (A) {a}; \draw (A) -- (cc);\end{sporkfigure}",
+                   "No shape named `cc' is known"),
+    "prefix": (r"\begin{sporkfigure}\begin{scope}[name prefix=p-]\node (X) {x};\end{scope}\end{sporkfigure}"
+               r"\begin{sporkfigure}\node (A) {a}; \draw (A) -- (p-X);\end{sporkfigure}",
+               "No shape named `p-X' is known"),
+}
+
+
+def _compile_snippet(built, job, body):
+    work = built["paper"].workdir
+    with open(os.path.join(work, job + ".tex"), "w") as f:
+        f.write(_NAME_PREAMBLE + body + "\n\\end{document}\n")
+    _xelatex(work, [job + ".tex"])
+    return Doc(work, job).log.replace("\n", "")
+
+
+@pytest.mark.parametrize("case", sorted(_NAME_ERRORS))
+def test_node_names_are_local(built, case):
+    body, expected = _NAME_ERRORS[case]
+    log = _compile_snippet(built, f"names_{case}", body)
+    errors = re.findall(r"! Package pgf Error: (No shape named `[^']*' is known[^.]*)", log)
+    assert errors and errors[0].startswith(expected), (case, errors)
+
+
+def test_remember_picture_warning(built):
+    log = _compile_snippet(built, "names_remember",
+                           r"\begin{sporkfigure}[remember picture]\node {r};\end{sporkfigure}")
+    assert "Package spork Warning: remember picture in a sporkfigure" in log
+
+
+def test_standalone_class_rejected(built):
+    work = built["paper"].workdir
+    with open(os.path.join(work, "old_fig.tex"), "w") as f:
+        f.write("\\documentclass[beamer]{standalone}\n\\newif\\ifsporkSlides \\sporkSlidestrue\n"
+                "\\input{copied_styles/spork_style.tex}\n\\begin{document}\\end{document}\n")
+    _xelatex(work, ["old_fig.tex"])
+    assert "class standalone is no longer supported" in Doc(work, "old_fig").log
 
 
 def test_figure_fonts_in_paper(built):
-    # Paper body is serif; pictures are sans. `spork figure` sets 9pt (\sporkFigFont) and node font keys
-    # add to it: font=\bfseries stays sans 9pt, font=\large changes only the size. Inline pictures
-    # without the key keep the body size.
+    # Paper body is serif; pictures are sans. sporkfigure sets 9pt (\sporkFigFont) and node font keys
+    # add to it: font=\bfseries stays sans 9pt, font=\large changes only the size. Plain inline
+    # pictures keep the body size.
     doc = built["paper_figfont"]
     text = doc.text()
     for word in ["INLINESIZE10", "BOLDNODE9", "PLAINNODE9", "LARGENODE12"]:

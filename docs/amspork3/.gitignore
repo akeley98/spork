@@ -4,10 +4,8 @@ amspork3/
 code/
 # build driver's copies of code_to_tex/latex/*.tex (spork_style.tex, code_to_tex_support.tex) + extra_styles; read-only, edit the originals instead
 copied_styles/
-# build driver --png renders: cropped page/frame/figure-step PNGs for agents to look at
+# build driver --png renders: paper page / frame step PNGs for agents to look at
 preview/
-# build driver --figure NAME --paper wrappers (regenerated on every such build)
-*_paperpreview.tex
 
 # LaTeX auxiliary files (Beamer adds .nav/.snm/.toc/.vrb; -recorder adds .fls; tikzmark positions live in .aux)
 *.aux
@@ -22,6 +20,6 @@ preview/
 *.bbl
 *.blg
 
-# Build outputs: main.pdf, DECK.pdf, --frame jobs, standalone figure PDFs.
+# Build outputs: main.pdf, DECK.pdf, --frame jobs.
 # Caution: this also ignores hand-made PDF images; un-ignore those individually (!img/foo.pdf) or keep them in a subdirectory with its own rule.
 *.pdf

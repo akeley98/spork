@@ -1,4 +1,5 @@
-% Deck fixture: 4 frames, 1 + 3 + 3 + 1 = 8 pages; frame "fig" \inputs the standalone figure (pages 5-7).
+% Deck fixture: 5 frames, 1 + 3 + 3 + 3 + 1 = 11 pages; frame "fig" \inputs the figure body in a sporkfigure
+% (pages 5-7); frame "fig_add" reuses the body plus a per-slide addition placed relative to its node `rev` (pages 8-10).
 \documentclass[aspectratio=169]{beamer}
 \newif\ifsporkSlides \sporkSlidestrue
 \input{copied_styles/spork_style.tex}
@@ -28,7 +29,16 @@ Last line.
 \end{frame}
 \begin{frame}[label=fig]{Figure}
 \centering
-\scalebox{1.0}{\input{fig.tex}}
+\begin{sporkfigure}[node distance=4mm and 6mm]
+\input{fig_intent_body.tex}
+\end{sporkfigure}
+\end{frame}
+\begin{frame}[label=fig_add]{Figure plus a per-slide addition}
+\centering
+\begin{sporkfigure}[scale=0.8, node distance=4mm and 6mm]
+\input{fig_intent_body.tex}
+\node[draw, right=3mm of rev] {ADDEDNODE};
+\end{sporkfigure}
 \end{frame}
 \sporkExtraSlides
 \begin{frame}[label=extra]{Extra slide title}

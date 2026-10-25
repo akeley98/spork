@@ -1,13 +1,11 @@
-% spork_style.tex: master style for paper + slides + standalone figures (xelatex only).
+% spork_style.tex: master style for paper + slides (xelatex only).
 % Part of the code_to_tex package; the build driver copies it to <doc>/copied_styles/ (read-only copy;
 % edit code_to_tex/latex/spork_style.tex instead).
 % Self-contained: must not \input siblings.
 %
-% Every main file, deck, and figure starts with:
+% Every main file and deck starts with:
 %   \documentclass{article}                 % paper  | \documentclass[aspectratio=169]{beamer} deck
-%                                           % figure | \documentclass[beamer,aspectratio=169]{standalone}
-%                                           %          (a 4:3 page would clip wide figures in --figure previews)
-%   \newif\ifsporkSlides \sporkSlidesfalse  % paper  | \sporkSlidestrue for deck and standalone figure
+%   \newif\ifsporkSlides \sporkSlidesfalse  % paper  | \sporkSlidestrue for a deck
 %   \input{copied_styles/spork_style.tex}
 %   \input{copied_styles/code_to_tex_support.tex}
 %   \input{<doc>_defs.tex}                  % document-specific packages + macros
@@ -17,7 +15,7 @@
 % Document-specific packages (mathpartir, stmaryrd, ...) and notation macros (\abs, ...) go in <doc>_defs.tex.
 %
 % Contents:
-%   1. Mode detection (paper / deck / standalone figure)
+%   1. Mode detection (paper / deck)
 %   2. Packages + fonts
 %   3. Colors
 %   4. Text macros: keys, boxes, code comments, sections, links
@@ -25,25 +23,25 @@
 %   6. TikZ styles + overlay intent keys
 %   7. Paper look (titlesec, lists)
 %   8. Slides look (blank Beamer theme, frame title, single-frame hook)
-%   9. \sporkFigMaxWidth
+%   9. sporkfigure environment (scaled figure, local node names, width warning)
 
 \makeatletter
 
 % ===========================================================================
 % 1. Mode detection
 % ===========================================================================
-% \ifsporkSlides is set by the main file. A standalone figure (class standalone) is always
-% slides mode (its [beamer] option loads Beamer anyway). \ifspork@standalone distinguishes
-% figure from deck where needed (single-frame hook, footline).
+% \ifsporkSlides is set by the main file.
+% (Standalone figure files are no longer supported: draw figures in a sporkfigure environment, section 9.)
 \ifdefined\ifsporkSlides\else
   \expandafter\newif\csname ifsporkSlides\endcsname
   \sporkSlidesfalse
 \fi
-\newif\ifspork@standalone
-\@ifclassloaded{standalone}{\spork@standalonetrue\sporkSlidestrue}{}
+\@ifclassloaded{standalone}{%
+  \GenericError{}{spork_style.tex: class standalone is no longer supported; draw figures in a
+    sporkfigure environment inside the paper or a deck (code_to_tex/REFERENCE_CARD.md, Figures)}{}{}}{}
 \ifsporkSlides
   \@ifclassloaded{beamer}{}{%
-    \GenericError{}{spork_style.tex: \string\sporkSlidestrue\space but class is not beamer or [beamer]{standalone}}{}{}}
+    \GenericError{}{spork_style.tex: \string\sporkSlidestrue\space but class is not beamer}{}{}}
 \else
   \@ifclassloaded{beamer}{%
     \GenericError{}{spork_style.tex: class beamer but \string\sporkSlidesfalse; use \string\sporkSlidestrue\space for decks}{}{}}{}
@@ -65,9 +63,6 @@
   \usepackage{colortbl}
   \usepackage{fontspec}
   \usepackage{tikz}
-  \ifspork@standalone\else
-    \usepackage{standalone}  % lets the deck \input standalone figure files
-  \fi
 \else
   \PassOptionsToPackage{usenames,dvipsnames,svgnames,table,hyperref}{xcolor}
   \usepackage[letterpaper, portrait, margin=2.54cm]{geometry}
@@ -86,26 +81,10 @@
   \usepackage{tikz}
   \usepackage{beamerarticle}  % defines \only, \uncover, frame, ... for paper; also loads hyperref
   \usepackage{enumitem}       % after beamerarticle (which redefines enumerate; the other order breaks \end{enumerate})
-  \usepackage{standalone}     % lets the paper \input standalone figure files
   \usepackage{hyperref}
   \hypersetup{hidelinks}
 \fi
 \usetikzlibrary{shapes.geometric, arrows.meta, positioning, calc, tikzmark}
-
-% Workaround (standalone.sty 2018/03/26): when a figure is \input, its preamble is gobbled as a macro
-% argument that lands inside skipped conditional branches, so any \if... token in the figure preamble
-% (e.g. its own \newif\ifsporkSlides) mis-nests: "Incomplete \iffalse; all text was ignored after line N".
-% We never use the subpreambles option, so gobble up to \begin{document} without conditionals.
-\ifdefined\sa@gobble
-  \long\def\sa@gobble#1\begin#2{%
-    \def\@tempa{#2}%
-    \ifx\@tempa\sa@gobbleto
-      \expandafter\spork@sa@gobbledone
-    \else
-      \expandafter\sa@gobble
-    \fi}
-  \def\spork@sa@gobbledone{\expandafter\endgroup\expandafter\begin\expandafter{\sa@gobbleto}}
-\fi
 
 % Paper body stays serif (Latin Modern); slides body is sans (Beamer default, \familydefault=\sfdefault).
 \setsansfont{FreeSans}
@@ -247,14 +226,14 @@
 % font (not a `font=` key), so a node's own `font=\bfseries` / `font=\sporkFigLarge` adds to it and stays sans.
 \tikzset{every picture/.append style={execute at begin picture={\sffamily}}}
 
-% `spork figure` (opt-in, in the tikzpicture options of a figure): also sets the absolute figure font size
+% `spork figure` (internal: every sporkfigure applies it, section 9): also sets the absolute figure font size
 % \sporkFigFont, so a figure shared by paper (10/11pt body) and slides (12pt body) has the same text size
 % relative to its geometry in both. Node `font=` keys add to it (`font=\bfseries` is 9pt sans bold).
-% Redefine \sporkFigFont (in <doc>_defs.tex) to change it for a whole document. Small inline
-% pictures without the key keep the surrounding size.
+% Redefine \sporkFigFont (in <doc>_defs.tex) to change it for a whole document. Plain tikzpictures
+% (small inline pictures, listing-mark overlays) keep the surrounding size.
 \newcommand{\sporkFigFont}{\fontsize{9}{11}\selectfont}
 % Absolute size steps for figures (LaTeX's \small, \large, ... follow the host body size, so they differ
-% between paper and slides; the build lints them in figure files). Use as node font=\sporkFigLarge\bfseries.
+% between paper and slides; the build lints them in fig_*_body.tex files). Use as node font=\sporkFigLarge\bfseries.
 \newcommand{\sporkFigSmall}{\fontsize{7.5}{9}\selectfont}
 \newcommand{\sporkFigLarge}{\fontsize{11}{13}\selectfont}
 \tikzset{spork figure/.style={execute at begin picture={\sporkFigFont}}}
@@ -417,23 +396,17 @@
   \setbeamertemplate{enumerate items}[default]
   \setbeamertemplate{sections/subsections in toc}[default]
 
-  % Footline: small gray frame number at bottom right (deck only).
-  \ifspork@standalone
-    \setbeamertemplate{footline}{}
-  \else
-    \setbeamercolor{page number in head/foot}{fg=sporkGrayttColor}
-    \setbeamerfont{page number in head/foot}{size=\scriptsize}
-    \setbeamertemplate{footline}{%
-      \hfill\usebeamercolor[fg]{page number in head/foot}\usebeamerfont{page number in head/foot}%
-      \insertframenumber\kern2mm\vskip1.5mm}
-  \fi
+  % Footline: small gray frame number at bottom right.
+  \setbeamercolor{page number in head/foot}{fg=sporkGrayttColor}
+  \setbeamerfont{page number in head/foot}{size=\scriptsize}
+  \setbeamertemplate{footline}{%
+    \hfill\usebeamercolor[fg]{page number in head/foot}\usebeamerfont{page number in head/foot}%
+    \insertframenumber\kern2mm\vskip1.5mm}
 
-  % Single-frame build hook (deck only): the build driver runs
+  % Single-frame build hook: the build driver runs
   %   xelatex -jobname=DECK_frame '\def\sporkOnlyFrame{a,b}\input{DECK.tex}'
   % and only frames with [label=a] / [label=b] are typeset. (\includeonlyframes doesn't expand its argument.)
-  \ifspork@standalone\else
-    \ifdefined\sporkOnlyFrame\expandafter\includeonlyframes\expandafter{\sporkOnlyFrame}\fi
-  \fi
+  \ifdefined\sporkOnlyFrame\expandafter\includeonlyframes\expandafter{\sporkOnlyFrame}\fi
 \else
   % Paper: slide-only title helpers are no-ops so shared text compiles.
   \newcommand{\sporkTitleTag}[1]{}
@@ -441,22 +414,116 @@
 \fi
 
 % ===========================================================================
-% 9. \sporkFigMaxWidth
+% 9. sporkfigure environment
 % ===========================================================================
-% \sporkFigMaxWidth{12cm} in a figure file's preamble: every later tikzpicture wider than that emits
-%   Package spork Warning: picture width <w> exceeds \sporkFigMaxWidth <max>
-% The standalone build is the fast loop for this; the preamble is stripped when the figure is \input.
-\newdimen\spork@figmaxwidth
-\newdimen\spork@tmpdim
-\newcommand{\sporkFigMaxWidth}[1]{%
-  \setlength{\spork@figmaxwidth}{#1}%
-  \tikzset{every picture/.append style={execute at end picture={\spork@checkwidth}}}}
-\def\spork@checkwidth{%
-  \spork@tmpdim=\pgf@picmaxx
-  \advance\spork@tmpdim by -\pgf@picminx
-  \ifdim\spork@tmpdim>\spork@figmaxwidth
-    \PackageWarning{spork}{picture width \the\spork@tmpdim\space exceeds
-      \string\sporkFigMaxWidth\space\the\spork@figmaxwidth}%
+% \begin{sporkfigure}[scale=S, <tikzpicture options>] ... \end{sporkfigure}
+% A tikzpicture with `spork figure` (fixed sans \sporkFigFont), typeset into a box and then scaled as a
+% whole (text included) by S with \scalebox. Default S = \sporkFigScale (1 in both modes; one macro so a
+% slides default can be chosen later). The body has the same geometry in paper and slides; `scale` only
+% magnifies it. Inline like a tikzpicture: use it inside figure/center/columns as you would a picture.
+% `scale=` in the options is the sporkfigure scale (not TikZ's coordinate scale); `scale=` on scopes,
+% nodes or styles inside the body is TikZ's as usual. Overlay keys inside animate per Beamer step.
+%
+% Width warning: if the scaled figure is wider than \linewidth (of the place it is used: paper column,
+% frame, Beamer column), emits
+%   Package spork Warning: sporkfigure is <w> wide after scaling, > \linewidth <lw>
+% `remember picture` on the sporkfigure also warns: positions recorded inside a scaled box are wrong
+% under xelatex (listing marks and decorations go in plain pictures outside, see README Marks).
+%
+% Local node names. Stock TikZ keeps every node name for the rest of the document, and a picture
+% referring to a name it doesn't define silently uses whatever picture defined it last (no error;
+% `name prefix` also silently falls back to the unprefixed name). Inside a sporkfigure:
+%   (1) Every name created in it (nodes, coordinates, aliases, pic and matrix nodes, also inside
+%       nested pictures) is forgotten (made undefined) at \end{sporkfigure}. A later reference to it,
+%       from any picture, is pgf's normal error: No shape named `C2' is known.
+%   (2) A reference to a node that was defined in a different picture (a plain tikzpicture earlier in the
+%       document, e.g. a listing-mark overlay or an inline \tikz) is also an error:
+%       No shape named `C2' is known in this sporkfigure (that name belongs to another picture).
+%       Exempt: `current page` (not meaningful in a scaled box anyway) and the per-picture
+%       `current bounding box` etc. A nested picture (\tikz inside a node) is "another picture" too.
+% So a sporkfigure can only use names it defines itself; two sporkfigures may use the same names freely.
+% Names of plain tikzpictures are not forgotten (stock behavior outside sporkfigures, which
+% remember-picture overlays rely on), except when a sporkfigure later reuses the same name (rule 1).
+%
+% PGF internals relied on (pgf 3.1.x, generic/pgf/modules/pgfmoduleshapes.code.tex):
+%   * a node named N is the macros \pgf@sh@{ns,np,nt,pi,ma,sa}@N (shape, saved points, transform, picture
+%     id, saved macros, saved anchor; TikZ adds \tikz@dcl@coord@N); undefining them forgets N;
+%   * \pgf@nodecallback{N} is called for every created node (\pgfmultipartnode, also late-positioned) and
+%     alias (\pgfnodealias; aliases, `alias=`, renames); \pgfpicture resets it to \pgfutil@gobble and
+%     matrix cells replace it with \pgf@matrix@nodecallback, so both are wrapped; \pgfcoordinate
+%     (no callback) is wrapped too;
+%   * \pgf@shape@interpictureshift{N} is called by every anchor/border lookup (\pgfpointanchor,
+%     \pgfpointshapeborder) and compares \pgf@sh@pi@N with \pgfpictureid: the hook for rule (2).
+% All wrappers are local to the sporkfigure (plain pictures run stock pgf code). Not tracked: names made
+% by `local bounding box` and by \pgffakenode (still covered by rule 2 if referenced from a later figure).
+\newcommand{\sporkFigScale}{1}
+\newsavebox{\spork@figbox}
+\newif\ifspork@infig
+\gdef\spork@fig@names{}
+\def\spork@fig@pageorigin{pgfpageorigin}
+% Record name #1 (already expanded) for forgetting at \end{sporkfigure}.
+\def\spork@fig@track#1{%
+  \def\spork@tmp{#1}%
+  \ifx\spork@tmp\pgfutil@empty\else
+    \xdef\spork@fig@names{\unexpanded\expandafter{\spork@fig@names}\noexpand\spork@fig@forget{\unexpanded{#1}}}%
   \fi}
-
+% \spork@fig@neverdefined is never defined: \let to it makes a macro undefined again (also for \ifcsname,
+% which TikZ uses for the `name prefix` fallback; \let to \relax would not be).
+\def\spork@fig@undef#1{\expandafter\global\expandafter\let\csname #1\endcsname\spork@fig@neverdefined}
+\def\spork@fig@forget#1{%
+  \spork@fig@undef{pgf@sh@ns@#1}\spork@fig@undef{pgf@sh@np@#1}\spork@fig@undef{pgf@sh@nt@#1}%
+  \spork@fig@undef{pgf@sh@pi@#1}\spork@fig@undef{pgf@sh@ma@#1}\spork@fig@undef{pgf@sh@sa@#1}%
+  \spork@fig@undef{tikz@dcl@coord@#1}}
+% Rule (2): wraps \pgf@shape@interpictureshift inside sporkfigures.
+\def\spork@fig@interpictureshift#1{%
+  \edef\spork@tmp{\csname pgf@sh@pi@#1\endcsname}%
+  \ifx\spork@tmp\pgfpictureid\else
+    \ifx\spork@tmp\spork@fig@pageorigin\else
+      \pgferror{No shape named `#1' is known in this sporkfigure (that name belongs to another picture)}%
+    \fi
+  \fi
+  \spork@fig@orig@interpictureshift{#1}}
+\tikzset{
+  % First and last of the sporkfigure's picture options: `scale=` in between is captured as the figure scale.
+  spork@fig@options begin/.code={%
+    \pgfkeysgetvalue{/tikz/scale/.@cmd}\spork@fig@saved@scale
+    \pgfkeysdef{/tikz/scale}{\xdef\spork@fig@scale{##1}}},
+  spork@fig@options end/.code={%
+    \pgfkeyslet{/tikz/scale/.@cmd}\spork@fig@saved@scale},
+  spork@fig@track nodes/.code={\let\pgf@nodecallback\spork@fig@track},
+}
+\newenvironment{sporkfigure}[1][]{%
+  \ifspork@infig
+    \PackageError{spork}{sporkfigure inside a sporkfigure is not supported}{}%
+  \fi
+  \spork@infigtrue
+  \xdef\spork@fig@scale{\sporkFigScale}%
+  \gdef\spork@fig@names{}%
+  % Wrappers (local to this environment; see above).
+  \let\spork@fig@orig@interpictureshift\pgf@shape@interpictureshift
+  \let\pgf@shape@interpictureshift\spork@fig@interpictureshift
+  \let\spork@fig@orig@coordinate\pgfcoordinate
+  \def\pgfcoordinate##1##2{\edef\spork@tmpb{##1}%
+    \expandafter\spork@fig@track\expandafter{\spork@tmpb}\spork@fig@orig@coordinate{##1}{##2}}%
+  \let\spork@fig@orig@matrixcb\pgf@matrix@nodecallback
+  \def\pgf@matrix@nodecallback##1{\spork@fig@track{##1}\spork@fig@orig@matrixcb{##1}}%
+  % Every picture inside (the figure and nested ones): \pgfpicture just reset the callback to gobble.
+  \tikzset{every picture/.append style={spork@fig@track nodes}}%
+  \begin{lrbox}{\spork@figbox}%
+  \begin{tikzpicture}[spork@fig@options begin, spork figure, #1, spork@fig@options end,
+      execute at end picture={\ifpgfrememberpicturepositiononpage
+        \PackageWarning{spork}{remember picture in a sporkfigure: recorded positions are wrong
+          under scaling; draw marks/decorations in a plain picture outside the sporkfigure}\fi}]%
+}{%
+  \end{tikzpicture}%
+  \end{lrbox}%
+  \spork@fig@names
+  \gdef\spork@fig@names{}%
+  \sbox\spork@figbox{\scalebox{\spork@fig@scale}{\usebox\spork@figbox}}%
+  \ifdim\wd\spork@figbox>\linewidth
+    \PackageWarning{spork}{sporkfigure is \the\wd\spork@figbox\space wide after scaling,
+      > \string\linewidth\space\the\linewidth}%
+  \fi
+  \usebox\spork@figbox
+}
 \makeatother

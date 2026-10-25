@@ -80,7 +80,9 @@
 \end{column}
 \begin{column}{0.48\textwidth}
 \centering
-\scalebox{0.95}{\input{fig_grid_tile.tex}}
+\begin{sporkfigure}[scale=0.95]
+\input{fig_grid_tile_body.tex}
+\end{sporkfigure}
 \end{column}
 \end{columns}
 \vfill
@@ -133,7 +135,9 @@ Save the needed block of \sporkGreen{A}, \sporkViolet{B} in SMEM.
 \sporkSlideOnly<3>{Next step: use accelerator instructions for the \sporkKeyA{GMEM}$\to$\sporkKeyB{SMEM} copies.}
 \end{overlayarea}
 \begin{center}
-\scalebox{1.2}{\input{fig_sync_flow.tex}}
+\begin{sporkfigure}[scale=1.2]
+\input{fig_sync_flow_body.tex}
+\end{sporkfigure}
 \end{center}
 \end{frame}
 
@@ -146,7 +150,9 @@ Save the needed block of \sporkGreen{A}, \sporkViolet{B} in SMEM.
     \sporkSlideOnly<4>{Split Barriers}%
     \sporkSlideOnly<5>{Tensor Cores}}
 \begin{center}
-\scalebox{1.2}{\input{fig_dag.tex}}
+\begin{sporkfigure}[scale=1.2]
+\input{fig_dag_body.tex}
+\end{sporkfigure}
 \end{center}
 \vfill
 \sporkCodeRule
@@ -160,9 +166,31 @@ Save the needed block of \sporkGreen{A}, \sporkViolet{B} in SMEM.
 \end{frame}
 
 % ---------------------------------------------------------------------------
+% Per-slide addition: the same DAG body plus this frame's own elements, placed relative to the
+% body's node names (C1, B3, A3). Only this frame has them (not the paper, not frame `dag`).
+% Frame-specific timing belongs in the frame: <3> shows only the body's step-3 state
+% (ring buffer and WAR edges revealed, no step-4/5 emphasis).
+\begin{frame}<3>[label=dag_war]{WAR Hazard Close-up}
+\begin{center}
+\begin{sporkfigure}
+\input{fig_dag_body.tex}
+\draw [spork arrow, very thick, draw=sporkRedFg]
+  ($(C1.north east)+(0,-2mm)$) to[out=40, in=200] (B3.west);
+\node (warNote) [spork red style, draw, align=center, above=2mm of A3]
+  {\texttt{Load B} at \texttt{k1 = 3} refills slot 0:\\it waits for the compute at \texttt{k1 = 1}};
+\end{sporkfigure}
+\end{center}
+\vfill
+\sporkCodeRule
+\vspace{2mm}
+Each WAR edge keeps a slot from being refilled while it is still read.
+\vspace{3mm}
+\end{frame}
+
+% ---------------------------------------------------------------------------
 % Listing marks + arrows between code lines; remark lines (plain and bold); placeholders.
 \begin{frame}[label=split_marks]{Split Barriers in Code}
-\input{fig_split_marks.tex}
+\input{split_marks.tex}
 \end{frame}
 
 % ---------------------------------------------------------------------------

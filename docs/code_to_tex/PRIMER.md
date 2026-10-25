@@ -6,10 +6,11 @@ Build it with `cd spork/docs && python3 -m code_to_tex.build code_to_tex/beamer_
 
 ## 0. The mental model
 
-* A **document directory** (e.g. `amspork3/`) holds one paper (`main.tex`), any number of decks, figures, and `samples.py`.
+* A **document directory** (e.g. `amspork3/`) holds one paper (`main.tex`), any number of decks, shared figure bodies, and `samples.py`.
   Paper and decks share everything; nothing meaningful is written twice.
-* A **figure** is its own `.tex` file, animated with overlay steps on slides, and shown once (as the final figure) in the paper.
-  You decide per element what the paper shows.
+* A **figure** is a `sporkfigure` environment (a scaled TikZ picture) written where it is used.
+  A figure shown in several places keeps its TikZ in a shared `fig_<name>_body.tex`; it is animated with overlay steps
+  on slides and shown once (as the final figure) in the paper. You decide per element what the paper shows.
 * A **listing** lives as real code in `samples.py` (which must pass `exocc`), annotated with `# TeX:` directives.
   One listing has several *versions* (different lines shown, different highlights); slides step through them, the paper picks one.
 * The **build** (`python3 -m code_to_tex.build`, run from `spork/docs`) runs exocc, generates listings, runs xelatex,
@@ -89,34 +90,71 @@ Don't use Beamer's own `\only<..>`, `\pause`, `\node<..>`: the build warns, beca
 
 ## 5. A figure
 
-`<doc>/fig_dag.tex` (see [beamer_nyc25_test/fig_dag.tex](beamer_nyc25_test/fig_dag.tex)):
+A figure is a `sporkfigure`: a `tikzpicture` with a fixed 9pt sans font, scaled as a whole (text included) by `scale=`.
+Write it where it is used; a figure used in one place is just that:
 
 ```latex
-\documentclass[beamer,aspectratio=169]{standalone}
-\newif\ifsporkSlides \sporkSlidestrue
-\input{copied_styles/spork_style.tex}
-\input{copied_styles/code_to_tex_support.tex}
-\begin{document}
-\begin{standaloneframe}
-\begin{tikzpicture}[spork figure]
-  \node (A) [spork green style] {Load A};
-  \node (C) [draw, right=of A, spork slide only=<3>{spork red style}] {compute};    % red on step 3 only
-  \draw [spork arrow] (A) -- (C);
-  \draw [spork arrow, spork reveal=<2->, spork paper style={dashed}] (C) to[bend left] (A);  % WAR edge
-  \node [spork paper only, below=of C] {dashed: WAR};                               % legend, paper only
-\end{tikzpicture}
-\end{standaloneframe}
-\end{document}
+\begin{figure}
+  \centering
+  \begin{sporkfigure}[node distance=5mm]       % any tikzpicture options; scale= is the figure's magnification
+    \node (A) [spork green style] {Load A};
+    \node (C) [draw, right=of A] {compute};
+    \draw [spork arrow] (A) -- (C);
+  \end{sporkfigure}
+  \caption{...}\label{fig:small}
+\end{figure}
 ```
 
-* Write the figure once, at paper size. `spork figure` gives it a fixed 9pt sans font, so paper and slides look alike;
-  bold nodes are just `font=\bfseries`. Inside figures, size things in mm and use `\sporkFigSmall`/`\sporkFigLarge` instead of
-  `\small`/`\large`, and never `\linewidth`: those follow the host document, so the paper and slide versions would drift apart.
-* Use it in a frame, scaled up: `\scalebox{1.2}{\input{fig_dag.tex}}`. In the paper: `\input{fig_dag.tex}` inside a `figure`.
-* Look at it alone, step by step: `--figure fig_dag --png` (all steps cropped to the same box, so you see movement),
-  and the paper rendering: `--figure fig_dag --paper --png`.
-* Anything you put in the figure's preamble (before `\begin{document}`) is dropped when it is `\input`;
-  put shared macros in `<doc>_defs.tex`.
+**Shared figures.** When the paper and slides (or several slides) show the same figure, put the TikZ commands in
+`<doc>/fig_dag_body.tex` (no preamble, no `tikzpicture`; see [beamer_nyc25_test/fig_dag_body.tex](beamer_nyc25_test/fig_dag_body.tex))
+and `\input` it inside a `sporkfigure` at each place:
+
+```latex
+% fig_dag_body.tex
+\tikzset{dag compute/.style={draw, minimum width=15mm}}   % local to the figure
+\node (A1) [spork green style] {Load A};
+\node (C2) [dag compute, right=of A1, spork slide only=<3>{spork red style}] {compute};    % red on step 3 only
+\draw [spork arrow] (A1) -- (C2);
+\draw [spork arrow, spork reveal=<2->, spork paper style={dashed}] (C2) to[bend left] (A1);  % WAR edge
+\node [spork paper only, below=of C2] {dashed: WAR};                                     % legend, paper only
+
+% main.tex
+\begin{figure}
+  \centering
+  \begin{sporkfigure}\input{fig_dag_body.tex}\end{sporkfigure}
+  \caption{...}\label{fig:dag}
+\end{figure}
+
+% talk.tex, frame `dag`: the same body, magnified
+\begin{center}
+\begin{sporkfigure}[scale=1.2]\input{fig_dag_body.tex}\end{sporkfigure}
+\end{center}
+```
+
+**Per-slide additions.** A slide can add its own elements next to the body's nodes, inside its own `sporkfigure`;
+the paper and the other slides don't get them. The body's node names (`A1`, `C2`, ...) are its interface:
+
+```latex
+\begin{frame}<3>[label=dag_war]{WAR Hazard Close-up}   % <3>: show only the body's step-3 state
+\begin{sporkfigure}
+  \input{fig_dag_body.tex}
+  \node [spork red style, draw, above=2mm of A1] {only on this slide};
+\end{sporkfigure}
+\end{frame}
+```
+
+(The example deck's frame `dag_war` does exactly this.) Step numbers inside a body are shared by every frame that uses it,
+so timing that only one frame needs goes in that frame (its own `\sporkReveal`s, or a frame overlay spec like `<3>`).
+
+* Write the body once, at paper size; `scale=` only magnifies it. Inside bodies, size things in mm and use
+  `\sporkFigSmall`/`\sporkFigLarge` instead of `\small`/`\large`, and never `\linewidth`: those follow the host document,
+  so the paper and slide versions would drift apart (the build lints `fig_*_body.tex`). Bold nodes are just `font=\bfseries`.
+* Node names are local to a `sporkfigure`: a reference to a name the figure doesn't define (misspelled, renamed in the body,
+  from another figure) is the error `No shape named C2 is known` instead of an arrow silently drawn to some other figure's node.
+* The build warns when a `sporkfigure` is wider than the line (`\linewidth`) after scaling, in the paper and on each slide.
+* Look at a figure in context: its frame with `--frame dag --png`, or the paper page (`--where fig:dag` tells you which) with `--png`.
+* No `remember picture` or listing marks inside a `sporkfigure` (positions in a scaled box are wrong under xelatex);
+  arrows between code lines are a plain picture next to the listing (section 7).
 
 ## 6. A listing
 
@@ -163,7 +201,9 @@ Then, after the listing (which must be in normal text or a minipage, not inside 
 ```
 
 Always go through a `\coordinate` first: `(pic cs:split-x -| b)` silently lands at the page origin.
-Marks need two LaTeX passes; the build does them. Example: [fig_split_marks.tex](beamer_nyc25_test/fig_split_marks.tex).
+This is a plain picture, not a `sporkfigure` (marks need unscaled positions).
+Marks need two LaTeX passes; the build does them. Example: [split_marks.tex](beamer_nyc25_test/split_marks.tex),
+an ordinary `\input` snippet used by both the deck and the paper.
 
 ## 8. Reading the build summary
 

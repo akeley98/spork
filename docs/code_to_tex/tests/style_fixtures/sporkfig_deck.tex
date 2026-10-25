@@ -1,0 +1,20 @@
+% sporkfigure on slides: width warning per frame (\linewidth is 144mm = 409.71pt), overlays inside.
+\documentclass[aspectratio=169]{beamer}
+\newif\ifsporkSlides \sporkSlidestrue
+\input{copied_styles/spork_style.tex}
+\input{copied_styles/code_to_tex_support.tex}
+\begin{document}
+\begin{frame}[label=fits]{Fits}
+\begin{sporkfigure}[scale=1.2]
+  \node (A) [draw] at (0,0) {A}; \node (B) [draw] at (100mm,0) {B};
+  \draw (A) -- (B);
+  \sporkReveal<2->{\node [below=of A] {STEPTWO};}
+\end{sporkfigure}
+\end{frame}
+\begin{frame}[label=wide]{Too wide}
+\begin{sporkfigure}[scale=1.5]
+  \node (A) [draw] at (0,0) {A}; \node (B) [draw] at (100mm,0) {B};
+  \draw (A) -- (B);
+\end{sporkfigure}
+\end{frame}
+\end{document}

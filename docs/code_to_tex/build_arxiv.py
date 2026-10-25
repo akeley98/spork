@@ -4,7 +4,7 @@
    by-products, and do a clean xelatex build of main.tex there with -recorder
    (so nothing in the real document dir is deleted).
 2. Package exactly the project-relative files listed as INPUT in main.fls, minus
-   slides/samples/previews/standalone-figure PDFs and the job's own by-products,
+   slides/samples/previews, PDFs compiled from a .tex of the dir, and the job's own by-products,
    plus 00README.json (main.tex toplevel, xelatex).
 3. Verify: extract into another temp dir and rebuild twice without -recorder.
 """
@@ -63,9 +63,7 @@ def select_files(fls_inputs: list[str], decks: set[str], tex_names: set[str]) ->
         if stem in decks or re.sub(r"_frame$", "", stem) in decks:
             continue
         if ext == ".pdf" and stem in tex_names:
-            continue  # standalone figure output, not a hand-made image
-        if rel.endswith("_paperpreview.tex"):
-            continue
+            continue  # compiled from a .tex here (e.g. a stale build), not a hand-made image
         out.append(rel)
     return sorted(set(out))
 
