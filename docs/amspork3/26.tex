@@ -447,26 +447,35 @@ Library of (imperative \texttt{proc} $\to$ imperative \texttt{proc}) rewrites
   \draw [spork arrow, draw=sporkBlueFg] (proc0) -- (proc1);
   \draw [spork arrow, draw=sporkBlueFg, dash pattern=on 2.5pt off 2pt] (proc1) --
     node [above=0.3mm, font=\Large, text=sporkBlueFg] {$*$}
-    node [below=1mm, text=sporkBlueFg] {Exo Rewrites} (procN);
+    node (rewrites) [below=1mm, text=sporkBlueFg] {Exo Rewrites} (procN);
   \draw [spork arrow] (procN) -- (checks);
   \draw [spork arrow] (checks) -- (code);
 
   % p_0 ... p_n are all imperative procs: bracket above.
   \coordinate (allTop) at ([yshift=6mm]proc1.north);
-  \draw [spork line, draw=sporkKeyColorA]
+  \draw [spork line, draw=black]
     ([yshift=1.5mm]proc0.north west) |- (allTop -| procN.north east)
     -- ([yshift=1.5mm]procN.north east);
-  \node [above=0.5mm, text=sporkKeyColorA, font=\bfseries]
-    at ($(allTop -| proc0.north west)!0.5!(allTop -| procN.north east)$) {All imperative procs};
+  \node [above=0.5mm, text=black, font=\bfseries]
+    at ($(allTop -| proc0.north west)!0.5!(allTop -| procN.north east)$) (allProcs) {All imperative procs};
 
+  % Revealed annotations (spork reveal keys keep their space, so nothing moves).
+  % Step 2: algorithm, left-aligned with p_0's box.
+  \node [spork reveal=<2->, anchor=north west, inner sep=0pt, align=left]
+    at ([yshift=-3mm]proc0.south west) {\sporkKeyA{Algorithm}:\\initial \texttt{proc}};
+  % Step 3: schedule under the rewrites label, plus the "optional" disclaimer.
+  \node (schedule) [spork reveal=<3->, below=2mm of rewrites, inner sep=0pt, align=center]
+    {\sporkKeyA{Schedule}\\(metaprogramming)};
+  \node [spork reveal=<3->, below=1.5mm of schedule, inner sep=0pt, font=\small]
+    {(optional: $p_0$ may use all features)};
+  % Step 4: transitive functional equivalence, piggy-backing on the bracket label.
+  \node [spork reveal=<4->, above=0.5mm of allProcs, inner sep=0pt]
+    {Transitive functional equivalence: $p_0 \equiv p_1 \equiv \cdots \equiv p_n$};
+  % Step 5: backend checks and codegen only see the final proc.
+  \node [spork reveal=<5->, anchor=north, inner sep=0pt]
+    at ([yshift=-3mm]$(checks.south west)!0.5!(code.south east)$) {Only for \sporkKeyA{final proc} $p_n$};
 \end{tikzpicture}
 \end{center}
-
-\begin{itemize}
-  \item \sporkKeyA{Algorithm}: initial (handwritten) \texttt{proc} $p_0$
-  \item \sporkKeyA{Schedule}: Issued \sporkBlue{rewrites} (Python metaprogramming)
-  \item Transitive functional equivalence: $p_0 \equiv p_1 \equiv ... \equiv p_n$
-\end{itemize}
 
 % filll: beats the fill glue that top-aligned frames add at the bottom, so the
 % citations sit at the bottom instead of halfway down the free space.
