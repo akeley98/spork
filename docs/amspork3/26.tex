@@ -492,4 +492,37 @@ ASPLOS 2025\par
 }
 \end{frame}
 
+\begin{frame}[label=ProblemRewrites]{Problem: Rewrites \& the GPU}
+
+Problem: Exo rewrites written against \sporkKeyA{deterministic}, sequential semantics
+\begin{equation*}
+  \langle \sporks, \sporksigma \rangle \to \langle \sporks', \sporksigma' \rangle
+\end{equation*}
+
+\begingroup\centering
+\begin{sporkfigure}
+  \input{fig_exoRewriteFlow_body.tex}
+
+  % Three boxes in a row under the flow, tops aligned: question (step 2) under the rewrites
+  % label, red answer (step 3) in the gap, IOU (step 4) under the backend checks.
+  \coordinate (row) at ([yshift=-3mm]rewrites.south);
+  \node (parNote) [annotation, spork reveal=<2->, text width=36mm, anchor=north west]
+    at (row -| proc0.east) {How do we reason about parallelism in rewrites?};
+  \draw [annotation line, spork reveal=<2->] (parNote.north -| rewrites.south) -- (rewrites.south);
+  \node (iouNote) [annotation, spork reveal=<4->, text width=36mm, anchor=north west]
+    at (row -| checks.west) {IOU: reason about synchronization};
+  \draw [annotation line, spork reveal=<4->] (iouNote.north -| checks.south) -- (checks.south);
+  \node [rectangle, spork red style, rounded corners=1mm, inner sep=1.5mm, font=\bfseries,
+    spork reveal=<3->] at ($(parNote.east)!0.5!(iouNote.west)$) {We don't};
+
+\end{sporkfigure}\par
+\endgroup
+
+\end{frame}
+
+% Rewrites & parallelism
+% Deterministic: <s, sigma> -> <s', sigma'>
+% How do we reason about parallelism
+% We don't (IOU)
+
 \end{document}
