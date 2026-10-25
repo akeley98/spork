@@ -420,11 +420,56 @@ Library of (imperative \texttt{proc} $\to$ imperative \texttt{proc}) rewrites
 \end{tikzpicture}
 }
 
+\sporkCodeRule
+\vphantom{Subliminal message here}
+
+\sporkReveal<3->{Rewrites \sporkKeyA{preserve functional equivalence}}
 
 \end{frame}
 
-% USL:
-% Scope:
-% Rewrites e.g. tiling, segue into traces (emphasize each is imperative, also optional)
+% Rewrite flow diagram with mystery backend checks
+% (ported from spork_nyc25.tex "Exo Rewrites" / nyc25_exo_cpu_flow.tex)
+\begin{frame}[label=ExoRewriteFlow]{Prior Work: Exo Rewrites}
+\begin{center}
+\begin{tikzpicture}[node distance=6mm,
+    flow node/.style={rectangle, draw, minimum height=10mm, align=center, inner sep=1.5mm}]
+  \node (proc0) [flow node, text width=19mm] {Original\\proc $p_0$};
+  \node (proc1) [flow node, text width=17mm, right=of proc0] {$p_1, p_2, \ldots$};
+  \node (procN) [flow node, text width=26mm, right=of proc1] {Final proc $p_n$};
+  \node (checks) [flow node, spork yellow style, text width=17mm, right=of procN] {Backend\\checks};
+  \node (code) [flow node, text width=17mm, right=of checks] {C/CUDA};
+
+  \draw [spork arrow] (proc0) -- (proc1);
+  \draw [spork arrow] (proc1.north east) to[out=60, in=90, looseness=1.5] (proc1.north);
+  \draw [spork arrow] (proc1) -- (procN);
+  \draw [spork arrow] (procN) -- (checks);
+  \draw [spork arrow] (checks) -- (code);
+
+  % p_0 ... p_n are all imperative procs: bracket above, clear of the p_1 loop arrow.
+  \coordinate (allTop) at ([yshift=8mm]proc1.north);
+  \draw [spork line, draw=sporkKeyColorA]
+    ([yshift=1.5mm]proc0.north west) |- (allTop -| procN.north east)
+    -- ([yshift=1.5mm]procN.north east);
+  \node [above=0.5mm, text=sporkKeyColorA, font=\bfseries]
+    at ($(allTop -| proc0.north west)!0.5!(allTop -| procN.north east)$) {All imperative procs};
+
+  % Exo Rewrites connect p_0 and p_n (functional equivalence).
+  \node (exo) [flow node, spork blue style, text width=36mm, below=10mm of proc1.south east] {Exo Rewrites};
+  \draw [spork line, draw=sporkBlueFg] (exo.north) to[out=135, in=270] (proc0.south);
+  \draw [spork line, draw=sporkBlueFg] (exo.north) to[out=45, in=270] (procN.south);
+\end{tikzpicture}
+\end{center}
+
+\vfill
+\sporkCodeRule
+{\footnotesize
+\textit{Exocompilation for Productive Programming of Hardware Accelerators}\\
+Y. Ikarashi, G. Bernstein, A. Reinking, H. Genc, J. Ragan-Kelley.
+PLDI 2022\\
+\textit{Exo 2: Growing a Scheduling Language}\\
+Y. Ikarashi, K. Qian, S. Droubi, A. Reinking, G. Bernstein, J. Ragan-Kelley.
+ASPLOS 2025\par
+}
+\end{frame}
 
 \end{document}
