@@ -632,9 +632,14 @@ New GPU semantics are \sporkKeyA{still deterministic}
 \begin{frame}[label=SeqParEquiv]{Sequential-Parallel Equivalence}
 \begin{itemize}
   \item Applies to the fully-scheduled $p_n$ only
-  \item Trace defines \sporkKeyA{one execution order} producing the promised output $\sporksigma$
-  \item Relevant property: each ``read $\sporkx[\sporkz^*]$'' gets the value of the
-    most recent ``mutate $\sporkx[\sporkz^*]$''
+  \item Trace defined by \sporkKeyA{sequential} interpretation
+  \begin{itemize}
+    \item it's \sporkKeyA{one possible ordering} to compute output $\sporksigma$
+    \sporkReveal<2->{\item ...but others are acceptable}
+  \end{itemize}
+  \sporkReveal<2->{\item Relevant property:\\
+    \sporkReveal<3->{each ``read $\sporkx[\sporkz^*]$'' gets the value of the
+    \sporkKeyA{most recent} ``mutate $\sporkx[\sporkz^*]$''}}
 \end{itemize}
 
 \begingroup\centering
@@ -642,24 +647,24 @@ New GPU semantics are \sporkKeyA{still deterministic}
   \tikzset{seq event/.style={rectangle, draw, thick, align=center, inner sep=1mm,
     minimum width=15mm}}
   \node (e0) [seq event] {mutate\\\seqX{0}{0}};
-  \node (e1) [seq event, right=5mm of e0] {mutate\\\seqX{3}{1}};
-  \node (e2) [seq event, right=5mm of e1] {mutate\\\seqX{2}{0}};
-  \node (e3) [seq event, right=5mm of e2] {read\\\seqX{3}{1}};
-  \node (e4) [seq event, right=5mm of e3] {read\\\seqX{2}{0}};
+  \node (e1) [seq event, right=5mm of e0] {mutate\\\seqX{5}{1}};
+  \node (e2) [seq event, right=5mm of e1] {mutate\\\seqX{4}{0}};
+  \node (e3) [seq event, right=5mm of e2] {read\\\seqX{5}{1}};
+  \node (e4) [seq event, right=5mm of e3] {read\\\seqX{4}{0}};
   \node (e5) [seq event, right=5mm of e4] {mutate\\\seqX{0}{0}};
 
   % Square arrows to keep the figure short: blue read-from arrows 3mm out, red ones 6mm out
   % above (outside the blue) and 3mm below (no horizontal overlap with the blue x[1]).
-  \draw [spork reveal=<2->, spork arrow, draw=sporkBlueFg]
+  \draw [spork reveal=<4->, spork arrow, draw=sporkBlueFg]
     ([xshift=2mm]e2.north) -- ++(0, 3mm) -| ([xshift=2mm]e4.north);
-  \draw [spork reveal=<3->, spork arrow, draw=sporkBlueFg]
+  \draw [spork reveal=<5->, spork arrow, draw=sporkBlueFg]
     (e1.south) -- ++(0, -3mm) -| (e3.south);
-  \draw [spork reveal=<4->, spork arrow, draw=sporkRedFg, densely dotted]
+  \draw [spork reveal=<6->, spork arrow, draw=sporkRedFg, densely dotted]
     (e0.north) -- ++(0, 6mm) -| node (olderMid) [pos=0.25, inner sep=0pt] {} ([xshift=-2mm]e4.north);
-  \node [spork reveal=<4->, above=0.5mm of olderMid] {Must not read \sporkKeyA{older} values};
-  \draw [spork reveal=<5->, spork arrow, draw=sporkRedFg, densely dotted]
+  \node [spork reveal=<6->, above=0.5mm of olderMid] {Must not read \sporkKeyA{older} values};
+  \draw [spork reveal=<7->, spork arrow, draw=sporkRedFg, densely dotted]
     (e5.south) -- ++(0, -3mm) -| node (futureMid) [pos=0.25, inner sep=0pt] {} (e4.south);
-  \node [spork reveal=<5->, below=0.5mm of futureMid] {Must not read \sporkKeyA{future} values};
+  \node [spork reveal=<7->, below=0.5mm of futureMid] {Must not read \sporkKeyA{future} values};
 \end{sporkfigure}\par
 \endgroup
 \end{frame}
@@ -677,17 +682,17 @@ New GPU semantics are \sporkKeyA{still deterministic}
 \begin{sporkfigure}
   \begin{scope}[spork reveal=<2->]
     \node [anchor=east] at (0, 0) {Upon read $\sporkx[\sporkz^*]$};
-    \trPre{r1}{anchor=west, xshift=11mm}{read $\sporkx[\sporkz^*]$}
+    \trPre{r1}{anchor=west, xshift=21mm}{read $\sporkx[\sporkz^*]$}
     \trPost{r2}{right=6mm of r1}{read $\sporkx[\sporkz^*]$}
   \end{scope}
   \begin{scope}[spork reveal=<3->]
     \node [anchor=east] at (0, -17mm) {Upon mutate $\sporkx[\sporkz^*]$};
-    \trPre{m1}{anchor=west, xshift=11mm, yshift=-17mm}{mutate $\sporkx[\sporkz^*]$}
+    \trPre{m1}{anchor=west, xshift=21mm, yshift=-17mm}{mutate $\sporkx[\sporkz^*]$}
     \trPost{m2}{right=6mm of m1}{mutate $\sporkx[\sporkz^*]$}
   \end{scope}
   \begin{scope}[spork reveal=<4->]
     \node [anchor=east] at (0, -34mm) {Upon synchronization};
-    \trFence{f1}{anchor=west, xshift=11mm, yshift=-34mm}
+    \trFence{f1}{anchor=west, xshift=21mm, yshift=-34mm}
     \node [anchor=west, text=sporkGrayttColor] at ([xshift=6mm]f1-out.east) {later: split barrier};
   \end{scope}
 \end{sporkfigure}\par
@@ -700,7 +705,7 @@ New GPU semantics are \sporkKeyA{still deterministic}
 Edge forms between trace events $\sporktr$ and $\sporktr'$ when
 \begin{itemize}
   \item $\sporktr$ precedes $\sporktr'$ in trace order
-  \item A \sporkKeyA{common observer} exists in the outbound set of $\sporktr$ and inbound set of $\sporktr'$
+  \item A \sporkKeyA{common observer} exists in the \sporkGreen{$\sporkObOut$ of $\sporktr$} and \sporkViolet{$\sporkObIn$ of $\sporktr'$}
 \end{itemize}
 
 \vspace{4mm}
@@ -723,10 +728,10 @@ Edge forms between trace events $\sporktr$ and $\sporktr'$ when
   % Step 4: bracket under the fence (Scope-style, ticks pointing up).
   \begin{scope}[spork reveal=<4->]
     \coordinate (brY) at ([yshift=-2mm]bf.south);
-    \draw [line width=1.2pt]
+    \draw [line width=1.2pt, draw=sporkBlueFg]
       ([yshift=1.5mm]brY -| bf-in.west) -- (brY -| bf-in.west)
       -- node (brMid) [midway, inner sep=0pt] {} (brY -| bf-out.east) -- ([yshift=1.5mm]brY -| bf-out.east);
-    \node [below=1mm of brMid, align=center] {Transitive: can be\\multiple synchronizations};
+    \node [below=1mm of brMid, align=center, text=sporkBlueFg] {Transitive: can be\\multiple synchronizations};
   \end{scope}
 \end{sporkfigure}\par
 \endgroup
