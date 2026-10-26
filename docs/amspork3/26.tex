@@ -765,15 +765,14 @@ Edge forms between trace events $\sporktr$ and $\sporktr'$ when
 % Mutates in a row with the read between them, lowered so the mutate -> mutate arrow passes just over
 % it. Dashed starred arrows mean ->* (as in fig_exoRewriteFlow_body.tex). The L-shaped arrows
 % into / out of the read are offset vertically (outer mutate on the lower line) so none cross.
-% Reveals match the bullets: 2 mutate chain + top bracket, 3 mutates -> read + left bracket,
-% 4 read -> mutates + right bracket.
+% Colors: blue mutate -> mutate, violet mutate <-> read; each label sits next to its arrows.
+% Reveals match the bullets: 2 mutate chain, 3 mutates -> read, 4 read -> mutates.
 \begingroup\centering
 \begin{sporkfigure}
   \tikzset{
-    req event/.style={rectangle, draw, thick, align=center, inner sep=0.7mm, minimum width=15mm},
+    req event/.style={rectangle, draw=black!40, thick, align=center, inner sep=0.7mm, minimum width=15mm},
     req arrow/.style={spork arrow, dash pattern=on 2.5pt off 2pt},
     req star/.style={font=\fontsize{12}{14}\selectfont, inner sep=0.3mm},
-    req bracket/.style={line width=1.2pt},
   }
   \node (m0) [req event] {\mutateBullet\\$\sporkx[\sporkz^*]$};
   \node (m1) [req event, right=7mm of m0] {\mutateBullet\\$\sporkx[\sporkz^*]$};
@@ -788,47 +787,34 @@ Edge forms between trace events $\sporktr$ and $\sporktr'$ when
   \coordinate (rLoOut) at ([yshift=-1.2mm]r.east);
 
   % Step 2: mutates totally ordered.
-  \begin{scope}[spork reveal=<2->]
+  \begin{scope}[spork reveal=<2->, draw=sporkBlueFg, text=sporkBlueFg]
     \draw [req arrow] (m0) -- node [req star, above] {$*$} (m1);
     \draw [req arrow] (m1) -- node [req star, above] {$*$} (m2);
     \draw [req arrow] (m2) -- node [req star, above] {$*$} (m3);
-    \coordinate (topY) at ([yshift=5mm]m0.north);
-    \draw [req bracket]
-      ([yshift=-1.5mm]topY -| m0.west) -- (topY -| m0.west)
-      -- node (topMid) [midway, inner sep=0pt] {} (topY -| m3.east) -- ([yshift=-1.5mm]topY -| m3.east);
-    \node [above=1mm of topMid] {Totally ordered by \mutateBullet{} $\rightarrow^*$ \mutateBullet};
+    \node [anchor=south] at ($(m0.north)!0.5!(m3.north)$)
+      {Totally ordered by \mutateBullet{} $\rightarrow^*$ \mutateBullet};
   \end{scope}
 
-  % Bottom brackets meet under the center of the read.
-  \coordinate (botY) at ([yshift=-3mm]r.south);
-  % Step 3: earlier mutates -> read.
-  \begin{scope}[spork reveal=<3->]
-    \draw [req arrow] (m0.south) |- node [req star, below, pos=0.9] {$*$} (rLo);
+  % Steps 3, 4: labels under the lower L lines, centered between the outer mutate and the read.
+  % The outer (longer) arrows' stars sit beside their vertical segments to leave room.
+  \begin{scope}[spork reveal=<3->, draw=sporkVioletFg, text=sporkVioletFg]
+    \draw [req arrow] (m0.south) |- node [req star, left, pos=0.25] {$*$} (rLo);
     \draw [req arrow] (m1.south) |- node [req star, above, pos=0.85] {$*$} (rHi);
-    \draw [req bracket]
-      ([yshift=1.5mm]botY -| m0.west) -- (botY -| m0.west)
-      -- node (leftMid) [midway, inner sep=0pt] {} ([xshift=-0.5mm]botY -| r.south) -- ([xshift=-0.5mm, yshift=1.5mm]botY -| r.south);
-    \node [below=1mm of leftMid] {Ordered by \mutateBullet{} $\rightarrow^*$ \readBullet};
+    \node [anchor=north] at ([yshift=-0.8mm]$(m0.west |- rLo)!0.5!(rLo)$)
+      {Ordered by \mutateBullet{} $\rightarrow^*$ \readBullet};
   \end{scope}
-  % Step 4: read -> later mutates.
-  \begin{scope}[spork reveal=<4->]
+  \begin{scope}[spork reveal=<4->, draw=sporkVioletFg, text=sporkVioletFg]
     \draw [req arrow] (rHiOut) -| node [req star, above, pos=0.15] {$*$} (m2.south);
-    \draw [req arrow] (rLoOut) -| node [req star, below, pos=0.1] {$*$} (m3.south);
-    \draw [req bracket]
-      ([xshift=0.5mm, yshift=1.5mm]botY -| r.south) -- ([xshift=0.5mm]botY -| r.south)
-      -- node (rightMid) [midway, inner sep=0pt] {} (botY -| m3.east) -- ([yshift=1.5mm]botY -| m3.east);
-    \node [below=1mm of rightMid] {Ordered by \readBullet{} $\rightarrow^*$ \mutateBullet};
+    \draw [req arrow] (rLoOut) -| node [req star, right, pos=0.75] {$*$} (m3.south);
+    \node [anchor=north] at ([yshift=-0.8mm]$(rLoOut)!0.5!(m3.east |- rLoOut)$)
+      {Ordered by \readBullet{} $\rightarrow^*$ \mutateBullet};
+    % Slide show is where to put these handwavey intuition. Below the violet labels.
+    \node (squeezeNote) [annotation, text=black, below=4mm of r]
+      {Squeezed between back-to-back $\sporkx[\sporkz^*]$ mutates};
   \end{scope}
+  \draw [annotation line, spork reveal=<4->] (squeezeNote.north) -- (r.south);
 \end{sporkfigure}\par
 \endgroup
-
-% Slide show is where to put these handwavey intuition.
-\sporkReveal<4->{``\readBullet\ $x[z^*]$'' squeezed between back-to-back ``\mutateBullet\ $x[z^*]$''}
-
-
-
-
-
 \end{frame}
 
 \end{document}
