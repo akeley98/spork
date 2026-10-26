@@ -47,19 +47,21 @@
 
 % Trace event boxes (simplified InOutSets.tex look, black/white): a constructor box with small
 % attached \sporkObIn (left) / \sporkObOut (right) boxes, named <name>-in / <name>-out.
-% #1 = node name, #2 = main node options (placement), #3 = access line (e.g. read $\sporkx[\sporkz^*]$).
+% \trPre/\trPost: [#1] = extra Ob box options (e.g. spork green style), #2 = node name,
+% #3 = main node options (placement), #4 = access line (e.g. read $\sporkx[\sporkz^*]$).
+% \trFence: #1 = node name, #2 = main node options.
 \tikzset{
   tr event/.style={rectangle, draw, thick, align=center, inner sep=1.5mm, minimum height=12mm},
   tr access/.style={tr event, minimum width=30mm},
   tr ob/.style={rectangle, draw, thick, inner sep=1mm, minimum height=7mm},
 }
 \newcommand{\trObGap}{0.8pt}  % gap between event and Ob boxes: one `thick` line
-\newcommand{\trPre}[3]{%
-  \node (#1) [tr access, #2] {$\sporkTrPreAccess$\\#3};
-  \node (#1-in) [tr ob, anchor=east] at ([xshift=-\trObGap]#1.west) {$\sporkObIn$};}
-\newcommand{\trPost}[3]{%
-  \node (#1) [tr access, #2] {$\sporkTrPostAccess$\\#3};
-  \node (#1-out) [tr ob, anchor=west] at ([xshift=\trObGap]#1.east) {$\sporkObOut$};}
+\newcommand{\trPre}[4][]{%
+  \node (#2) [tr access, #3] {$\sporkTrPreAccess$\\#4};
+  \node (#2-in) [tr ob, #1, anchor=east] at ([xshift=-\trObGap]#2.west) {$\sporkObIn$};}
+\newcommand{\trPost}[4][]{%
+  \node (#2) [tr access, #3] {$\sporkTrPostAccess$\\#4};
+  \node (#2-out) [tr ob, #1, anchor=west] at ([xshift=\trObGap]#2.east) {$\sporkObOut$};}
 \newcommand{\trFence}[2]{%
   \node (#1) [tr event, #2] {$\sporkTrFence$};
   \node (#1-in) [tr ob, anchor=east] at ([xshift=-\trObGap]#1.west) {$\sporkObIn$};
@@ -713,8 +715,8 @@ Edge forms between trace events $\sporktr$ and $\sporktr'$ when
 \begin{sporkfigure}
   % Step 2: direct edge.
   \begin{scope}[spork reveal=<2->]
-    \trPost{a1}{}{mutate $\sporkx[\sporkz^*]$}
-    \trPre{a2}{right=72mm of a1}{read $\sporkx[\sporkz^*]$}
+    \trPost[spork green style]{a1}{}{mutate $\sporkx[\sporkz^*]$}
+    \trPre[spork violet style]{a2}{right=72mm of a1}{read $\sporkx[\sporkz^*]$}
     \draw [spork arrow] (a1-out) -- node [above] {$\sporkObOut \cap \sporkObIn \ne \varnothing$} (a2-in);
   \end{scope}
   % Step 3: edges through a fence; same columns as step 2.
