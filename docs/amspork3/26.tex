@@ -731,28 +731,6 @@ Edge forms between trace events $\sporktr$ and $\sporktr'$ when
     \draw [annotation line] (mutNote1.north) -- (a1.south);
     \node [below=1mm of a2, align=center, text=sporkGrayttColor] {Paper detail:\\$\sporkQtlMask$ ignored};
   \end{scope}
-  % TASK: Steps 3 and 4 have to be erased here and moved to the next frame.
-  % Step 3: edges through a fence; same columns as step 2.
-  \begin{scope}[spork reveal=<3->]
-    \trPost{b1}{below=8mm of a1}{$\sporkmut$ $\sporkx[\sporkz^*]$}
-    \trPre{b2}{below=8mm of a2}{$\sporkmut$ $\sporkx[\sporkz^*]$}
-    \trFence{bf}{at={($(b1-out.east)!0.5!(b2-in.west)$)}}
-    \draw [spork arrow] (b1-out) -- (bf-in);
-    \draw [spork arrow] (bf-out) -- (b2-in);
-    % Under the first event, left of the step 4 "Transitive" text.
-    \node (mutNote) [annotation, below=4mm of b1]
-      {$\sporkmut$ is \readBullet{} or \mutateBullet};
-    \draw [annotation line] (mutNote.north) -- (b1.south);
-  \end{scope}
-  % Step 4: bracket under the fence (Scope-style, ticks pointing up).
-  \begin{scope}[spork reveal=<4->]
-    \coordinate (brY) at ([yshift=-2mm]bf.south);
-    \draw [line width=1.2pt, draw=sporkBlueFg]
-      ([yshift=1.5mm]brY -| bf-in.west) -- (brY -| bf-in.west)
-      -- node (brMid) [midway, inner sep=0pt] {} (brY -| bf-out.east) -- ([yshift=1.5mm]brY -| bf-out.east);
-    \node [below=1mm of brMid, align=center, text=sporkBlueFg] {Transitive: can path through\\multiple synchronizations};
-    \node [below=1mm of b2, align=center, text=sporkGrayttColor] {Paper detail:\\$\sporkQtlMask$ ignored};
-  \end{scope}
 \end{sporkfigure}\par
 \endgroup
 \end{frame}
@@ -765,10 +743,27 @@ Edge forms between trace events $\sporktr$ and $\sporktr'$ when
   \sporkReveal<2->{\item Path existence ($\rightarrow^*$) \sporkKeyA{partially orders} trace events}
 \end{itemize}
 
+\vspace{3mm}
 \begingroup\centering
 \begin{sporkfigure}
-% TASK Earlier figure with TrFence moves here.
-% The "Transitive: can path..." is revealed at 2-
+  % Edges through a fence (moved from TraceEdges, same columns).
+  \trPost{b1}{}{$\sporkmut$ $\sporkx[\sporkz^*]$}
+  \trPre{b2}{right=72mm of b1}{$\sporkmut$ $\sporkx[\sporkz^*]$}
+  \trFence{bf}{at={($(b1-out.east)!0.5!(b2-in.west)$)}}
+  \draw [spork arrow] (b1-out) -- (bf-in);
+  \draw [spork arrow] (bf-out) -- (b2-in);
+  \node (mutNote) [annotation, below=4mm of b1]
+    {$\sporkmut$ is \readBullet{} or \mutateBullet};
+  \draw [annotation line] (mutNote.north) -- (b1.south);
+  \node [below=1mm of b2, align=center, text=sporkGrayttColor] {Paper detail:\\$\sporkQtlMask$ ignored};
+  % Step 2: bracket under the fence (Scope-style, ticks pointing up).
+  \begin{scope}[spork reveal=<2->]
+    \coordinate (brY) at ([yshift=-2mm]bf.south);
+    \draw [line width=1.2pt, draw=sporkBlueFg]
+      ([yshift=1.5mm]brY -| bf-in.west) -- (brY -| bf-in.west)
+      -- node (brMid) [midway, inner sep=0pt] {} (brY -| bf-out.east) -- ([yshift=1.5mm]brY -| bf-out.east);
+    \node [below=1mm of brMid, align=center, text=sporkBlueFg] {Transitive: can path through\\multiple synchronizations};
+  \end{scope}
 \end{sporkfigure}
 \par
 \endgroup
@@ -785,25 +780,6 @@ Edge forms between trace events $\sporktr$ and $\sporktr'$ when
 
 % This is deviating from the PATH-based main.tex explanation on purpose
 \begin{frame}[label=TraceEdgeRequirements]{Trace Edge Requirements}
-
-% TASK: replace ugly bullet points with tabular-like (vertical aligned) additions to the figure, above the original stuff.
-% Reveal table rows
-%
-% * [\mutateBullet{} \sporkTrPostAccess] ->^* [\mutateBullet{} \sporkTrPostAccess]
-% * [\readBullet{} \sporkTrPostAccess] ->^* [\mutateBullet{} \sporkTrPostAccess]
-% * [\mutateBullet{} \sporkTrPostAccess] ->^* [\readBullet{} \sporkTrPostAccess]
-%
-% The bullet and Tr*Access are in a one-line white box.
-% This deviates from my original format by necessity.
-% Each trace event box has no second line, no x[z^*], no ObIn/ObOut.
-%
-% Additionally, there's an extra row above with "Earlier" and "Later" above the columns of boxes,
-% and a bracket on the left encompassing the three revealed rows with "Same x[z^*] always".
-\begin{itemize}
-  \sporkReveal<2->{\item earlier \mutateBullet{} $\sporkTrPostAccess \rightarrow^*$ later \mutateBullet{} $\sporkTrPreAccess$}
-  \sporkReveal<3->{\item earlier \mutateBullet{} $\sporkTrPostAccess \rightarrow^*$ later \readBullet{} $\sporkTrPreAccess$}
-  \sporkReveal<4->{\item earlier \readBullet{} $\sporkTrPostAccess \rightarrow^*$ later \mutateBullet{} $\sporkTrPreAccess$}
-\end{itemize}
 
 % Mutates in a row with the read between them, lowered so the mutate -> mutate arrow passes just over
 % it. Dashed starred arrows mean ->* (as in fig_exoRewriteFlow_body.tex). The L-shaped arrows
@@ -828,6 +804,35 @@ Edge forms between trace events $\sporktr$ and $\sporktr'$ when
   \coordinate (rLo) at ([yshift=-1.2mm]r.west);
   \coordinate (rHiOut) at ([yshift=1.2mm]r.east);
   \coordinate (rLoOut) at ([yshift=-1.2mm]r.east);
+
+  % Requirements table above the figure: one-line Earlier / Later boxes per row, revealed with the
+  % matching figure step (rows ordered as the reveals), arrow colored as in the figure.
+  % Bracket on the left groups the rows.
+  \tikzset{req row/.style={rectangle, draw, thick, inner sep=1mm, minimum width=38mm, minimum height=6mm}}
+  \coordinate (tabC) at ([yshift=31mm]$(m0.north)!0.5!(m3.north)$);
+  \foreach \i/\step/\pre/\post/\col in {
+      1/2/\mutateBullet/\mutateBullet/sporkBlueFg,
+      2/3/\mutateBullet/\readBullet/sporkVioletFg,
+      3/4/\readBullet/\mutateBullet/sporkVioletFg} {
+    \begin{scope}[spork reveal=<\step->]
+      \node (early\i) [req row, anchor=east] at ([xshift=-6mm, yshift=-7.5mm*(\i-1)]tabC)
+        {\pre{} $\sporkTrPostAccess$};
+      \node (late\i) [req row, anchor=west] at ([xshift=6mm, yshift=-7.5mm*(\i-1)]tabC)
+        {\post{} $\sporkTrPreAccess$};
+      \node [text=\col] at (early\i.east -| tabC) {$\rightarrow^*$};
+    \end{scope}
+  }
+  \begin{scope}[spork reveal=<2->]
+    \node [above=0.5mm of early1, font=\bfseries] {Earlier};
+    \node [above=0.5mm of late1, font=\bfseries] {Later};
+    \coordinate (tabTop) at (early1.north west);
+    \coordinate (tabBot) at ([yshift=-15mm]early1.south west);
+    \coordinate (tabX) at ([xshift=-3mm]tabTop);
+    \draw [line width=1.2pt]
+      ([xshift=1.5mm]tabTop -| tabX) -- (tabTop -| tabX)
+      -- node [left=1mm, align=right] {Same $\sporkx[\sporkz^*]$\\always} (tabBot -| tabX)
+      -- ([xshift=1.5mm]tabBot -| tabX);
+  \end{scope}
 
   % Step 2: mutates totally ordered.
   \begin{scope}[spork reveal=<2->, draw=sporkBlueFg, text=sporkBlueFg]
