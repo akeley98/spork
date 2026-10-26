@@ -779,12 +779,12 @@ Edge forms between trace events $\sporktr$ and $\sporktr'$ when
 \end{frame}
 
 % This is deviating from the PATH-based main.tex explanation on purpose
-\begin{frame}[label=TraceEdgeRequirements]{Trace Edge Requirements}
+\begin{frame}[label=TraceEdgeRequirements]{Trace Edge Requirements (for each $x[z^*]$)}
 
 % Mutates in a row with the read between them, lowered so the mutate -> mutate arrow passes just over
 % it. Dashed starred arrows mean ->* (as in fig_exoRewriteFlow_body.tex). The L-shaped arrows
 % into / out of the read are offset vertically (outer mutate on the lower line) so none cross.
-% Colors: blue mutate -> mutate, violet mutate <-> read; each label sits next to its arrows.
+% Each label sits next to its arrows.
 % Reveals match the bullets: 2 mutate chain, 3 mutates -> read, 4 read -> mutates.
 \begingroup\centering
 \begin{sporkfigure}
@@ -810,14 +810,14 @@ Edge forms between trace events $\sporktr$ and $\sporktr'$ when
   % Bracket on the left groups the rows.
   \tikzset{req row/.style={rectangle, draw, thick, inner sep=1mm, minimum width=38mm, minimum height=6mm}}
   \coordinate (tabC) at ([yshift=31mm]$(m0.north)!0.5!(m3.north)$);
-  \foreach \i/\step/\pre/\post/\col in {
-      1/2/\mutateBullet/\mutateBullet/sporkBlueFg,
-      2/3/\mutateBullet/\readBullet/sporkVioletFg,
-      3/4/\readBullet/\mutateBullet/sporkVioletFg} {
+  \foreach \i/\step/\pre/\post/\col/\style in {
+      1/2/\mutateBullet/\mutateBullet/sporkBlueFg/spork blue style,
+      2/3/\mutateBullet/\readBullet/sporkVioletFg/spork violet style,
+      3/4/\readBullet/\mutateBullet/sporkVioletFg/spork violet style} {
     \begin{scope}[spork reveal=<\step->]
-      \node (early\i) [req row, anchor=east] at ([xshift=-6mm, yshift=-7.5mm*(\i-1)]tabC)
+      \node (early\i) [\style, req row, anchor=east] at ([xshift=-6mm, yshift=-7.5mm*(\i-1)]tabC)
         {\pre{} $\sporkTrPostAccess$};
-      \node (late\i) [req row, anchor=west] at ([xshift=6mm, yshift=-7.5mm*(\i-1)]tabC)
+      \node (late\i) [\style, req row, anchor=west] at ([xshift=6mm, yshift=-7.5mm*(\i-1)]tabC)
         {\post{} $\sporkTrPreAccess$};
       \node [text=\col] at (early\i.east -| tabC) {$\rightarrow^*$};
     \end{scope}
@@ -840,7 +840,7 @@ Edge forms between trace events $\sporktr$ and $\sporktr'$ when
     \draw [req arrow] (m1) -- node [req star, above] {$*$} (m2);
     \draw [req arrow] (m2) -- node [req star, above] {$*$} (m3);
     \node [anchor=south] at ($(m0.north)!0.5!(m3.north)$)
-      {Totally ordered by \mutateBullet{} $\rightarrow^*$ \mutateBullet};
+      {Totally ordered by \sporkBlue{\mutateBullet{} $\rightarrow^*$ \mutateBullet}};
   \end{scope}
 
   % Steps 3, 4: labels under the lower L lines, centered between the outer mutate and the read.
@@ -849,14 +849,14 @@ Edge forms between trace events $\sporktr$ and $\sporktr'$ when
     \draw [req arrow] (m0.south) |- node [req star, left, pos=0.25] {$*$} (rLo);
     \draw [req arrow] (m1.south) |- node [req star, above, pos=0.85] {$*$} (rHi);
     \node [anchor=north] at ([yshift=-0.8mm]$(m0.west |- rLo)!0.5!(rLo)$)
-      {Ordered by \mutateBullet{} $\rightarrow^*$ \readBullet};
+      {Ordered by \sporkViolet{\mutateBullet{} $\rightarrow^*$ \readBullet}};
   \end{scope}
   \begin{scope}[spork reveal=<4->, draw=sporkVioletFg, text=sporkVioletFg]
     \draw [req arrow] (rHiOut) -| node [req star, above, pos=0.15] {$*$} (m2.south);
     \draw [req arrow] (rLoOut) -| node [req star, right, pos=0.75] {$*$} (m3.south);
     \node [anchor=north] at ([yshift=-0.8mm]$(rLoOut)!0.5!(m3.east |- rLoOut)$)
-      {Ordered by \readBullet{} $\rightarrow^*$ \mutateBullet};
-    % Slide show is where to put these handwavey intuition. Below the violet labels.
+      {Ordered by \sporkViolet{\readBullet{} $\rightarrow^*$ \mutateBullet}};
+    % Slide show is where to put these handwavey intuition. Below the labels.
     \node (squeezeNote) [annotation, text=black, below=4mm of r]
       {Squeezed between back-to-back $\sporkx[\sporkz^*]$ mutates};
   \end{scope}
