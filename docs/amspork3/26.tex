@@ -691,13 +691,13 @@ New GPU semantics are \sporkKeyA{still deterministic}
 \begin{sporkfigure}
   \begin{scope}[spork reveal=<2->]
     \node [anchor=east] at (0, 0) {Upon read $\sporkx[\sporkz^*]$};
-    \trPre{r1}{anchor=west, xshift=21mm}{\readBullet $\sporkx[\sporkz^*]$}
-    \trPost{r2}{right=6mm of r1}{\readBullet $\sporkx[\sporkz^*]$}
+    \trPre{r1}{anchor=west, xshift=21mm}{\readBullet\ $\sporkx[\sporkz^*]$}
+    \trPost{r2}{right=6mm of r1}{\readBullet\ $\sporkx[\sporkz^*]$}
   \end{scope}
   \begin{scope}[spork reveal=<3->]
     \node [anchor=east] at (0, -17mm) {Upon mutate $\sporkx[\sporkz^*]$};
-    \trPre{m1}{anchor=west, xshift=21mm, yshift=-17mm}{\mutateBullet $\sporkx[\sporkz^*]$}
-    \trPost{m2}{right=6mm of m1}{\mutateBullet $\sporkx[\sporkz^*]$}
+    \trPre{m1}{anchor=west, xshift=21mm, yshift=-17mm}{\mutateBullet\ $\sporkx[\sporkz^*]$}
+    \trPost{m2}{right=6mm of m1}{\mutateBullet\ $\sporkx[\sporkz^*]$}
   \end{scope}
   \begin{scope}[spork reveal=<4->]
     \node [anchor=east] at (0, -34mm) {Upon synchronization};
