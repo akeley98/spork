@@ -751,4 +751,46 @@ Edge forms between trace events $\sporktr$ and $\sporktr'$ when
 \endgroup
 \end{frame}
 
+% This is deviating from the PATH-based main.tex explanation on purpose
+\begin{frame}[label=TraceEdgeRequirements]{Trace Edge Requirements}
+\begin{itemize}
+  \item Transitive edge existence ($\rightarrow^*$) \sporkKeyA{partially orders} trace events
+  \item Trace events for a given $x[z^*]$ must have:
+  % Ugly for now, leave alone this turn
+  \sporkReveal<2->{\item earlier \mutateBullet{} $\sporkTrPostAccess \rightarrow^*$ later \mutateBullet{} $\sporkTrPreAccess$}
+  \sporkReveal<3->{\item earlier \mutateBullet{} $\sporkTrPostAccess \rightarrow^*$ later \readBullet{} $\sporkTrPreAccess$}
+  \sporkReveal<4->{\item earlier \readBullet{} $\sporkTrPostAccess \rightarrow^*$ later \mutateBullet{} $\sporkTrPreAccess$}
+\end{itemize}
+
+% TASK
+%
+% Fill in sporkfigure here
+% The above 3 items will be revealed along with figure items
+%
+% Base figure is something like this: white boxes in a line, with the read slightly lower for legibility soon.
+% This is always visible
+%
+% [mutateBullet x[z^*]]  [mutateBullet x[z^*]]                       [mutateBullet x[z^*]]  [mutateBullet x[z^*]]
+%                                               [readBullet x[z^*]]
+%
+% Reveal 2: Draw arrows with star (similar to flow diagram) connecting mutates,
+% with bracket + text "totally ordered by mutate ->^* mutate" above figure encompassing all mutateBullet
+%
+% Reveal 3: Similar arrows connecting early mutates to the read, maybe L-shaped from bottom of mutate to left of read
+% Bracket + text "ordered by mutate ->^* read" below figure encompassing left half (to center of read box)
+%
+% Reveal 4: Similar arrows connecting readto the later mutates
+% Bracket + text "ordered by read ->^* mutate" below figure encompassing right half (from center of read box)
+%
+% Can change the \rightarrow^* if it doesn't look right.
+
+% Slide show is where to put these handwavey intuition.
+\sporkReveal<4->{``\readBullet\ $x[z^*]$'' squeezed between back-to-back ``\mutateBullet\ $x[z^*]$''}
+
+
+
+
+
+\end{frame}
+
 \end{document}
