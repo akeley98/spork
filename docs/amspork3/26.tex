@@ -733,6 +733,10 @@ Edge forms between trace events $\sporktr$ and $\sporktr'$ when
     \trFence{bf}{at={($(b1-out.east)!0.5!(b2-in.west)$)}}
     \draw [spork arrow] (b1-out) -- (bf-in);
     \draw [spork arrow] (bf-out) -- (b2-in);
+    % Under the first event, left of the step 4 "Transitive" text.
+    \node (mutNote) [annotation, below=4mm of b1]
+      {$\sporkmut$ is \readBullet{} or \mutateBullet};
+    \draw [annotation line] (mutNote.north) -- (b1.south);
   \end{scope}
   % Step 4: bracket under the fence (Scope-style, ticks pointing up).
   \begin{scope}[spork reveal=<4->]
