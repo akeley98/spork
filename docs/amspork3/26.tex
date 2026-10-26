@@ -715,6 +715,7 @@ Edge forms between trace events $\sporktr$ and $\sporktr'$ when
 \begin{itemize}
   \item $\sporktr$ precedes $\sporktr'$ in trace order
   \item A \sporkKeyA{common observer} exists in the \sporkGreen{$\sporkObOut$ of $\sporktr$} and \sporkViolet{$\sporkObIn$ of $\sporktr'$}
+  \item Intuition: \sporkKeyA{common observer} (``thread'') issued two events in sequence
 \end{itemize}
 
 \vspace{4mm}
@@ -725,7 +726,12 @@ Edge forms between trace events $\sporktr$ and $\sporktr'$ when
     \trPost[spork green style]{a1}{}{$\sporkmut$ $\sporkx[\sporkz^*]$}
     \trPre[spork violet style]{a2}{right=72mm of a1}{$\sporkmut$ $\sporkx[\sporkz^*]$}
     \draw [spork arrow] (a1-out) -- node [above] {$\sporkObOut \cap \sporkObIn \ne \varnothing$} (a2-in);
+    \node (mutNote1) [annotation, below=4mm of a1]
+      {$\sporkmut$ is \readBullet{} or \mutateBullet};
+    \draw [annotation line] (mutNote1.north) -- (a1.south);
+    \node [below=1mm of a2, align=center, text=sporkGrayttColor] {Paper detail:\\$\sporkQtlMask$ ignored};
   \end{scope}
+  % TASK: Steps 3 and 4 have to be erased here and moved to the next frame.
   % Step 3: edges through a fence; same columns as step 2.
   \begin{scope}[spork reveal=<3->]
     \trPost{b1}{below=8mm of a1}{$\sporkmut$ $\sporkx[\sporkz^*]$}
@@ -744,19 +750,56 @@ Edge forms between trace events $\sporktr$ and $\sporktr'$ when
     \draw [line width=1.2pt, draw=sporkBlueFg]
       ([yshift=1.5mm]brY -| bf-in.west) -- (brY -| bf-in.west)
       -- node (brMid) [midway, inner sep=0pt] {} (brY -| bf-out.east) -- ([yshift=1.5mm]brY -| bf-out.east);
-    \node [below=1mm of brMid, align=center, text=sporkBlueFg] {Transitive: can be\\multiple synchronizations};
-    \node [below=4mm of b2, align=center, text=sporkGrayttColor] {Paper detail:\\$\sporkQtlMask$ ignored};
+    \node [below=1mm of brMid, align=center, text=sporkBlueFg] {Transitive: can path through\\multiple synchronizations};
+    \node [below=1mm of b2, align=center, text=sporkGrayttColor] {Paper detail:\\$\sporkQtlMask$ ignored};
   \end{scope}
 \end{sporkfigure}\par
 \endgroup
 \end{frame}
 
+% This is deviating from the PATH-based main.tex explanation on purpose.
+% Although I decided to go back to saying "path"
+\begin{frame}[label=TraceEdgesSync]{Trace Edges}  % Only the label changed
+\begin{itemize}
+  \item Synchronization events have both \sporkKeyA{inbound} and \sporkKeyA{outbound} sets
+  \sporkReveal<2->{\item Path existence ($\rightarrow^*$) \sporkKeyA{partially orders} trace events}
+\end{itemize}
+
+\begingroup\centering
+\begin{sporkfigure}
+% TASK Earlier figure with TrFence moves here.
+% The "Transitive: can path..." is revealed at 2-
+\end{sporkfigure}
+\par
+\endgroup
+
+\begin{itemize}
+  \sporkReveal<3->{\item Analyzed paths:}
+\end{itemize}
+
+\begingroup\centering
+\sporkReveal<3->{\sporkKeyA{earlier} $\sporkTrPostAccess \to^*$ \sporkKeyA{later} $\sporkTrPreAccess$}
+\par
+\endgroup
+\end{frame}
+
 % This is deviating from the PATH-based main.tex explanation on purpose
 \begin{frame}[label=TraceEdgeRequirements]{Trace Edge Requirements}
+
+% TASK: replace ugly bullet points with tabular-like (vertical aligned) additions to the figure, above the original stuff.
+% Reveal table rows
+%
+% * [\mutateBullet{} \sporkTrPostAccess] ->^* [\mutateBullet{} \sporkTrPostAccess]
+% * [\readBullet{} \sporkTrPostAccess] ->^* [\mutateBullet{} \sporkTrPostAccess]
+% * [\mutateBullet{} \sporkTrPostAccess] ->^* [\readBullet{} \sporkTrPostAccess]
+%
+% The bullet and Tr*Access are in a one-line white box.
+% This deviates from my original format by necessity.
+% Each trace event box has no second line, no x[z^*], no ObIn/ObOut.
+%
+% Additionally, there's an extra row above with "Earlier" and "Later" above the columns of boxes,
+% and a bracket on the left encompassing the three revealed rows with "Same x[z^*] always".
 \begin{itemize}
-  \item Transitive edge existence ($\rightarrow^*$) \sporkKeyA{partially orders} trace events
-  \item Trace events for a given $x[z^*]$ must have:
-  % Ugly for now, leave alone this turn
   \sporkReveal<2->{\item earlier \mutateBullet{} $\sporkTrPostAccess \rightarrow^*$ later \mutateBullet{} $\sporkTrPreAccess$}
   \sporkReveal<3->{\item earlier \mutateBullet{} $\sporkTrPostAccess \rightarrow^*$ later \readBullet{} $\sporkTrPreAccess$}
   \sporkReveal<4->{\item earlier \readBullet{} $\sporkTrPostAccess \rightarrow^*$ later \mutateBullet{} $\sporkTrPreAccess$}
