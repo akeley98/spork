@@ -36,6 +36,13 @@
   \end{columns}%
 }
 
+%% % Color option for read/mutate (color is used a lot)
+%% \newcommand{\readBullet}{{\color{sporkRedFg}$\bullet$} read}  % Reads are Red
+%% \newcommand{\mutateBullet}{{\color{sporkBlueFg}$\bullet$} mutate}
+\newcommand{\readBullet}{$\circ$ read}
+\newcommand{\mutateBullet}{$\bullet$ mutate}
+
+
 % TikZ styles for commentary on a diagram: a neutral gray box (keyword colors inside stay
 % meaningful) tied to what it describes by a gray `annotation line`.
 % Plain black!N grays on purpose, so restyling sporkGrayttColor doesn't change them.
@@ -648,12 +655,12 @@ New GPU semantics are \sporkKeyA{still deterministic}
 \begin{sporkfigure}
   \tikzset{seq event/.style={rectangle, draw, thick, align=center, inner sep=1mm,
     minimum width=15mm}}
-  \node (e0) [seq event] {mutate\\\seqX{0}{0}};
-  \node (e1) [seq event, right=5mm of e0] {mutate\\\seqX{5}{1}};
-  \node (e2) [seq event, right=5mm of e1] {mutate\\\seqX{4}{0}};
-  \node (e3) [seq event, right=5mm of e2] {read\\\seqX{5}{1}};
-  \node (e4) [seq event, right=5mm of e3] {read\\\seqX{4}{0}};
-  \node (e5) [seq event, right=5mm of e4] {mutate\\\seqX{0}{0}};
+  \node (e0) [seq event] {\mutateBullet\\\seqX{0}{0}};
+  \node (e1) [seq event, right=5mm of e0] {\mutateBullet\\\seqX{5}{1}};
+  \node (e2) [seq event, right=5mm of e1] {\mutateBullet\\\seqX{4}{0}};
+  \node (e3) [seq event, right=5mm of e2] {\readBullet\\\seqX{5}{1}};
+  \node (e4) [seq event, right=5mm of e3] {\readBullet\\\seqX{4}{0}};
+  \node (e5) [seq event, right=5mm of e4] {\mutateBullet\\\seqX{0}{0}};
 
   % Square arrows to keep the figure short: blue read-from arrows 3mm out, red ones 6mm out
   % above (outside the blue) and 3mm below (no horizontal overlap with the blue x[1]).
@@ -684,18 +691,18 @@ New GPU semantics are \sporkKeyA{still deterministic}
 \begin{sporkfigure}
   \begin{scope}[spork reveal=<2->]
     \node [anchor=east] at (0, 0) {Upon read $\sporkx[\sporkz^*]$};
-    \trPre{r1}{anchor=west, xshift=21mm}{read $\sporkx[\sporkz^*]$}
-    \trPost{r2}{right=6mm of r1}{read $\sporkx[\sporkz^*]$}
+    \trPre{r1}{anchor=west, xshift=21mm}{\readBullet $\sporkx[\sporkz^*]$}
+    \trPost{r2}{right=6mm of r1}{\readBullet $\sporkx[\sporkz^*]$}
   \end{scope}
   \begin{scope}[spork reveal=<3->]
     \node [anchor=east] at (0, -17mm) {Upon mutate $\sporkx[\sporkz^*]$};
-    \trPre{m1}{anchor=west, xshift=21mm, yshift=-17mm}{mutate $\sporkx[\sporkz^*]$}
-    \trPost{m2}{right=6mm of m1}{mutate $\sporkx[\sporkz^*]$}
+    \trPre{m1}{anchor=west, xshift=21mm, yshift=-17mm}{\mutateBullet $\sporkx[\sporkz^*]$}
+    \trPost{m2}{right=6mm of m1}{\mutateBullet $\sporkx[\sporkz^*]$}
   \end{scope}
   \begin{scope}[spork reveal=<4->]
     \node [anchor=east] at (0, -34mm) {Upon synchronization};
     \trFence{f1}{anchor=west, xshift=21mm, yshift=-34mm}
-    \node [anchor=west, text=sporkGrayttColor] at ([xshift=6mm]f1-out.east) {later: split barrier};
+    \node [anchor=west, text=sporkGrayttColor] at ([xshift=6mm]f1-out.east) {Later: split barrier};
   \end{scope}
 \end{sporkfigure}\par
 \endgroup
@@ -715,14 +722,14 @@ Edge forms between trace events $\sporktr$ and $\sporktr'$ when
 \begin{sporkfigure}
   % Step 2: direct edge.
   \begin{scope}[spork reveal=<2->]
-    \trPost[spork green style]{a1}{}{mutate $\sporkx[\sporkz^*]$}
-    \trPre[spork violet style]{a2}{right=72mm of a1}{read $\sporkx[\sporkz^*]$}
+    \trPost[spork green style]{a1}{}{$\sporkmut$ $\sporkx[\sporkz^*]$}
+    \trPre[spork violet style]{a2}{right=72mm of a1}{$\sporkmut$ $\sporkx[\sporkz^*]$}
     \draw [spork arrow] (a1-out) -- node [above] {$\sporkObOut \cap \sporkObIn \ne \varnothing$} (a2-in);
   \end{scope}
   % Step 3: edges through a fence; same columns as step 2.
   \begin{scope}[spork reveal=<3->]
-    \trPost{b1}{below=8mm of a1}{mutate $\sporkx[\sporkz^*]$}
-    \trPre{b2}{below=8mm of a2}{read $\sporkx[\sporkz^*]$}
+    \trPost{b1}{below=8mm of a1}{$\sporkmut$ $\sporkx[\sporkz^*]$}
+    \trPre{b2}{below=8mm of a2}{$\sporkmut$ $\sporkx[\sporkz^*]$}
     \trFence{bf}{at={($(b1-out.east)!0.5!(b2-in.west)$)}}
     \draw [spork arrow] (b1-out) -- (bf-in);
     \draw [spork arrow] (bf-out) -- (b2-in);
@@ -734,6 +741,7 @@ Edge forms between trace events $\sporktr$ and $\sporktr'$ when
       ([yshift=1.5mm]brY -| bf-in.west) -- (brY -| bf-in.west)
       -- node (brMid) [midway, inner sep=0pt] {} (brY -| bf-out.east) -- ([yshift=1.5mm]brY -| bf-out.east);
     \node [below=1mm of brMid, align=center, text=sporkBlueFg] {Transitive: can be\\multiple synchronizations};
+    \node [below=4mm of b2, align=center, text=sporkGrayttColor] {Paper detail:\\$\sporkQtlMask$ ignored};
   \end{scope}
 \end{sporkfigure}\par
 \endgroup
