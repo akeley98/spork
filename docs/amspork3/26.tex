@@ -864,4 +864,44 @@ Edge forms between trace events $\sporktr$ and $\sporktr'$ when
 \endgroup
 \end{frame}
 
+\begin{frame}[label=Cornerstones]{Language Cornerstones}
+
+% Quadrants: two half titles, each over a row of 2 annotation boxes (placeholder text for now).
+% Boxes have fixed size so the rows line up whatever the text; titles are centered over the rows.
+% One visible gap everywhere: title -> boxes, box <-> box, boxes -> next title. \cornerGap is the
+% shift past a title (whose inner sep adds the rest); \cornerHalf is half the visible gap.
+\vspace{-2mm}
+\begingroup\centering
+\begin{sporkfigure}
+  \tikzset{corner box/.style={annotation, align=center, minimum width=66mm, minimum height=22mm,
+    text width=62mm}}
+  \def\cornerGap{3mm}
+  \def\cornerHalf{2.2mm}
+  \node (topTitle) [font=\bfseries] at (0, 0) {Exposed Information (to produce traces)};  % iffy on title but just need to move for now
+  \node (box1) [corner box, spork reveal=<2->, anchor=north east] at ([xshift=-\cornerHalf, yshift=-\cornerGap]topTitle.south) {
+    \sporkKeyA{Thread Mapping:}\\
+    Analyze parallel loops\\
+    Deduce threads assigned to stmts
+  };
+  \node (box2) [corner box, spork reveal=<3->, anchor=north west] at ([xshift=\cornerHalf, yshift=-\cornerGap]topTitle.south) {
+    \sporkKeyA{Per-instruction Info:}\\
+    Behavior\\
+    Data format\\
+    Asynchrony
+  };
+  \node (botTitle) [font=\bfseries, anchor=north] at ([yshift=-\cornerGap]topTitle.south |- box1.south) {Correctness Checking};
+  \node (box3) [corner box, spork reveal=<4->, anchor=north east] at ([xshift=-\cornerHalf, yshift=-\cornerGap]botTitle.south) {
+    \sporkKeyA{Static Instruction Checks:}\\
+    Mostly syntactic
+  };
+  \node (box4) [corner box, spork reveal=<5->, anchor=north west] at ([xshift=\cornerHalf, yshift=-\cornerGap]botTitle.south) {
+    \sporkKeyA{Synchronization Checking:}\\
+    More efficient than traces\\
+    Also: split barriers
+  };
+\end{sporkfigure}\par
+\endgroup
+
+\end{frame}
+
 \end{document}
