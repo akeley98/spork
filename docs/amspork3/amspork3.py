@@ -32,7 +32,7 @@ def instr_usage_example(src: f32[4] @ CudaGmemLinear):
         # TeX: mark intro_cp_async instr start
         Sm80_cp_async_1d(
         # TeX: color intro_cp_async elide "dst=f32, src=f32, size0=4"
-          dst[:], src[:], dst=f32, src=f32, size0=4)
+          dst[0:4], src[0:4], dst=f32, src=f32, size0=4)
         # TeX: end intro_cp_async
         C: f32[M, N] @ CudaRmemLinear
         A: f32[M, K] @ CudaRmemLinear
@@ -79,8 +79,8 @@ def intra_thread_example(src: f32[4] @ CudaGmemLinear):
         # 4-at-once $\textbf{async}$ copy
         Sm80_cp_async_1d(
         # TeX: color intra_thread elide "dst=f32, src=f32, size0=4"
-        # TeX: color intra_thread[0] red "dst[:]"
-          dst[:], src[:], dst=f32, src=f32, size0=4)
+        # TeX: color intra_thread[0] red "dst[0:4]"
+          dst[0:4], src[0:4], dst=f32, src=f32, size0=4)
         # TeX: remark intra_thread[0]
         # No good, didn't wait for copy to retire
         # TeX: end intra_thread[0]
