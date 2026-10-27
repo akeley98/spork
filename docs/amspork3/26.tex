@@ -286,7 +286,7 @@ More interesting:\\
 \sporkSlideOnly<2>{\sporkKeyA{Imperative programming}.}
 \sporkSlideOnly<3>{\sporkKeyA{Mutable} arrays (tensors)}
 \sporkSlideOnly<4>{Array \sporkKeyA{memory type}}
-\sporkSlideOnly<5>{Loops: \sporkKeyA{sequential} or \sporkKeyA{parallel}}
+\sporkSlideOnly<5>{Loops: \sporkKeyA{sequential} or \sporkKeyA{parallel} \hfill {\color{sporkGrayttColor} Later: \texttt{cuda\_tasks} vs. \texttt{cuda\_threads}}}
 \sporkSlideOnly<6>{Call \sporkKeyA{instructions} with \sporkKeyA{windows} into arrays}
 
 \vfill
@@ -628,6 +628,18 @@ New GPU semantics are \sporkKeyA{still deterministic}
   \draw [annotation line, spork reveal=<4->] (checkNote.south) -- (checks.north);
 \end{sporkfigure}\par
 \endgroup
+
+\vfill
+
+\begin{equation*}
+% TODO \sporktr'^* inconsistent with main.tex deal with later
+\langle \sporks, \sporksigma, \sporkGreen{$\sporktr^*$} \rangle
+\to
+\langle \sporks', \sporksigma', \sporkGreen{$\sporktr'^*$} \rangle
+\end{equation*}
+
+\vfill
+
 \end{frame}
 
 % Sequential-parallel equivalence: the trace as one execution order. Six trace events left to
@@ -901,6 +913,41 @@ Edge forms between trace events $\sporktr$ and $\sporktr'$ when
   };
 \end{sporkfigure}\par
 \endgroup
+
+\end{frame}
+
+\begin{frame}[label=TidMap1]{Thread Mapping Idea 1: Variable $\mapsto$ Thread}
+
+\begin{itemize}
+  \item Parallel loops assign \sporkKeyA{different threads} to \sporkKeyA{different iterations}
+  \sporkReveal<2->{\item $\sporkTidMap$ Idea: Encode as function ``iteration number'' to ``assigned thread''}
+\end{itemize}
+
+\vphantom{Prevent PDA between code and items}
+
+% TASK: try to approximately center this (without centering each line which would wreck the indentation)
+\sporkListing{TidMap1}
+
+\end{frame}
+
+\begin{frame}[label=TidMap2]{Thread Mapping Idea 2: Collective Units}
+\begin{itemize}
+  \item Why stick to only 1 thread?
+  \item \sporkKeyA{Collective Unit} (our term): \sporkKeyA{number} and \sporkKeyA{arrangement} of threads
+  \begin{itemize}
+    \sporkReveal<2->{\item \texttt{cuda\_thread}: 1 thread}
+    \sporkReveal<2->{\item \sporkGreen[only=<3>]{\texttt{cuda\_warp}}: 32 threads {\color{sporkGrayttColor}(consecutive, aligned)}}
+    \sporkReveal<2->{\item \texttt{cuda\_warpgroup}: 128 threads {\color{sporkGrayttColor}(consecutive, aligned)}}
+  \end{itemize}
+  \sporkReveal<3->{\item \sporkGreen[only=<3>]{\texttt{unit=U}} parameter: One \texttt{U} assigned per iteration {\color{sporkGrayttColor}(usually)}}
+  \sporkReveal<4->{\item $\sporkTidMap$ Idea 2: map ``iteration number'' to ``assigned \sporkKeyA{thread collective}''}
+\end{itemize}
+
+\sporkListing{TidMap2}
+
+\end{frame}
+
+\begin{frame}[label=TidMap3]{Thread Mapping Idea 3: Nested Parallel Loops}
 
 \end{frame}
 
