@@ -145,25 +145,51 @@
 % ===========================================================================
 % 4. Text macros
 % ===========================================================================
-\newcommand{\sporkKeyA}[1]{\textbf{\color{sporkKeyColorA}#1}}
-\newcommand{\sporkKeyB}[1]{\textbf{\color{sporkKeyColorB}#1}}
-\newcommand{\sporkMainKey}[1]{\textbf{\color{sporkMainColor}#1}}
-\newcommand{\sporkMinorKey}[1]{\textbf{\color{sporkMinorColor}#1}}
+% Keyword and box macros take optional [only=<spec>, paper=true|false] (think \only<spec>{\sporkRed}{x}):
+% without `only`, always formatted; with it, slides format x on <spec> only and the paper formats x
+% only if `paper` (default false). Unformatted keywords stay bold and unformatted boxes keep their
+% padding, so text doesn't move horizontally between steps (box height and depth still change).
+\newif\ifspork@fmtpaper
+\pgfkeys{
+  /spork/fmt/.is family, /spork/fmt,
+  only/.code args={<#1>}{\def\spork@fmtonly{#1}},
+  paper/.is if=spork@fmtpaper,
+  paper/.default=true,
+}
+% \spork@fmt{options}{formatted}{unformatted}
+\newcommand{\spork@fmt}[3]{%
+  \let\spork@fmtonly\relax \spork@fmtpaperfalse
+  \pgfqkeys{/spork/fmt}{#1}%
+  \ifx\spork@fmtonly\relax
+    \expandafter\@firstoftwo
+  \else
+    \expandafter\spork@fmtalt
+  \fi{#2}{#3}}
+\ifsporkSlides
+  \newcommand{\spork@fmtalt}{\expandafter\alt\expandafter<\spork@fmtonly>}
+\else
+  \newcommand{\spork@fmtalt}{\ifspork@fmtpaper\expandafter\@firstoftwo\else\expandafter\@secondoftwo\fi}
+\fi
+\newcommand{\spork@key}[3]{\spork@fmt{#1}{\textbf{\color{#2}#3}}{\textbf{#3}}}
+\NewDocumentCommand{\sporkKeyA}{O{} +m}{\spork@key{#1}{sporkKeyColorA}{#2}}
+\NewDocumentCommand{\sporkKeyB}{O{} +m}{\spork@key{#1}{sporkKeyColorB}{#2}}
+\NewDocumentCommand{\sporkMainKey}{O{} +m}{\spork@key{#1}{sporkMainColor}{#2}}
+\NewDocumentCommand{\sporkMinorKey}{O{} +m}{\spork@key{#1}{sporkMinorColor}{#2}}
 
-% Colored boxes, one argument (also used by generated code listings).
+% Colored boxes (also used by generated code listings).
 % \fboxsep is set globally, as in the legacy colorbox_common.tex.
 \setlength{\fboxsep}{1.5pt}
-\newcommand{\spork@box}[2]{{\color{#1Fg}\colorbox{#1Bg}{#2}}}
-\newcommand{\sporkRed}[1]{\spork@box{sporkRed}{#1}}
-\newcommand{\sporkYellow}[1]{\spork@box{sporkYellow}{#1}}
-\newcommand{\sporkGreen}[1]{\spork@box{sporkGreen}{#1}}
-\newcommand{\sporkBlue}[1]{\spork@box{sporkBlue}{#1}}
-\newcommand{\sporkViolet}[1]{\spork@box{sporkViolet}{#1}}
-\newcommand{\sporkInvRed}[1]{\spork@box{sporkInvRed}{#1}}
-\newcommand{\sporkInvGold}[1]{\spork@box{sporkInvGold}{#1}}
-\newcommand{\sporkInvGreen}[1]{\spork@box{sporkInvGreen}{#1}}
-\newcommand{\sporkInvBlue}[1]{\spork@box{sporkInvBlue}{#1}}
-\newcommand{\sporkInvPurple}[1]{\spork@box{sporkInvPurple}{#1}}
+\newcommand{\spork@box}[3]{\spork@fmt{#1}{{\color{#2Fg}\colorbox{#2Bg}{#3}}}{\leavevmode\kern\fboxsep#3\kern\fboxsep}}
+\NewDocumentCommand{\sporkRed}{O{} +m}{\spork@box{#1}{sporkRed}{#2}}
+\NewDocumentCommand{\sporkYellow}{O{} +m}{\spork@box{#1}{sporkYellow}{#2}}
+\NewDocumentCommand{\sporkGreen}{O{} +m}{\spork@box{#1}{sporkGreen}{#2}}
+\NewDocumentCommand{\sporkBlue}{O{} +m}{\spork@box{#1}{sporkBlue}{#2}}
+\NewDocumentCommand{\sporkViolet}{O{} +m}{\spork@box{#1}{sporkViolet}{#2}}
+\NewDocumentCommand{\sporkInvRed}{O{} +m}{\spork@box{#1}{sporkInvRed}{#2}}
+\NewDocumentCommand{\sporkInvGold}{O{} +m}{\spork@box{#1}{sporkInvGold}{#2}}
+\NewDocumentCommand{\sporkInvGreen}{O{} +m}{\spork@box{#1}{sporkInvGreen}{#2}}
+\NewDocumentCommand{\sporkInvBlue}{O{} +m}{\spork@box{#1}{sporkInvBlue}{#2}}
+\NewDocumentCommand{\sporkInvPurple}{O{} +m}{\spork@box{#1}{sporkInvPurple}{#2}}
 
 % Code listing comment text and horizontal rule.
 \newcommand{\sporkComment}[1]{{\color{sporkCommentColor}\textsf{#1}}}

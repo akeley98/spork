@@ -71,11 +71,11 @@ class Doc:
             args += ["-f", str(page), "-l", str(page)]
         return subprocess.run(args + [self.pdf, "-"], stdout=subprocess.PIPE, text=True).stdout
 
-    def colors(self, page):
-        """Set of exact RGB colors covering >= 20 pixels on a page (rendered at 40 dpi)."""
+    def colors(self, page, dpi=40):
+        """Set of exact RGB colors covering >= 20 pixels on a page (rendered at ``dpi``)."""
         _need("pdftoppm")
         out = os.path.join(self.workdir, f"{self.job}_p{page}")
-        subprocess.run(["pdftoppm", "-r", "40", "-f", str(page), "-l", str(page), "-singlefile",
+        subprocess.run(["pdftoppm", "-r", str(dpi), "-f", str(page), "-l", str(page), "-singlefile",
                         self.pdf, out], check=True)
         with open(out + ".ppm", "rb") as f:
             data = f.read()
@@ -104,7 +104,10 @@ class Doc:
         return subprocess.run(["pdffonts", self.pdf], stdout=subprocess.PIPE, text=True).stdout
 
 
-STYLE_JOBS = ["paper", "paper_fig", "deck", "frames", "rule", "paper_figfont", "sporkfig", "sporkfig_deck"]
+STYLE_JOBS = [
+    "paper", "paper_fig", "deck", "frames", "rule", "paper_figfont", "sporkfig", "sporkfig_deck",
+    "fmt_paper", "fmt_deck",
+]
 
 
 @pytest.fixture(scope="module")
@@ -142,7 +145,7 @@ def test_compiles_cleanly(built, job):
 @pytest.mark.parametrize("job,pages", [
     ("paper", 1), ("paper_fig", 1), ("deck", 11), ("frames", 4),
     ("frames_b", 2), ("frames_ac", 2), ("rule", 1), ("paper_figfont", 1),
-    ("sporkfig", 1), ("sporkfig_deck", 3),
+    ("sporkfig", 1), ("sporkfig_deck", 3), ("fmt_paper", 1), ("fmt_deck", 2),
 ])
 def test_page_counts(built, job, pages):
     assert built[job].pages() == pages
@@ -174,6 +177,39 @@ def test_deck_reveal_keeps_layout(built):
                              stdout=subprocess.PIPE, text=True).stdout
         ys.append(re.search(r'yMin="([\d.]+)"[^>]*>Last<', out).group(1))
     assert ys[0] == ys[1]
+
+
+# fmt_deck.tex / fmt_paper.tex: [only=<spec>, paper] options of the keyword and box macros.
+KEY_A = (170, 149, 0)
+KEY_B = (170, 210, 0)
+
+
+def test_fmt_only_slides(built):
+    doc = built["fmt_deck"]
+    shown = [doc.colors(p, dpi=150) for p in (1, 2)]
+    assert [RED_BG in s for s in shown] == [False, True]  # \sporkRed[only=<2>]
+    assert [KEY_A in s for s in shown] == [True, False]  # \sporkKeyA[only=<1>]
+    assert all(INV_BLUE_BG in s for s in shown)  # no options: always
+    for p in (1, 2):
+        assert "RED" in doc.text(p) and "KEYA" in doc.text(p)  # the text itself is always shown
+
+
+def test_fmt_only_keeps_horizontal_layout(built):
+    # Unformatted boxes keep their padding and keywords stay bold: nothing moves sideways.
+    words = [dict((w, x0) for w, x0, _ in built["fmt_deck"].words(p)) for p in (1, 2)]
+    for w in ["RED", "AFTERRED", "KEYA", "AFTERKEY"]:
+        assert words[0][w] == pytest.approx(words[1][w], abs=0.01), w
+
+
+def test_fmt_only_paper(built):
+    doc = built["fmt_paper"]
+    shown = doc.colors(1, dpi=150)
+    assert RED_BG not in shown and KEY_A not in shown  # only=, paper=false (default)
+    assert INV_GREEN_BG in shown and KEY_B in shown  # paper / paper=true
+    assert INV_BLUE_BG in shown
+    text = doc.text(1)
+    for w in ["RED", "GREEN", "KEYA", "KEYB", "ALWAYS"]:
+        assert w in text
 
 
 def _fig_expectations():

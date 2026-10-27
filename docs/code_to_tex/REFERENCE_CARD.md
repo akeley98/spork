@@ -179,6 +179,7 @@ Example: [beamer_nyc25_test/split_marks.tex](beamer_nyc25_test/split_marks.tex) 
 ## Style macros (all `spork`-prefixed)
 
 `\sporkKeyA \sporkKeyB \sporkMainKey \sporkMinorKey` keywords; `\sporkRed ... \sporkViolet`, `\sporkInvRed ... \sporkInvPurple` highlights;
+keywords and highlights take `[only=<spec>]` (formatted on those slides only, like `\only<spec>{\sporkRed}{x}`) and `[only=<spec>, paper]` (also formatted in the paper);
 `\sporkComment`, `\sporkCodeRule` (`\linewidth` wide, works in Beamer columns); `\sporkSection{Title}{sec:X}`; `\sporkPaperLink{label}{text}`;
 environment `sporkfigure`; TikZ `spork arrow`, `spork line`, `spork normal node`, `spork red style`, `spork inv red style`, `spork red node`, ...
 Colors `spork<Name>Fg/Bg`, `sporkKeyColorA/B`, `sporkMainColor`, `sporkMinorColor`, `sporkTitleColor`.
