@@ -721,8 +721,7 @@ Edge forms between trace events $\sporktr$ and $\sporktr'$ when
 \vspace{4mm}
 \begingroup\centering
 \begin{sporkfigure}
-  % Step 2: direct edge.
-  \begin{scope}[spork reveal=<2->]
+  \begin{scope}[spork reveal=<1->]  % Decided not to reveal this separately for now
     \trPost[spork green style]{a1}{}{$\sporkmut$ $\sporkx[\sporkz^*]$}
     \trPre[spork violet style]{a2}{right=72mm of a1}{$\sporkmut$ $\sporkx[\sporkz^*]$}
     \draw [spork arrow] (a1-out) -- node [above] {$\sporkObOut \cap \sporkObIn \ne \varnothing$} (a2-in);
