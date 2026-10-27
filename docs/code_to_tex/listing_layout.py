@@ -250,17 +250,24 @@ class _Layouter:
         and backticks pair left to right around monospace code text, in which
         ``$`` is literal.  Whichever delimiter opens first wins: a backtick
         inside math is a math character, a ``$`` inside backticks is literal.
+        Outside both, a run of 2+ backticks is ordinary comment text (passed
+        to TeX as is, for ````quotes''``); inside backticks each one still
+        closes or opens monospace text.
         """
         styles = []
         regions = {"$": [], "`": []}  # delimiter -> [(start, end)], end exclusive
         in_comment = False
         open_delim, open_at = None, 0
+        literal_end = 0  # end of the current literal run of backticks
         for i, c in enumerate(text):
             in_comment = in_comment or c == "#"
             if not in_comment:
                 styles.append(CODE)
             elif open_delim is None:
-                if c in regions:
+                if i < literal_end or text.startswith("``", i):
+                    literal_end = max(literal_end, len(text) - len(text[i:].lstrip("`")))
+                    styles.append(COMMENT)
+                elif c in regions:
                     open_delim, open_at = c, i
                     styles.append(MATH if c == "$" else BACKTICK)
                 else:

@@ -159,7 +159,7 @@ the other arguments are told apart by shape (quoted text, `N:I`, bare word):
 Matching is whole-word: an end of the quoted text that is a letter, digit or `_` must not touch another one in the source
 (`"i"` skips `if`, `in`, `i1`; `"@proc"` only checks after the `c`). `chars` directly before one quoted text matches substrings.
 `N:I` / `N:*` goes directly after its quoted text (no count: exactly one match) and counts matches of that mode.
-In code comments, `$...$` is LaTeX math and `` `...` `` is monospace code; `` `$` `` gives a literal `$`; unbalanced `$` or an odd number of backticks is an error.
+In code comments, `$...$` is LaTeX math and `` `...` `` is monospace code; `` `$` `` gives a literal `$`; outside `` `...` ``, 2+ backticks in a row pass to TeX as is (` ``quotes'' `); unbalanced `$` or an odd number of backticks is an error.
 Colors: `red yellow green blue violet invRed invGold invGreen invBlue invPurple elide`.
 Ambiguity is an error: wrong match count, conflicting colors on a character, directives that never apply, unknown words,
 a color span holding only one backtick of a `` `...` `` pair or ending inside `$...$`,

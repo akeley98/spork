@@ -291,6 +291,8 @@ x = `q`  # add into `accum` / `acc` / `B_smem`, cost $O(n^2)$ or $f`$, `$5`
 # TeX: color db green "`cp.async`"
 # TeX: remark db
 # RAW: wait for the `cp.async` fill of slot `k1 % 3` ($k_1$)
+# TeX: remark db
+# the ``full'' slot
 # TeX: end db
 """
 
@@ -313,5 +315,6 @@ def test_dollar_backtick_line_compiles(tmp_path, template):
     assert "$5" in text  # literal dollar from `$5`
     assert "`" not in text.split("x = `q`", 1)[1]  # no backtick in comments (the one in $f`$ is math)
     assert "wait for the cp.async fill of slot k1 % 3" in text
+    assert "the “full” slot" in text  # ``...'' passed through: TeX curly quotes
     aux = (doc / "main.aux").read_text()
     assert re.search(r"\\savepointas\{db-m(-\d+)?\}", aux)

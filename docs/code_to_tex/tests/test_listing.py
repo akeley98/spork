@@ -1141,6 +1141,23 @@ class TestDollarBacktickInteractions:
         # not in a comment: untouched, and an odd number is fine
         assert tex_variant(colored([], line="s = `a` + `")) == "s~=~`a`~+~`"
 
+    def test_backtick_runs_are_literal_quotes(self):
+        # 2+ backticks outside `...` reach TeX as is (``quotes''), and do not count toward pairing
+        assert tex_variant(colored([], line="x  # ``large'' tiles")) == r"x~~\sporkComment{\#~``large''~tiles}"
+        assert tex_variant(colored([], line="x  # ``a'' ```b `c`")) == (
+            r"x~~\sporkComment{\#~``a''~```b~\texttt{c}}"
+        )
+        assert txt(colored([], line="x  # ``a'' `c`")) == "x  # ``a'' `c`\n"
+
+    def test_backtick_run_inside_backticks_closes_and_reopens(self):
+        # inside `...` each backtick is still a delimiter: `a``b` is \texttt{a}\texttt{b}
+        assert tex_variant(colored([], line="x  # `a``b`")) == r"x~~\sporkComment{\#~\texttt{a}\texttt{b}}"
+        # the backtick after the closing one starts a new pair, not a literal run
+        assert_error(colored([], line="x  # `a`` b"), 3, "odd number of backticks")
+
+    def test_backtick_run_then_odd_backtick_is_an_error(self):
+        assert_error(colored([], line="x  # ``x` y"), 3, "odd number of backticks")
+
     def test_unbalanced_dollar_still_an_error_and_suggests_backticks(self):
         assert_error(colored([], line="x  # costs $5"), 3, "unbalanced '\\$'.*write `\\$` for a literal")
 

@@ -17,6 +17,8 @@ from .listing_parse import COLOR_MACROS, ELIDE, MarkDirective
 
 ELLIPSIS = "..."
 
+# Backticks and single quotes are intentionally not escaped: runs of 2+
+# backticks in comments reach TeX as is, so ``quotes'' typeset as curly quotes.
 _TEX_ESCAPES = {
     " ": "~",
     "#": r"\#",
