@@ -353,7 +353,9 @@ def CudaWarps_example(X: size, Y: size):
       # TeX: end CudaWarps[:2]
       # TeX: color CudaWarps[2] blue "CudaWarps" "consumer"
       with CudaWarps(name="consumer"):
+        # TeX: mark CudaWarps[2] body_top end
         for w in cuda_threads(0, 8,
+            # TeX: mark CudaWarps[2] body_bot start
             unit=cuda_warp):
           # TeX: end CudaWarps[2:]
           warp_do_something()

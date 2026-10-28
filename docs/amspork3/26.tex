@@ -886,16 +886,14 @@ Edge forms between trace events $\sporktr$ and $\sporktr'$ when
 \endgroup
 \end{frame}
 
-% TASK: save cornerstones slide body into newcommand or \input file.
-% Here, have 5 instead of 4 steps this frame.
-% Last step puts a thick sporkMinorColor around "thread mapping" (what I will talk about first)
-
-\begin{frame}[label=Cornerstones]{Language Cornerstones}
-
-% Quadrants: two half titles, each over a row of 2 annotation boxes (placeholder text for now).
+% \cornerstones{R1}{R2}{R3}{R4}{BOX}{H}: body of the "Language Cornerstones" slide, shown again
+% later as a roadmap. Rk = reveal spec of box k (e.g. <2->), BOX = box1..box4 to border in
+% sporkMinorColor on slide-only spec H (the topic about to be discussed).
+% Quadrants: two half titles, each over a row of 2 annotation boxes.
 % Boxes have fixed size so the rows line up whatever the text; titles are centered over the rows.
 % One visible gap everywhere: title -> boxes, box <-> box, boxes -> next title. \cornerGap is the
 % shift past a title (whose inner sep adds the rest); \cornerHalf is half the visible gap.
+\newcommand{\cornerstones}[6]{%
 \vspace{-2mm}
 \begingroup\centering
 \begin{sporkfigure}
@@ -904,30 +902,38 @@ Edge forms between trace events $\sporktr$ and $\sporktr'$ when
   \def\cornerGap{3mm}
   \def\cornerHalf{2.2mm}
   \node (topTitle) [font=\bfseries] at (0, 0) {Exposed Information (to produce traces)};  % iffy on title but just need to move for now
-  \node (box1) [corner box, spork reveal=<2->, anchor=north east] at ([xshift=-\cornerHalf, yshift=-\cornerGap]topTitle.south) {
+  \node (box1) [corner box, spork reveal=#1, anchor=north east] at ([xshift=-\cornerHalf, yshift=-\cornerGap]topTitle.south) {
     \sporkKeyA{Thread Mapping:}\\
     Analyze parallel loops\\
     Deduce threads assigned to stmts
   };
-  \node (box2) [corner box, spork reveal=<3->, anchor=north west] at ([xshift=\cornerHalf, yshift=-\cornerGap]topTitle.south) {
+  \node (box2) [corner box, spork reveal=#2, anchor=north west] at ([xshift=\cornerHalf, yshift=-\cornerGap]topTitle.south) {
     \sporkKeyA{Per-instruction Info:}\\
     Behavior\\
     Data format\\
     Asynchrony
   };
   \node (botTitle) [font=\bfseries, anchor=north] at ([yshift=-\cornerGap]topTitle.south |- box1.south) {Correctness Checking};
-  \node (box3) [corner box, spork reveal=<4->, anchor=north east] at ([xshift=-\cornerHalf, yshift=-\cornerGap]botTitle.south) {
+  \node (box3) [corner box, spork reveal=#3, anchor=north east] at ([xshift=-\cornerHalf, yshift=-\cornerGap]botTitle.south) {
     \sporkKeyA{Static Instruction Checks:}\\
     Mostly syntactic
   };
-  \node (box4) [corner box, spork reveal=<5->, anchor=north west] at ([xshift=\cornerHalf, yshift=-\cornerGap]botTitle.south) {
+  \node (box4) [corner box, spork reveal=#4, anchor=north west] at ([xshift=\cornerHalf, yshift=-\cornerGap]botTitle.south) {
     \sporkKeyA{Synchronization Checking:}\\
     More efficient than traces\\
     Also: split barriers
   };
+  % Thick border marking the box about to be discussed (overlay: no effect on the bounding
+  % box, so the figure sits identically whichever box is bordered).
+  \draw [overlay, line width=2pt, draw=sporkMinorColor, rounded corners=1mm, spork slide only=#6]
+    (#5.south west) rectangle (#5.north east);
 \end{sporkfigure}\par
-\endgroup
+\endgroup%
+}
 
+% Boxes one by one, then border the first topic (thread mapping).
+\begin{frame}[label=Cornerstones]{Language Cornerstones}
+\cornerstones{<2->}{<3->}{<4->}{<5->}{box1}{<6->}
 \end{frame}
 
 \begin{frame}[label=TidMap1]{Thread Mapping Idea 1: Variable $\mapsto$ Thread}
@@ -1054,21 +1060,62 @@ Edge forms between trace events $\sporktr$ and $\sporktr'$ when
 
 \sporkListing{CudaWarps}
 
-% TASK: use the space on the right of both code and prose to build a stack of 12 [ warp n ] boxes
-% Use vertical dots to skip some consumer warps if needed, but I'd prefer not (invade the title space maybe even)
-% Reveal 1: All 12 are monochrome (default black/white style)
-% Reveal 2: Colored by name, and with color-coded brackets on the left in the style of "Language Scope" labelling the warps by warp name.
-% Reveal 3: Non-consumers are gray and strike-throughed; remaining are blue, with "w=0" ... "w=7" in blue to their left
-% Also put a blue bracket in the style of "Language Scope" around the brief CudaWarps body, labelled "consumer only"
+% Stack of the CTA's 12 warps in the top right corner of the page (right of code and prose).
+% Step 1: plain boxes. Step 2: colored by warp name (as in the listing) with Scope-style brackets
+% naming each group. Step 3: non-consumers gray and struck through; consumers blue, labelled with
+% their `w` index. Also step 3: blue bracket on the CudaWarps body (marks: amspork3.py).
+\begin{tikzpicture}[remember picture, overlay]
+  \tikzset{
+    warp box/.style={rectangle, draw, thick, minimum width=20mm, minimum height=4.8mm,
+      inner sep=0.5mm, font=\sporkFigSmall, anchor=north east},
+    warp off/.style={spork slide only=<3->{draw=sporkGrayttColor, text=sporkGrayttColor}},
+    warp bracket/.style={line width=1.2pt, spork reveal=<2->},
+  }
+  \def\warpPitch{5.6mm}
+  \coordinate (stackTop) at ([xshift=-8mm, yshift=-8mm]current page.north east);
+  \node (warp0) [warp box, spork slide only=<2>{spork red style}, warp off] at (stackTop) {warp 0};
+  \foreach \n in {1, 2, 3} {
+    \node (warp\n) [warp box, spork slide only=<2>{spork green style}, warp off]
+      at ([yshift=-\warpPitch*\n]stackTop) {warp \n};
+  }
+  \foreach \n in {0, ..., 3} {
+    \draw [thick, sporkGrayttColor, spork slide only=<3->] (warp\n.west) -- (warp\n.east);
+  }
+  \foreach \n in {4, ..., 11} {
+    \pgfmathtruncatemacro{\w}{\n - 4}
+    \node (warp\n) [warp box, spork slide only=<2->{spork blue style}] at ([yshift=-\warpPitch*\n]stackTop) {warp \n};
+    \node [left=0.5mm of warp\n, font=\sporkFigSmall, text=sporkBlueFg, spork reveal=<3->] {w=\w};
+  }
+  % Group brackets, left of the w labels; inset 0.6mm so neighboring brackets don't touch.
+  \coordinate (bracketX) at ([xshift=-10mm]warp0.west);
+  \foreach \first/\last/\name/\col in {0/0/producer/sporkRedFg, 1/3/writer/sporkGreenFg,
+      4/11/consumer/sporkBlueFg} {
+    \coordinate (gTop) at ([yshift=-0.6mm]warp\first.north -| bracketX);
+    \coordinate (gBot) at ([yshift=0.6mm]warp\last.south -| bracketX);
+    \draw [warp bracket, draw=\col]
+      ([xshift=1.5mm]gTop) -- (gTop) -- node [left=1mm, text=\col, font=\bfseries] {\name} (gBot)
+      -- ([xshift=1.5mm]gBot);
+  }
+  % Bracket on the CudaWarps body, mirrored on its right (the indentation leaves no room for
+  % the label on the left). body_top marks the end of the body's longest line.
+  \coordinate (bodyTop) at ([yshift=1.0ex]pic cs:CudaWarps-body_top);
+  \coordinate (bodyBot) at ([yshift=-0.7ex]pic cs:CudaWarps-body_bot);
+  \coordinate (bodyX) at ([xshift=3mm]bodyTop);
+  \draw [line width=1.2pt, draw=sporkBlueFg, spork reveal=<3->]
+    ([xshift=-1.5mm]bodyTop -| bodyX) -- (bodyTop -| bodyX)
+    -- node [right=1mm, text=sporkBlueFg, font=\bfseries] {consumer only} (bodyBot -| bodyX)
+    -- ([xshift=-1.5mm]bodyBot -| bodyX);
+\end{tikzpicture}
 
 \end{frame}
 
 \begin{frame}[label=DistributedMemory]{Distributed Memory}
 \end{frame}
 
-% TASK: Put 1 cornerstones slide here.
-% Put the border around the second item (Per-instruction info)
-% I will be talking about that.
+% Roadmap: next topic is per-instruction info.
+\begin{frame}[label=CornerstonesInstr]{Language Cornerstones}
+\cornerstones{<1->}{<1->}{<1->}{<1->}{box2}{<1->}
+\end{frame}
 
 
 \end{document}
