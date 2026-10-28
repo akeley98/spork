@@ -1122,6 +1122,7 @@ Edge forms between trace events $\sporktr$ and $\sporktr'$ when
   \item \sporkRed{VERY IMPORTANT:} no implied fork-join semantics!
   \sporkReveal<2->{\item \texttt{Fence} stmt synchronizes all assigned threads}
   \sporkReveal<3->{\item Generated instruction depends on statement's $\sporktidMap$}
+  \sporkReveal<4->{\item Static analysis: deduce \sporkKeyA{collective unit} of output thread collectives}
 \end{itemize}
 
 % Listing from step 2 (offset=1: version v on step v+2); steps 2-3 (versions 0, 1) show both
