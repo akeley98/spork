@@ -1,5 +1,5 @@
 {
-    "_comment": "Build: cd spork/docs && python3 -m code_to_tex.build amspork3 (see code_to_tex/build.py --help)",
+    "_comment": "Build: cd spork/docs && python3 -m spork_tex.build amspork3 (see python3 -m spork_tex.build --help)",
     "check": ["exocc", "amspork3.py"],
     "listing_sources": ["amspork3.py"]
 }

@@ -1,8 +1,8 @@
 # exocc output for amspork3.py: generated amspork3.c / amspork3.h (+ debug/), only kept as proof the listings compile
 amspork3/
-# python3 -m code_to_tex output from samples.py: NAME.tex (all versions, overlays), NAME.N.txt (plain), NAME.N.dbg (⟦...⟧ formatting)
+# python3 -m spork_tex output from samples.py: NAME.tex (all versions, overlays), NAME.N.txt (plain), NAME.N.dbg (⟦...⟧ formatting)
 code/
-# build driver's copies of code_to_tex/latex/*.tex (spork_style.tex, code_to_tex_support.tex) + extra_styles; read-only, edit the originals instead
+# build driver's copies of spork_tex/latex/*.tex (spork_tex repo) (spork_style.tex, code_to_tex_support.tex) + extra_styles; read-only, edit the originals instead
 copied_styles/
 # build driver --png renders: paper page / frame step PNGs for agents to look at
 preview/

@@ -1,5 +1,0 @@
-{
-    "_comment": "Build: cd spork/docs && python3 -m code_to_tex.build code_to_tex/beamer_nyc25_test --slides beamer_nyc25_test (see code_to_tex/build.py --help)",
-    "check": ["exocc", "samples.py"],
-    "listing_sources": ["samples.py"]
-}

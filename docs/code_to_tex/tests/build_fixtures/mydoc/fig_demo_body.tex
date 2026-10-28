@@ -1,9 +1,0 @@
-% Figure body fixture: raw TikZ, \input inside a sporkfigure by main.tex.
-% Bare overlay specs (line 7: \uncover<2->, line 8: \node<3>) and a host-relative size (line 9)
-% are linted; a \pause in a comment is not.
-\node[draw] at (0,0) {A};
-\node[draw] at (1,0) {A2};
-\node[draw] at (1.5,0) {A3};
-\uncover<2->{\node[draw] at (2,0) {B};}
-\node<3>[draw] at (4,0) {C}; % \pause in a comment is not linted
-\node[draw, font=\small] at (6,0) {D};
