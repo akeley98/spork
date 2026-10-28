@@ -1361,11 +1361,12 @@ Memory type encodes \sporkKeyA{physical memory type} \& \sporkKeyA{data layout}
 
 % One frame, the Fence's arrive qtl swapped in place. Steps 1-2: Fence(cuda_in_order, ...):
 % Ob^in misses the cp.async observer, no edge (step 2). Step 3: Fence(Sm80_cp_async, ...): Ob^in
-% contains it, edge forms. Step 4: the qtl also picks the generated sync instruction
-% (e.g. exocc emits cp.async.wait_all when the arrive qtl includes Sm80_cp_async; cuda_sync_state.py).
+% contains it, edge forms. Step 4: annotation on the (still violet) arrive qtl: it also picks the
+% generated sync instruction (exocc: cp.async.wait_all when the arrive qtl includes Sm80_cp_async;
+% cuda_sync_state.py). The annotation's hidden space makes the figure sit lower on every step.
 % Single qtls (paired with tid) are *_qual; Fence args and sets crossed with Tid sets are not.
 % Alternatives are \sporkSlideOnly (no paper version: deck-only frame).
-\vspace{6mm}
+% No space above: figure sits snug under the bullet (keeps clear of the slide bottom).
 \begingroup\centering
 \begin{sporkfigure}
   \trPost[spork green style]{a1}{}{\mutateBullet\ $\sporkx[\sporkz^*]$}
@@ -1373,10 +1374,19 @@ Memory type encodes \sporkKeyA{physical memory type} \& \sporkKeyA{data layout}
   \node [tr ob, spork violet style] at (f1-in) {$\sporkObIn$};
   % Event labels raised above the arrow labels; padding of the highlight box cancelled (\kern)
   % so the monospace text doesn't shift.
-  \node [above=7mm of a1, font=\ttfamily] {cp\_async\_1d};
-  \node [anchor=south east, font=\ttfamily, fixed text={8.5pt}{3.4pt}] at ([yshift=7mm]f1-out.east |- f1.north)
-    {\sporkSlideOnly<-2>{Fence(cuda\_in\_order, cuda\_in\_order)}%
-     \sporkSlideOnly<3->{Fence(\kern-\fboxsep\sporkViolet[only=<3>]{Sm80\_cp\_async}\kern-\fboxsep, cuda\_in\_order)}};
+  % Fence label as 3 nodes chained on the baseline (right to left) so fenceArg can be pointed at;
+  % both arrive qtls are 13 characters, so the label keeps its width.
+  \tikzset{fence part/.style={font=\ttfamily, fixed text={8.5pt}{3.4pt}, inner sep=0mm}}
+  \node (fenceTail) [fence part, anchor=south east] at ([yshift=8mm]f1-out.east |- f1.north)
+    {, cuda\_in\_order)};
+  \node (fenceArg) [fence part, anchor=base east] at (fenceTail.base west)
+    {\sporkSlideOnly<-2>{cuda\_in\_order}%
+     \sporkSlideOnly<3->{\kern-\fboxsep\sporkViolet{Sm80\_cp\_async}\kern-\fboxsep}};
+  \node [fence part, anchor=base east] at (fenceArg.base west) {Fence(};
+  \node [font=\ttfamily, fixed text={8.5pt}{3.4pt}, inner sep=0mm, anchor=base] at (a1.north |- fenceTail.base) {cp\_async\_1d};
+  \node (genNote) [annotation, anchor=south, spork reveal=<4->] at ([yshift=5mm]fenceArg.north)
+    {Compiler now generates \texttt{cp.async.wait\_all}};
+  \draw [annotation line, spork reveal=<4->] (genNote.south) -- ([yshift=0.5mm]fenceArg.north);
   \node (outSet) [annotation, below=5mm of a1-out]
     {$\sporkObOut = \{(\sporktid, \texttt{Sm80\_cp\_async\_qual})\}$};
   \draw [annotation line] (outSet.north -| a1-out) -- (a1-out.south);
@@ -1397,11 +1407,6 @@ Memory type encodes \sporkKeyA{physical memory type} \& \sporkKeyA{data layout}
     node [above=3mm, midway] {$\sporkObOut \cap \sporkObIn \ne \varnothing$} (f1-in);
 \end{sporkfigure}\par
 \endgroup
-
-\vspace{4mm}
-\begin{itemize}
-  \sporkReveal<4->{\item Fence $\sporkqtl$ also picks the \sporkKeyA{compiler-generated sync instruction}}
-\end{itemize}
 
 \end{frame}
 
