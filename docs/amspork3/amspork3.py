@@ -329,11 +329,10 @@ def TidMap_example(X: size, Y: size):
             # TeX: color TidMap2[3] yellow "$w$"
             # TeX: remark TidMap2[3]
             # $w$ $\mapsto$ ``$(32w)^{th}$ thread'' .. ``$(32w + 31)^{th}$ thread''
-            # TeX: remark TidMap2[3]
-            # $0$ $\mapsto$ ``$0^{th}$ thread'' .. ``$31^{st}$ thread''
-            # TeX: remark TidMap2[3]
-            # $11$ $\mapsto$ ``$352^{nd}$ thread'' .. ``$383^{rd}$ thread''
             # TeX: end TidMap2
+            # This was too much:
+            # $0$ $\mapsto$ ``$0^{th}$ thread'' .. ``$31^{st}$ thread''
+            # $11$ $\mapsto$ ``$352^{nd}$ thread'' .. ``$383^{rd}$ thread''
           Fence(cuda_in_order, cuda_in_order)
 
 
