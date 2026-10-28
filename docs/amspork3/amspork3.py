@@ -363,22 +363,27 @@ def CudaWarps_example(X: size, Y: size):
 
 @proc
 def TidMapSync_example(X: size):
+  # Listing starts at the CTA loop (the "cta" cue); device function and task loop not shown.
   # TeX: listing TidMapSync 5
-  # TeX: begin TidMapSync
-  with CudaDeviceFunction(blockDim=128):
-    # TeX: color TidMapSync[2] green "task" "cuda_tasks"
+  with CudaDeviceFunction(clusterDim=2, blockDim=128):
     for task in cuda_tasks(0, X):
-      # TeX: color TidMapSync[2] green "Fence"
-      # TeX: color TidMapSync[4] yellow "cuda_in_order" 2:*
-      # TeX: mark TidMapSync cta_fence end
-      Fence(cuda_in_order, cuda_in_order)
-      # TeX: color TidMapSync[3] violet "w" "cuda_threads" "cuda_warp"
-      for w in cuda_threads(0, 4, unit=cuda_warp):
-        # TeX: color TidMapSync[3] violet "Fence"
-        # TeX: color TidMapSync[4] yellow "cuda_in_order" 2:*
-        # TeX: mark TidMapSync warp_fence end
+      # TeX: begin TidMapSync
+      # TeX: color TidMapSync[2] green "cta" "cuda_cta_in_cluster"
+      for cta in cuda_threads(0, 2, unit=cuda_cta_in_cluster):
+        # TeX: color TidMapSync[:2] blue "Fence"
+        # TeX: color TidMapSync[2] green "Fence"
+        # TeX: color TidMapSync[4] blue "cuda_in_order" 2:*
+        # TeX: mark TidMapSync cta_fence end
         Fence(cuda_in_order, cuda_in_order)
-  # TeX: end TidMapSync
+
+        # TeX: color TidMapSync[3] violet "w" "cuda_threads" "cuda_warp"
+        for w in cuda_threads(0, 4, unit=cuda_warp):
+          # TeX: color TidMapSync[:2] blue "Fence"
+          # TeX: color TidMapSync[3] violet "Fence"
+          # TeX: color TidMapSync[4] blue "cuda_in_order" 2:*
+          # TeX: mark TidMapSync warp_fence end
+          Fence(cuda_in_order, cuda_in_order)
+      # TeX: end TidMapSync
 
 
 # class checks that the instrs at least parse,

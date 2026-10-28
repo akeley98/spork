@@ -1119,18 +1119,19 @@ Edge forms between trace events $\sporktr$ and $\sporktr'$ when
   \sporkReveal<3->{\item Generated instruction depends on statement's $\sporktidMap$}
 \end{itemize}
 
-% Listing from step 2 (offset=1: version v on step v+2); versions 0 and 1 are the same plain code.
-% Step 4: CTA-scope Fence (green) -> __syncthreads. Step 5: warp-scope Fence (violet) ->
-% __syncwarp. Code colors last one step; the bubbles stay. Step 6: cuda_in_order (yellow) and its
-% bullet. Bubbles share one x, right of the longer (warp) Fence line; each is nudged off its line
-% (CTA up, warp down) to clear the longer `for w` line between them. Marks: amspork3.py.
+% Listing from step 2 (offset=1: version v on step v+2); steps 2-3 (versions 0, 1) show both
+% Fences blue. Step 4: CTA-scope Fence (green) -> __syncthreads. Step 5: warp-scope Fence
+% (violet) -> __syncwarp. Code colors last one step; the bubbles stay. Step 6: cuda_in_order
+% (blue) and its bullet. Bubbles share one x, right of the longer (warp) Fence line; each is
+% nudged down, clear of the longer `for` line above it (the CTA one into the blank line the
+% listing leaves for it). Marks: amspork3.py.
 \vspace{2mm}
 \sporkListing[offset=1]{TidMapSync}
 \begin{tikzpicture}[remember picture, overlay]
   \coordinate (ctaFence) at (pic cs:TidMapSync-cta_fence);
   \coordinate (warpFence) at (pic cs:TidMapSync-warp_fence);
   \coordinate (noteX) at ([xshift=4mm]warpFence);
-  \node (ctaNote) [annotation, anchor=west, spork reveal=<4->] at ([yshift=2.5mm]noteX |- ctaFence)
+  \node (ctaNote) [annotation, anchor=west, spork reveal=<4->] at ([yshift=-2.5mm]noteX |- ctaFence)
     {CTA scope: \texttt{\_\_syncthreads()}};
   \draw [annotation line, spork reveal=<4->] ([xshift=1mm]ctaFence) -- (ctaNote.west);
   \node (warpNote) [annotation, anchor=west, spork reveal=<5->] at ([yshift=-1.5mm]noteX |- warpFence)
@@ -1139,7 +1140,7 @@ Edge forms between trace events $\sporktr$ and $\sporktr'$ when
 \end{tikzpicture}
 
 \begin{itemize}
-  \sporkReveal<6->{\item \sporkYellow[only=<6>]{\texttt{cuda\_in\_order}} to be explained (spoiler: async instructions)}
+  \sporkReveal<6->{\item \sporkBlue[only=<6>]{\texttt{cuda\_in\_order}} to be explained (spoiler: async instructions)}
 \end{itemize}
 \end{frame}
 
@@ -1187,11 +1188,13 @@ Edge forms between trace events $\sporktr$ and $\sporktr'$ when
     -- ([xshift=-1.5mm]loopBot -| loopX);
   % Steps 4, 5: brackets above dst's type and memory type (in the blank line above dst),
   % ticks pointing down, label on top.
-  \foreach \l/\r/\step/\name in {prec_l/prec_r/4/{precision, shape}, mem_l/mem_r/5/{memory type}} {
+  % "precision, shape" is squeezed under `def behavior(`; "memory type" has room to be bigger.
+  \foreach \l/\r/\step/\name/\size in {prec_l/prec_r/4/{precision, shape}/\scriptsize,
+      mem_l/mem_r/5/{memory type}/\small} {
     \coordinate (bl) at ([yshift=1.5ex]pic cs:cp_async_1d-\l);
     \coordinate (br) at ([yshift=1.5ex]pic cs:cp_async_1d-\r);
     \draw [line width=1.2pt, draw=sporkMainColor, spork reveal=<\step->]
-      ([yshift=-1.2mm]bl) -- (bl) -- node [above=0mm, inner sep=0.5mm, text=sporkMainColor, font=\bfseries\scriptsize] {\name} (br)
+      ([yshift=-1.2mm]bl) -- (bl) -- node [above=0mm, inner sep=0.5mm, text=sporkMainColor, font=\bfseries\size] {\name} (br)
       -- ([yshift=-1.2mm]br);
   }
 \end{tikzpicture}
