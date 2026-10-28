@@ -960,12 +960,10 @@ Edge forms between trace events $\sporktr$ and $\sporktr'$ when
 \begin{itemize}
   \item Parallel loops nest
   \sporkReveal<2->{\item Each \sporkKeyA{subdivides} the thread collective into \sporkKeyA{per-iteration subsets}}
-  \begin{itemize}
-    \sporkReveal<4->{\item Note custom collective unit \sporkViolet{\texttt{8 * cuda\_thread}}}
-  \end{itemize}
   \sporkReveal<5->{\item $\sporkTidMap$ Idea 3: map \sporkKeyA{environment} $\sporksigma:\sporkSigma$ to ``assigned thread collective''}
 \end{itemize}
 
+\vspace{2mm}
 \begingroup\centering
 \begin{sporkfigure}
   % Rows for w = 0, 1, 11 (dotted gap before the last): yellow box = threads of warp w (step 2,
@@ -995,6 +993,10 @@ Edge forms between trace events $\sporktr$ and $\sporktr'$ when
     ([yshift=-1.5mm]warp1.south) -- ([yshift=1.5mm]warp11.north);
   \draw [thick, dotted, spork reveal=<3->]
     ([xshift=37.5mm, yshift=-1.5mm]sub1 |- warp1.south) -- ([xshift=37.5mm, yshift=1.5mm]sub11 |- warp11.north);
+  % Step 4: note drawn on top of the violet grid, centered on it (uncolored code: violet
+  % would blend into the grid).
+  \node [annotation, spork reveal=<4->]
+    at ([xshift=37.5mm]$(sub1)!0.5!(sub11)$) {Note custom collective unit \texttt{8 * cuda\_thread}};
 \end{sporkfigure}\par
 \endgroup
 
