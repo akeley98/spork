@@ -1250,23 +1250,83 @@ Memory type encodes \sporkKeyA{physical memory type} \& \sporkKeyA{data layout}
 
 \end{frame}
 
+\begin{frame}[label=Observers]{Observers}
+\begin{itemize}
+  \item Thread ID $\sporktid$ distinguishes \sporkKeyA{different threads}
+  \item Qualitative timeline $\sporkqtl$ distinguishes \sporkKeyA{async instr} effects
+  \item \sporkKeyA{Observer}: traces' ``generalized thread'':
+\end{itemize}
+\begin{equation*}
+\sporkob: \sporkOb \Coloneqq (\sporktid, \sporkqtl)
+\end{equation*}
+
+% TASK: Copy the "upon read x[z]" figure from "Simple Trace Events" here
+% but replace "read" with "access" (in prose) and \sporkmut in figure
+% Point to the Obs with labels \{ (\sporktid, \sporkqtl ) \}
+% and then reveal that tid is "determined by \sporktidMap"
+% and qtl is "determined by instruction"
+% [just gloss over access by non-instr]
+
+\end{frame}
+
+\begin{frame}[label=cp_async_qtl]{cp.async $\sporkqtl$ Example}
+\begin{itemize}
+  \item $\sporkqtl =$ \texttt{cuda\_in\_order\_ram\_qual}: \hfill non-async RAM access \hfill
+  \item $\sporkqtl =$ \texttt{Sm80\_cp\_async}: \hfill for \texttt{cp\_async\_1d} $\sporkTrPostAccess$ \hfill
+  \item One thread ($\sporktid$), async mutate $\sporkx[\sporkz^*]$, then in-order read $\sporkx[\sporkz^*]$:
+\end{itemize}
+
+% TASK: Try to create a diagram like "Trace Edges" frame.
+% Label the TrPostAccess above with cp_async_1d and the TrPreAccess above with "in-order code"
+% Show the ObOut is {(tid, Sm80_cp_async)}
+% Show the ObIn is {(tid, cuda_in_order_ram_qual)}
+% Illustrate no edge formed since no overlap.
+
+\end{frame}
+
+\begin{frame}[label=FenceQtl]{Fence Qualitative Timelines}
+\begin{itemize}
+  \item \texttt{Fence($\sporkQtlArrive$, $\sporkQtlAwait$)} adds $\sporkTrFence$ trace event when executed
+  \item With $\sporkTid' = \sporktidMap(\sporksigma)$,
+\end{itemize}
+
+% TASK: Illustrate with "Upon synchronization" row from "Simple Trace Events", except without "Upon sychronization" label
+% Put the Fence stmt on top of the TrFence
+% Reveal (and color highlight) that \sporkObIn = \sporkTid' \times \sporkQtlArrive, \sporkObOut = \sporkTid' \times \sporkQtlAwait
+% Idk about arrive/await names but macros let me rename later if needed.
+
+\end{frame}
+
+\begin{frame}[label=AsyncFence]{Async Instructions \& Fence Qualitative Timeline}
+
+% TASK: 1 or more frames, illustrate that for one thread,
+% cp.async followed by Fence(cuda_in_order, cuda_in_order) = no edge between trace events TrPostAccess, TrFence
+% cp.async followed by Fence(Sm80_cp_async, cuda_in_order) = edge between trace events TrPostAccess, TrFence
+% Work in somewhere "Fence qtl affects compiler-generated sync instruction"
+
+\end{frame}
+
 % todo later,
 % * cp.async, shows per-instr {behavior, device, collective unit}
 % * shows per-formal-param {precision, shape, memory, unseen: qualitative timeline}
 % * wgmma, MMA behavior, memory = physical memory + layout, warpgroup
 % * Observer = (tid, qtl)
-% * Pre/post can be different.
-% * in-order followed by cp.async example
-% * cp.async followed by in-order broken example
-% * cp.async followed by sync broken example
-% * Fence parameters
-% * cp.async followed by sync fixed example
 % * Trace defined, evaluate TidMap, then evaluate qual-tl, to get observers
+% * Ignored: pre/post distinguished, in-order followed by cp.async example
+% * cp.async followed by in-order broken example
+% * Fence trace
+% * cp.async followed by sync broken example
+% * cp.async followed by sync fixed example
 
 % Roadmap: next topic is static instruction checks.
 \begin{frame}[label=CornerstonesInstrCheck]{Language Cornerstones}
 \cornerstones{<1->}{<1->}{<1->}{<1->}{box3}{<1->}
 \end{frame}
+
+% Behavior / rewrite ``whether instr makes sense to use''
+% Device, CollUnit check  ``whether instr used correctly''
+% Precision, shape, memory check
+% Hard part is sync check
 
 % Roadmap: next topic is synchronization checking
 \begin{frame}[label=CornerstonesSyncCheck]{Language Cornerstones}
