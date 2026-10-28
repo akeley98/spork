@@ -396,7 +396,9 @@
     \moveleft\beamer@leftmargin\hbox to\paperwidth{\hskip 3mm\vbox{\hsize=\dimexpr\paperwidth-6mm\relax
       \usebeamerfont{frametitle}\usebeamercolor[fg]{frametitle}\raggedright
       \strut\insertframetitle\strut\par}\hss}%
-    \vskip 1mm}
+    % Negative: pulls the body up so title baseline -> first text line's top is ~4mm
+    % (David 2026-10-28: half the former ~8mm, keeps content away from the slide bottom).
+    \vskip -2.9mm}
   % Frames are top-aligned (like the legacy article-based slides; growing listings don't move).
   % Use \begin{frame}[c] to center one frame vertically.
   \beamer@centeredfalse
