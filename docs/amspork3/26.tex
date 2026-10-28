@@ -1260,27 +1260,61 @@ Memory type encodes \sporkKeyA{physical memory type} \& \sporkKeyA{data layout}
 \sporkob: \sporkOb \Coloneqq (\sporktid, \sporkqtl)
 \end{equation*}
 
-% TASK: Copy the "upon read x[z]" figure from "Simple Trace Events" here
-% but replace "read" with "access" (in prose) and \sporkmut in figure
-% Point to the Obs with labels \{ (\sporktid, \sporkqtl ) \}
-% and then reveal that tid is "determined by \sporktidMap"
-% and qtl is "determined by instruction"
-% [just gloss over access by non-instr]
+% "Upon read" row of Simple Trace Events, generalized to any access (\sporkmut). Step 2: each Ob
+% box labelled with its set of (tid, qtl) observers. Steps 3, 4: where tid and qtl come from
+% (highlighted in the labels on that step only). Access by non-instr code glossed over.
+\vspace{2mm}
+\begingroup\centering
+\begin{sporkfigure}
+  \node [anchor=east] at (0, 0) {Upon access $\sporkx[\sporkz^*]$};
+  \trPre{r1}{anchor=west, xshift=21mm}{$\sporkmut$ $\sporkx[\sporkz^*]$}
+  \trPost{r2}{right=6mm of r1}{$\sporkmut$ $\sporkx[\sporkz^*]$}
+  \foreach \ob/\name in {r1-in/inSet, r2-out/outSet} {
+    \node (\name) [annotation, below=5mm of \ob, spork reveal=<2->]
+      {\{(\sporkGreen[only=<3>]{$\sporktid$}, \sporkViolet[only=<4>]{$\sporkqtl$})\}};
+    \draw [annotation line, spork reveal=<2->] (\name.north) -- (\ob.south);
+  }
+  \node (tidNote) [anchor=north, align=left, spork reveal=<3->] at ([yshift=1mm]$(inSet.south)!0.5!(outSet.south)$)
+    {\sporkGreen[only=<3>]{$\sporktid$} determined by $\sporktidMap$};
+  \node [anchor=north west, spork reveal=<4->] at ([yshift=-1mm]tidNote.south west)
+    {\sporkViolet[only=<4>]{$\sporkqtl$} determined by instruction};
+\end{sporkfigure}\par
+\endgroup
 
 \end{frame}
 
 \begin{frame}[label=cp_async_qtl]{cp.async $\sporkqtl$ Example}
 \begin{itemize}
   \item $\sporkqtl =$ \texttt{cuda\_in\_order\_ram\_qual}: \hfill non-async RAM access \hfill
-  \item $\sporkqtl =$ \texttt{Sm80\_cp\_async}: \hfill for \texttt{cp\_async\_1d} $\sporkTrPostAccess$ \hfill
+  \item $\sporkqtl =$ \texttt{Sm80\_cp\_async\_qual}: \hfill for \texttt{cp\_async\_1d} $\sporkTrPostAccess$ \hfill
   \item One thread ($\sporktid$), async mutate $\sporkx[\sporkz^*]$, then in-order read $\sporkx[\sporkz^*]$:
 \end{itemize}
 
-% TASK: Try to create a diagram like "Trace Edges" frame.
-% Label the TrPostAccess above with cp_async_1d and the TrPreAccess above with "in-order code"
-% Show the ObOut is {(tid, Sm80_cp_async)}
-% Show the ObIn is {(tid, cuda_in_order_ram_qual)}
-% Illustrate no edge formed since no overlap.
+% Trace Edges style: cp_async_1d mutate (TrPostAccess), then in-order read (TrPreAccess).
+% Steps 2, 3: their Ob sets (green out, violet in, as in Trace Edges), stacked since they're wide. Step 4: the sets don't
+% overlap, so no edge: crossed-out arrow.
+\vspace{6mm}
+\begingroup\centering
+\begin{sporkfigure}
+  \trPost[spork green style]{a1}{}{\mutateBullet\ $\sporkx[\sporkz^*]$}
+  \trPre[spork violet style]{a2}{right=60mm of a1}{\readBullet\ $\sporkx[\sporkz^*]$}
+  \node [above=1mm of a1, font=\ttfamily] {cp\_async\_1d};
+  \node [above=1mm of a2] {in-order code};
+  \node (outSet) [annotation, below=5mm of a1-out, spork reveal=<2->]
+    {$\sporkObOut = \{(\sporktid, \texttt{Sm80\_cp\_async\_qual})\}$};
+  \draw [annotation line, spork reveal=<2->] (outSet.north -| a1-out) -- (a1-out.south);
+  \node (inSet) [annotation, anchor=north east, spork reveal=<3->]
+    at ([yshift=-2mm]a2.east |- outSet.south) {$\sporkObIn = \{(\sporktid, \texttt{cuda\_in\_order\_ram\_qual})\}$};
+  \draw [annotation line, spork reveal=<3->] (inSet.north -| a2-in) -- (a2-in.south);
+  \begin{scope}[spork reveal=<4->, draw=sporkRedFg, text=sporkRedFg]
+    \draw [spork arrow, dash pattern=on 2.5pt off 2pt] (a1-out) -- coordinate (mid)
+      node [above=3mm, midway] {$\sporkObOut \cap \sporkObIn = \varnothing$} (a2-in);
+    \draw [line width=1.5pt] ([shift={(-2mm,-2mm)}]mid) -- ([shift={(2mm,2mm)}]mid)
+      ([shift={(-2mm,2mm)}]mid) -- ([shift={(2mm,-2mm)}]mid);
+    \node [below=2.5mm of mid, font=\bfseries] {No edge};
+  \end{scope}
+\end{sporkfigure}\par
+\endgroup
 
 \end{frame}
 
@@ -1290,19 +1324,78 @@ Memory type encodes \sporkKeyA{physical memory type} \& \sporkKeyA{data layout}
   \item With $\sporkTid' = \sporktidMap(\sporksigma)$,
 \end{itemize}
 
-% TASK: Illustrate with "Upon synchronization" row from "Simple Trace Events", except without "Upon sychronization" label
-% Put the Fence stmt on top of the TrFence
-% Reveal (and color highlight) that \sporkObIn = \sporkTid' \times \sporkQtlArrive, \sporkObOut = \sporkTid' \times \sporkQtlAwait
-% Idk about arrive/await names but macros let me rename later if needed.
+% "Upon synchronization" row of Simple Trace Events (no row label), Fence stmt above TrFence.
+% Step 2: Ob^in from the arrive qtl (violet, as Trace Edges' Ob^in); step 3: Ob^out from the
+% await qtl (green). Highlights stay: the colors tie each set to its Fence argument.
+% Colored Ob boxes are drawn over \trFence's plain ones.
+\vspace{4mm}
+\begingroup\centering
+\begin{sporkfigure}
+  \trFence{f1}{}
+  \node [tr ob, spork violet style, spork reveal=<2->] at (f1-in) {$\sporkObIn$};
+  \node [tr ob, spork green style, spork reveal=<3->] at (f1-out) {$\sporkObOut$};
+  \node [above=3mm of f1] {\texttt{Fence(}\sporkViolet[only=<2->]{$\sporkQtlArrive$}\texttt{,
+    }\sporkGreen[only=<3->]{$\sporkQtlAwait$}\texttt{)}};
+  \node (inSet) [annotation, anchor=north east, spork reveal=<2->] at ([yshift=-5mm]f1-in.south east)
+    {$\sporkObIn = \sporkTid' \times \sporkQtlArrive$};
+  \draw [annotation line, spork reveal=<2->] (inSet.north -| f1-in) -- (f1-in.south);
+  \node (outSet) [annotation, anchor=north west, spork reveal=<3->] at ([yshift=-5mm]f1-out.south west)
+    {$\sporkObOut = \sporkTid' \times \sporkQtlAwait$};
+  \draw [annotation line, spork reveal=<3->] (outSet.north -| f1-out) -- (f1-out.south);
+\end{sporkfigure}\par
+\endgroup
 
 \end{frame}
 
 \begin{frame}[label=AsyncFence]{Async Instructions \& Fence Qualitative Timeline}
 
-% TASK: 1 or more frames, illustrate that for one thread,
-% cp.async followed by Fence(cuda_in_order, cuda_in_order) = no edge between trace events TrPostAccess, TrFence
-% cp.async followed by Fence(Sm80_cp_async, cuda_in_order) = edge between trace events TrPostAccess, TrFence
-% Work in somewhere "Fence qtl affects compiler-generated sync instruction"
+\begin{itemize}
+  \item One thread ($\sporktid$): \texttt{cp\_async\_1d}, then \texttt{Fence}
+\end{itemize}
+
+% One frame, the Fence's arrive qtl swapped in place. Steps 1-2: Fence(cuda_in_order, ...):
+% Ob^in misses the cp.async observer, no edge (step 2). Step 3: Fence(Sm80_cp_async, ...): Ob^in
+% contains it, edge forms. Step 4: the qtl also picks the generated sync instruction
+% (e.g. exocc emits cp.async.wait_all when the arrive qtl includes Sm80_cp_async; cuda_sync_state.py).
+% Single qtls (paired with tid) are *_qual; Fence args and sets crossed with Tid sets are not.
+% Alternatives are \sporkSlideOnly (no paper version: deck-only frame).
+\vspace{6mm}
+\begingroup\centering
+\begin{sporkfigure}
+  \trPost[spork green style]{a1}{}{\mutateBullet\ $\sporkx[\sporkz^*]$}
+  \trFence{f1}{right=50mm of a1}
+  \node [tr ob, spork violet style] at (f1-in) {$\sporkObIn$};
+  % Event labels raised above the arrow labels; padding of the highlight box cancelled (\kern)
+  % so the monospace text doesn't shift.
+  \node [above=7mm of a1, font=\ttfamily] {cp\_async\_1d};
+  \node [anchor=south east, font=\ttfamily] at ([yshift=7mm]f1-out.east |- f1.north)
+    {\sporkSlideOnly<-2>{Fence(cuda\_in\_order, cuda\_in\_order)}%
+     \sporkSlideOnly<3->{Fence(\kern-\fboxsep\sporkViolet[only=<3>]{Sm80\_cp\_async}\kern-\fboxsep, cuda\_in\_order)}};
+  \node (outSet) [annotation, below=5mm of a1-out]
+    {$\sporkObOut = \{(\sporktid, \texttt{Sm80\_cp\_async\_qual})\}$};
+  \draw [annotation line] (outSet.north -| a1-out) -- (a1-out.south);
+  \node (inSet) [annotation, anchor=north east] at ([yshift=-2mm]f1-out.east |- outSet.south)
+    {$\sporkObIn = \{\sporktid\} \times {}$\sporkSlideOnly<-2>{\texttt{cuda\_in\_order}}%
+     \sporkSlideOnly<3->{\sporkViolet[only=<3>]{\texttt{Sm80\_cp\_async}}}};
+  \draw [annotation line] (inSet.north -| f1-in) -- (f1-in.south);
+  % Step 2: no edge.
+  \begin{scope}[spork slide only=<2>, draw=sporkRedFg, text=sporkRedFg]
+    \draw [spork arrow, dash pattern=on 2.5pt off 2pt] (a1-out) -- coordinate (mid)
+      node [above=3mm, midway] {$\sporkObOut \cap \sporkObIn = \varnothing$} (f1-in);
+    \draw [line width=1.5pt] ([shift={(-2mm,-2mm)}]mid) -- ([shift={(2mm,2mm)}]mid)
+      ([shift={(-2mm,2mm)}]mid) -- ([shift={(2mm,-2mm)}]mid);
+    \node [below=2.5mm of mid, font=\bfseries] {No edge};
+  \end{scope}
+  % Steps 3-: edge.
+  \draw [spork arrow, spork slide only=<3->] (a1-out) --
+    node [above=3mm, midway] {$\sporkObOut \cap \sporkObIn \ne \varnothing$} (f1-in);
+\end{sporkfigure}\par
+\endgroup
+
+\vspace{4mm}
+\begin{itemize}
+  \sporkReveal<4->{\item Fence $\sporkqtl$ also picks the \sporkKeyA{compiler-generated sync instruction}}
+\end{itemize}
 
 \end{frame}
 
