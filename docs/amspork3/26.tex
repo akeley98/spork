@@ -939,7 +939,7 @@ Edge forms between trace events $\sporktr$ and $\sporktr'$ when
     \sporkReveal<2->{\item \sporkGreen[only=<3>]{\texttt{cuda\_warp}}: 32 threads {\color{sporkGrayttColor}(consecutive, aligned)}}
     \sporkReveal<2->{\item \texttt{cuda\_warpgroup}: 128 threads {\color{sporkGrayttColor}(consecutive, aligned)}}
   \end{itemize}
-  \sporkReveal<3->{\item \sporkGreen[only=<3>]{\texttt{unit=U}} parameter: One \texttt{U} assigned per iteration {\color{sporkGrayttColor}(usually)}}
+  \sporkReveal<3->{\item \sporkGreen[only=<3>]{\texttt{unit=U}} parameter: One \sporkGreen[only=<3>]{\texttt{U}} assigned per iteration {\color{sporkGrayttColor}(usually)}}
   \sporkReveal<4->{\item $\sporkTidMap$ Idea 2: map ``iteration number'' to ``assigned \sporkKeyA{thread collective}''}
 \end{itemize}
 
@@ -948,6 +948,48 @@ Edge forms between trace events $\sporktr$ and $\sporktr'$ when
 \end{frame}
 
 \begin{frame}[label=TidMap3]{Thread Mapping Idea 3: Nested Parallel Loops}
+\begin{itemize}
+  \item Parallel loops nest
+  \sporkReveal<2->{\item Each \sporkKeyA{subdivides} the thread collective into \sporkKeyA{per-iteration subsets}}
+  \begin{itemize}
+    \sporkReveal<4->{\item Note custom collective unit \sporkViolet{\texttt{8 * cuda\_thread}}}
+  \end{itemize}
+  \sporkReveal<5->{\item $\sporkTidMap$ Idea 3: map \sporkKeyA{environment} $\sporksigma:\sporkSigma$ to ``assigned thread collective''}
+\end{itemize}
+
+\begingroup\centering
+\begin{sporkfigure}
+  % TASK: when yellow w gets highlighted, reveal stacked yellow boxes towards the left.
+  % -> [threads [0, 31]]
+  % -> [threads [32, 63]]
+  %  vertical dotted line
+  % -> [threads [352, 383]]
+  %
+  % When violet ii gets highlighted, each yellow box has revealed to its right
+  % -> [threads [8w, 8w+7]] [threads [8w+8, 8w+15]] [threads [8w+16, 8w+23]] [threads [8w+24, 8w+31]]
+  % where each "8w + x" is evaluated to a number (not literally "8w + ..." in the slides, yet).
+  %
+  % For now no mention of w or ii here; just implied by coloring and reveal order.
+  % I need to see how busy the figure already is.
+  %
+  % Listing underneath needs to not jump around.
+\end{sporkfigure}\par
+\endgroup
+
+\sporkListing{TidMap3}
+
+\end{frame}
+
+
+\begin{frame}[label=DeviceFunctionAnatomy]{Device Function Anatomy}
+
+\begin{itemize}
+  \item xyzzy
+\end{itemize}
+
+% cuda_tasks Cluster
+% (not CTA unlike some work)
+% 
 
 \end{frame}
 

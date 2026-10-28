@@ -234,6 +234,19 @@ class do_something:
 
 
 @instr
+class _8_do_something:
+    def behavior():
+        pass
+
+    def instance(self):
+        self.instr_tl = cuda_in_order_instr
+        self.coll_unit = 8 * cuda_thread
+
+    def codegen(self, args):
+        return ["// do_something"]
+
+
+@instr
 class warp_do_something:
     def behavior():
         pass
@@ -248,50 +261,71 @@ class warp_do_something:
 
 @proc
 def TidMap_example(X: size, Y: size):
+  # TeX: listing CudaDeviceFunction 3
+  # TeX: begin CudaDeviceFunction
   with CudaDeviceFunction(
-    clusterDim=4,
+    # TeX: color CudaDeviceFunction elide "clusterDim=1,"
+    clusterDim=1,
+    # TeX: end CudaDeviceFunction
     warp_config=[
       CudaWarpConfig("producer", 1),
       CudaWarpConfig("writer", 3),
-      CudaWarpConfig("consumer", 8),]):
-
+      CudaWarpConfig("consumer", 8),]
+    # TeX: begin CudaDeviceFunction
+    ):
     for xt in cuda_tasks(0, X):
       for yt in cuda_tasks(0, Y):
-        for cta in cuda_threads(0, 4, unit=cuda_cta_in_cluster):
-          for w in cuda_threads(0, 12, unit=cuda_warp):
-            # TeX: listing TidMap1 3
-            # TeX: begin TidMap1
-            # TeX: color TidMap1[1:] yellow "t"
-            # TeX: color TidMap1[2:] green "32"
-            # TeX: color TidMap1 elide "unit=cuda_thread"
-            for t in cuda_threads(0, 32, unit=cuda_thread):
-              do_something()
-              # TeX: color TidMap1[1:] yellow "$t$" "$t^{th}$"
-              # TeX: remark TidMap1[1:]
-              # $t$ $\mapsto$ $t^{th}$ thread
-              # TeX: remark TidMap1[2:]
-              # 0 $\mapsto$ ``$0^{th}$ thread''
-              # TeX: remark TidMap1[2:]
-              # ...
-              # TeX: color TidMap1[2:] green "31" 2:0
-              # TeX: remark TidMap1[2:]
-              # 31 $\mapsto$ ``$31^{st}$ thread''
-              # TeX: end TidMap1
+        for w in cuda_threads(0, 12, unit=cuda_warp):
+          warp_do_something()
+          # TeX: end CudaDeviceFunction
 
-          # TeX: listing TidMap2 4
-          # TeX: begin TidMap2
-          # TeX: color TidMap2[2] green "unit=cuda_warp"
-          # TeX: color TidMap2[3] yellow "w"
-          for w in cuda_threads(0, 12, unit=cuda_warp):
-            # TeX: color TidMap2[2] red "$\leftarrow$ 32 threads cooperate to execute this"
-            warp_do_something()  # $\leftarrow$ 32 threads cooperate to execute this
-            # TeX: color TidMap2[3] yellow "$w$"
-            # TeX: remark TidMap2[3]
-            # $w$ $\mapsto$ ``$(32w)^{th}$ thread'' .. ``$(32w + 31)^{th}$ thread''
-            # TeX: remark TidMap2[3]
-            # $0$ $\mapsto$ ``$0^{th}$ thread'' .. ``$31^{st}$ thread''
-            # TeX: remark TidMap2[3]
-            # $11$ $\mapsto$ ``$352^{nd}$ thread'' .. ``$383^{rd}$ thread''
+        # TeX: listing TidMap3 5
+        # TeX: begin TidMap3
+        # TeX: color TidMap3[1:] yellow "w"
+        # TeX: color TidMap3[1:4] yellow "12" "cuda_warp"
+        for w in cuda_threads(0, 12, unit=cuda_warp):
+          # TeX: color TidMap3[2:] violet "ii"
+          # TeX: color TidMap3[2:4] violet "4" "8 * cuda_thread"
+          for ii in cuda_threads(0, 4, unit=8 * cuda_thread):
+            # TeX: color TidMap3[4] yellow "$\sporksigma(\texttt{w})$" violet "$\sporksigma(\texttt{ii})$"
+            # TeX: remark TidMap3[4]
+            # $\sporktidMap$ needs to know both $\sporksigma(\texttt{w})$ $\sporksigma(\texttt{ii})$
+            # TeX: end TidMap3
+            _8_do_something()
+
+          # TeX: listing TidMap1 3
+          # TeX: begin TidMap1
+          # TeX: color TidMap1[1:] yellow "t"
+          # TeX: color TidMap1[2:] green "32"
+          # TeX: color TidMap1 elide "unit=cuda_thread"
+          for t in cuda_threads(0, 32, unit=cuda_thread):
+            do_something()
+            # TeX: color TidMap1[1:] yellow "$t$" "$t^{th}$"
+            # TeX: remark TidMap1[1:]
+            # $t$ $\mapsto$ $t^{th}$ thread
+            # TeX: remark TidMap1[2:]
+            # 0 $\mapsto$ ``$0^{th}$ thread''
+            # TeX: remark TidMap1[2:]
+            # ...
+            # TeX: color TidMap1[2:] green "31" 2:0
+            # TeX: remark TidMap1[2:]
+            # 31 $\mapsto$ ``$31^{st}$ thread''
+            # TeX: end TidMap1
+
+        # TeX: listing TidMap2 4
+        # TeX: begin TidMap2
+        # TeX: color TidMap2[2] green "unit=cuda_warp"
+        # TeX: color TidMap2[3] yellow "w"
+        for w in cuda_threads(0, 12, unit=cuda_warp):
+          # TeX: color TidMap2[2] red "$\leftarrow$ 32 threads cooperate to execute this"
+          warp_do_something()  # $\leftarrow$ 32 threads cooperate to execute this
+          # TeX: color TidMap2[3] yellow "$w$"
+          # TeX: remark TidMap2[3]
+          # $w$ $\mapsto$ ``$(32w)^{th}$ thread'' .. ``$(32w + 31)^{th}$ thread''
+          # TeX: remark TidMap2[3]
+          # $0$ $\mapsto$ ``$0^{th}$ thread'' .. ``$31^{st}$ thread''
+          # TeX: remark TidMap2[3]
+          # $11$ $\mapsto$ ``$352^{nd}$ thread'' .. ``$383^{rd}$ thread''
           # TeX: end TidMap2
         Fence(cuda_in_order, cuda_in_order)
 
