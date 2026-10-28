@@ -900,7 +900,6 @@ Edge forms between trace events $\sporktr$ and $\sporktr'$ when
 % One visible gap everywhere: title -> boxes, box <-> box, boxes -> next title. \cornerGap is the
 % shift past a title (whose inner sep adds the rest); \cornerHalf is half the visible gap.
 \newcommand{\cornerstones}[6]{%
-\vspace{-2mm}
 \begingroup\centering
 \begin{sporkfigure}
   \tikzset{corner box/.style={annotation, align=center, minimum width=66mm, minimum height=22mm,
@@ -1180,7 +1179,7 @@ Edge forms between trace events $\sporktr$ and $\sporktr'$ when
 \end{itemize}
 \end{minipage}}%
 \begin{tikzpicture}[remember picture, overlay]
-  \node [anchor=north west, inner sep=0mm] at ([xshift=97mm, yshift=-14mm]current page.north west)
+  \node [anchor=north west, inner sep=0mm] at ([xshift=97mm, yshift=-10mm]current page.north west)
     {\usebox{\instrParamBox}};
 \end{tikzpicture}%
 \begin{tikzpicture}[remember picture, overlay, font=\bfseries]
