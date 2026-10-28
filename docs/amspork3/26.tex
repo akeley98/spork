@@ -1005,16 +1005,38 @@ Edge forms between trace events $\sporktr$ and $\sporktr'$ when
 \end{frame}
 
 
-\begin{frame}[label=DeviceFunctionAnatomy]{Device Function Anatomy}
+\begin{frame}[label=CudaDeviceFunction]{Device Function Anatomy}
 
 \begin{itemize}
-  \item xyzzy
+  \item Launched with a certain \sporkKeyA{cluster size} \texttt{(clusterDim$\times$blockDim)}
+  \sporkReveal<2->{
+    \item Outer loops: \texttt{cuda\_tasks}
+    \begin{itemize}
+      \item Assign \sporkKeyA{device tasks} to \sporkKeyA{Cuda Clusters} \emph{(not CTAs)}
+    \end{itemize}
+  }
+  \sporkReveal<3->{
+    \item Inner loops: \texttt{cuda\_threads}
+    \begin{itemize}
+      \item Subdivide threads in clusters; including \sporkYellow[only=<4>]{CTAs in clusters}
+    \end{itemize}
+  }
+  % \item Threads ($\sporktid$) identified by \texttt{cuda\_tasks} coordinates and thread index
 \end{itemize}
+
+\sporkListing{CudaDeviceFunction}
+
+\end{frame}
 
 % cuda_tasks Cluster
 % (not CTA unlike some work)
-% 
+%
 
+\begin{frame}[label=CudaWarps]{Cuda Warp Specialization}
 \end{frame}
+
+\begin{frame}[label=DistributedMemory]{Distributed Memory}
+\end{frame}
+
 
 \end{document}
