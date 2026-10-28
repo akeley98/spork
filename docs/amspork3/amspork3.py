@@ -220,43 +220,40 @@ def tiling_example(M: size, N: size, K: size):
             pass
 
 
-@instr
-class do_something:
-    def behavior():
-        pass
+def basic_do_something(coll_unit, instr_tl=cuda_in_order_instr):
+    class basic_do_something(InstrInfo):
+        def behavior():
+            pass
 
-    def instance(self):
-        self.instr_tl = cuda_in_order_instr
-        self.coll_unit = cuda_thread
+        def instance(self):
+            self.instr_tl = instr_tl
+            self.coll_unit = coll_unit
 
-    def codegen(self, args):
-        return ["// do_something"]
+        def codegen(self, args):
+            return ["// basic_do_something"]
 
-
-@instr
-class _8_do_something:
-    def behavior():
-        pass
-
-    def instance(self):
-        self.instr_tl = cuda_in_order_instr
-        self.coll_unit = 8 * cuda_thread
-
-    def codegen(self, args):
-        return ["// do_something"]
+    return basic_do_something
 
 
 @instr
-class warp_do_something:
-    def behavior():
-        pass
+class do_something(basic_do_something(cuda_thread)):
+    pass
 
-    def instance(self):
-        self.instr_tl = cuda_in_order_instr
-        self.coll_unit = cuda_warp
+@instr
+class _8_do_something(basic_do_something(8 * cuda_thread)):
+    pass
 
-    def codegen(self, args):
-        return ["// do_something"]
+@instr
+class warp_do_something(basic_do_something(cuda_warp)):
+    pass
+
+@instr
+class warpgroup_do_something(basic_do_something(cuda_warpgroup)):
+    pass
+
+@instr
+class cpu_do_something(basic_do_something(standalone_thread, cpu_in_order_instr)):
+    pass
 
 
 @proc
@@ -445,3 +442,25 @@ class HideTheFakeInstrs:
 
     def instance(self):
       pass  # Doesn't crash if we never instance it...
+
+
+# TeX: listing scope 4
+@proc
+def scope_example(X: size):
+  # TeX: begin scope
+  cpu_do_something()
+
+  # TeX: color scope elide "blockDim=256"
+  # TeX: color scope[1:] red "CudaDeviceFunction"
+  with CudaDeviceFunction(blockDim=256):
+    for xt in cuda_tasks(0, X):
+      # TeX: color scope[2:] green "wg" "cuda_warpgroup"
+      for wg in cuda_threads(0, 2, unit=cuda_warpgroup):
+        warpgroup_do_something()
+
+        # TeX: color scope[3:] red "t" "cuda_thread"
+        for t in cuda_threads(0, 128, unit=cuda_thread):
+          do_something()
+
+
+# TeX: end scope

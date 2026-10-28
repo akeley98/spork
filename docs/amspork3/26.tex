@@ -1427,6 +1427,61 @@ Memory type encodes \sporkKeyA{physical memory type} \& \sporkKeyA{data layout}
 \cornerstones{<1->}{<1->}{<1->}{<1->}{box3}{<1->}
 \end{frame}
 
+\begin{frame}[label=InstrChecks]{Instruction Checks}
+
+What do we need to check?
+
+\vphantom{Gap}
+
+\hfill
+\begin{minipage}[t]{0.75\linewidth}
+\sporkReveal<2->{\sporkMainKey{Simple static checks:}}
+\begin{itemize}
+  \item Correct semantics:\\\quad actually implements what we want
+  \item Correct data layout
+  \item Correct threads used
+\end{itemize}
+\sporkReveal<2->{\sporkMainKey{Later:}}
+\begin{itemize}
+  \item Correctly synchronized
+\end{itemize}
+\end{minipage}
+
+\end{frame}
+
+\begin{frame}[label=InstrChecksRewrite]{Instruction Checks}  % Only label changed
+
+% TASK: adapt fig_exoRewriteFlow_body.tex
+% Reveal 1: Blue box "From Exo:\\Substitute instr rewrite\\Checks instr behavior" above and pointing to "*" above "Exo Rewrites"
+% Reveal 2: Yellow bracket under "backend checks", surrounding this reveal and the next reveals
+% Yellow box "From Exo:\\Data layout checks:\\precision, memory type"
+% Reveal 3: Yellow box "NEW:\\threads\\check"
+% Reveal 4: Yellow box "NEW:\\sync\\check"
+%
+% Blue/yellow might be too fugly; I'll look and eval later.
+
+\end{frame}
+
+\begin{frame}[label=Scope]{Scope: device and Collective Unit}
+
+\begin{itemize}
+  \item Check device and collective unit based on \sporkKeyA{scope}
+  \sporkReveal<2->{\item e.g. for wgmma (Tensor Core), requiring \sporkKeyA{CUDA} and \sporkKeyA{cuda\_warpgroup}:}
+\end{itemize}
+
+% TASK: Annotation boxes, using the space to the right and below *_something()
+% Reveal 3: "Not here: \sporkKeyA{CPU scope} outside \sporkRed{CudaDeviceFunction}" at cpu_do_something()
+% Reveal 4: "Yes here: \sporktidMap gives \sporkGreen{warpgroups}"
+% Reveal 5: "Not here: \sporktidMap gives \sporkRed{single threads}"
+\sporkSlideOnly<-2>{
+\sporkListing[version=0]{scope}
+}
+\sporkSlideOnly<3->{
+\sporkListing[offset=1]{scope}
+}
+
+\end{frame}
+
 % Behavior / rewrite ``whether instr makes sense to use''
 % Device, CollUnit check  ``whether instr used correctly''
 % Precision, shape, memory check
