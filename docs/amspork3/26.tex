@@ -369,7 +369,7 @@ User-schedulable language (\sporkKeyA{USL}):
 }
 \end{frame}
 
-\begin{frame}[label=Scope]{Language Scope}
+\begin{frame}[label=LanguageScope]{Language Scope}
 
 Single CPU drives single GPU
 \vspace{4mm}
@@ -509,7 +509,7 @@ Library of (imperative \texttt{proc} $\to$ imperative \texttt{proc}) rewrites
     {\sporkKeyA{Schedule}\\(metaprogramming)};
   \draw [annotation line, spork reveal=<3->] (schedNote.north) -- (rewrites.south);
   \node [spork reveal=<3->, below=1mm of schedNote, inner sep=0pt]
-    {(stricly optional: $p_0$ may use all lang features)};
+    {(strictly optional: $p_0$ may use all lang features)};
   % Step 4: transitive functional equivalence, piggy-backing on the bracket label.
   \node (eqNote) [annotation, spork reveal=<4->, above=2mm of allProcs]
     {Transitive functional equivalence: $p_0 \equiv p_1 \equiv \cdots \equiv p_n$};
@@ -604,7 +604,7 @@ New GPU semantics are \sporkKeyA{still deterministic}
 \tikzmark{trCol}%
 \end{column}
 \end{columns}
-% Step 6: bracket (Scope-style, ticks pointing left) at the column boundary around the three
+% Step 6: bracket (LanguageScope-style, ticks pointing left) at the column boundary around the three
 % parallelization bullets, with the conclusion to its right.
 \sporkSlideOnly<6->{
 \begin{tikzpicture}[remember picture, overlay]
@@ -783,7 +783,7 @@ Edge forms between trace events $\sporktr$ and $\sporktr'$ when
     {$\sporkmut$ is \readBullet{} or \mutateBullet};
   \draw [annotation line] (mutNote.north) -- (b1.south);
   \node [below=1mm of b2, align=center, text=sporkGrayttColor] {Paper detail:\\$\sporkQtlMask$ ignored};
-  % Step 2: bracket under the fence (Scope-style, ticks pointing up).
+  % Step 2: bracket under the fence (LanguageScope-style, ticks pointing up).
   \begin{scope}[spork reveal=<2->]
     \coordinate (brY) at ([yshift=-2mm]bf.south);
     \draw [line width=1.2pt, draw=sporkBlueFg]
@@ -1040,7 +1040,7 @@ Edge forms between trace events $\sporktr$ and $\sporktr'$ when
 \end{itemize}
 
 \sporkListing{CudaDeviceFunction}
-% Bracket (Scope frame style) in front of the code inside the bottom-most cuda_tasks loop,
+% Bracket (LanguageScope frame style) in front of the code inside the bottom-most cuda_tasks loop,
 % labelled "Device Task" on two lines to fit beside the indentation. Marks: amspork3.py.
 % Revealed with the cuda_tasks bullet (step 2).
 \begin{tikzpicture}[remember picture, overlay, font=\bfseries]
@@ -1066,7 +1066,7 @@ Edge forms between trace events $\sporktr$ and $\sporktr'$ when
 \sporkListing{CudaWarps}
 
 % Stack of the CTA's 12 warps in the top right corner of the page (right of code and prose).
-% Step 1: plain boxes. Step 2: colored by warp name (as in the listing) with Scope-style brackets
+% Step 1: plain boxes. Step 2: colored by warp name (as in the listing) with LanguageScope-style brackets
 % naming each group. Step 3: non-consumers gray and struck through; blue bracket on the
 % CudaWarps body (marks: amspork3.py). Step 4: `w` violet in the listing, and violet w=0..7
 % boxes to the right of consumer warps 4..11 (right side so 4..11 and 0..7 line up side by side).
@@ -1166,7 +1166,7 @@ Edge forms between trace events $\sporktr$ and $\sporktr'$ when
 
 % Per-formal-parameter list (steps 4-6) in an overlay node in the top right, right of the
 % listing and the Per-Instr list (so it never changes the frame's layout), each item revealed with
-% its bracket over the code. Brackets (Scope style) via listing marks: amspork3.py.
+% its bracket over the code. Brackets (LanguageScope style) via listing marks: amspork3.py.
 \sporkListing{cp_async_1d}
 
 % (Built in a savebox: TikZ node text can't take this itemize directly.)
