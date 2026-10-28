@@ -1107,15 +1107,52 @@ Edge forms between trace events $\sporktr$ and $\sporktr'$ when
     -- ([xshift=-1.5mm]bodyBot -| bodyX);
 \end{tikzpicture}
 
+% TASK: one more reveal needed
+% Remove the current blue w=... text, and move the warp stack left towards the producer/writer/consumer labels.
+% The last reveal will highlight w and cuda_threads in violet
+% and at the same time put small violet boxes w=0 ... w=7 to the right of the consumer warps.
+% On the right makes the juxtaposition of 4..11 and 0..7 marginally more obvious.
+% For the same reason, also make the warp boxes slightly narrower.
+
 \end{frame}
 
-\begin{frame}[label=DistributedMemory]{Distributed Memory}
+\begin{frame}[label=TidMapSync]{$\sporkTidMap$ and Synchronization}
+\begin{itemize}
+  \item \sporkRed{VERY IMPORTANT:} no implied fork-join semantics!
+  \item \texttt{Fence} stmt synchronizes all assigned threads
+  \item Generated instruction depends on statement's $\sporktidMap$
+\end{itemize}
+
+% TASK: Write a small listing with Fence(cuda_in_order, cuda_in_order)
+% at CTA scope and at warp scope
+% reveal stuff in the sample code and the itemize (above/below) in logical order.
+% Reveal the CTA scope Fence is __syncthreads with annotation bubble
+% Reveal the Warp scope Fence is __syncwarp with annotation bubble
+
+\begin{itemize}
+  \item \texttt{cuda\_in\_order} to be explained (spoiler: async instructions)
+\end{itemize}
 \end{frame}
+
+%% Talk about distributed memory if needed
+%% For now I'm going to try to sweep it under the carpet,
+%% since it's not on the critical path to understand sync checking.
+%% \begin{frame}[label=DistributedMemory]{Distributed Memory}
+%% \end{frame}
 
 % Roadmap: next topic is per-instruction info.
-\begin{frame}[label=CornerstonesInstr]{Language Cornerstones}
+\begin{frame}[label=CornerstonesInstrInfo]{Language Cornerstones}
 \cornerstones{<1->}{<1->}{<1->}{<1->}{box2}{<1->}
 \end{frame}
 
+% Roadmap: next topic is static instruction checks.
+\begin{frame}[label=CornerstonesInstrCheck]{Language Cornerstones}
+\cornerstones{<1->}{<1->}{<1->}{<1->}{box3}{<1->}
+\end{frame}
+
+% Roadmap: next topic is synchronization checking
+\begin{frame}[label=CornerstonesSyncCheck]{Language Cornerstones}
+\cornerstones{<1->}{<1->}{<1->}{<1->}{box4}{<1->}
+\end{frame}
 
 \end{document}
