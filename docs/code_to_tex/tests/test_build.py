@@ -800,14 +800,16 @@ def test_frame_build(docdir, capsys):
     assert not (docdir / "deck.pdf").exists() and not (docdir / "main.pdf").exists()
     assert not (docdir.parent / "mydoc_deck.pdf").exists()
     pngs = sorted(os.listdir(docdir / "preview"))
-    assert pngs == ["deck_frame-1.png", "deck_frame-2.png", "deck_frame-3.png"]
-    assert str(docdir / "preview" / "deck_frame-1.png") in out
-    # Two frames; stale PNGs of this job are replaced, other jobs' PNGs kept.
+    assert pngs == ["deck_frame-steps-1.png", "deck_frame-steps-2.png", "deck_frame-steps-3.png"]
+    assert f"PNG previews (paths relative to {docdir}):" in out
+    assert "  preview/deck_frame-steps-{1..3}.png\n" in out
+    # Two frames; stale PNGs of this job (also old page-numbered ones) are replaced, other jobs' kept.
     (docdir / "preview" / "other-1.png").write_bytes(b"x")
+    (docdir / "preview" / "deck_frame-01.png").write_bytes(b"x")
     assert build.main([str(docdir), "--slides", "deck", "--frame", "intro,last", "--png", "--skip-code"]) == 0
     assert _pdf_pages(docdir / "deck_frame.log") == 3  # 2 + 1
-    assert sorted(os.listdir(docdir / "preview")) == ["deck_frame-1.png", "deck_frame-2.png",
-                                                      "deck_frame-3.png", "other-1.png"]
+    assert sorted(os.listdir(docdir / "preview")) == ["deck_frame-intro-1.png", "deck_frame-intro-2.png",
+                                                      "deck_frame-last-1.png", "other-1.png"]
 
 
 @needs_xelatex
@@ -820,6 +822,32 @@ def test_frame_unknown_label(docdir, capsys):
     assert rc == 1 and "are the frame labels right" in out
 
 
+@needs_xelatex
+def test_deck_png_names_and_duplicate_label(docdir, capsys):
+    deck = docdir / "deck.tex"
+    deck.write_text(deck.read_text().replace("[label=last]", "[label=intro]"))
+    assert build.main([str(docdir), "--no-paper", "--slides", "deck", "--png"]) == 0
+    out = capsys.readouterr().out
+    assert sorted(os.listdir(docdir / "preview")) == [
+        "deck-frame2-1.png", "deck-intro-f1-1.png", "deck-intro-f1-2.png", "deck-intro-f4-1.png",
+        "deck-steps-1.png", "deck-steps-2.png", "deck-steps-3.png"]
+    assert "  preview/deck-steps-{1..3}.png  (frame 3, pages 4-6)\n" in out
+    assert "  preview/deck-frame2-1.png  (frame 2, page 3)\n" in out
+    assert "deck: frame label 'intro' is used by frames 1, 4" in out
+
+
+def test_png_names_without_aux(tmp_path):
+    # No .aux (or pages no frame claims): page-numbered names, padded to a fixed width.
+    names = build.png_names("deck", "deck", 3, str(tmp_path / "none.aux"))
+    assert names == [(["deck-p01", "deck-p02", "deck-p03"], [1, 2, 3], "")]
+
+
+def test_png_group_describe():
+    assert build.PngGroup(["preview/d-x-1.png"]).describe() == "preview/d-x-1.png"
+    g = build.PngGroup([f"preview/d-x-{i:02d}.png" for i in range(1, 12)], "frame 2, pages 3-13")
+    assert g.describe() == "preview/d-x-{01..11}.png  (frame 2, pages 3-13)"
+
+
 def _png_size(path) -> tuple[int, int]:
     with open(path, "rb") as f:
         head = f.read(24)
@@ -830,8 +858,8 @@ def _png_size(path) -> tuple[int, int]:
 def test_paper_png_is_whole_page(docdir, capsys):
     # --png renders whole pages (no cropping): a letter page at 110 dpi.
     assert build.main([str(docdir), "--png"]) == 0
-    assert os.listdir(docdir / "preview") == ["main-1.png"]
-    w, h = _png_size(docdir / "preview" / "main-1.png")
+    assert os.listdir(docdir / "preview") == ["main-p01.png"]
+    w, h = _png_size(docdir / "preview" / "main-p01.png")
     assert abs(w - 935) <= 2 and abs(h - 1210) <= 2, (w, h)
 
 
