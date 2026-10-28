@@ -36,6 +36,16 @@
   \end{columns}%
 }
 
+% \centeredListing{NAME}{V}: \sporkListing{NAME} as a block centered by the width of version V
+% (its widest version, usually the last), so lines keep their indentation and the block doesn't
+% shift sideways as the listing grows. Uses varwidth to measure the natural width.
+\usepackage{varwidth}
+\newsavebox{\centeredListingBox}
+\newcommand{\centeredListing}[2]{%
+  \sbox{\centeredListingBox}{\begin{varwidth}{\linewidth}\sporkListing[version=#2]{#1}\end{varwidth}}%
+  {\centering\begin{minipage}[t]{\wd\centeredListingBox}\sporkListing{#1}\end{minipage}\par}%
+}
+
 %% % Color option for read/mutate (color is used a lot)
 %% \newcommand{\readBullet}{{\color{sporkRedFg}$\bullet$} read}  % Reads are Red
 %% \newcommand{\mutateBullet}{{\color{sporkBlueFg}$\bullet$} mutate}
@@ -925,8 +935,7 @@ Edge forms between trace events $\sporktr$ and $\sporktr'$ when
 
 \vphantom{Prevent PDA between code and items}
 
-% TASK: try to approximately center this (without centering each line which would wreck the indentation)
-\sporkListing{TidMap1}
+\centeredListing{TidMap1}{2}
 
 \end{frame}
 
@@ -959,20 +968,33 @@ Edge forms between trace events $\sporktr$ and $\sporktr'$ when
 
 \begingroup\centering
 \begin{sporkfigure}
-  % TASK: when yellow w gets highlighted, reveal stacked yellow boxes towards the left.
-  % -> [threads [0, 31]]
-  % -> [threads [32, 63]]
-  %  vertical dotted line
-  % -> [threads [352, 383]]
-  %
-  % When violet ii gets highlighted, each yellow box has revealed to its right
-  % -> [threads [8w, 8w+7]] [threads [8w+8, 8w+15]] [threads [8w+16, 8w+23]] [threads [8w+24, 8w+31]]
-  % where each "8w + x" is evaluated to a number (not literally "8w + ..." in the slides, yet).
-  %
-  % For now no mention of w or ii here; just implied by coloring and reveal order.
-  % I need to see how busy the figure already is.
-  %
-  % Listing underneath needs to not jump around.
+  % Rows for w = 0, 1, 11 (dotted gap before the last): yellow box = threads of warp w (step 2,
+  % when the listing highlights w), then 4 violet boxes = threads of each ii (step 3, ii highlighted).
+  % No mention of w or ii here; implied by coloring and reveal order.
+  % Violet boxes drop the word "threads" (4 of them with it don't fit the slide width).
+  % Hidden boxes keep their space (spork reveal), so the listing below doesn't jump.
+  \tikzset{
+    tid box/.style={rectangle, draw, thick, inner sep=1mm, minimum height=6mm, font=\sporkFigSmall},
+    tid warp/.style={tid box, spork yellow style, minimum width=29mm, spork reveal=<2->},
+    tid sub/.style={tid box, spork violet style, minimum width=17mm, spork reveal=<3->},
+  }
+  \foreach \w/\y in {0/0mm, 1/-8mm, 11/-21mm} {
+    \pgfmathtruncatemacro{\lo}{32*\w}
+    \pgfmathtruncatemacro{\hi}{32*\w + 31}
+    \node (warp\w) [tid warp, anchor=west] at (0, \y) {threads [\lo, \hi]};
+    \draw [spork arrow, spork reveal=<2->] ([xshift=-6mm]warp\w.west) -- (warp\w.west);
+    \draw [spork arrow, spork reveal=<3->] (warp\w.east) -- ++(5mm, 0) coordinate (sub\w);
+    \foreach \ii in {0, 1, 2, 3} {
+      \pgfmathtruncatemacro{\sublo}{32*\w + 8*\ii}
+      \pgfmathtruncatemacro{\subhi}{32*\w + 8*\ii + 7}
+      \node [tid sub, anchor=west] at ([xshift=\ii*19mm]sub\w) {[\sublo, \subhi]};
+    }
+  }
+  % Dotted lines for the warps between 1 and 11, under the yellow and violet columns.
+  \draw [thick, dotted, spork reveal=<2->]
+    ([yshift=-1.5mm]warp1.south) -- ([yshift=1.5mm]warp11.north);
+  \draw [thick, dotted, spork reveal=<3->]
+    ([xshift=37.5mm, yshift=-1.5mm]sub1 |- warp1.south) -- ([xshift=37.5mm, yshift=1.5mm]sub11 |- warp11.north);
 \end{sporkfigure}\par
 \endgroup
 
