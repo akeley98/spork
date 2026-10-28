@@ -1466,19 +1466,19 @@ What do we need to check?
   % Step 1: instr rewrite.
   \node (instrNote) [annotation, spork blue style, align=center, spork reveal=<1->,
     above=4mm of rewritesStar]
-    {\textbf{From Exo:}\\Substitute instr rewrite\\Checks instr behavior};
+    {From Exo:\\\textbf{Substitute Instr} rewrite\\Checks instr \textbf{behavior}};
   \draw [annotation line, draw=sporkBlueFg, spork reveal=<1->] (instrNote.south) -- (rewritesStar.north);
 
   % Steps 2-4: backend checks.
   \coordinate (rowTop) at ([yshift=-7mm]checks.south);
   \node (threadsNote) [check note, text width=14mm, spork reveal=<3->] at ([xshift=13mm]rowTop)
-    {\textbf{NEW:}\\threads\\check};
-  \node (layoutNote) [check note, text width=40mm, spork reveal=<2->, anchor=north east]
+    {NEW:\\\sporkKeyA{threads}\\\sporkKeyA{check}};
+  \node (layoutNote) [check note, text width=45mm, spork reveal=<2->, anchor=north east]
     at ([xshift=-3mm]threadsNote.north west)
-    {\textbf{From Exo:}\\Data layout checks:\\precision, memory type};
+    {From Exo:\\Data layout checks:\\\sporkKeyA{precision, memory type}};
   \node (syncNote) [check note, text width=14mm, spork reveal=<4->, anchor=north west]
     at ([xshift=3mm]threadsNote.north east)
-    {\textbf{NEW:}\\sync\\check};
+    {NEW:\\sync\\check};
   \coordinate (bracketY) at ([yshift=3.5mm]rowTop);
   \draw [spork line, draw=sporkYellowFg, spork reveal=<2->]
     ([yshift=-2.5mm]bracketY -| layoutNote.west) -- (bracketY -| layoutNote.west)
@@ -1511,7 +1511,7 @@ What do we need to check?
 \begin{tikzpicture}[remember picture, overlay]
   \foreach \m/\s/\txt in {
       cpu/3/{Not here: \sporkKeyA{CPU scope} outside \sporkRed{CudaDeviceFunction}},
-      wg/4/{Yes here: $\sporktidMap$ gives \sporkGreen{warpgroups}},
+      wg/4/{OK here: $\sporktidMap$ gives \sporkGreen{warpgroups}},
       t/5/{Not here: $\sporktidMap$ gives \sporkRed{single threads}}} {
     \coordinate (end) at (pic cs:scope-\m);
     \node (note) [annotation, anchor=west, spork reveal=<\s->] at ([xshift=6mm, yshift=-3mm]end) {\txt};
