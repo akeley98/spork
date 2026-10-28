@@ -499,3 +499,28 @@ def lint_script_text(text: str, filename: str) -> list[Issue]:
                                         f"(\"Missing {{ inserted\"); consider \\{_SCRIPT_TEXT_CMDS[cmd]}",
                                 f"{filename}:{lineno}"))
     return issues
+
+
+# ---------------------------------------------------------------------------
+# Frame label lint: colons
+#
+# Beamer silently drops a frame whose [label=..] option holds an unbraced ':' (no page, no label, no
+# warning; checked with plain beamer). label={a:b} and \label{a:b} in the frame body are fine.
+
+_FRAME_OPTS_RE = re.compile(r"\\begin\s*\{frame\}\s*(?:<[^>]*>\s*)?\[([^\]]*)\]")
+_FRAME_LABEL_OPT_RE = re.compile(r"(?:^|,)\s*label\s*=\s*([^,{]*)")
+
+
+def lint_frame_label_text(text: str, filename: str) -> list[Issue]:
+    """Warn about frame labels with an unbraced ':', which make Beamer drop the frame silently."""
+    issues = []
+    for lineno, raw in enumerate(text.splitlines(), start=1):
+        line = _strip_comment(raw)
+        for m in _FRAME_OPTS_RE.finditer(line):
+            for lm in _FRAME_LABEL_OPT_RE.finditer(m.group(1)):
+                label = lm.group(1).strip()
+                if ":" in label:
+                    issues.append(Issue("lint", f"frame label {label} contains ':'; Beamer silently drops "
+                                                f"the whole frame (rename it, or brace it: label={{{label}}})",
+                                        f"{filename}:{lineno}"))
+    return issues

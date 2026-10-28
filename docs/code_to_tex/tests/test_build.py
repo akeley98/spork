@@ -469,6 +469,23 @@ def test_lint_script_text_commands():
     assert "\\textsf fails" in issues[1].text and "consider \\mathsf" in issues[1].text
 
 
+def test_lint_frame_label_colon():
+    text = textwrap.dedent(r"""
+        \begin{frame}[label=a:b]{One}
+        \begin{frame}<2->[fragile, label = c:d]{Two}
+        \begin{frame}[label={e:f}]{Braced is fine}
+        \begin{frame}[label=g]{No colon} \label{h:i}
+        % \begin{frame}[label=j:k]{Commented}
+        \begin{frame}[t,label=l:m,fragile]{Three}
+    """)
+    issues = build_log.lint_frame_label_text(text, "deck.tex")
+    assert [int(i.where.split(":")[1]) for i in issues] == [2, 3, 7]
+    assert issues[0].text.startswith("frame label a:b contains ':'; Beamer silently drops")
+    assert "label={a:b}" in issues[0].text
+    assert issues[1].text.startswith("frame label c:d ")
+    assert issues[2].text.startswith("frame label l:m ")
+
+
 # ---------------------------------------------------------------------------
 # Aux files: rerun state and --where
 
