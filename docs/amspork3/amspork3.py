@@ -339,13 +339,21 @@ def TidMap_example(X: size, Y: size):
 
 @proc
 def CudaWarps_example(X: size, Y: size):
+  # TeX: listing CudaWarps 3
+  # TeX: begin CudaWarps[:]
   with CudaDeviceFunction(
     warp_config=[
+      # TeX: color CudaWarps[1] red "producer" "1"
       CudaWarpConfig("producer", 1),
+      # TeX: color CudaWarps[1] green "writer" "3"
       CudaWarpConfig("writer", 3),
-      CudaWarpConfig("consumer", 8),]
-  ):
+      # TeX: color CudaWarps[1:] blue "consumer" "8"
+      CudaWarpConfig("consumer", 8),]):
     for xt in cuda_tasks(0, X):
-      for yt in cuda_tasks(0, Y):
-        with CudaWarps(name="consumer"):
-          pass
+      # TeX: end CudaWarps[:2]
+      # TeX: color CudaWarps[2] blue "CudaWarps" "consumer"
+      with CudaWarps(name="consumer"):
+        for w in cuda_threads(0, 8,
+            unit=cuda_warp):
+          # TeX: end CudaWarps[2:]
+          warp_do_something()

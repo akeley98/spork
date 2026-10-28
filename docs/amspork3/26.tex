@@ -886,6 +886,10 @@ Edge forms between trace events $\sporktr$ and $\sporktr'$ when
 \endgroup
 \end{frame}
 
+% TASK: save cornerstones slide body into newcommand or \input file.
+% Here, have 5 instead of 4 steps this frame.
+% Last step puts a thick sporkMinorColor around "thread mapping" (what I will talk about first)
+
 \begin{frame}[label=Cornerstones]{Language Cornerstones}
 
 % Quadrants: two half titles, each over a row of 2 annotation boxes (placeholder text for now).
@@ -1040,15 +1044,31 @@ Edge forms between trace events $\sporktr$ and $\sporktr'$ when
 
 \end{frame}
 
-% cuda_tasks Cluster
-% (not CTA unlike some work)
-%
+\begin{frame}[label=CudaWarps]{Warp Specialization}
 
-\begin{frame}[label=CudaWarps]{Cuda Warp Specialization}
+\begin{itemize}
+  \item Optional: give \sporkKeyA{warp names} to warps in CTA
+  \sporkReveal<3->{\item \texttt{with CudaWarps:}\\
+  \quad body executes on \sporkKeyA{named warps only}}
+\end{itemize}
+
+\sporkListing{CudaWarps}
+
+% TASK: use the space on the right of both code and prose to build a stack of 12 [ warp n ] boxes
+% Use vertical dots to skip some consumer warps if needed, but I'd prefer not (invade the title space maybe even)
+% Reveal 1: All 12 are monochrome (default black/white style)
+% Reveal 2: Colored by name, and with color-coded brackets on the left in the style of "Language Scope" labelling the warps by warp name.
+% Reveal 3: Non-consumers are gray and strike-throughed; remaining are blue, with "w=0" ... "w=7" in blue to their left
+% Also put a blue bracket in the style of "Language Scope" around the brief CudaWarps body, labelled "consumer only"
+
 \end{frame}
 
 \begin{frame}[label=DistributedMemory]{Distributed Memory}
 \end{frame}
+
+% TASK: Put 1 cornerstones slide here.
+% Put the border around the second item (Per-instruction info)
+% I will be talking about that.
 
 
 \end{document}
