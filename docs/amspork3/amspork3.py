@@ -338,7 +338,7 @@ def TidMap_example(X: size, Y: size):
 
 @proc
 def CudaWarps_example(X: size, Y: size):
-  # TeX: listing CudaWarps 3
+  # TeX: listing CudaWarps 4
   # TeX: begin CudaWarps[:]
   with CudaDeviceFunction(
     warp_config=[
@@ -350,14 +350,35 @@ def CudaWarps_example(X: size, Y: size):
       CudaWarpConfig("consumer", 8),]):
     for xt in cuda_tasks(0, X):
       # TeX: end CudaWarps[:2]
-      # TeX: color CudaWarps[2] blue "CudaWarps" "consumer"
+      # TeX: color CudaWarps[2:] blue "CudaWarps" "consumer"
       with CudaWarps(name="consumer"):
-        # TeX: mark CudaWarps[2] body_top end
+        # TeX: color CudaWarps[3] violet "w" "cuda_threads"
+        # TeX: mark CudaWarps[2:] body_top end
         for w in cuda_threads(0, 8,
-            # TeX: mark CudaWarps[2] body_bot start
+            # TeX: mark CudaWarps[2:] body_bot start
             unit=cuda_warp):
           # TeX: end CudaWarps[2:]
           warp_do_something()
+
+
+@proc
+def TidMapSync_example(X: size):
+  # TeX: listing TidMapSync 5
+  # TeX: begin TidMapSync
+  with CudaDeviceFunction(blockDim=128):
+    # TeX: color TidMapSync[2] green "task" "cuda_tasks"
+    for task in cuda_tasks(0, X):
+      # TeX: color TidMapSync[2] green "Fence"
+      # TeX: color TidMapSync[4] yellow "cuda_in_order" 2:*
+      # TeX: mark TidMapSync cta_fence end
+      Fence(cuda_in_order, cuda_in_order)
+      # TeX: color TidMapSync[3] violet "w" "cuda_threads" "cuda_warp"
+      for w in cuda_threads(0, 4, unit=cuda_warp):
+        # TeX: color TidMapSync[3] violet "Fence"
+        # TeX: color TidMapSync[4] yellow "cuda_in_order" 2:*
+        # TeX: mark TidMapSync warp_fence end
+        Fence(cuda_in_order, cuda_in_order)
+  # TeX: end TidMapSync
 
 
 # class checks that the instrs at least parse,
@@ -373,9 +394,15 @@ class HideTheFakeInstrs:
   class cp_async_1d_4f32:
     def behavior(
 
+        # TeX: mark cp_async_1d prec_l "[f32][4]" before
+        # TeX: mark cp_async_1d prec_r "[f32][4]" after
+        # TeX: mark cp_async_1d mem_l "@ CudaSmemLinear" before
+        # TeX: mark cp_async_1d mem_r "@ CudaSmemLinear" after
         dst: [f32][4]     @ CudaSmemLinear,
         src: [f32][4]     @ CudaGmemLinear):
+      # TeX: mark cp_async_1d loop_top end
       for i in seq(0, 4):
+        # TeX: mark cp_async_1d loop_bot start
         dst[i] = src[i]
         # TeX: end cp_async_1d[0]
 
@@ -383,19 +410,32 @@ class HideTheFakeInstrs:
       pass  # Doesn't crash if we never instance it...
 
   @instr
-  # TeX: listing wgmma 1
-  # TeX: begin wgmma[0]
+  # TeX: listing wgmma 5
+  # TeX: begin wgmma
   class Sm90_tk_mma_row_col_m64n256k32_bf16:
     def behavior(
+        # TeX: color wgmma[1] yellow "D" "@ Sm90_TkRmemTileD(256)"
+        # TeX: mark wgmma d_end end
         D: [f32][4, 16, 256] @ Sm90_TkRmemTileD(256),
+        # TeX: color wgmma[2] yellow "A" "@ Sm90_SmemSwizzled(128)"
+        # TeX: mark wgmma a_end end
         A: [bf16][64, 32]    @ Sm90_SmemSwizzled(128),
+        # TeX: color wgmma[2] yellow "B" "@ Sm90_SmemSwizzled(128)"
+        # TeX: mark wgmma b_end end
         B: [bf16][256, 32]   @ Sm90_SmemSwizzled(128)):
+      # TeX: color wgmma[3] green "mo"
       for mo in seq(0, 4):
+        # TeX: color wgmma[3] green "mi"
+        # TeX: mark wgmma mi_end end
         for mi in seq(0, 16):
+          # TeX: color wgmma[3] violet "n"
           for n in seq(0, 256):
+            # TeX: color wgmma[3] blue "k"
             for k in seq(0, 32):
+              # TeX: color wgmma[3] green "mo" 2:* "mi" 2:* violet "n" 2:* blue "k" 2:*
+              # TeX: mark wgmma body_end end
               D[mo, mi, n] += A[mo * 16 + mi, k] * B[n, k]
-              # TeX: end wgmma[0]
+              # TeX: end wgmma
 
     def instance(self):
       pass  # Doesn't crash if we never instance it...
