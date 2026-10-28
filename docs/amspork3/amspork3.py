@@ -274,12 +274,14 @@ def TidMap_example(X: size, Y: size):
         # TeX: color CudaDeviceFunction[2] violet "c" "cuda_threads"
         # TeX: color CudaDeviceFunction[3] violet "cuda_threads" yellow "c" "cuda_cta_in_cluster"
         # TeX: color CudaDeviceFunction[4] yellow "c"
+        # TeX: mark CudaDeviceFunction task_top start
         for c in cuda_threads(0, 2, unit=cuda_cta_in_cluster):
           # TeX: color CudaDeviceFunction[2:4] violet "w" "cuda_threads"
           # TeX: color CudaDeviceFunction[4] violet "w"
           for w in cuda_threads(0, 12, unit=cuda_warp):
             # TeX: color CudaDeviceFunction[:4] elide "# $\sporktidMap$ relies on $\sporksigma($`xt`$)$ $\sporksigma($`yt`$)$ $\sporksigma($`c`$)$ $\sporksigma($`w`$)$"
-            # TeX: color CudaDeviceFunction[4] green "xt" "yt" yellow "c" violet "w"
+            # TeX: color CudaDeviceFunction[4] green "$\sporksigma($`xt`$)$" "$\sporksigma($`yt`$)$" yellow "$\sporksigma($`c`$)$" violet "$\sporksigma($`w`$)$"
+            # TeX: mark CudaDeviceFunction task_bot start
             warp_do_something()  # $\sporktidMap$ relies on $\sporksigma($`xt`$)$ $\sporksigma($`yt`$)$ $\sporksigma($`c`$)$ $\sporksigma($`w`$)$
             # TeX: end CudaDeviceFunction
             # TODO consider trailing TeX remark

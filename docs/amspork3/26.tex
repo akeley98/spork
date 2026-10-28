@@ -1025,6 +1025,18 @@ Edge forms between trace events $\sporktr$ and $\sporktr'$ when
 \end{itemize}
 
 \sporkListing{CudaDeviceFunction}
+% Bracket (Scope frame style) in front of the code inside the bottom-most cuda_tasks loop,
+% labelled "Device Task" on two lines to fit beside the indentation. Marks: amspork3.py.
+% Revealed with the cuda_tasks bullet (step 2).
+\begin{tikzpicture}[remember picture, overlay, font=\bfseries]
+  \coordinate (taskTop) at ([yshift=1.0ex]pic cs:CudaDeviceFunction-task_top);
+  \coordinate (taskBot) at ([yshift=-0.7ex]pic cs:CudaDeviceFunction-task_bot);
+  \coordinate (bracketX) at ([xshift=-3mm]taskTop);
+  \draw [line width=1.2pt, draw=sporkGreenFg, spork reveal=<2->]
+    ([xshift=1.5mm]taskTop -| bracketX) -- (taskTop -| bracketX)
+    -- node [left=1mm, text=sporkGreenFg, align=right] {Device\\Task} (taskBot -| bracketX)
+    -- ([xshift=1.5mm]taskBot -| bracketX);
+\end{tikzpicture}
 
 \end{frame}
 
