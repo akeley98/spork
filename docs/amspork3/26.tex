@@ -62,6 +62,12 @@
   annotation line/.style={draw=black!45, thick},
 }
 
+% fixed text={H}{D}: fixed text height/depth for a one-line node whose text is highlighted
+% (\sporkGreen[only=<n>]{..} etc.) on some steps only. The highlight box is \fboxsep (1.5pt)
+% taller and deeper than plain text, so without this the node and its text jitter between steps.
+% Use the highlighted text's height/depth (measured with \sbox at \sporkFigFont), rounded up.
+\tikzset{fixed text/.style 2 args={text height=#1, text depth=#2}}
+
 % Trace event boxes (simplified InOutSets.tex look, black/white): a constructor box with small
 % attached \sporkObIn (left) / \sporkObOut (right) boxes, named <name>-in / <name>-out.
 % \trPre/\trPost: [#1] = extra Ob box options (e.g. spork green style), #2 = node name,
@@ -1270,13 +1276,13 @@ Memory type encodes \sporkKeyA{physical memory type} \& \sporkKeyA{data layout}
   \trPre{r1}{anchor=west, xshift=21mm}{$\sporkmut$ $\sporkx[\sporkz^*]$}
   \trPost{r2}{right=6mm of r1}{$\sporkmut$ $\sporkx[\sporkz^*]$}
   \foreach \ob/\name in {r1-in/inSet, r2-out/outSet} {
-    \node (\name) [annotation, below=5mm of \ob, spork reveal=<2->]
+    \node (\name) [annotation, fixed text={9.6pt}{3.9pt}, below=5mm of \ob, spork reveal=<2->]
       {\{(\sporkGreen[only=<3>]{$\sporktid$}, \sporkViolet[only=<4>]{$\sporkqtl$})\}};
     \draw [annotation line, spork reveal=<2->] (\name.north) -- (\ob.south);
   }
-  \node (tidNote) [anchor=north, align=left, spork reveal=<3->] at ([yshift=1mm]$(inSet.south)!0.5!(outSet.south)$)
+  \node (tidNote) [anchor=north, fixed text={9.6pt}{3.9pt}, spork reveal=<3->] at ([yshift=1mm]$(inSet.south)!0.5!(outSet.south)$)
     {\sporkGreen[only=<3>]{$\sporktid$} determined by $\sporktidMap$};
-  \node [anchor=north west, spork reveal=<4->] at ([yshift=-1mm]tidNote.south west)
+  \node [anchor=north west, fixed text={9.6pt}{3.9pt}, spork reveal=<4->] at ([yshift=-1mm]tidNote.south west)
     {\sporkViolet[only=<4>]{$\sporkqtl$} determined by instruction};
 \end{sporkfigure}\par
 \endgroup
@@ -1334,7 +1340,7 @@ Memory type encodes \sporkKeyA{physical memory type} \& \sporkKeyA{data layout}
   \trFence{f1}{}
   \node [tr ob, spork violet style, spork reveal=<2->] at (f1-in) {$\sporkObIn$};
   \node [tr ob, spork green style, spork reveal=<3->] at (f1-out) {$\sporkObOut$};
-  \node [above=3mm of f1] {\texttt{Fence(}\sporkViolet[only=<2->]{$\sporkQtlArrive$}\texttt{,
+  \node [above=3mm of f1, fixed text={9.7pt}{10.3pt}] {\texttt{Fence(}\sporkViolet[only=<2->]{$\sporkQtlArrive$}\texttt{,
     }\sporkGreen[only=<3->]{$\sporkQtlAwait$}\texttt{)}};
   \node (inSet) [annotation, anchor=north east, spork reveal=<2->] at ([yshift=-5mm]f1-in.south east)
     {$\sporkObIn = \sporkTid' \times \sporkQtlArrive$};
@@ -1368,13 +1374,13 @@ Memory type encodes \sporkKeyA{physical memory type} \& \sporkKeyA{data layout}
   % Event labels raised above the arrow labels; padding of the highlight box cancelled (\kern)
   % so the monospace text doesn't shift.
   \node [above=7mm of a1, font=\ttfamily] {cp\_async\_1d};
-  \node [anchor=south east, font=\ttfamily] at ([yshift=7mm]f1-out.east |- f1.north)
+  \node [anchor=south east, font=\ttfamily, fixed text={8.5pt}{3.4pt}] at ([yshift=7mm]f1-out.east |- f1.north)
     {\sporkSlideOnly<-2>{Fence(cuda\_in\_order, cuda\_in\_order)}%
      \sporkSlideOnly<3->{Fence(\kern-\fboxsep\sporkViolet[only=<3>]{Sm80\_cp\_async}\kern-\fboxsep, cuda\_in\_order)}};
   \node (outSet) [annotation, below=5mm of a1-out]
     {$\sporkObOut = \{(\sporktid, \texttt{Sm80\_cp\_async\_qual})\}$};
   \draw [annotation line] (outSet.north -| a1-out) -- (a1-out.south);
-  \node (inSet) [annotation, anchor=north east] at ([yshift=-2mm]f1-out.east |- outSet.south)
+  \node (inSet) [annotation, fixed text={10.1pt}{3.4pt}, anchor=north east] at ([yshift=-2mm]f1-out.east |- outSet.south)
     {$\sporkObIn = \{\sporktid\} \times {}$\sporkSlideOnly<-2>{\texttt{cuda\_in\_order}}%
      \sporkSlideOnly<3->{\sporkViolet[only=<3>]{\texttt{Sm80\_cp\_async}}}};
   \draw [annotation line] (inSet.north -| f1-in) -- (f1-in.south);
