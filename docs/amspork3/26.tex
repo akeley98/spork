@@ -1449,36 +1449,71 @@ What do we need to check?
 
 \end{frame}
 
+% Rewrite flow diagram (fig_exoRewriteFlow_body.tex) annotated with where each instruction check
+% lives. Step 1: blue box over the rewrites' $*$ (instr rewrite checks behavior). Steps 2-4:
+% yellow bracket under the backend checks, over a row of three yellow boxes revealed in turn
+% (data layout from Exo, then the new threads and sync checks). The boxes have fixed text widths
+% so the row's center can be put under the checks: the middle box is shifted right by half the
+% difference of the outer boxes' text widths (40mm - 14mm). Blue/yellow: human to evaluate.
 \begin{frame}[label=InstrChecksRewrite]{Instruction Checks}  % Only label changed
+\vspace{4mm}
+\begingroup\centering
+\begin{sporkfigure}
+  \input{fig_exoRewriteFlow_body.tex}
+  \tikzset{check note/.style={annotation, spork yellow style, align=center, anchor=north}}
 
-% TASK: adapt fig_exoRewriteFlow_body.tex
-% Reveal 1: Blue box "From Exo:\\Substitute instr rewrite\\Checks instr behavior" above and pointing to "*" above "Exo Rewrites"
-% Reveal 2: Yellow bracket under "backend checks", surrounding this reveal and the next reveals
-% Yellow box "From Exo:\\Data layout checks:\\precision, memory type"
-% Reveal 3: Yellow box "NEW:\\threads\\check"
-% Reveal 4: Yellow box "NEW:\\sync\\check"
-%
-% Blue/yellow might be too fugly; I'll look and eval later.
+  % Step 1: instr rewrite.
+  \node (instrNote) [annotation, spork blue style, align=center, spork reveal=<1->,
+    above=4mm of rewritesStar]
+    {\textbf{From Exo:}\\Substitute instr rewrite\\Checks instr behavior};
+  \draw [annotation line, draw=sporkBlueFg, spork reveal=<1->] (instrNote.south) -- (rewritesStar.north);
+
+  % Steps 2-4: backend checks.
+  \coordinate (rowTop) at ([yshift=-7mm]checks.south);
+  \node (threadsNote) [check note, text width=14mm, spork reveal=<3->] at ([xshift=13mm]rowTop)
+    {\textbf{NEW:}\\threads\\check};
+  \node (layoutNote) [check note, text width=40mm, spork reveal=<2->, anchor=north east]
+    at ([xshift=-3mm]threadsNote.north west)
+    {\textbf{From Exo:}\\Data layout checks:\\precision, memory type};
+  \node (syncNote) [check note, text width=14mm, spork reveal=<4->, anchor=north west]
+    at ([xshift=3mm]threadsNote.north east)
+    {\textbf{NEW:}\\sync\\check};
+  \coordinate (bracketY) at ([yshift=3mm]rowTop);
+  \draw [spork line, line width=1.2pt, draw=sporkYellowFg, spork reveal=<2->]
+    ([yshift=-1.5mm]bracketY -| layoutNote.west) -- (bracketY -| layoutNote.west)
+    -- (bracketY -| syncNote.east) -- ([yshift=-1.5mm]bracketY -| syncNote.east)
+    (bracketY -| checks.south) -- (checks.south);
+\end{sporkfigure}\par
+\endgroup
 
 \end{frame}
 
-\begin{frame}[label=Scope]{Scope: device and Collective Unit}
+\begin{frame}[label=ScopeCheck]{Scope: device and Collective Unit}
 
 \begin{itemize}
   \item Check device and collective unit based on \sporkKeyA{scope}
   \sporkReveal<2->{\item e.g. for wgmma (Tensor Core), requiring \sporkKeyA{CUDA} and \sporkKeyA{cuda\_warpgroup}:}
 \end{itemize}
 
-% TASK: Annotation boxes, using the space to the right and below *_something()
-% Reveal 3: "Not here: \sporkKeyA{CPU scope} outside \sporkRed{CudaDeviceFunction}" at cpu_do_something()
-% Reveal 4: "Yes here: \sporktidMap gives \sporkGreen{warpgroups}"
-% Reveal 5: "Not here: \sporktidMap gives \sporkRed{single threads}"
+% Steps 3-5: annotation boxes at cpu_do_something(), warpgroup_do_something(), do_something(),
+% each right of its line's end and nudged down (into the blank line, or below the listing),
+% clear of the longer line above it. Marks: amspork3.py.
 \sporkSlideOnly<-2>{
 \sporkListing[version=0]{scope}
 }
 \sporkSlideOnly<3->{
 \sporkListing[offset=1]{scope}
 }
+\begin{tikzpicture}[remember picture, overlay]
+  \foreach \m/\s/\txt in {
+      cpu/3/{Not here: \sporkKeyA{CPU scope} outside \sporkRed{CudaDeviceFunction}},
+      wg/4/{Yes here: $\sporktidMap$ gives \sporkGreen{warpgroups}},
+      t/5/{Not here: $\sporktidMap$ gives \sporkRed{single threads}}} {
+    \coordinate (end) at (pic cs:scope-\m);
+    \node (note) [annotation, anchor=west, spork reveal=<\s->] at ([xshift=6mm, yshift=-3mm]end) {\txt};
+    \draw [annotation line, spork reveal=<\s->] ([xshift=1mm]end) -- (note.west);
+  }
+\end{tikzpicture}
 
 \end{frame}
 

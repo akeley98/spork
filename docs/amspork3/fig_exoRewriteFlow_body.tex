@@ -3,7 +3,8 @@
 % p_0 -> p_1 ->* p_n -> backend checks -> C/CUDA; the dashed ->* stands in for the hidden p_2, ...
 % (zero or more rewrite steps). Rewrite arrows are blue, labelled "Exo Rewrites" under the ->*.
 % Its node names are its interface:
-%   proc0, proc1, procN (procs), checks, code, rewrites (the "Exo Rewrites" label).
+%   proc0, proc1, procN (procs), checks, code, rewrites (the "Exo Rewrites" label),
+%   rewritesStar (the $*$ above the dashed arrow).
 % No overlay steps; frames add their own annotations around it.
 \tikzset{
   flow node/.style={rectangle, draw, minimum height=10mm, align=center, inner sep=1.5mm},
@@ -17,7 +18,7 @@
 
 \draw [spork arrow, draw=sporkBlueFg] (proc0) -- (proc1);
 \draw [spork arrow, draw=sporkBlueFg, dash pattern=on 2.5pt off 2pt] (proc1) --
-  node [above=0.3mm, font=\fontsize{16}{19}\selectfont, text=sporkBlueFg] {$*$}
+  node (rewritesStar) [above=0.3mm, font=\fontsize{16}{19}\selectfont, text=sporkBlueFg] {$*$}
   node (rewrites) [below=1mm, text=sporkBlueFg] {Exo Rewrites} (procN);
 \draw [spork arrow] (procN) -- (checks);
 \draw [spork arrow] (checks) -- (code);

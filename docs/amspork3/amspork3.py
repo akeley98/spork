@@ -448,6 +448,7 @@ class HideTheFakeInstrs:
 @proc
 def scope_example(X: size):
   # TeX: begin scope
+  # TeX: mark scope cpu end
   cpu_do_something()
 
   # TeX: color scope elide "blockDim=256"
@@ -456,10 +457,12 @@ def scope_example(X: size):
     for xt in cuda_tasks(0, X):
       # TeX: color scope[2:] green "wg" "cuda_warpgroup"
       for wg in cuda_threads(0, 2, unit=cuda_warpgroup):
+        # TeX: mark scope wg end
         warpgroup_do_something()
 
         # TeX: color scope[3:] red "t" "cuda_thread"
         for t in cuda_threads(0, 128, unit=cuda_thread):
+          # TeX: mark scope t end
           do_something()
 
 
