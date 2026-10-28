@@ -17,9 +17,8 @@ Figures have no build mode of their own: they are ``sporkfigure`` environments i
 decks, seen in context (``--frame ... --png``, or the paper page found with ``--where``).
 
 Removal policy: the driver only ever deletes or overwrites files it generates itself
-(``copied_styles/*`` copies, ``preview/<job>-*.png``, viewer-copy temp files, and its own
-temp directories). A job's PNG cleanup also matches another job whose name extends it with
-``-...``; give decks names that are not ``<other job>-...``.
+(``copied_styles/*`` copies, ``preview/<job>,*.png``, viewer-copy temp files, and its own
+temp directories).
 """
 
 from __future__ import annotations
@@ -107,7 +106,7 @@ def make_parser() -> argparse.ArgumentParser:
         ),
         epilog=(
             "Typical agent loop for one slide: --slides DECK --frame LABEL --skip-code --png, "
-            "then look at preview/DECK_frame-LABEL-STEP.png. Use --where LABEL to find which frame "
+            "then look at preview/DECK_frame,LABEL,STEP.png. Use --where LABEL to find which frame "
             "(and pages) contain a \\label."
         ),
     )
@@ -127,8 +126,10 @@ def make_parser() -> argparse.ArgumentParser:
     p.add_argument("--png", action="store_true",
                    help="render the PDFs built in this run to PNGs in preview/ at 110 dpi (whole "
                         "pages: paper pages and slides keep their page bounds). Slides are named "
-                        "<job>-<frame label>-<overlay step>.png (unlabelled frames: frame<N>), paper "
-                        "pages main-p<page>.png; the job's old PNGs are removed first")
+                        "<job>,<frame label>,<overlay step>.png ('/' in a label written as '%%'; "
+                        "unlabelled frames <job>,,f<N>,<step>.png; a label several frames share "
+                        "gets ,f<N> before the step), paper pages main,p<page>.png; the job's old "
+                        "PNGs are removed first")
     p.add_argument("--where", metavar="LABEL",
                    help="report the page(s) and frame(s) containing LABEL from main.aux and the deck .aux "
                         "files (the --slides decks, else every beamer deck in the dir). Query only: builds "
@@ -495,7 +496,7 @@ class PngGroup:
     note: str = ""  # e.g. "frame 35, pages 147-151"
 
     def describe(self) -> str:
-        """``preview/26-ScopeCheck-{1..5}.png  (note)``: bash brace notation for a run of files."""
+        """``preview/26,ScopeCheck,{1..5}.png  (note)``: bash brace notation for a run of files."""
         first, last = self.paths[0], self.paths[-1]
         if len(self.paths) == 1:
             text = first
@@ -506,19 +507,24 @@ class PngGroup:
         return text + (f"  ({self.note})" if self.note else "")
 
 
-_PNG_UNSAFE_RE = re.compile(r"[^A-Za-z0-9_.+-]")
+# PNG names are fields joined by PNG_SEP, with "/" in labels written as PNG_SLASH. Neither can
+# occur in a frame label (_FRAME_LABEL_RE; a comma would also split Beamer's [label=..] option and
+# \includeonlyframes list, and % starts a comment) or in a job name (_NAME_RE), so a name maps
+# back to exactly one (job, label, frame, step) and no two pages share a name.
+PNG_SEP = ","
+PNG_SLASH = "%"
 
 
 def png_names(job: str, kind: str, pages: int, aux_path: str) -> list[tuple[list[str], list[int], str]]:
     """Plan PNG file names for a job's pages: [([names], [pages], note)], one entry per group.
 
-    Decks and frame builds: ``<job>-<label>-<step>`` per overlay step, from the frame page ranges
-    in the job's .aux (an unlabelled frame is ``frame<N>``; a label several frames share gets
-    ``-f<N>`` so the names stay distinct). Pages no frame claims (no .aux, or a stale one) and
-    the paper: ``<job>-p<page>``. Numbers are zero-padded to a fixed width within the group, so
+    Decks and frame builds: ``<job>,<label>,<step>`` per overlay step, from the frame page ranges
+    in the job's .aux. A label several frames share becomes ``<job>,<label>,f<N>,<step>`` and an
+    unlabelled frame ``<job>,,f<N>,<step>``. Pages no frame claims (no .aux, or a stale one) and
+    the paper: ``<job>,p<page>``. Numbers are zero-padded to a fixed width within the group, so
     names sort and stay the same however many pages there are.
     """
-    groups: list[tuple[str, list[int], str]] = []
+    groups: list[tuple[list[str], list[int], str]] = []
     claimed: set[int] = set()
     if kind != "paper" and os.path.isfile(aux_path):
         frames = build_aux.read_aux(aux_path).frames
@@ -530,14 +536,11 @@ def png_names(job: str, kind: str, pages: int, aux_path: str) -> list[tuple[list
             fpages = [p for p in range(f.first_page, f.last_page + 1) if 1 <= p <= pages]
             if not fpages:
                 continue
-            if f.labels:
-                stem = _PNG_UNSAFE_RE.sub("_", f.labels[0])
-                if counts[f.labels[0]] > 1:
-                    stem += f"-f{f.number}"
-            else:
-                stem = f"frame{f.number}"
+            fields = [job, f.labels[0].replace("/", PNG_SLASH) if f.labels else ""]
+            if not f.labels or counts[f.labels[0]] > 1:
+                fields.append(f"f{f.number}")
             width = len(str(len(fpages)))
-            names = [f"{job}-{stem}-{i + 1:0{width}d}" for i in range(len(fpages))]
+            names = [PNG_SEP.join(fields + [f"{i + 1:0{width}d}"]) for i in range(len(fpages))]
             note = f"frame {f.number}, page{'s' if len(fpages) > 1 else ''} {fpages[0]}"
             note += f"-{fpages[-1]}" if len(fpages) > 1 else ""
             groups.append((names, fpages, note if kind == "deck" else ""))
@@ -545,13 +548,13 @@ def png_names(job: str, kind: str, pages: int, aux_path: str) -> list[tuple[list
     rest = [p for p in range(1, pages + 1) if p not in claimed]
     if rest:
         width = max(2, len(str(pages)))
-        groups.append(([f"{job}-p{p:0{width}d}" for p in rest], rest, ""))
+        groups.append(([f"{job}{PNG_SEP}p{p:0{width}d}" for p in rest], rest, ""))
     return groups
 
 
 def render_png(res: JobResult, out_dir: str = "preview") -> list[PngGroup]:
     """Render res's PDF to out_dir, one PNG per page named by png_names (old PNGs of this job,
-    any ``<job>-*.png``, removed first).
+    any ``<job>,*.png``, removed first).
 
     Pages are not cropped: placement on the paper page or slide is part of what to look at.
     """
@@ -562,7 +565,7 @@ def render_png(res: JobResult, out_dir: str = "preview") -> list[PngGroup]:
         return []
     os.makedirs(out_dir, exist_ok=True)
     job = res.job.name
-    pat = re.compile(rf"^{re.escape(job)}-.+\.png$")
+    pat = re.compile(rf"^{re.escape(job + PNG_SEP)}.+\.png$")
     for n in os.listdir(out_dir):
         if pat.match(n):
             os.remove(os.path.join(out_dir, n))

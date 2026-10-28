@@ -46,8 +46,9 @@ python3 -m code_to_tex.build <doc> --slides <deck> --where fig:dag   # which pag
 Order: copy styles -> `check` (exocc) -> listing generator -> xelatex (reruns until stable).
 Warnings are summarized at the end and never block the build. The summary names each job's full LaTeX log
 (`<doc>/<job>.log`) and points into it as `[main.log:914]`; errors also show TeX's own context excerpt.
-Previews land in `<doc>/preview/`, named by frame label and overlay step: `<job>-<label>-<step>.png`
-(`talk-dag-3.png`, or `talk_frame-dag-3.png` from `--frame`; unlabelled frames are `frame<N>`; paper pages `main-p<NN>.png`).
+Previews land in `<doc>/preview/`, named by frame label and overlay step: `<job>,<label>,<step>.png`
+(`talk,dag,3.png`, or `talk_frame,dag,3.png` from `--frame`; `/` in a label is written `%`; unlabelled frames are
+`<job>,,f<N>,<step>.png`; a label several frames share gets `,f<N>` before the step; paper pages `main,p<NN>.png`).
 The build notes frame labels used twice (`--frame` would build every frame with that label). Figures are only seen in context (a frame's PNGs, or the paper page found with `--where`).
 The viewer copy is the exception: LaTeX errors or undefined references block it, since evince crashes on such PDFs.
 
