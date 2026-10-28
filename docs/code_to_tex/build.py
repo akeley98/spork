@@ -34,6 +34,7 @@ import shutil
 import stat
 import subprocess
 import sys
+import tempfile
 import time
 
 if __package__ in (None, ""):  # pragma: no cover - run as a plain script
@@ -565,11 +566,9 @@ def render_png(res: JobResult, out_dir: str = "preview") -> list[PngGroup]:
     for n in os.listdir(out_dir):
         if pat.match(n):
             os.remove(os.path.join(out_dir, n))
-    # pdftoppm pads page numbers to the page count's width; render into a temp dir and rename.
-    tmp = os.path.join(out_dir, f".{job}.tmp")
-    shutil.rmtree(tmp, ignore_errors=True)
-    os.makedirs(tmp)
-    try:
+    # pdftoppm pads page numbers to the page count's width; render into a fresh temp dir and rename.
+    # The temp dir is inside out_dir so os.replace never crosses filesystems.
+    with tempfile.TemporaryDirectory(prefix=f".{job}.", dir=out_dir) as tmp:
         proc = subprocess.run(
             ["pdftoppm", "-r", "110", "-png", res.pdf, os.path.join(tmp, "page")],
             stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
@@ -591,8 +590,6 @@ def render_png(res: JobResult, out_dir: str = "preview") -> list[PngGroup]:
                     paths.append(dest)
             if paths:
                 out.append(PngGroup(paths, note))
-    finally:
-        shutil.rmtree(tmp, ignore_errors=True)
     return out
 
 
