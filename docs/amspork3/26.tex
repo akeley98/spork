@@ -1145,6 +1145,72 @@ Edge forms between trace events $\sporktr$ and $\sporktr'$ when
 \cornerstones{<1->}{<1->}{<1->}{<1->}{box2}{<1->}
 \end{frame}
 
+\begin{frame}[label=InstrInside]{Instructions: What's Inside?}
+
+\sporkListing{cp_async_1d}
+
+\sporkSlideOnly<2->{
+\sporkMainKey{Per-Instr:}
+\begin{itemize}
+  \item \sporkKeyA{Device scope:} CPU or CUDA
+  \item \sporkKeyA{Collective unit:} threads needed to execute
+  \item CUDA, \texttt{cuda\_thread}, for \texttt{cp.async}
+  \sporkReveal<3->{\item \sporkKeyA{Behavior:} ``equivalent'' loop nest}
+\end{itemize}
+}
+
+% TASK:
+% Put bracket to the right of "for i" loop and its child,
+% labelled as "behavior", whene behavior item revealed.
+% ignore the def behavior(...).
+% Then in similar style as per-instr, use the space to the right to reveal
+% Per formal parameter:
+% * Precision and shape [put bracket above [f32][4], label "precision,shape"]
+% * Memory type [put bracket above @ CudaSmemLinear, label "memory type"]
+%   cp.async copies GMEM $\to$ SMEM
+% * Unseen \sporkKeyA{qualitative timelines}
+%   (later: asynchrony)
+%
+% If the slide ends up stuffed to the gills try to make it fit and I'll review.
+
+\end{frame}
+
+\begin{frame}[label=Wgmma]{WGMMA Instruction}
+
+Memory type encodes \sporkKeyA{physical memory type} \& \sporkKeyA{data layout}
+
+\vspace{2mm}
+
+\sporkCodeRule
+
+\sporkListing{wgmma}
+
+% TASK: Reveal annotations and color example code.
+% Annotations remain, but color is shown for 1 overlay step only
+% reveal annotation near to D: registers \& tile layout
+% [yeah, tile layout is handwavey], color D and its memory type yellow.
+% Then reveal annotation near A and B: shared mem \& 128B swizzle layout
+% Cut ``layout'' if absolutely necessary; color A B and their memory types yellow.
+% Then reveal annotation somewhere with "Behavior: $64\times256\times32$ MMA"
+% while coloring m variables green, n variable violet, k variable blue.
+% Finally reveal annotation somewhere "Collective unit: cuda_warpgroup"
+% which has no corresponding code to color here.
+
+\end{frame}
+
+% todo later,
+% * cp.async, shows per-instr {behavior, device, collective unit}
+% * shows per-formal-param {precision, shape, memory, unseen: qualitative timeline}
+% * wgmma, MMA behavior, memory = physical memory + layout, warpgroup
+% * Observer = (tid, qtl)
+% * Pre/post can be different.
+% * in-order followed by cp.async example
+% * cp.async followed by in-order broken example
+% * cp.async followed by sync broken example
+% * Fence parameters
+% * cp.async followed by sync fixed example
+% * Trace defined, evaluate TidMap, then evaluate qual-tl, to get observers
+
 % Roadmap: next topic is static instruction checks.
 \begin{frame}[label=CornerstonesInstrCheck]{Language Cornerstones}
 \cornerstones{<1->}{<1->}{<1->}{<1->}{box3}{<1->}

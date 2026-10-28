@@ -362,35 +362,40 @@ def CudaWarps_example(X: size, Y: size):
 
 # class checks that the instrs at least parse,
 # but prevent them from screwing us later when we want the real instr.
+# NB I decided to add type suffixes,
+# so audience members won't think we assume f32, bf16, et cetera
 class HideTheFakeInstrs:
   # NOTE: the real cp_async_1d accepts CudaSmemAtomicity16B, CudaGmemAtomicity16B
   # Strides not asserted here!
   @instr
-  class cp_async_1d:
+  # TeX: listing cp_async_1d 1
+  # TeX: begin cp_async_1d[0]
+  class cp_async_1d_4f32:
     def behavior(
-      dst: [f32][4] @ CudaSmemLinear,
-      src: [f32][4] @ CudaGmemLinear,
-    ):
-      assert stride(dst, 0) == 1
-      assert stride(src, 0) == 1
+
+        dst: [f32][4]     @ CudaSmemLinear,
+        src: [f32][4]     @ CudaGmemLinear):
       for i in seq(0, 4):
         dst[i] = src[i]
+        # TeX: end cp_async_1d[0]
 
     def instance(self):
       pass  # Doesn't crash if we never instance it...
 
   @instr
-  class Sm90_tk_mma_row_col:
+  # TeX: listing wgmma 1
+  # TeX: begin wgmma[0]
+  class Sm90_tk_mma_row_col_m64n256k32_bf16:
     def behavior(
-      D: [f32][4, 16, 256] @ Sm90_TkRmemTileD(256),
-      A: [bf16][64, 32] @ Sm90_SmemSwizzled(128),
-      B: [bf16][256, 32] @ Sm90_SmemSwizzled(128),
-    ):
+        D: [f32][4, 16, 256] @ Sm90_TkRmemTileD(256),
+        A: [bf16][64, 32]    @ Sm90_SmemSwizzled(128),
+        B: [bf16][256, 32]   @ Sm90_SmemSwizzled(128)):
       for mo in seq(0, 4):
         for mi in seq(0, 16):
           for n in seq(0, 256):
             for k in seq(0, 32):
               D[mo, mi, n] += A[mo * 16 + mi, k] * B[n, k]
+              # TeX: end wgmma[0]
 
     def instance(self):
       pass  # Doesn't crash if we never instance it...
