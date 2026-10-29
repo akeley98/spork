@@ -1266,10 +1266,11 @@ Memory type encodes \sporkKeyA{physical memory type} \& \sporkKeyA{data layout}
 \end{equation*}
 
 % "Upon read" row of Simple Trace Events, generalized to any access (\sporkmut). Step 2: each Ob
-% box labelled with its set of (tid, qtl) observers. Steps 3, 4: where tid and qtl come from
-% (highlighted in the labels on that step only), with a bullet below the figure on what each
-% distinguishes. Blue for both: green/violet mean Ob^out/Ob^in on later frames.
-% Access by non-instr code glossed over.
+% box labelled with its set of (tid, qtl) observers. Steps 3, 4: an annotation each, left to right,
+% on what tid / qtl distinguish and where they come from (highlighted, in the annotation and the
+% labels, on that step only), centered under the figure. Blue for both: green/violet mean Ob^out/Ob^in on later frames.
+% The \vphantom keeps the annotations' first line as tall as when highlighted, so the text below
+% doesn't jitter. Access by non-instr code glossed over.
 \vspace{2mm}
 \begingroup\centering
 \begin{sporkfigure}
@@ -1281,17 +1282,22 @@ Memory type encodes \sporkKeyA{physical memory type} \& \sporkKeyA{data layout}
       {\{(\sporkBlue[only=<3>]{$\sporktid$}, \sporkBlue[only=<4>]{$\sporkqtl$})\}};
     \draw [annotation line, spork reveal=<2->] (\name.north) -- (\ob.south);
   }
-  \node (tidNote) [anchor=north, fixed text={9.6pt}{3.9pt}, spork reveal=<3->] at ([yshift=1mm]$(inSet.south)!0.5!(outSet.south)$)
-    {\sporkBlue[only=<3>]{$\sporktid$} determined by $\sporktidMap$};
-  \node [anchor=north west, fixed text={9.6pt}{3.9pt}, spork reveal=<4->] at ([yshift=-1mm]tidNote.south west)
-    {\sporkBlue[only=<4>]{$\sporkqtl$} determined by instruction};
+  % Equal text widths, so the pair is centered under the figure drawn so far.
+  \coordinate (figCenter) at (current bounding box.center);
+  \coordinate (notesTop) at ([yshift=-4mm]figCenter |- inSet.south);
+  \tikzset{obs note/.style={annotation, text width=62mm}}
+  \node [obs note, anchor=north east, spork reveal=<3->] at ([xshift=-2mm]notesTop)
+    {\vphantom{\sporkBlue{$\sporkqtl\sporktid$}}\sporkBlue[only=<3>]{$\sporktid$}\\
+     $\bullet$ Thread ID distinguishes\\
+     \phantom{$\bullet$} \sporkKeyA{different threads}\\
+     $\bullet$ determined by $\sporktidMap$};
+  \node [obs note, anchor=north west, spork reveal=<4->] at ([xshift=2mm]notesTop)
+    {\vphantom{\sporkBlue{$\sporkqtl\sporktid$}}\sporkBlue[only=<4>]{$\sporkqtl$}\\
+     $\bullet$ Qualitative timeline distinguishes\\
+     \phantom{$\bullet$} \sporkKeyA{async instr} effects\\
+     $\bullet$ determined by instruction};
 \end{sporkfigure}\par
 \endgroup
-
-\begin{itemize}
-  \sporkReveal<3->{\item Thread ID \sporkKeyB{$\sporktid$} distinguishes \sporkKeyA{different threads}}
-  \sporkReveal<4->{\item Qualitative timeline \sporkKeyB{$\sporkqtl$} distinguishes \sporkKeyA{async instr} effects}
-\end{itemize}
 
 \end{frame}
 
