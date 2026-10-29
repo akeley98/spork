@@ -1545,4 +1545,93 @@ What do we need to check?
 \cornerstones{<1->}{<1->}{<1->}{<1->}{box4}{<1->}
 \end{frame}
 
+% TASK: read the main.tex amspork3 docs regarding traces and sync check.
+% We are however ignoring (i.e. intentionally lying about) atomics and Qtl mask
+% which is briefly acknowledged earlier in the presentation.
+% We are also lying about events vs. vertices (\sporkTr vs \sporkVert), which is not ack'd;
+% this may bite me in the ass later.
+% Pending Awaits (\sporkaw) also get the cold shoulder until the end.
+%
+% If things are unclear, make best judgment or put \sporkRed{???} and I'll look it over.
+%
+% TASK: Slide "Trace/Environment Analogy"
+% * Traces are hard to analyze verbatim
+% * Traces are ``summarized'' into an \sporkKeyA{environment} $\sporksigma$:
+%
+% Figure: [x = 3] [y = 1] [x = x + 5] -> \sporksigma = { (x, 8), (y, 1) }
+%
+% Reveal: annotation on "x = *" boxes "Specifics of how x became 8 don't matter"
+%
+% NB \sporksigma rather than \sigma so I can rename globally if I change my mind about \sigma vs env
+%
+% * Idea: summarize our traces as a \sporkKeyA{synchronization environment} ($\sporkenv$)  % People may hate my cute sigma/env distinction
+%
+% TASK: Slide "Recap: Trace Paths"
+%
+% * We analyze only 3 kinds of graph paths:
+% similar figure as TraceEdgeRequirements, but without coloring
+% reveal "all for same \sporkx[\sporkz^*]" last
+%
+% Then reveal figure similar to TraceEdges, but with * above edge to indicate transitivity
+%
+% Reveal annotation below edge "check path for each prior TrPostAccess with same \sporkx[\sporkz^*]"
+%
+% Reveal annotation below that "...distinguishing \readBullet and \mutateBullet"
+%
+% TASK: Slide: Environment Effects
+%
+% * Bucket TrPostAccess by its \sporkKeyA{environment effect}
+%
+% Equation: \sporkenvEff: \sporkEnvEff ::= (x, z^*, mut?)  [if I recall correctly]
+%
+% Reveal: highlight x, z^* and add annotation "which array element"
+% Reveal: highlight mut? and add annotation "\readBullet or \mutateBullet"
+%
+% * \sporkenv maps \sporkenvEff to \sporkKeyA{all prior TrPostAccess} with that effect
+% * How do we summarize a TrPostAccess?
+%
+% Meta: if there's too much stuff, leave text size as-is and I'll see how bad the overfull hboxes are.
+%
+% TASK: Slide: Environment Visibility
+%
+% Possibly too busy slide, but I want to see my vision first then maybe compromise.
+% Split into two columns.
+% Left column will be a trace, trace events arranged vertically by necessity.
+% Will be left implicit time increases downwards.
+%
+% I will abbreviate Sm80_cp_async as \sporkqtl_\mathrm{A}, cuda_in_order_ram_qual as \sporkqtl_\mathrm{io}
+%
+% Adapt earlier trPre, trPost, trFence macros
+% TODO: not happy about this document not inheriting main.tex's convention of not
+% defining new commands just wherever, but leave it alone for now.
+% Put a `% todo:` comment to remind me.
+%
+% Event 0: TrPostAccess, \mutateBullet, \sporkx[\sporkz^*]
+% ObOut = {(tid, qtl_A)}
+%
+% Event 1: TrFence\\__syncthreads  % Swaying skeptical audience members: using more familiar name than Fence(cuda_in_order, cuda_in_order)
+% ObIn = Tid_CTA \times {qtl_IO}
+% ObOut = Tid_CTA \times {qtl_IO}  % Lie, there's more qtl's but not important for slides
+%
+% Event 2: TrFence\\cp.async.wait_all
+% ObIn = {(tid, qtl_A)}
+% ObOut = {(tid, qtl_IO)}
+%
+% Event 3: TrFence\\__syncthreads
+% ObIn = Tid_CTA \times {qtl_IO}
+% ObOut = Tid_CTA \times {qtl_IO}
+%
+% Draw black (default style) boxes and black arrows (for now) that snake from Event 0 ObOut to Event 2 ObIn, and from Event 2 ObOut to Event 3 ObIn
+% Things will be revealed as colored at the right time.
+%
+% Right column:
+%
+% * How do we summarize a TrPostAccess?
+% * Reveal: We care about \sporkKeyA{reachable future events}
+%   At same time, draw Events 0, 2, 3 in sporkBlue style now,
+%   and make the edges thicker and blue.
+% * Reveal: Summarize as \sporkKeyA{union} of reachable events' \sporkKeyA{outbound sets} $\sporkObOut$.
+%   At the same time, draw reachable ObOut boxes in spork green style.
+%
+% Later turns will make use of the example but I'll take a look at slide fit first.
 \end{document}
