@@ -1,3 +1,8 @@
+# ========================================================================
+# LEGACY FILE FROM THE HUMAN ERA: Prefer `python3 -m spork_tex.build`
+# https://github.com/akeley98/spork_tex
+# ========================================================================
+
 import sys
 import os
 import math
