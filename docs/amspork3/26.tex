@@ -1606,7 +1606,6 @@ What do we need to check?
   \item We analyze only 3 kinds of graph paths:
 \end{itemize}
 
-\vspace{4mm}
 \begingroup\centering
 \begin{sporkfigure}
   \tikzset{
@@ -1638,12 +1637,12 @@ What do we need to check?
   \end{scope}
 
   \begin{scope}[spork reveal=<3->]
-    \trPost{a1}{anchor=east, at={([xshift=-30mm, yshift=-12mm]early3.south -| tabC)}}{$\sporkmut$ $\sporkx[\sporkz^*]$}
-    \trPre{a2}{anchor=west, at={([xshift=30mm, yshift=-12mm]early3.south -| tabC)}}{$\sporkmut$ $\sporkx[\sporkz^*]$}
+    \trPost{a1}{anchor=east, at={([xshift=-30mm, yshift=-10mm]early3.south -| tabC)}}{$\sporkmut$ $\sporkx[\sporkz^*]$}
+    \trPre{a2}{anchor=west, at={([xshift=30mm, yshift=-10mm]early3.south -| tabC)}}{$\sporkmut$ $\sporkx[\sporkz^*]$}
     \draw [req arrow] (a1-out) -- coordinate (edgeMid) node [req star, above] {$*$} (a2-in);
   \end{scope}
   \node (pathNote) [annotation, anchor=north, spork reveal=<4->] at ([yshift=-4mm]edgeMid |- a1.south)
-    {Check path for each prior $\sporkTrPostAccess$ with same $\sporkx[\sporkz^*]$};
+    {Check path for \sporkKeyA{each prior $\sporkTrPostAccess$} with same $\sporkx[\sporkz^*]$};
   \draw [annotation line, spork reveal=<4->] (pathNote.north) -- ([yshift=-1mm]edgeMid);
   \node [annotation, anchor=north, spork reveal=<5->] at ([yshift=-2mm]pathNote.south)
     {\ldots{} distinguishing \readBullet{} and \mutateBullet};
@@ -1664,7 +1663,9 @@ What do we need to check?
 \begingroup\centering
 \begin{sporkfigure}
   \tikzset{eq part/.style={inner sep=0mm, anchor=base west}}
-  \node (eq0) [inner sep=0mm] {$\sporkenvEff: \sporkEnvEff \Coloneqq ($};
+  % Fixed height/depth covering the highlighted parts, so the figure's bbox (and position) is
+  % the same on every step.
+  \node (eq0) [inner sep=0mm, fixed text={11pt}{4.5pt}] {$\sporkenvEff: \sporkEnvEff \Coloneqq ($};
   \node (eqMut) [eq part] at (eq0.base east) {\kern-\fboxsep\sporkBlue[only=<3>]{$\sporkmut$}\kern-\fboxsep};
   \node (eqComma) [eq part] at (eqMut.base east) {$,\,$};
   \node (eqXz) [eq part] at (eqComma.base east) {\kern-\fboxsep\sporkBlue[only=<2>]{$\sporkx, \sporkz^*$}\kern-\fboxsep};
