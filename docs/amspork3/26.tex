@@ -90,6 +90,21 @@
   \node (#1) [tr event, #2] {$\sporkTrFence$};
   \node (#1-in) [tr ob, anchor=east] at ([xshift=-\trObGap]#1.west) {$\sporkObIn$};
   \node (#1-out) [tr ob, anchor=west] at ([xshift=\trObGap]#1.east) {$\sporkObOut$};}
+% Trace rows with the observer sets written in the Ob boxes (Environment Visibility): one event
+% per row, rows stacked downwards in trace order. Event boxes share a width so the rows line up.
+% [#1] = extra ObOut box options (e.g. color on some steps), #2 = node name, #3 = main node options
+% (placement, color), #4 = event text below the constructor, then the set(s): \vtrPost #5 = Ob^out;
+% \vtrFence #5 = Ob^in, #6 = Ob^out. Nodes <name>, <name>-in, <name>-out as \trPre etc.
+% todo: main.tex's convention puts new commands in amspork3_defs.tex only; these (and the \tr*
+% macros above) are defined in the deck for now.
+\tikzset{vtr event/.style={tr event, minimum width=37mm}}
+\newcommand{\vtrPost}[5][]{%
+  \node (#2) [vtr event, #3] {$\sporkTrPostAccess$\\#4};
+  \node (#2-out) [tr ob, #1, anchor=west] at ([xshift=\trObGap]#2.east) {#5};}
+\newcommand{\vtrFence}[6][]{%
+  \node (#2) [vtr event, #3] {$\sporkTrFence$\\#4};
+  \node (#2-in) [tr ob, anchor=east] at ([xshift=-\trObGap]#2.west) {#5};
+  \node (#2-out) [tr ob, #1, anchor=west] at ([xshift=\trObGap]#2.east) {#6};}
 
 \title{Exo-GPU}
 \subtitle{Safe, Imperative, User-schedulable Programming for Tensor Cores}
@@ -1545,93 +1560,180 @@ What do we need to check?
 \cornerstones{<1->}{<1->}{<1->}{<1->}{box4}{<1->}
 \end{frame}
 
-% TASK: read the main.tex amspork3 docs regarding traces and sync check.
-% We are however ignoring (i.e. intentionally lying about) atomics and Qtl mask
-% which is briefly acknowledged earlier in the presentation.
-% We are also lying about events vs. vertices (\sporkTr vs \sporkVert), which is not ack'd;
-% this may bite me in the ass later.
-% Pending Awaits (\sporkaw) also get the cold shoulder until the end.
-%
-% If things are unclear, make best judgment or put \sporkRed{???} and I'll look it over.
-%
-% TASK: Slide "Trace/Environment Analogy"
-% * Traces are hard to analyze verbatim
-% * Traces are ``summarized'' into an \sporkKeyA{environment} $\sporksigma$:
-%
-% Figure: [x = 3] [y = 1] [x = x + 5] -> \sporksigma = { (x, 8), (y, 1) }
-%
-% Reveal: annotation on "x = *" boxes "Specifics of how x became 8 don't matter"
-%
-% NB \sporksigma rather than \sigma so I can rename globally if I change my mind about \sigma vs env
-%
-% * Idea: summarize our traces as a \sporkKeyA{synchronization environment} ($\sporkenv$)  % People may hate my cute sigma/env distinction
-%
-% TASK: Slide "Recap: Trace Paths"
-%
-% * We analyze only 3 kinds of graph paths:
-% similar figure as TraceEdgeRequirements, but without coloring
-% reveal "all for same \sporkx[\sporkz^*]" last
-%
-% Then reveal figure similar to TraceEdges, but with * above edge to indicate transitivity
-%
-% Reveal annotation below edge "check path for each prior TrPostAccess with same \sporkx[\sporkz^*]"
-%
-% Reveal annotation below that "...distinguishing \readBullet and \mutateBullet"
-%
-% TASK: Slide: Environment Effects
-%
-% * Bucket TrPostAccess by its \sporkKeyA{environment effect}
-%
-% Equation: \sporkenvEff: \sporkEnvEff ::= (x, z^*, mut?)  [if I recall correctly]
-%
-% Reveal: highlight x, z^* and add annotation "which array element"
-% Reveal: highlight mut? and add annotation "\readBullet or \mutateBullet"
-%
-% * \sporkenv maps \sporkenvEff to \sporkKeyA{all prior TrPostAccess} with that effect
-% * How do we summarize a TrPostAccess?
-%
-% Meta: if there's too much stuff, leave text size as-is and I'll see how bad the overfull hboxes are.
-%
-% TASK: Slide: Environment Visibility
-%
-% Possibly too busy slide, but I want to see my vision first then maybe compromise.
-% Split into two columns.
-% Left column will be a trace, trace events arranged vertically by necessity.
-% Will be left implicit time increases downwards.
-%
-% I will abbreviate Sm80_cp_async as \sporkqtl_\mathrm{A}, cuda_in_order_ram_qual as \sporkqtl_\mathrm{io}
-%
-% Adapt earlier trPre, trPost, trFence macros
-% TODO: not happy about this document not inheriting main.tex's convention of not
-% defining new commands just wherever, but leave it alone for now.
-% Put a `% todo:` comment to remind me.
-%
-% Event 0: TrPostAccess, \mutateBullet, \sporkx[\sporkz^*]
-% ObOut = {(tid, qtl_A)}
-%
-% Event 1: TrFence\\__syncthreads  % Swaying skeptical audience members: using more familiar name than Fence(cuda_in_order, cuda_in_order)
-% ObIn = Tid_CTA \times {qtl_IO}
-% ObOut = Tid_CTA \times {qtl_IO}  % Lie, there's more qtl's but not important for slides
-%
-% Event 2: TrFence\\cp.async.wait_all
-% ObIn = {(tid, qtl_A)}
-% ObOut = {(tid, qtl_IO)}
-%
-% Event 3: TrFence\\__syncthreads
-% ObIn = Tid_CTA \times {qtl_IO}
-% ObOut = Tid_CTA \times {qtl_IO}
-%
-% Draw black (default style) boxes and black arrows (for now) that snake from Event 0 ObOut to Event 2 ObIn, and from Event 2 ObOut to Event 3 ObIn
-% Things will be revealed as colored at the right time.
-%
-% Right column:
-%
-% * How do we summarize a TrPostAccess?
-% * Reveal: We care about \sporkKeyA{reachable future events}
-%   At same time, draw Events 0, 2, 3 in sporkBlue style now,
-%   and make the edges thicker and blue.
-% * Reveal: Summarize as \sporkKeyA{union} of reachable events' \sporkKeyA{outbound sets} $\sporkObOut$.
-%   At the same time, draw reachable ObOut boxes in spork green style.
-%
-% Later turns will make use of the example but I'll take a look at slide fit first.
+% Sync check frames. Deliberate simplifications (main.tex is the reference):
+% * atomics and Qtl_mask ignored (acknowledged earlier in the talk);
+% * trace events stand in for vertices (\sporkTr vs \sporkVert; not acknowledged);
+% * pending awaits (\sporkaw) left out until the end.
+
+% Analogy: an ordinary environment summarizes a sequence of assignments. Step 2: annotation
+% joined to both x assignments. Step 3: the analogous idea for traces.
+% (\sporksigma, not \sigma, so the name can change globally.)
+\begin{frame}[label=TraceEnvAnalogy]{Trace/Environment Analogy}
+\begin{itemize}
+  \item Traces are hard to analyze verbatim
+  \item Traces are ``summarized'' into an \sporkKeyA{environment} $\sporksigma$:
+\end{itemize}
+
+\vspace{6mm}
+\begingroup\centering
+\begin{sporkfigure}
+  \tikzset{asg/.style={rectangle, draw, thick, inner sep=1.5mm, minimum height=8mm, font=\ttfamily}}
+  \node (a0) [asg] {x = 3};
+  \node (a1) [asg, right=3mm of a0] {y = 1};
+  \node (a2) [asg, right=3mm of a1] {x = x + 5};
+  \node (sig) [right=14mm of a2] {$\sporksigma = \{(\texttt{x}, 8), (\texttt{y}, 1)\}$};
+  \draw [spork arrow] (a2) -- (sig);
+  \node [above=1mm of a1, font=\bfseries] {Trace};
+  \node [font=\bfseries] at (sig |- a1.north) [above=1mm] {Environment};
+  \node (xNote) [annotation, anchor=north, spork reveal=<2->] at ([yshift=-7mm]$(a0.south)!0.5!(a2.south)$)
+    {Specifics of how \texttt{x} became 8 don't matter};
+  \draw [annotation line, spork reveal=<2->] (a0.south) -- (a0.south |- xNote.north)
+    (a2.south) -- (a2.south |- xNote.north);
+\end{sporkfigure}\par
+\endgroup
+
+\vspace{6mm}
+\begin{itemize}
+  \sporkReveal<3->{\item Idea: summarize our traces as a \sporkKeyA{synchronization environment} ($\sporkenv$)}
+\end{itemize}
+\end{frame}
+
+% Recap of TraceEdgeRequirements / TraceEdgesSync, uncolored. Step 2: bracket grouping the rows
+% (same array element). Step 3: a path TrPostAccess ->* TrPreAccess (dashed, starred as in
+% TraceEdgeRequirements). Steps 4, 5: what the check does with such paths.
+\begin{frame}[label=RecapTracePaths]{Recap: Trace Paths}
+\begin{itemize}
+  \item We analyze only 3 kinds of graph paths:
+\end{itemize}
+
+\vspace{4mm}
+\begingroup\centering
+\begin{sporkfigure}
+  \tikzset{
+    req row/.style={rectangle, draw, thick, inner sep=1mm, minimum width=45mm, minimum height=6mm},
+    req arrow/.style={spork arrow, dash pattern=on 2.5pt off 2pt},
+    req star/.style={font=\fontsize{12}{14}\selectfont, inner sep=0.3mm},
+  }
+  \coordinate (tabC) at (0, 0);
+  \foreach \i/\pre/\post in {
+      1/\mutateBullet/\mutateBullet,
+      2/\mutateBullet/\readBullet,
+      3/\readBullet/\mutateBullet} {
+    \node (early\i) [req row, anchor=east] at ([xshift=-6mm, yshift=-7.5mm*(\i-1)]tabC)
+      {\pre{} $\sporkTrPostAccess$};
+    \node (late\i) [req row, anchor=west] at ([xshift=6mm, yshift=-7.5mm*(\i-1)]tabC)
+      {\post{} $\sporkTrPreAccess$};
+    \node at (early\i.east -| tabC) {$\rightarrow^*$};
+  }
+  \node [above=0.5mm of early1, font=\bfseries] {Earlier};
+  \node [above=0.5mm of late1, font=\bfseries] {Later};
+  \begin{scope}[spork reveal=<2->]
+    \coordinate (tabTop) at (early1.north west);
+    \coordinate (tabBot) at (early3.south west);
+    \coordinate (tabX) at ([xshift=-3mm]tabTop);
+    \draw [line width=1.2pt]
+      ([xshift=1.5mm]tabTop -| tabX) -- (tabTop -| tabX)
+      -- node [left=1mm, align=right] {All for same\\$\sporkx[\sporkz^*]$} (tabBot -| tabX)
+      -- ([xshift=1.5mm]tabBot -| tabX);
+  \end{scope}
+
+  \begin{scope}[spork reveal=<3->]
+    \trPost{a1}{anchor=east, at={([xshift=-30mm, yshift=-12mm]early3.south -| tabC)}}{$\sporkmut$ $\sporkx[\sporkz^*]$}
+    \trPre{a2}{anchor=west, at={([xshift=30mm, yshift=-12mm]early3.south -| tabC)}}{$\sporkmut$ $\sporkx[\sporkz^*]$}
+    \draw [req arrow] (a1-out) -- coordinate (edgeMid) node [req star, above] {$*$} (a2-in);
+  \end{scope}
+  \node (pathNote) [annotation, anchor=north, spork reveal=<4->] at ([yshift=-4mm]edgeMid |- a1.south)
+    {Check path for each prior $\sporkTrPostAccess$ with same $\sporkx[\sporkz^*]$};
+  \draw [annotation line, spork reveal=<4->] (pathNote.north) -- ([yshift=-1mm]edgeMid);
+  \node [annotation, anchor=north, spork reveal=<5->] at ([yshift=-2mm]pathNote.south)
+    {\ldots{} distinguishing \readBullet{} and \mutateBullet};
+\end{sporkfigure}\par
+\endgroup
+\end{frame}
+
+% EnvEff as a chain of nodes on one baseline (so on-step highlights don't move the text), with
+% an annotation under each highlighted part. \kern-\fboxsep cancels the highlight padding
+% (kept even when unhighlighted), so the tuple is spaced like plain math. Order (mut?, x, z^*) as in main.tex (SyncEnv.tex).
+% Steps 2, 3: highlight + annotation (highlight on that step only). Steps 4, 5: bullets.
+\begin{frame}[label=EnvEffects]{Environment Effects}
+\begin{itemize}
+  \item Bucket $\sporkTrPostAccess$ by its \sporkKeyA{environment effect}
+\end{itemize}
+
+\vspace{2mm}
+\begingroup\centering
+\begin{sporkfigure}
+  \tikzset{eq part/.style={inner sep=0mm, anchor=base west}}
+  \node (eq0) [inner sep=0mm] {$\sporkenvEff: \sporkEnvEff \Coloneqq ($};
+  \node (eqMut) [eq part] at (eq0.base east) {\kern-\fboxsep\sporkBlue[only=<3>]{$\sporkmut$}\kern-\fboxsep};
+  \node (eqComma) [eq part] at (eqMut.base east) {$,\,$};
+  \node (eqXz) [eq part] at (eqComma.base east) {\kern-\fboxsep\sporkBlue[only=<2>]{$\sporkx, \sporkz^*$}\kern-\fboxsep};
+  \node [eq part] at (eqXz.base east) {$)$};
+  \coordinate (lineTop) at ([yshift=-1mm]eq0.south);
+  \node (xzNote) [annotation, anchor=north west, spork reveal=<2->] at ([xshift=-2mm, yshift=-6mm]eqXz.center |- lineTop)
+    {Which array element};
+  \draw [annotation line, spork reveal=<2->] (eqXz.center |- lineTop) -- (eqXz.center |- xzNote.north);
+  \node (mutNote) [annotation, anchor=north east, spork reveal=<3->] at ([xshift=2mm, yshift=-6mm]eqMut.center |- lineTop)
+    {\readBullet{} or \mutateBullet};
+  \draw [annotation line, spork reveal=<3->] (eqMut.center |- lineTop) -- (eqMut.center |- mutNote.north);
+\end{sporkfigure}\par
+\endgroup
+
+\vspace{4mm}
+\begin{itemize}
+  \sporkReveal<4->{\item $\sporkenv$ maps $\sporkenvEff$ to \sporkKeyA{all prior $\sporkTrPostAccess$} with that effect}
+  \sporkReveal<5->{\item How do we summarize a $\sporkTrPostAccess$?}
+\end{itemize}
+\end{frame}
+
+% Left: a trace, one event per row, time downwards (implicit). qtl_A = Sm80_cp_async,
+% qtl_io = cuda_in_order_ram_qual. __syncthreads stands in for Fence(cuda_in_order, cuda_in_order)
+% (more familiar name); its Ob sets list only qtl_io (simplified).
+% Edges drawn: 0 -> 2 (snaking right of the rows, past event 1) and 2 -> 3. (1 -> 3 also exists
+% but 1 isn't reachable from 0, so it's left out.)
+% Step 2: events reachable from event 0 (0, 2, 3) blue, their edges thick and blue.
+% Step 3: their Ob^out boxes green (the sets that get unioned).
+\begin{frame}[label=EnvVisibility]{Environment Visibility}
+\begin{columns}[T]
+\begin{column}{0.64\textwidth}
+\begingroup\centering
+\begin{sporkfigure}
+  \tikzset{
+    reach/.style={spork slide only=<2->{spork blue style}},
+    reach out/.style={spork slide only=<3->{spork green style}},
+    reach edge/.style={spork arrow, spork slide only=<2->{line width=1.6pt, draw=sporkBlueFg}},
+  }
+  \def\qA{\sporkqtl_\mathsf{A}}
+  \def\qIo{\sporkqtl_\mathsf{io}}
+  \vtrPost[reach out]{e0}{reach}{\mutateBullet\ $\sporkx[\sporkz^*]$}
+    {$\{(\sporktid, \qA)\}$}
+  \vtrFence{e1}{below=6mm of e0}{\texttt{\_\_syncthreads}}
+    {$\sporkTid_\mathsf{CTA} \times \{\qIo\}$}{$\sporkTid_\mathsf{CTA} \times \{\qIo\}$}
+  \vtrFence[reach out]{e2}{reach, below=6mm of e1}{\texttt{cp.async.wait\_all}}
+    {$\{(\sporktid, \qA)\}$}{$\{(\sporktid, \qIo)\}$}
+  \vtrFence[reach out]{e3}{reach, below=6mm of e2}{\texttt{\_\_syncthreads}}
+    {$\sporkTid_\mathsf{CTA} \times \{\qIo\}$}{$\sporkTid_\mathsf{CTA} \times \{\qIo\}$}
+  % 0 -> 2: right past the widest Ob^out box, then left through the gap above event 2.
+  \coordinate (xr) at ([xshift=3mm]e1-out.east);
+  \coordinate (m12) at ($(e1.south)!0.5!(e2.north)$);
+  \coordinate (g12) at (e2-in.north |- m12);
+  \draw [reach edge] (e0-out.east) -- (e0-out.east -| xr) -- (xr |- g12) -- (g12) -- (e2-in.north);
+  \path ([xshift=1mm]xr);  % bbox past the edge's line width, so thickening it doesn't shift the figure
+  % 2 -> 3: down, then left through the gap above event 3.
+  \coordinate (m23) at ($(e2.south)!0.5!(e3.north)$);
+  \coordinate (g23) at (e3-in.north |- m23);
+  \draw [reach edge] (e2-out.south) |- (g23) -- (e3-in.north);
+\end{sporkfigure}\par
+\endgroup
+\end{column}
+\begin{column}{0.34\textwidth}
+\begin{itemize}
+  \item How do we summarize a $\sporkTrPostAccess$?
+  \sporkReveal<2->{\item We care about \sporkKeyA{reachable future events}}
+  \sporkReveal<3->{\item Summarize as \sporkKeyA{union} of reachable events' \sporkKeyA{outbound sets} $\sporkObOut$}
+\end{itemize}
+\end{column}
+\end{columns}
+\end{frame}
+
 \end{document}
