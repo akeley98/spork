@@ -1,6 +1,7 @@
 """Code listing source for amspork3 (main.tex and decks); must pass exocc.
 
-Listing directive format: spork_tex/README.md in the spork_tex repo ("Source format").
+Listing directive format: spork_tex/README.md ("Source format") in https://github.com/akeley98/spork_tex.git
+(installed copy: `python3 -m spork_tex.docs` lists it as "listing directives").
 """
 from __future__ import annotations
 
