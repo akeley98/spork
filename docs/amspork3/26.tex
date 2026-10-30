@@ -1701,9 +1701,10 @@ What do we need to check?
 % but 1 isn't reachable from 0, so it's left out.)
 % * Steps 1-4, environment visibility: step 2, events reachable from event 0 (0, 2, 3) blue, their
 %   edges thick and blue; step 3, their Ob^out boxes green (the sets that get unioned).
-% * Steps 5-7, cp.async example: diagram back to black; right column replaced. tid green and
-%   Tid_CTA yellow (5-), qtl_A violet (6-, as Sm80_cp_async on earlier frames), qtl_io red (7-),
-%   in the bullets and the diagram, for the rest of the frame.
+% * Steps 5-7, cp.async example: diagram back to black; right column replaced. qtl_A violet (6-,
+%   as Sm80_cp_async on earlier frames), qtl_io yellow (7-), in the bullets and the diagram, for the
+%   rest of the frame. tid / Tid_CTA uncolored (green stays Ob^out only; red avoided).
+%   (\cTid, \cTidCTA kept as hooks in case they get colors again; used in math only.)
 % * Steps 8-11, stepping through the trace: right column cleared; the envVis column (key + one box
 %   per event, revealed in turn, `overlay` so the figure's size and position don't change) extends
 %   into it. The current reachable event turns blue (events stay blue), taken edges thick blue;
@@ -1722,10 +1723,10 @@ What do we need to check?
     reach edge02/.style={spork arrow, spork slide only={<2-4,10->{line width=1.6pt, draw=sporkBlueFg}}},
     reach edge23/.style={spork arrow, spork slide only={<2-4,11->{line width=1.6pt, draw=sporkBlueFg}}},
   }
-  \def\cTid{\sporkGreen[only=<5->]{\ensuremath{\sporktid}}}
-  \def\cTidCTA{\sporkYellow[only=<5->]{\ensuremath{\sporkTid_\mathsf{CTA}}}}
+  \def\cTid{\sporktid}
+  \def\cTidCTA{\sporkTid_\mathsf{CTA}}
   \def\cqA{\sporkViolet[only=<6->]{\ensuremath{\sporkqtl_\mathsf{A}}}}
-  \def\cqIo{\sporkRed[only=<7->]{\ensuremath{\sporkqtl_\mathsf{io}}}}
+  \def\cqIo{\sporkYellow[only=<7->]{\ensuremath{\sporkqtl_\mathsf{io}}}}
   \vtrPost[reach out]{e0}{reach0}{\mutateBullet\ $\sporkx[\sporkz^*]$}
     {$\{(\cTid, \cqA)\}$}
   \vtrFence{e1}{below=6mm of e0}{\texttt{\_\_syncthreads}}
@@ -1774,10 +1775,12 @@ What do we need to check?
 \sporkSlideOnly<5-7>{%
 \sporkMainKey{cp.async Example:}
 \begin{itemize}
-  \item Single thread \sporkGreen{$\sporktid$} in CTA \sporkYellow{$\sporkTid_\mathsf{CTA}$} issues async copy
+  % Quotes mark tid / Tid_CTA as names: GPU concepts are \mathsf by convention, which looks just like
+  % the surrounding sans-serif slide text (was done with tid/Tid_CTA highlights before).
+  \item Single thread ``$\sporktid$'' in CTA ``$\sporkTid_\mathsf{CTA}$'' issues async copy
   \sporkReveal<6->{\item \sporkViolet{$\sporkqtl_\mathsf{A}$} $=$ {\footnotesize\texttt{Sm80\_cp\_async\_qual}}}
   \sporkReveal<7->{\item Propagate to CTA\\
-    \sporkRed{$\sporkqtl_\mathsf{io}$} $=$ {\footnotesize\texttt{cuda\_in\_order\_ram\_qual}}}
+    \sporkYellow{$\sporkqtl_\mathsf{io}$} $=$ {\footnotesize\texttt{cuda\_in\_order\_ram\_qual}}}
 \end{itemize}}%
 \end{column}
 \end{columns}
