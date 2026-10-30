@@ -1693,99 +1693,95 @@ What do we need to check?
 \end{itemize}
 \end{frame}
 
-% Left: a trace, one event per row, time downwards (implicit). qtl_A = Sm80_cp_async,
+% One frame, three parts (no copy/paste of the trace).
+% Left column: a trace, one event per row, time downwards (implicit). qtl_A = Sm80_cp_async_qual,
 % qtl_io = cuda_in_order_ram_qual. __syncthreads stands in for Fence(cuda_in_order, cuda_in_order)
-% (more familiar name); its Ob sets list only qtl_io (simplified).
+% (more familiar name); its Ob sets list only qtl_io (simplified). Key above the Ob columns.
 % Edges drawn: 0 -> 2 (snaking right of the rows, past event 1) and 2 -> 3. (1 -> 3 also exists
 % but 1 isn't reachable from 0, so it's left out.)
-% Step 2: events reachable from event 0 (0, 2, 3) blue, their edges thick and blue.
-% Step 3: their Ob^out boxes green (the sets that get unioned).
+% * Steps 1-4, environment visibility: step 2, events reachable from event 0 (0, 2, 3) blue, their
+%   edges thick and blue; step 3, their Ob^out boxes green (the sets that get unioned).
+% * Steps 5-7, cp.async example: diagram back to black; right column replaced. tid green and
+%   Tid_CTA yellow (5-), qtl_A violet (6-, as Sm80_cp_async on earlier frames), qtl_io red (7-),
+%   in the bullets and the diagram, for the rest of the frame.
+% * Steps 8-11, stepping through the trace: right column cleared; the envVis column (key + one box
+%   per event, revealed in turn, `overlay` so the figure's size and position don't change) extends
+%   into it. The current reachable event turns blue (events stay blue), taken edges thick blue;
+%   step 9 is the unreachable __syncthreads (nothing turns blue).
+% Highlight macros use \ensuremath: the unhighlighted form stays in math mode.
 \begin{frame}[label=EnvVisibility]{Environment Visibility}
 \begin{columns}[T]
 \begin{column}{0.64\textwidth}
 \begingroup\centering
-\begin{sporkfigure}
+\begin{sporkfigure}[scale=0.85]
   \tikzset{
-    reach/.style={spork slide only=<2->{spork blue style}},
-    reach out/.style={spork slide only=<3->{spork green style}},
-    reach edge/.style={spork arrow, spork slide only=<2->{line width=1.6pt, draw=sporkBlueFg}},
+    reach0/.style={spork slide only={<2-4,8->{spork blue style}}},
+    reach2/.style={spork slide only={<2-4,10->{spork blue style}}},
+    reach3/.style={spork slide only={<2-4,11->{spork blue style}}},
+    reach out/.style={spork slide only=<3-4>{spork green style}},
+    reach edge02/.style={spork arrow, spork slide only={<2-4,10->{line width=1.6pt, draw=sporkBlueFg}}},
+    reach edge23/.style={spork arrow, spork slide only={<2-4,11->{line width=1.6pt, draw=sporkBlueFg}}},
   }
-  \def\qA{\sporkqtl_\mathsf{A}}
-  \def\qIo{\sporkqtl_\mathsf{io}}
-  \vtrPost[reach out]{e0}{reach}{\mutateBullet\ $\sporkx[\sporkz^*]$}
-    {$\{(\sporktid, \qA)\}$}
+  \def\cTid{\sporkGreen[only=<5->]{\ensuremath{\sporktid}}}
+  \def\cTidCTA{\sporkYellow[only=<5->]{\ensuremath{\sporkTid_\mathsf{CTA}}}}
+  \def\cqA{\sporkViolet[only=<6->]{\ensuremath{\sporkqtl_\mathsf{A}}}}
+  \def\cqIo{\sporkRed[only=<7->]{\ensuremath{\sporkqtl_\mathsf{io}}}}
+  \vtrPost[reach out]{e0}{reach0}{\mutateBullet\ $\sporkx[\sporkz^*]$}
+    {$\{(\cTid, \cqA)\}$}
   \vtrFence{e1}{below=6mm of e0}{\texttt{\_\_syncthreads}}
-    {$\sporkTid_\mathsf{CTA} \times \{\qIo\}$}{$\sporkTid_\mathsf{CTA} \times \{\qIo\}$}
-  \vtrFence[reach out]{e2}{reach, below=6mm of e1}{\texttt{cp.async.wait\_all}}
-    {$\{(\sporktid, \qA)\}$}{$\{(\sporktid, \qIo)\}$}
-  \vtrFence[reach out]{e3}{reach, below=6mm of e2}{\texttt{\_\_syncthreads}}
-    {$\sporkTid_\mathsf{CTA} \times \{\qIo\}$}{$\sporkTid_\mathsf{CTA} \times \{\qIo\}$}
+    {$\cTidCTA \times \{\cqIo\}$}{$\cTidCTA \times \{\cqIo\}$}
+  \vtrFence[reach out]{e2}{reach2, below=6mm of e1}{\texttt{cp.async.wait\_all}}
+    {$\{(\cTid, \cqA)\}$}{$\{(\cTid, \cqIo)\}$}
+  \vtrFence[reach out]{e3}{reach3, below=6mm of e2}{\texttt{\_\_syncthreads}}
+    {$\cTidCTA \times \{\cqIo\}$}{$\cTidCTA \times \{\cqIo\}$}
+  % Key above the Ob columns (Ob boxes hug their event box).
+  \node [anchor=south east, inner sep=0.5mm] at ([xshift=-\trObGap, yshift=1mm]e0.north west) {$\sporkObIn$};
+  \node [anchor=south west, inner sep=0.5mm] at ([xshift=\trObGap, yshift=1mm]e0.north east) {$\sporkObOut$};
   % 0 -> 2: right past the widest Ob^out box, then left through the gap above event 2.
   \coordinate (xr) at ([xshift=3mm]e1-out.east);
   \coordinate (m12) at ($(e1.south)!0.5!(e2.north)$);
   \coordinate (g12) at (e2-in.north |- m12);
-  \draw [reach edge] (e0-out.east) -- (e0-out.east -| xr) -- (xr |- g12) -- (g12) -- (e2-in.north);
+  \draw [reach edge02] (e0-out.east) -- (e0-out.east -| xr) -- (xr |- g12) -- (g12) -- (e2-in.north);
   \path ([xshift=1mm]xr);  % bbox past the edge's line width, so thickening it doesn't shift the figure
   % 2 -> 3: down, then left through the gap above event 3.
   \coordinate (m23) at ($(e2.south)!0.5!(e3.north)$);
   \coordinate (g23) at (e3-in.north |- m23);
-  \draw [reach edge] (e2-out.south) |- (g23) -- (e3-in.north);
+  \draw [reach edge23] (e2-out.south) |- (g23) -- (e3-in.north);
+  % Steps 8-11: envVis column. Each box sits in its event's row, a bold comment on top.
+  \begin{scope}[overlay]
+    \coordinate (xv) at ([xshift=5mm]xr);
+    \node [anchor=south west, inner sep=0.5mm, spork reveal=<8->] at ([yshift=1mm]xv |- e0.north) {$\sporkenvVis$};
+    \foreach \e/\step/\note/\vis in {
+        e0/8/{Initial}/{$\{(\cTid, \cqA)\}$},
+        e1/9/{Unreachable sync, no change}/{$\{(\cTid, \cqA)\}$},
+        e2/10/{Reachable: add $\sporkObOut$}/{$\{(\cTid, \cqA), (\cTid, \cqIo)\}$},
+        e3/11/{Reachable: add $\sporkObOut$}/{$\{(\cTid, \cqA)\} \cup \cTidCTA \times \{\cqIo\}$}} {
+      \node (vis-\e) [tr ob, fill=white, anchor=south west, spork reveal=<\step->] at (xv |- \e.south) {\vis};
+      \node [anchor=south west, inner sep=0.5mm, font=\bfseries, spork reveal=<\step->] at (vis-\e.north west) {\note};
+    }
+  \end{scope}
 \end{sporkfigure}\par
 \endgroup
 \end{column}
 \begin{column}{0.34\textwidth}
+\sporkSlideOnly<-4>{%
 \begin{itemize}
   \item How do we summarize a $\sporkTrPostAccess$?
   \sporkReveal<2->{\item We care about \sporkKeyA{reachable future events}}
   \sporkReveal<3->{\item Summarize as \sporkKeyA{union} of reachable events' \sporkKeyA{outbound sets} $\sporkObOut$}
-  % TASK: forgot to reveal last bullet "this is its \sporkKeyA{environment visibility} \sporkenvVis"
-\end{itemize}
+  \sporkReveal<4->{\item This is its \sporkKeyA{environment visibility} $\sporkenvVis$}
+\end{itemize}}%
+\sporkSlideOnly<5-7>{%
+\sporkMainKey{cp.async Example:}
+\begin{itemize}
+  \item Single thread \sporkGreen{$\sporktid$} in CTA \sporkYellow{$\sporkTid_\mathsf{CTA}$} issues async copy
+  \sporkReveal<6->{\item \sporkViolet{$\sporkqtl_\mathsf{A}$} $=$ {\footnotesize\texttt{Sm80\_cp\_async\_qual}}}
+  \sporkReveal<7->{\item Propagate to CTA\\
+    \sporkRed{$\sporkqtl_\mathsf{io}$} $=$ {\footnotesize\texttt{cuda\_in\_order\_ram\_qual}}}
+\end{itemize}}%
 \end{column}
 \end{columns}
 \end{frame}
-
-%% TASK: Put Ob^in, Ob^out key above corresponding visual columns
-%% Shrink/scale by maybe 0.8, 0.9 for all slides if necessary for below walked-through example.
-
-%% TASK: continue slide series
-%% Diagram reverts back to black and white and right column clears, to be replaced by new stuff
-%% This could be with sporkSlideOnly or by creating a new frame.
-%% Please minimize copy/paste
-%%
-%% \sporkMainKey{cp.async Example:}
-%%
-%% * Single thread \sporkGreen{$\sporktid$} in CTA \sporkYellow{$\sporkTid_\mathrm{CTA}$} issues async copy
-%%   At same time, usages in diagram are similarly highlighted & remain so
-%%   % Color for quick scanning and because sans-serif text has no visual distinction with "\mathsf for GPU concepts" convention... oops
-%%
-%% * Reveal qtl_A = Sm80_cp_async_qual
-%%   Highlight qtl_A here and in diagram in spork violet (matches previous Sm80_cp_async)
-%%   Coloring also remains for lifetime of the diagram
-%%
-%% * Reveal "Propagate to CTA\\qtl_io = cuda_in_order_ram_qual"
-%%   Highlight qtl_io in spork red, same idea as qtl_A
-%%   [red has undesired negative connotation but I'm out of colors and don't want to use Inv or ad-hoc colors not vetted for colorblindness]
-%%
-%% [You can typeset the full _qual names in smaller texttt if needed; nobody really cares probably]
-
-%% TASK: continue slide series, tid/Tid/qtl coloring still in effect.
-%% These slides "step through" the examples, with a column to the right labelled
-%% \sporkenvVis (visibility) in similar manner as Ob^in Ob^out key above columns.
-%% 4 steps, each highlights an event in blue (except step for unreachable TrFence),
-%% redraw "already taken" edges in thick blue,
-%% and reveal a plain white box to the right, in the envVis column, with a bold black comment on top of the box.
-%%
-%% * Initial envVis: [{(tid, qtl_A)}]
-%%
-%% * Unreachable sync, no change: [{(tid, qtl_A)}]
-%%
-%% * cp.async.wait_all: [{(tid, qtl_A), (tid, qtl_io)}]
-%%
-%% * __syncthreads: [{(tid, qtl_A)} \cup Tid_CTA \times {qtl_io}]
-%%
-%% Fact check I worked through my own semantics correctly
-%%
-%% Remember to color-code tid, Tid_CTA, qtl's
 
 
 \end{document}
