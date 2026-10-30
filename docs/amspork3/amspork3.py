@@ -488,9 +488,11 @@ def MultiTrPostAccess_example(enable_fence: bool):
       if True:
         # TeX: begin MultiTrPostAccess
         # CTA scope: executed by $\sporkTid_\mathsf{CTA}$
+        # TeX: mark MultiTrPostAccess readsFor end
         for t in cuda_threads(0, 64):
           # TeX: color MultiTrPostAccess elide "y[t]"
           # TeX: color MultiTrPostAccess blue "x[42]"
+          # TeX: mark MultiTrPostAccess reads end
           y[t] = x[42]  # $\readBullet$ using $\sporkqtl_\mathsf{io}$
 
         # TeX: end MultiTrPostAccess
@@ -511,6 +513,7 @@ def MultiTrPostAccess_example(enable_fence: bool):
         for t in cuda_threads(0, 1):
           # TeX: color MultiTrPostAccess[1:] elide "86"
           # TeX: color MultiTrPostAccess[1:] blue "x[42]"
+          # TeX: mark MultiTrPostAccess[1:] mut end
           x[42] = 86  # $\mutateBullet$ using $\sporkqtl_\mathsf{io}$
         # TeX: end MultiTrPostAccess[1:]
 
