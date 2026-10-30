@@ -1738,9 +1738,54 @@ What do we need to check?
   \item How do we summarize a $\sporkTrPostAccess$?
   \sporkReveal<2->{\item We care about \sporkKeyA{reachable future events}}
   \sporkReveal<3->{\item Summarize as \sporkKeyA{union} of reachable events' \sporkKeyA{outbound sets} $\sporkObOut$}
+  % TASK: forgot to reveal last bullet "this is its \sporkKeyA{environment visibility} \sporkenvVis"
 \end{itemize}
 \end{column}
 \end{columns}
 \end{frame}
+
+%% TASK: Put Ob^in, Ob^out key above corresponding visual columns
+%% Shrink/scale by maybe 0.8, 0.9 for all slides if necessary for below walked-through example.
+
+%% TASK: continue slide series
+%% Diagram reverts back to black and white and right column clears, to be replaced by new stuff
+%% This could be with sporkSlideOnly or by creating a new frame.
+%% Please minimize copy/paste
+%%
+%% \sporkMainKey{cp.async Example:}
+%%
+%% * Single thread \sporkGreen{$\sporktid$} in CTA \sporkYellow{$\sporkTid_\mathrm{CTA}$} issues async copy
+%%   At same time, usages in diagram are similarly highlighted & remain so
+%%   % Color for quick scanning and because sans-serif text has no visual distinction with "\mathsf for GPU concepts" convention... oops
+%%
+%% * Reveal qtl_A = Sm80_cp_async_qual
+%%   Highlight qtl_A here and in diagram in spork violet (matches previous Sm80_cp_async)
+%%   Coloring also remains for lifetime of the diagram
+%%
+%% * Reveal "Propagate to CTA\\qtl_io = cuda_in_order_ram_qual"
+%%   Highlight qtl_io in spork red, same idea as qtl_A
+%%   [red has undesired negative connotation but I'm out of colors and don't want to use Inv or ad-hoc colors not vetted for colorblindness]
+%%
+%% [You can typeset the full _qual names in smaller texttt if needed; nobody really cares probably]
+
+%% TASK: continue slide series, tid/Tid/qtl coloring still in effect.
+%% These slides "step through" the examples, with a column to the right labelled
+%% \sporkenvVis (visibility) in similar manner as Ob^in Ob^out key above columns.
+%% 4 steps, each highlights an event in blue (except step for unreachable TrFence),
+%% redraw "already taken" edges in thick blue,
+%% and reveal a plain white box to the right, in the envVis column, with a bold black comment on top of the box.
+%%
+%% * Initial envVis: [{(tid, qtl_A)}]
+%%
+%% * Unreachable sync, no change: [{(tid, qtl_A)}]
+%%
+%% * cp.async.wait_all: [{(tid, qtl_A), (tid, qtl_io)}]
+%%
+%% * __syncthreads: [{(tid, qtl_A)} \cup Tid_CTA \times {qtl_io}]
+%%
+%% Fact check I worked through my own semantics correctly
+%%
+%% Remember to color-code tid, Tid_CTA, qtl's
+
 
 \end{document}
