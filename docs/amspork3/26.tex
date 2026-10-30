@@ -94,7 +94,7 @@
 % per row, rows stacked downwards in trace order. Event boxes share a width so the rows line up.
 % [#1] = extra ObOut box options (e.g. color on some steps), #2 = node name, #3 = main node options
 % (placement, color), #4 = event text below the constructor, then the set(s): \vtrPost #5 = Ob^out;
-% \vtrFence #5 = Ob^in, #6 = Ob^out. Nodes <name>, <name>-in, <name>-out as \trPre etc.
+% \vtrFence #5 = Ob^in, #6 = Ob^out (\vtrPre: below). Nodes <name>, <name>-in, <name>-out as \trPre etc.
 % todo: main.tex's convention puts new commands in amspork3_defs.tex only; these (and the \tr*
 % macros above) are defined in the deck for now.
 \tikzset{vtr event/.style={tr event, minimum width=37mm}}
@@ -105,6 +105,11 @@
   \node (#2) [vtr event, #3] {$\sporkTrFence$\\#4};
   \node (#2-in) [tr ob, anchor=east] at ([xshift=-\trObGap]#2.west) {#5};
   \node (#2-out) [tr ob, #1, anchor=west] at ([xshift=\trObGap]#2.east) {#6};}
+% \vtrPre: placed by its Ob^in box (#3 = Ob^in box placement/options), event box to its right, as
+% narrow as its text. [#1] = extra event box options, #4 = event text, #5 = Ob^in.
+\newcommand{\vtrPre}[5][]{%
+  \node (#2-in) [tr ob, #3] {#5};
+  \node (#2) [tr event, #1, anchor=west] at ([xshift=\trObGap]#2-in.east) {$\sporkTrPreAccess$\\#4};}
 
 \title{Exo-GPU}
 \subtitle{Safe, Imperative, User-schedulable Programming for Tensor Cores}
@@ -1709,6 +1714,11 @@ What do we need to check?
 %   per event, revealed in turn, `overlay` so the figure's size and position don't change) extends
 %   into it. The current reachable event turns blue (events stay blue), taken edges thick blue;
 %   step 9 is the unreachable __syncthreads (nothing turns blue).
+% * Steps 12-16, TrPreAccess check: envVis column and qtl colors gone, blue kept. Text revealed line
+%   by line top-right: 12, the question; 13, "Precondition:" with a read (unspecified Ob^in) at the
+%   right of the last row; 14, dotted candidate edges from the reachable Ob^outs; 15, those Ob^outs
+%   green again; 16, the dotted edges give way to the final envVis box, with an "overlaps?" arrow to
+%   the read's Ob^in.
 % Highlight macros use \ensuremath: the unhighlighted form stays in math mode.
 \begin{frame}[label=EnvVisibility]{Environment Visibility}
 \begin{columns}[T]
@@ -1719,14 +1729,14 @@ What do we need to check?
     reach0/.style={spork slide only={<2-4,8->{spork blue style}}},
     reach2/.style={spork slide only={<2-4,10->{spork blue style}}},
     reach3/.style={spork slide only={<2-4,11->{spork blue style}}},
-    reach out/.style={spork slide only=<3-4>{spork green style}},
+    reach out/.style={spork slide only={<3-4,15->{spork green style}}},
     reach edge02/.style={spork arrow, spork slide only={<2-4,10->{line width=1.6pt, draw=sporkBlueFg}}},
     reach edge23/.style={spork arrow, spork slide only={<2-4,11->{line width=1.6pt, draw=sporkBlueFg}}},
   }
   \def\cTid{\sporktid}
   \def\cTidCTA{\sporkTid_\mathsf{CTA}}
-  \def\cqA{\sporkViolet[only=<6->]{\ensuremath{\sporkqtl_\mathsf{A}}}}
-  \def\cqIo{\sporkYellow[only=<7->]{\ensuremath{\sporkqtl_\mathsf{io}}}}
+  \def\cqA{\sporkViolet[only=<6-11>]{\ensuremath{\sporkqtl_\mathsf{A}}}}
+  \def\cqIo{\sporkYellow[only=<7-11>]{\ensuremath{\sporkqtl_\mathsf{io}}}}
   \vtrPost[reach out]{e0}{reach0}{\mutateBullet\ $\sporkx[\sporkz^*]$}
     {$\{(\cTid, \cqA)\}$}
   \vtrFence{e1}{below=6mm of e0}{\texttt{\_\_syncthreads}}
@@ -1757,11 +1767,40 @@ What do we need to check?
         e1/9/{Unreachable sync, no change}/{$\{(\cTid, \cqA)\}$},
         e2/10/{Reachable: add $\sporkObOut$}/{$\{(\cTid, \cqA), (\cTid, \cqIo)\}$},
         e3/11/{Reachable: add $\sporkObOut$}/{$\{(\cTid, \cqA)\} \cup \cTidCTA \times \{\cqIo\}$}} {
-      \node (vis-\e) [tr ob, fill=white, anchor=south west, spork reveal=<\step->] at (xv |- \e.south) {\vis};
-      \node [anchor=south west, inner sep=0.5mm, font=\bfseries, spork reveal=<\step->] at (vis-\e.north west) {\note};
+      \node (vis-\e) [tr ob, fill=white, anchor=south west, spork reveal=<\step-11>] at (xv |- \e.south) {\vis};
+      \node [anchor=south west, inner sep=0.5mm, font=\bfseries, spork reveal=<\step-11>] at (vis-\e.north west) {\note};
     }
     % Key, centered on the widest envVis box (the last).
-    \node [annotation, anchor=south, spork reveal=<8->] at (vis-e3.center |- keyY) {$\sporkenvVis$};
+    \node [annotation, anchor=south, spork reveal=<8-11>] at (vis-e3.center |- keyY) {$\sporkenvVis$};
+  \end{scope}
+  % Steps 12-16: the TrPreAccess check, in the cleared envVis area (also `overlay`).
+  % TrPreAccess at the right of the last row; precondition text top-right.
+  \begin{scope}[overlay]
+    % Reveal on a scope: covers both of \vtrPre's boxes.
+    \begin{scope}[spork reveal=<13->]
+      \vtrPre{pre}{anchor=west, at={([xshift=8mm]xv |- e3)}}{\readBullet\ $\sporkx[\sporkz^*]$}{$\sporkObIn$}
+    \end{scope}
+    % One node per line (\sporkReveal doesn't work in node text), chained downwards.
+    % No hyphenation; \Longleftrightarrow without \iff's thick spaces (line starts).
+    \tikzset{pre line/.style={anchor=north west, text width=58mm, align=left, inner sep=0.5mm,
+      execute at begin node={\hyphenpenalty=10000\exhyphenpenalty=10000}}}
+    \node (preQ) [pre line, spork reveal=<12->] at (xv |- keyY)
+      {$\sporkTrPostAccess \rightarrow^* \sporkTrPreAccess$?};
+    \node (preK) [pre line, spork reveal=<13->] at (preQ.south west) {\sporkMainKey{Precondition:}};
+    \node (pre1) [pre line, spork reveal=<14->] at (preK.south west) {$\exists$ edge from any reachable event};
+    \node (pre2) [pre line, spork reveal=<15->] at (pre1.south west)
+      {$\Longleftrightarrow$ $\sporkTrPreAccess$'s $\sporkObIn$ overlaps with any reachable $\sporkObOut$};
+    \node [pre line, spork reveal=<16->] at (pre2.south west)
+      {$\Longleftrightarrow$ $\sporkTrPreAccess$'s $\sporkObIn$ overlaps with $\sporkTrPostAccess$'s $\sporkenvVis$};
+    % Steps 14, 15: candidate edges from the reachable Ob^out boxes.
+    \foreach \e in {e0, e2, e3}
+      \draw [spork arrow, densely dotted, spork slide only=<14-15>] (\e-out.east) to [out=0, in=180] (pre-in.west);
+    % Step 16: the reachable Ob^outs summarized as the final envVis (row 3, above the TrPreAccess).
+    \node (visFinal) [tr ob, fill=white, anchor=south west, spork reveal=<16->] at (xv |- e2.south)
+      {$\{(\cTid, \cqA)\} \cup \cTidCTA \times \{\cqIo\}$};
+    \node [anchor=south west, inner sep=0.5mm, font=\bfseries, spork reveal=<16->] at (visFinal.north west)
+      {$\sporkTrPostAccess$'s $\sporkenvVis$};
+    \draw [spork arrow, <->, spork reveal=<16->] (pre-in.north) -- node [right] {overlaps?} (pre-in.north |- visFinal.south);
   \end{scope}
 \end{sporkfigure}\par
 \endgroup
@@ -1787,32 +1826,5 @@ What do we need to check?
 \end{column}
 \end{columns}
 \end{frame}
-
-% TASK: trying to get a lot of mileage out of this excellent figure.
-% Now need to convey the conclusion of TrPreAccess check.
-%
-% I'm not sure exactly the best coloring choice now.
-% Probably keep the blue, but discard yellow and violet due to upcoming green-ing of ObOut again.
-%
-% \trPre TrPreAccess x[z^*] has to appear in the bottom-right
-%
-% Text on top-right
-%
-% \sporkTrPostAccess ->^* \sporkTrPreAccess?
-%
-% \sporkMainKey{Precondition:}
-%
-% Reveal: \exists edge from any reachable event
-% [dotted arrows from reachable ObOuts to ObIn of TrPreAccess?]
-%
-% Reveal: \iff \sporkTrPreAccess's \sporkObIn overlaps with any reachable \sporkObOut
-% [Reachable ObOuts go back to green]
-%
-% Reveal: \iff \sporkTrPreAccess's \sporkObIn overlaps with \sporkTrPostAccess's \sporkenvVis
-% [Not sure how to illustrate this.
-% Possibility is to put the final envVis box again and draw an arrow between
-% TrPreAccess ObIn and the box with "overlaps?"
-%
-% Likely refinements may be clearer after seeing everything laid out.
 
 \end{document}
