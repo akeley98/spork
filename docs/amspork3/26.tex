@@ -1735,9 +1735,10 @@ What do we need to check?
     {$\{(\cTid, \cqA)\}$}{$\{(\cTid, \cqIo)\}$}
   \vtrFence[reach out]{e3}{reach3, below=6mm of e2}{\texttt{\_\_syncthreads}}
     {$\cTidCTA \times \{\cqIo\}$}{$\cTidCTA \times \{\cqIo\}$}
-  % Key above the Ob columns (Ob boxes hug their event box).
-  \node [anchor=south east, inner sep=0.5mm] at ([xshift=-\trObGap, yshift=1mm]e0.north west) {$\sporkObIn$};
-  \node [anchor=south west, inner sep=0.5mm] at ([xshift=\trObGap, yshift=1mm]e0.north east) {$\sporkObOut$};
+  % Key: annotation boxes centered above the Ob columns (centered on the widest box, row 1's).
+  \coordinate (keyY) at ([yshift=2mm]e0.north);
+  \node [annotation, anchor=south] at (e1-in.center |- keyY) {$\sporkObIn$};
+  \node [annotation, anchor=south] at (e1-out.center |- keyY) {$\sporkObOut$};
   % 0 -> 2: right past the widest Ob^out box, then left through the gap above event 2.
   \coordinate (xr) at ([xshift=3mm]e1-out.east);
   \coordinate (m12) at ($(e1.south)!0.5!(e2.north)$);
@@ -1751,7 +1752,6 @@ What do we need to check?
   % Steps 8-11: envVis column. Each box sits in its event's row, a bold comment on top.
   \begin{scope}[overlay]
     \coordinate (xv) at ([xshift=5mm]xr);
-    \node [anchor=south west, inner sep=0.5mm, spork reveal=<8->] at ([yshift=1mm]xv |- e0.north) {$\sporkenvVis$};
     \foreach \e/\step/\note/\vis in {
         e0/8/{Initial}/{$\{(\cTid, \cqA)\}$},
         e1/9/{Unreachable sync, no change}/{$\{(\cTid, \cqA)\}$},
@@ -1760,6 +1760,8 @@ What do we need to check?
       \node (vis-\e) [tr ob, fill=white, anchor=south west, spork reveal=<\step->] at (xv |- \e.south) {\vis};
       \node [anchor=south west, inner sep=0.5mm, font=\bfseries, spork reveal=<\step->] at (vis-\e.north west) {\note};
     }
+    % Key, centered on the widest envVis box (the last).
+    \node [annotation, anchor=south, spork reveal=<8->] at (vis-e3.center |- keyY) {$\sporkenvVis$};
   \end{scope}
 \end{sporkfigure}\par
 \endgroup
