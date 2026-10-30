@@ -1942,7 +1942,7 @@ What do we need to check?
   \sporkReveal<3->{\item \sporkKeyA{observers} (like Fence): from $\sporktidMap$ \& parameterized $\sporkQtl$}
 \end{itemize}
 
-\vspace{-2.5mm}  % code text snug under the bullets
+\vspace{-1.8mm}  % code text snug under the bullets
 \begingroup\centering
 \begin{sporkfigure}
   \tikzset{
@@ -1955,9 +1955,9 @@ What do we need to check?
   \node (aw-in) [tr ob, anchor=west] at ([xshift=36mm]arr-out.east) {$\sporkAwIn$};
   \node (aw) [tr event, minimum width=22mm, anchor=west] at ([xshift=\trObGap]aw-in.east) {$\sporkTrAwait$};
   \node (aw-out) [tr ob, anchor=west] at ([xshift=\trObGap]aw.east) {$\sporkObOut$};
-  \node [above=0.7mm of arr, font=\ttfamily]
+  \node [above=0.0mm of arr, font=\ttfamily]
     {\vphantom{\sporkViolet{$\sporkQtlArrive$}}Arrive(\sporkViolet[only=<3->]{$\sporkQtlArrive$}) >> $\sporkx[\sporkz^*]$};
-  \node [above=0.7mm of aw, font=\ttfamily]
+  \node [above=0.0mm of aw, font=\ttfamily]
     {\vphantom{\sporkGreen{$\sporkQtlAwait$}}Await($\sporkx[\sporkz^*]$, \sporkGreen[only=<4->]{$\sporkQtlAwait$}, \sporkComment{\ldots})};
   \draw [spork arrow] (arr-out) -- coordinate (edgeMid)
     node [above, spork reveal=<2->] {$\sporkAwOut \cap \sporkAwIn \ne \varnothing$} (aw-in);
