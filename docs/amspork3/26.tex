@@ -1831,7 +1831,7 @@ What do we need to check?
 \begin{frame}[label=MultiTrPostAccess]{Synchronization Environment: Multiple Accesses}
 \sporkKeyA{Example:} $\sporkTid_\mathsf{CTA} = \{ \sporktid_{0} .. \sporktid_{63} \}$
 
-% Code left (listing versions: reads on 1-2, + mutate on 3, + Fence on 4), env values right. Each
+% Code left (listing versions: reads on 1-3, + mutate on 4, + Fence on 5), env values right. Each
 % `env(read, x, 42) =` label sits on a blank code line (a program point, joined to the code's left
 % edge by a dashed gray line), starting at labX, clear of the code's right margin (the Fence call is
 % split over two lines in amspork3.py to keep the code narrow), with its { ... } chained to its right.
@@ -1839,16 +1839,21 @@ What do we need to check?
 % in every version). Found from listing marks (amspork3.py): line height = (readsFor - reads) in y.
 % * Step 2: env(read, x, 42) after the reads: one envVis per read TrPostAccess, i.e. 64 singleton
 %   sets {(tid_i, qtl_io)} (a set of sets, not one set of 64 observers).
-% * Step 3: tid_0's mutate (TrPreAccess, Ob^in {(tid_0, qtl_io)}, one code line below the mutate) is
+% * Step 3: why they're kept apart: read ->* read isn't required (note above the first env label).
+% * Step 4: tid_0's mutate (TrPreAccess, Ob^in {(tid_0, qtl_io)}, one code line below the mutate) is
 %   checked against every read envVis; all but tid_0's fail. (Prior mutates of x[42] pass: hidden
-%   setup in amspork3.py, x[t] = 1337 + Fence.)
-% * Step 4: after the Fence every envVis grows to Tid_CTA x {qtl_io}, so the set de-duplicates to one
+%   setup in amspork3.py, x[t] = 1337 + Fence.) Also what's missing, read ->* mutate (red box above
+%   the second env label, before the Fence that fixes it).
+% * Step 5: after the Fence every envVis grows to Tid_CTA x {qtl_io}, so the set de-duplicates to one
 %   element; the check passes. Both env values stay on screen.
-\sporkSlideOnly<-2>{\sporkListing[version=0]{MultiTrPostAccess}}%
-\sporkSlideOnly<3>{\sporkListing[version=1]{MultiTrPostAccess}}%
-\sporkSlideOnly<4->{\sporkListing[version=2]{MultiTrPostAccess}}%
+\sporkSlideOnly<-3>{\sporkListing[version=0]{MultiTrPostAccess}}%
+\sporkSlideOnly<4>{\sporkListing[version=1]{MultiTrPostAccess}}%
+\sporkSlideOnly<5->{\sporkListing[version=2]{MultiTrPostAccess}}%
 \begin{tikzpicture}[remember picture, overlay]
+  % Check arrows: curves leaving / entering vertically; their label in a red (fail) or green (pass)
+  % box, left of the curve near its start, where it's still vertical (short code lines there).
   \tikzset{
+    check label/.style={rectangle, thick, inner sep=1mm, font=\small, left=5.5mm, pos=0.2},
     env entry/.style={inner sep=0.5mm, font=\small},
     pp line/.style={draw=black!45, thick, densely dashed},
   }
@@ -1874,15 +1879,13 @@ What do we need to check?
     \node (brR) [anchor=west, inner sep=0mm] at (s63.east |- y1) {$\left.\rule[-10mm]{0pt}{20mm}\right\}$};
     \draw [pp line] (codeL |- y1) -- (lbl1.west);
   \end{scope}
-  % Removed for now (fewer layout constraints); likely to come back. Would clash with the step 3
-  % check marks as placed here.
-  %% \node (rrNote) [annotation, anchor=west, font=\footnotesize, spork reveal=<3->] at ([xshift=9mm]brR.east)
-  %%   {Not required:\\\readBullet{} $\rightarrow^*$ \readBullet};
-  %% \draw [annotation line, spork reveal=<3->] (rrNote.west) -- (brR.east);
+  % Step 3: reads aren't ordered among themselves (two lines, to stay left of the brace).
+  \node [annotation, anchor=south west, font=\footnotesize, spork reveal=<3->] at ([yshift=1.5mm]lbl1.north west)
+    {Not required:\\\readBullet{} $\rightarrow^*$ \readBullet};
 
-  % Step 3-: tid_0's mutate, one code line below the mutate line (room for the step 4 arrow),
+  % Step 4-: tid_0's mutate, one code line below the mutate line (room for the step 4 arrow),
   % joined by an L-shaped leader; left of the env column so it fits on the slide.
-  \begin{scope}[spork reveal=<3->]
+  \begin{scope}[spork reveal=<4->]
     \coordinate (mu) at (pic cs:MultiTrPostAccess-mut);
     \coordinate (muLow) at ($(mu)-(rdFor)+(rd)$);
     \node (preIn) [rectangle, draw, thick, inner sep=1mm, minimum height=6mm, font=\small, anchor=west]
@@ -1892,26 +1895,31 @@ What do we need to check?
     \node (obIn) [anchor=south, inner sep=0.5mm, font=\small] at (preIn.north) {$\sporkObIn$};
     \draw [pp line] ([xshift=2mm, yshift=0.5ex]mu) -| ([xshift=-3mm]preIn.west) -- (preIn.west);
   \end{scope}
-  % Step 3: checked against every read envVis; all but tid_0's fail.
-  % Arrow labels on the left (short code lines there), clear of the braces.
-  \begin{scope}[spork slide only=<3>]
+  % Step 4: checked against every read envVis; all but tid_0's fail.
+  \begin{scope}[spork slide only=<4>]
     \node [anchor=west] at ([xshift=1.5mm]brR.east |- s0) {\chkYes};
     \node [anchor=west] at ([xshift=1.5mm]brR.east |- s1) {\chkNo};
     \node [anchor=west] at ([xshift=1.5mm]brR.east |- s63) {\chkNo};
-    \draw [spork arrow, draw=sporkRedFg] (obIn.north) -- node [left, font=\small, text=sporkRedFg] {overlaps each? \chkNo}
-      (s63.south);
   \end{scope}
+  \draw [spork arrow, draw=sporkRedFg, spork slide only=<4>] (obIn.north) to [out=90, in=-90]
+    node [check label, spork red style] {overlaps each? \chkNo} (s63.south);
 
-  % Step 4: after the Fence, one envVis (set de-duplication).
-  \begin{scope}[spork slide only=<4->]
+  % Step 5: after the Fence, one envVis (set de-duplication).
+  \begin{scope}[spork slide only=<5->]
     \coordinate (y5) at ([yshift=0.5ex]labX |- b5);
     \node (lbl5) [env entry, anchor=west] at (y5) {$\sporkenv(\sporkread, \sporkx, 42) =$};
     \node (fL) [anchor=west, inner sep=0mm] at (lbl5.east) {$\left\{\rule[-2.5mm]{0pt}{5mm}\right.$};
     \node (f0) [env entry, anchor=west] at (fL.east) {$\sporkTid_\mathsf{CTA} \times \{\qIo\}$};
     \node [anchor=west, inner sep=0mm] at (f0.east) {$\left.\rule[-2.5mm]{0pt}{5mm}\right\}$};
     \draw [pp line] (codeL |- y5) -- (lbl5.west);
-    \draw [spork arrow] (obIn.north) -- node [left, font=\small] {overlaps each? \chkYes} (f0.south);
+    \draw [spork arrow, draw=sporkGreenFg] (obIn.north) to [out=90, in=-90]
+      node [check label, spork green style] {overlaps each? \chkYes} (f0.south);
   \end{scope}
+  % Step 4-: what the Fence must provide; above the second env label (placed before it's shown), two
+  % lines to stay left of the braces. Red until the Fence provides it (step 5: green).
+  \node [rectangle, spork red style, thick, inner sep=1mm, font=\footnotesize, align=left, anchor=south west,
+      spork reveal=<4->, spork slide only=<5->{spork green style}]
+    at ([yshift=1mm]lbl5.north west) {Required:\\\readBullet{} $\rightarrow^*$ \mutateBullet};
 \end{tikzpicture}
 \end{frame}
 
