@@ -1926,42 +1926,74 @@ What do we need to check?
 % Arrive / Await, very hand-wavey (time). One TrArrive -> TrAwait pair, in/out sets as in main.tex
 % (InOutSets.tex): TrArrive has Ob^in and Aw^out, TrAwait has Aw^in and Ob^out. Code text above each
 % event (paper syntax: Arrive takes a list of barrier windows, Await a lag z_lag; elided as ...).
-% Step 2: the edge's condition above the arrow, an annotation under it, and the PendingAwait type
-% (unboxed) under that. Steps 3, 4: what each event translates (annotations below the type, joined
-% up to their events; observers in key color A, pending awaits in key color B).
+% Step 2: the edge's condition above the arrow, an annotation just under the event row, and the
+% PendingAwait type (unboxed) under that. (Per-event "translates observers <-> pending awaits"
+% annotations were cut for space; see git history.)
+% Steps 3, 4: where the observers come from, as for Fence: Ob^in from Qtl_arrive (violet), Ob^out
+% from Qtl_await (green), matching FenceQtl / Trace Edges; qtl highlighted in the code text, colored
+% box under its Ob box. tidMap(sigma) appears from nowhere here: the statements' #tidMap annotation
+% (stmt.tex) is deliberately not on the slides for now.
+% Step 5: PendingAwait's fields: x, z^* blue (matching barrier element), z_await yellow (pipelining).
+% The type is a chain of nodes on one baseline, so on-step highlights don't move it; the code text
+% nodes get the highlighted height (\vphantom), so the figure doesn't shift when they're highlighted.
 \begin{frame}[label=ArriveAwait]{Arrive and Await}
 \begin{itemize}
   \item Arrive/Await statements add $\sporkTrArrive$/$\sporkTrAwait$ trace events
+  \sporkReveal<3->{\item \sporkKeyA{observers} (like Fence): from $\sporktidMap$ \& parameterized $\sporkQtl$}
 \end{itemize}
 
-\vspace{3mm}
+\vspace{-2.5mm}  % code text snug under the bullets
 \begingroup\centering
 \begin{sporkfigure}
+  \tikzset{
+    color note/.style={rectangle, thick, rounded corners=1mm, inner sep=1.5mm, align=left},
+    eq part/.style={inner sep=0mm, anchor=base west},
+  }
   \node (arr) [tr event, minimum width=22mm] {$\sporkTrArrive$};
   \node (arr-in) [tr ob, anchor=east] at ([xshift=-\trObGap]arr.west) {$\sporkObIn$};
   \node (arr-out) [tr ob, anchor=west] at ([xshift=\trObGap]arr.east) {$\sporkAwOut$};
   \node (aw-in) [tr ob, anchor=west] at ([xshift=36mm]arr-out.east) {$\sporkAwIn$};
   \node (aw) [tr event, minimum width=22mm, anchor=west] at ([xshift=\trObGap]aw-in.east) {$\sporkTrAwait$};
   \node (aw-out) [tr ob, anchor=west] at ([xshift=\trObGap]aw.east) {$\sporkObOut$};
-  \node [above=2mm of arr, font=\ttfamily] {Arrive($\sporkQtlArrive$) >> $\sporkx[\sporkz^*]$};
-  \node [above=2mm of aw, font=\ttfamily] {Await($\sporkx[\sporkz^*]$, $\sporkQtlAwait$, \sporkComment{\ldots})};
+  \node [above=0.7mm of arr, font=\ttfamily]
+    {\vphantom{\sporkViolet{$\sporkQtlArrive$}}Arrive(\sporkViolet[only=<3->]{$\sporkQtlArrive$}) >> $\sporkx[\sporkz^*]$};
+  \node [above=0.7mm of aw, font=\ttfamily]
+    {\vphantom{\sporkGreen{$\sporkQtlAwait$}}Await($\sporkx[\sporkz^*]$, \sporkGreen[only=<4->]{$\sporkQtlAwait$}, \sporkComment{\ldots})};
   \draw [spork arrow] (arr-out) -- coordinate (edgeMid)
     node [above, spork reveal=<2->] {$\sporkAwOut \cap \sporkAwIn \ne \varnothing$} (aw-in);
 
   % Step 2: edges by pending awaits, and what a pending await is.
-  \node (edgeNote) [annotation, anchor=north, spork reveal=<2->] at ([yshift=-5mm]edgeMid |- arr.south)
+  \node (edgeNote) [annotation, anchor=north, spork reveal=<2->] at ([yshift=-0.7mm]edgeMid |- arr.south)
     {Edges formed by overlapping\\\sporkKeyB{pending awaits}};
   \draw [annotation line, spork reveal=<2->] (edgeNote.north) -- ([yshift=-1mm]edgeMid);
-  \node (awType) [anchor=north, spork reveal=<2->] at ([yshift=-1mm]edgeNote.south)
-    {$\sporkaw: \sporkAw \Coloneqq \sporkPendingAwait(\sporkx, \sporkz^*, \sporkz_\mathrm{await})$};
+  \begin{scope}[spork reveal=<2->]
+    \node (aw0) [inner sep=0mm, anchor=north] at ([xshift=-12mm, yshift=-1mm]edgeNote.south)
+      {$\sporkaw: \sporkAw \Coloneqq \sporkPendingAwait($};
+    \node (awXz) [eq part] at (aw0.base east) {\kern-\fboxsep\sporkBlue[only=<5->]{$\sporkx, \sporkz^*$}\kern-\fboxsep};
+    \node (awC) [eq part] at (awXz.base east) {$,\,$};
+    \node (awZ) [eq part] at (awC.base east) {\kern-\fboxsep\sporkYellow[only=<5->]{$\sporkz_\mathrm{await}$}\kern-\fboxsep};
+    \node [eq part] at (awZ.base east) {$)$};
+  \end{scope}
 
-  % Steps 3, 4: what each event translates.
-  \node (arrNote) [annotation, anchor=north, spork reveal=<3->] at ([yshift=-1.5mm]arr.center |- awType.south)
-    {Translates \sporkKeyA{inbound observers}\\into \sporkKeyB{outbound pending awaits}};
-  \draw [annotation line, spork reveal=<3->] (arrNote.north) -- (arr.south);
-  \node (awNote) [annotation, anchor=north, spork reveal=<4->] at ([yshift=-1.5mm]aw.center |- awType.south)
-    {Translates \sporkKeyB{inbound pending awaits}\\into \sporkKeyA{outbound observers}};
-  \draw [annotation line, spork reveal=<4->] (awNote.north) -- (aw.south);
+  % Steps 3, 4: observer sets, colored boxes under the Ob boxes, extending inwards (under the events)
+  % so the figure stays within the slide.
+  \node (inNote) [color note, spork violet style, anchor=north west, spork reveal=<3->] at ([yshift=-5mm]arr-in.south west)
+    {$\sporktidMap(\sporksigma) \times \sporkQtlArrive$};
+  \draw [thick, draw=sporkVioletFg, spork reveal=<3->] (arr-in.south |- inNote.north) -- (arr-in.south);
+  \node (outNote) [color note, spork green style, anchor=north east, spork reveal=<4->] at ([yshift=-5mm]aw-out.south east)
+    {$\sporktidMap(\sporksigma) \times \sporkQtlAwait$};
+  \draw [thick, draw=sporkGreenFg, spork reveal=<4->] (aw-out.south |- outNote.north) -- (aw-out.south);
+
+  % Step 5: what the pending await's fields do (boxes under the type, left and right).
+  \begin{scope}[spork reveal=<5->]
+    \coordinate (lineTop) at ([yshift=-1mm]aw0.south);
+    \node (xzNote) [color note, spork blue style, anchor=north east] at ([xshift=4mm, yshift=-1.2mm]awXz.center |- lineTop)
+      {Matched by common barrier\\element $\sporkx[\sporkz^*]$};
+    \draw [thick, draw=sporkBlueFg] (awXz.center |- lineTop) -- (awXz.center |- xzNote.north);
+    \node (zNote) [color note, spork yellow style, anchor=north west] at ([xshift=-4mm, yshift=-1.2mm]awZ.center |- lineTop)
+      {\ldots{} and pipelining\\param (see paper)};
+    \draw [thick, draw=sporkYellowFg] (awZ.center |- lineTop) -- (awZ.center |- zNote.north);
+  \end{scope}
 \end{sporkfigure}\par
 \endgroup
 \end{frame}
