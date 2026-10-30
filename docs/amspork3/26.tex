@@ -50,8 +50,9 @@
 %% % Color option for read/mutate (color is used a lot)
 %% \newcommand{\readBullet}{{\color{sporkRedFg}$\bullet$} read}  % Reads are Red
 %% \newcommand{\mutateBullet}{{\color{sporkBlueFg}$\bullet$} mutate}
-\newcommand{\readBullet}{$\circ$ read}
-\newcommand{\mutateBullet}{$\bullet$ mutate}
+%% Wrapped in textsf to force it to work in math mode.
+\newcommand{\readBullet}{\textsf{$\circ$ read}}
+\newcommand{\mutateBullet}{\textsf{$\bullet$ mutate}}
 
 
 % TikZ styles for commentary on a diagram: a neutral gray box (keyword colors inside stay
@@ -1825,6 +1826,10 @@ What do we need to check?
 \end{itemize}}%
 \end{column}
 \end{columns}
+\end{frame}
+
+\begin{frame}[label=MultiTrPostAccess]{Synchronization Environment: Multiple Accesses}
+\sporkListing{MultiTrPostAccess}
 \end{frame}
 
 \end{document}

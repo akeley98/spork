@@ -5,6 +5,8 @@ Listing directive format: spork_tex/README.md ("Source format") in https://githu
 """
 from __future__ import annotations
 
+import sys
+
 from exo import *
 from exo.scalars import f16, bf16, f32
 from exo.platforms.cuda import *
@@ -468,3 +470,55 @@ def scope_example(X: size):
 
 
 # TeX: end scope
+
+
+@proc
+def MultiTrPostAccess_example(enable_fence: bool):
+  with CudaDeviceFunction(blockDim=64):
+    for tx in cuda_tasks(0, 1):
+      x: f32[64] @ CudaSmemLinear
+      y: f32[64] @ CudaRmemLinear
+      for t in cuda_threads(0, 64, unit=cuda_thread):
+        x[t] = 1337
+      Fence(cuda_in_order, cuda_in_order)
+
+      # Example starts below
+      # Cutting out all the hidden if enable_fence machinery.
+      # TeX: listing MultiTrPostAccess 4
+      if True:
+        # TeX: begin MultiTrPostAccess
+        for t in cuda_threads(0, 64, unit=cuda_thread):
+          # TeX: color MultiTrPostAccess elide "y[t]"
+          # TeX: color MultiTrPostAccess blue "x[42]"
+          y[t] = x[42]  # $\readBullet$ using $\sporkqtl_\mathsf{io}$
+        # TeX: end MultiTrPostAccess
+      if enable_fence:
+        # TeX: begin MultiTrPostAccess[:2]
+
+        # TeX: end MultiTrPostAccess[:2]
+        # >>> Completely blank line intended.
+        # TeX: begin MultiTrPostAccess[2]
+        # Missing Fence! No fork-join implied.
+        # TeX: end MultiTrPostAccess[2]
+        # TeX: begin MultiTrPostAccess[3]
+        Fence(cuda_in_order, cuda_in_order)  # $(\{\sporkqtl_\mathsf{io}\}, \{\sporkqtl_\mathsf{io}\})$
+        # TeX: end MultiTrPostAccess[3]
+      if True:
+        # TeX: begin MultiTrPostAccess[1:]
+        # Meaning: single thread only.
+        for t in cuda_threads(0, 1, unit=cuda_thread):
+          # TeX: color MultiTrPostAccess[1:] elide "86"
+          # TeX: color MultiTrPostAccess[1:] blue "x[42]"
+          x[42] = 86  # $\mutateBullet$ using $\sporkqtl_\mathsf{io}$
+        # TeX: end MultiTrPostAccess[1:]
+
+      # Example ends
+      Fence(cuda_in_order, cuda_in_order)
+
+MultiTrPostAccess_example.sync_check(enable_fence=True)
+try:
+    MultiTrPostAccess_example.sync_check(enable_fence=False)
+    print("Was supposed to fail sync_check", file=sys.stderr)
+    raise SystemExit(1)
+except Exception:
+    pass
