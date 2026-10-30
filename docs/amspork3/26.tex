@@ -981,7 +981,7 @@ Edge forms between trace events $\sporktr$ and $\sporktr'$ when
   \item Why stick to only 1 thread?
   \item \sporkKeyA{Collective Unit} (our term): \sporkKeyA{number} and \sporkKeyA{arrangement} of threads
   \begin{itemize}
-    \sporkReveal<2->{\item \texttt{cuda\_thread}: 1 thread}
+    \sporkReveal<2->{\item \texttt{cuda\_thread}: 1 thread {\color{sporkGrayttColor}(default)}}
     \sporkReveal<2->{\item \sporkGreen[only=<3>]{\texttt{cuda\_warp}}: 32 threads {\color{sporkGrayttColor}(consecutive, aligned)}}
     \sporkReveal<2->{\item \texttt{cuda\_warpgroup}: 128 threads {\color{sporkGrayttColor}(consecutive, aligned)}}
   \end{itemize}
@@ -1829,7 +1829,31 @@ What do we need to check?
 \end{frame}
 
 \begin{frame}[label=MultiTrPostAccess]{Synchronization Environment: Multiple Accesses}
+\sporkKeyA{Example:} $\sporkTid_\mathsf{CTA} = \{ \sporktid_{0} .. \sporktid_{63} \}$
+
 \sporkListing{MultiTrPostAccess}
+
+% TASK: Try to illustrate example where "multiple retained TrPostAccess / envVis" is important.
+% I'm envisioning code on the left, boxes on the right, but can re-arrange if needed.
+% The code reveals probably are not 1:1 with reveals below; the code is not intended to constrain.
+%
+% Reveal: With just read loop visible, show \sporksigma(\sporkread, x, 42) = \{ (tid_0, qtl_io) ... (tid_63, qtl_io) \}
+% may use vertical dots here if feasible it may look nice.
+% Visually anchor to program point being commented on (above the yet-unseed Fence)
+%
+% Reveal: Annotate with something like read ->^* read not required
+%
+% Reveal: Show the mutate "loop" now, TrPreAccess for that thread.
+% ObIn is \{ (tid_0, qtl_io) \}
+% Illustrate check against all prior read envVis, most fail.
+% Also anchor to program point
+%
+% Reveal: Show the fence code, annotate anchored at program point:
+% \sporksigma(\sporkread, x, 42) = \{ Tid_cta \times \{qtl_io\} \}
+% Replaces whatever "failed check" illustration there was.
+% This can also replace the "read ->^* read" if needed.
+% As before check for mistakes.
+
 \end{frame}
 
 \end{document}

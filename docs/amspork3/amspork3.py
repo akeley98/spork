@@ -484,29 +484,31 @@ def MultiTrPostAccess_example(enable_fence: bool):
 
       # Example starts below
       # Cutting out all the hidden if enable_fence machinery.
-      # TeX: listing MultiTrPostAccess 4
+      # TeX: listing MultiTrPostAccess 3
       if True:
         # TeX: begin MultiTrPostAccess
-        for t in cuda_threads(0, 64, unit=cuda_thread):
+        # CTA scope: executed by $\sporkTid_\mathsf{CTA}$
+        for t in cuda_threads(0, 64):
           # TeX: color MultiTrPostAccess elide "y[t]"
           # TeX: color MultiTrPostAccess blue "x[42]"
           y[t] = x[42]  # $\readBullet$ using $\sporkqtl_\mathsf{io}$
+
         # TeX: end MultiTrPostAccess
       if enable_fence:
         # TeX: begin MultiTrPostAccess[:2]
 
+
         # TeX: end MultiTrPostAccess[:2]
         # >>> Completely blank line intended.
         # TeX: begin MultiTrPostAccess[2]
-        # Missing Fence! No fork-join implied.
+        # $(\{\sporkqtl_\mathsf{io}\}, \{\sporkqtl_\mathsf{io}\})$
+        Fence(cuda_in_order, cuda_in_order)
         # TeX: end MultiTrPostAccess[2]
-        # TeX: begin MultiTrPostAccess[3]
-        Fence(cuda_in_order, cuda_in_order)  # $(\{\sporkqtl_\mathsf{io}\}, \{\sporkqtl_\mathsf{io}\})$
-        # TeX: end MultiTrPostAccess[3]
       if True:
         # TeX: begin MultiTrPostAccess[1:]
+
         # Meaning: single thread only.
-        for t in cuda_threads(0, 1, unit=cuda_thread):
+        for t in cuda_threads(0, 1):
           # TeX: color MultiTrPostAccess[1:] elide "86"
           # TeX: color MultiTrPostAccess[1:] blue "x[42]"
           x[42] = 86  # $\mutateBullet$ using $\sporkqtl_\mathsf{io}$
