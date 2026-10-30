@@ -1923,4 +1923,24 @@ What do we need to check?
 \end{tikzpicture}
 \end{frame}
 
+% TASK: Arrive and Await
+%
+% This will be incredibly hand-wavey due to time.
+%
+% * Arrive/Await statements add TrArrive/TrAwait trace events
+%
+% Diagram: [Ob^in][TrArrive][Pa^out] -> [Pa^in][TrAwait][Ob^out]
+% with code text Arrive(\sporkQtlArrive) >> x_bar[z^*] above TrArrive
+% and with code text Await(x_bar[z^*], \sporkQtlAwait, \codecomment{...}) above TrAwait
+%
+% Reveal annotation [pointing up to arrow]: edges formed by overlapping \sporkKeyB{pending awaits}
+% with Pa^out \cap Pa^in \ne \varnothing appearing above the arrow.
+% At the same time the pa: Pa ::= PendingAwait constructor appears below the annotation (not in a box)
+%
+% Reveal annotation [pointing up to TrArrive]: translates \sporkKeyA{inbound observers} into \sporkKeyB{outbound pending awaits}
+%
+% Reveal annotation [pointing up to TrAwait]: translates \sporkKeyB{inbound pending awaits} into \sporkKeyA{outbound observers}
+%
+% [slide incomplete, I'll look at this first]
+
 \end{document}
