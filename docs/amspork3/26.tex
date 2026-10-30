@@ -143,6 +143,8 @@ Make your own decisions:
   \item Where to store tiles
   \item Tensor core, async copy usage
 \end{itemize}
+}
+\sporkReveal<4->{
 Minimalist helpers, risk of bugs
 \begin{itemize}
   \item CuTe, thunderkittens
@@ -151,20 +153,22 @@ Minimalist helpers, risk of bugs
 \end{itemize}
 \end{column}
 }
-\sporkReveal<4->{
+\sporkReveal<5->{
 \begin{column}{0.49\textwidth}
 \sporkKeyA{Less} control, \sporkKeyB{more} checking
 \begin{itemize}
   \item Triton, TileLang, cuTile
   \item You program \emph{tiles}
 \end{itemize}
-Compiler generally decides
-\sporkReveal<5->{
+Compiler generally decides:
+\sporkReveal<6->{
 \begin{itemize}
   \item Mapping work to threads
   \item Mapping tiles to memory
   \item Instruction \& barrier selection
 \end{itemize}
+}
+\sporkReveal<7->{
 Fewer possible bugs
 \begin{itemize}
   \item Tiles parallelized magically
@@ -1324,15 +1328,16 @@ Memory type encodes \sporkKeyA{physical memory type} \& \sporkKeyA{data layout}
 
 \begin{frame}[label=cp_async_qtl]{cp.async $\sporkqtl$ Example}
 \begin{itemize}
-  \item $\sporkqtl =$ \texttt{cuda\_in\_order\_ram\_qual}: \hfill non-async RAM access \hfill
-  \item $\sporkqtl =$ \texttt{Sm80\_cp\_async\_qual}: \hfill for \texttt{cp\_async\_1d} $\sporkTrPostAccess$ \hfill
   \item One thread ($\sporktid$), async mutate $\sporkx[\sporkz^*]$, then in-order read $\sporkx[\sporkz^*]$:
 \end{itemize}
 
 % Trace Edges style: cp_async_1d mutate (TrPostAccess), then in-order read (TrPreAccess).
-% Steps 2, 3: their Ob sets (green out, violet in, as in Trace Edges), stacked since they're wide. Step 4: the sets don't
-% overlap, so no edge: crossed-out arrow, the mismatched qtls in the sets highlighted red.
-\vspace{6mm}
+% Steps 2, 3: their Ob sets (green out, violet in, as in Trace Edges), stacked since they're wide, each
+% with an annotation under it saying what its qtl is for (the qtl yellow on that step only); rows:
+% Ob^out set, its note, Ob^in set, its note. Step 4: the sets don't overlap, so no edge: crossed-out
+% arrow, the mismatched qtls in the sets red.
+% (qtl text: two \sporkSlideOnly alternatives, so the red box isn't padded twice.)
+\vspace{2mm}
 \begingroup\centering
 \begin{sporkfigure}
   \trPost[spork green style]{a1}{}{\mutateBullet\ $\sporkx[\sporkz^*]$}
@@ -1340,12 +1345,20 @@ Memory type encodes \sporkKeyA{physical memory type} \& \sporkKeyA{data layout}
   \node [above=1mm of a1, font=\ttfamily] {cp\_async\_1d};
   \node [above=1mm of a2] {in-order code};
   \node (outSet) [annotation, fixed text={10.1pt}{3.4pt}, below=5mm of a1-out, spork reveal=<2->]
-    {$\sporkObOut = \{(\sporktid,\,$\sporkRed[only=<4>]{\texttt{Sm80\_cp\_async\_qual}}$)\}$};
+    {$\sporkObOut = \{(\sporktid,\,$\sporkSlideOnly<-3>{\sporkYellow[only=<2>]{\texttt{Sm80\_cp\_async\_qual}}}%
+      \sporkSlideOnly<4->{\sporkRed{\texttt{Sm80\_cp\_async\_qual}}}$)\}$};
   \draw [annotation line, spork reveal=<2->] (outSet.north -| a1-out) -- (a1-out.south);
+  \node (outNote) [annotation, anchor=north west, spork reveal=<2->] at ([yshift=-2mm]outSet.south west)
+    {$\sporkqtl$ for \texttt{cp\_async\_1d} $\sporkTrPostAccess$};
+  \draw [annotation line, spork reveal=<2->] (outNote.north) -- (outNote.north |- outSet.south);
   \node (inSet) [annotation, fixed text={10.1pt}{3.4pt}, anchor=north east, spork reveal=<3->]
-    at ([yshift=-2mm]a2.east |- outSet.south)
-    {$\sporkObIn = \{(\sporktid,\,$\sporkRed[only=<4>]{\texttt{cuda\_in\_order\_ram\_qual}}$)\}$};
+    at ([yshift=-2mm]a2.east |- outNote.south)
+    {$\sporkObIn = \{(\sporktid,\,$\sporkSlideOnly<-3>{\sporkYellow[only=<3>]{\texttt{cuda\_in\_order\_ram\_qual}}}%
+      \sporkSlideOnly<4->{\sporkRed{\texttt{cuda\_in\_order\_ram\_qual}}}$)\}$};
   \draw [annotation line, spork reveal=<3->] (inSet.north -| a2-in) -- (a2-in.south);
+  \node (inNote) [annotation, anchor=north east, spork reveal=<3->] at ([yshift=-2mm]inSet.south east)
+    {$\sporkqtl$ for non-async RAM access};
+  \draw [annotation line, spork reveal=<3->] (inNote.north) -- (inNote.north |- inSet.south);
   \begin{scope}[spork reveal=<4->, draw=sporkRedFg, text=sporkRedFg]
     \draw [spork arrow, dash pattern=on 2.5pt off 2pt] (a1-out) -- coordinate (mid)
       node [above=3mm, midway] {$\sporkObOut \cap \sporkObIn = \varnothing$} (a2-in);
@@ -1831,7 +1844,7 @@ What do we need to check?
 \begin{frame}[label=MultiTrPostAccess]{Synchronization Environment: Multiple Accesses}
 \sporkKeyA{Example:} $\sporkTid_\mathsf{CTA} = \{ \sporktid_{0} .. \sporktid_{63} \}$
 
-% Code left (listing versions: reads on 1-3, + mutate on 4, + Fence on 5), env values right. Each
+% Code left (listing versions: reads on 1-3, + mutate on 4-5, + Fence on 6), env values right. Each
 % `env(read, x, 42) =` label sits on a blank code line (a program point, joined to the code's left
 % edge by a dashed gray line), starting at labX, clear of the code's right margin (the Fence call is
 % split over two lines in amspork3.py to keep the code narrow), with its { ... } chained to its right.
@@ -1840,15 +1853,15 @@ What do we need to check?
 % * Step 2: env(read, x, 42) after the reads: one envVis per read TrPostAccess, i.e. 64 singleton
 %   sets {(tid_i, qtl_io)} (a set of sets, not one set of 64 observers).
 % * Step 3: why they're kept apart: read ->* read isn't required (note above the first env label).
-% * Step 4: tid_0's mutate (TrPreAccess, Ob^in {(tid_0, qtl_io)}, one code line below the mutate) is
-%   checked against every read envVis; all but tid_0's fail. (Prior mutates of x[42] pass: hidden
-%   setup in amspork3.py, x[t] = 1337 + Fence.) Also what's missing, read ->* mutate (red box above
-%   the second env label, before the Fence that fixes it).
-% * Step 5: after the Fence every envVis grows to Tid_CTA x {qtl_io}, so the set de-duplicates to one
+% * Step 4: tid_0's mutate (code, and TrPreAccess with Ob^in {(tid_0, qtl_io)}, one code line below).
+% * Step 5: it's checked against every read envVis; all but tid_0's fail. (Prior mutates of x[42] pass:
+%   hidden setup in amspork3.py, x[t] = 1337 + Fence.) Also what's missing, read ->* mutate (red box
+%   above the second env label, before the Fence that fixes it).
+% * Step 6: after the Fence every envVis grows to Tid_CTA x {qtl_io}, so the set de-duplicates to one
 %   element; the check passes. Both env values stay on screen.
 \sporkSlideOnly<-3>{\sporkListing[version=0]{MultiTrPostAccess}}%
-\sporkSlideOnly<4>{\sporkListing[version=1]{MultiTrPostAccess}}%
-\sporkSlideOnly<5->{\sporkListing[version=2]{MultiTrPostAccess}}%
+\sporkSlideOnly<4-5>{\sporkListing[version=1]{MultiTrPostAccess}}%
+\sporkSlideOnly<6->{\sporkListing[version=2]{MultiTrPostAccess}}%
 \begin{tikzpicture}[remember picture, overlay]
   % Check arrows: curves leaving / entering vertically; their label in a red (fail) or green (pass)
   % box, left of the curve near its start, where it's still vertical (short code lines there).
@@ -1883,7 +1896,7 @@ What do we need to check?
   \node [annotation, anchor=south west, font=\footnotesize, spork reveal=<3->] at ([yshift=1.5mm]lbl1.north west)
     {Not required:\\\readBullet{} $\rightarrow^*$ \readBullet};
 
-  % Step 4-: tid_0's mutate, one code line below the mutate line (room for the step 4 arrow),
+  % Step 4-: tid_0's mutate, one code line below the mutate line (room for the step 6 arrow),
   % joined by an L-shaped leader; left of the env column so it fits on the slide.
   \begin{scope}[spork reveal=<4->]
     \coordinate (mu) at (pic cs:MultiTrPostAccess-mut);
@@ -1895,17 +1908,17 @@ What do we need to check?
     \node (obIn) [anchor=south, inner sep=0.5mm, font=\small] at (preIn.north) {$\sporkObIn$};
     \draw [pp line] ([xshift=2mm, yshift=0.5ex]mu) -| ([xshift=-3mm]preIn.west) -- (preIn.west);
   \end{scope}
-  % Step 4: checked against every read envVis; all but tid_0's fail.
-  \begin{scope}[spork slide only=<4>]
+  % Step 5: checked against every read envVis; all but tid_0's fail.
+  \begin{scope}[spork slide only=<5>]
     \node [anchor=west] at ([xshift=1.5mm]brR.east |- s0) {\chkYes};
     \node [anchor=west] at ([xshift=1.5mm]brR.east |- s1) {\chkNo};
     \node [anchor=west] at ([xshift=1.5mm]brR.east |- s63) {\chkNo};
   \end{scope}
-  \draw [spork arrow, draw=sporkRedFg, spork slide only=<4>] (obIn.north) to [out=90, in=-90]
+  \draw [spork arrow, draw=sporkRedFg, spork slide only=<5>] (obIn.north) to [out=90, in=-90]
     node [check label, spork red style] {overlaps each? \chkNo} (s63.south);
 
-  % Step 5: after the Fence, one envVis (set de-duplication).
-  \begin{scope}[spork slide only=<5->]
+  % Step 6: after the Fence, one envVis (set de-duplication).
+  \begin{scope}[spork slide only=<6->]
     \coordinate (y5) at ([yshift=0.5ex]labX |- b5);
     \node (lbl5) [env entry, anchor=west] at (y5) {$\sporkenv(\sporkread, \sporkx, 42) =$};
     \node (fL) [anchor=west, inner sep=0mm] at (lbl5.east) {$\left\{\rule[-2.5mm]{0pt}{5mm}\right.$};
@@ -1915,10 +1928,10 @@ What do we need to check?
     \draw [spork arrow, draw=sporkGreenFg] (obIn.north) to [out=90, in=-90]
       node [check label, spork green style] {overlaps each? \chkYes} (f0.south);
   \end{scope}
-  % Step 4-: what the Fence must provide; above the second env label (placed before it's shown), two
-  % lines to stay left of the braces. Red until the Fence provides it (step 5: green).
+  % Step 5-: what the Fence must provide; above the second env label (placed before it's shown), two
+  % lines to stay left of the braces. Red until the Fence provides it (step 6: green).
   \node [rectangle, spork red style, thick, inner sep=1mm, font=\footnotesize, align=left, anchor=south west,
-      spork reveal=<4->, spork slide only=<5->{spork green style}]
+      spork reveal=<5->, spork slide only=<6->{spork green style}]
     at ([yshift=1mm]lbl5.north west) {Required:\\\readBullet{} $\rightarrow^*$ \mutateBullet};
 \end{tikzpicture}
 \end{frame}
