@@ -500,11 +500,13 @@ def MultiTrPostAccess_example(enable_fence: bool):
         # TeX: begin MultiTrPostAccess[:2]
 
 
+
         # TeX: end MultiTrPostAccess[:2]
         # >>> Completely blank line intended.
         # TeX: begin MultiTrPostAccess[2]
         # $(\{\sporkqtl_\mathsf{io}\}, \{\sporkqtl_\mathsf{io}\})$
-        Fence(cuda_in_order, cuda_in_order)
+        Fence(cuda_in_order,
+              cuda_in_order)
         # TeX: end MultiTrPostAccess[2]
       if True:
         # TeX: begin MultiTrPostAccess[1:]

@@ -1831,84 +1831,86 @@ What do we need to check?
 \begin{frame}[label=MultiTrPostAccess]{Synchronization Environment: Multiple Accesses}
 \sporkKeyA{Example:} $\sporkTid_\mathsf{CTA} = \{ \sporktid_{0} .. \sporktid_{63} \}$
 
-% Code left (listing versions: reads on 1-3, + mutate on 4, + Fence on 5), env boxes right,
-% anchored to program points by dashed gray lines across the blank code lines:
-% * b1, after the reads (before the not-yet-shown Fence); b4, after the Fence (blank in every version).
-%   Found from listing marks (amspork3.py): line height = (readsFor - reads) in y.
+% Code left (listing versions: reads on 1-2, + mutate on 3, + Fence on 4), env values right. Each
+% `env(read, x, 42) =` label sits on a blank code line (a program point, joined to the code's left
+% edge by a dashed gray line), starting at labX, clear of the code's right margin (the Fence call is
+% split over two lines in amspork3.py to keep the code narrow), with its { ... } chained to its right.
+% Program points: b1, after the reads (before the not-yet-shown Fence); b5, after the Fence (blank
+% in every version). Found from listing marks (amspork3.py): line height = (readsFor - reads) in y.
 % * Step 2: env(read, x, 42) after the reads: one envVis per read TrPostAccess, i.e. 64 singleton
 %   sets {(tid_i, qtl_io)} (a set of sets, not one set of 64 observers).
-% * Step 3: why they're kept apart: read ->* read isn't required (reads aren't ordered).
-% * Step 4: tid_0's mutate (TrPreAccess, Ob^in {(tid_0, qtl_io)}) is checked against every read envVis;
-%   all but tid_0's fail. (Prior mutates of x[42] pass: hidden setup in amspork3.py, x[t] = 1337 + Fence.)
-% * Step 5: after the Fence each envVis grows to Tid_CTA x {qtl_io}; the 64 equal records are one set
-%   element. Replaces the step 2-4 boxes; the check passes.
-\sporkSlideOnly<-3>{\sporkListing[version=0]{MultiTrPostAccess}}%
-\sporkSlideOnly<4>{\sporkListing[version=1]{MultiTrPostAccess}}%
-\sporkSlideOnly<5->{\sporkListing[version=2]{MultiTrPostAccess}}%
+% * Step 3: tid_0's mutate (TrPreAccess, Ob^in {(tid_0, qtl_io)}, one code line below the mutate) is
+%   checked against every read envVis; all but tid_0's fail. (Prior mutates of x[42] pass: hidden
+%   setup in amspork3.py, x[t] = 1337 + Fence.)
+% * Step 4: after the Fence every envVis grows to Tid_CTA x {qtl_io}, so the set de-duplicates to one
+%   element; the check passes. Both env values stay on screen.
+\sporkSlideOnly<-2>{\sporkListing[version=0]{MultiTrPostAccess}}%
+\sporkSlideOnly<3>{\sporkListing[version=1]{MultiTrPostAccess}}%
+\sporkSlideOnly<4->{\sporkListing[version=2]{MultiTrPostAccess}}%
 \begin{tikzpicture}[remember picture, overlay]
   \tikzset{
-    env box/.style={rectangle, draw, thick, inner sep=1mm, minimum height=6mm, minimum width=25mm, font=\small},
+    env entry/.style={inner sep=0.5mm, font=\small},
     pp line/.style={draw=black!45, thick, densely dashed},
   }
-  \def\chkYes{{\fontspec{DejaVu Sans}\ensuremath{}✔}}
+  \def\chkYes{{\fontspec{DejaVu Sans}✔}}
   \def\chkNo{{\fontspec{DejaVu Sans}\color{sporkRedFg}✘}}
   \def\qIo{\sporkqtl_\mathsf{io}}
   \coordinate (rd) at (pic cs:MultiTrPostAccess-reads);
   \coordinate (rdFor) at (pic cs:MultiTrPostAccess-readsFor);
   \coordinate (b1) at ($(rd)!-1!(rdFor)$);  % one line below the reads (x off: use y only)
-  \coordinate (b4) at ($(rd)!-4!(rdFor)$);  % the blank line after the Fence
+  \coordinate (b5) at ($(rd)!-5!(rdFor)$);  % the blank line after the (2-line) Fence
   \coordinate (codeL) at ([xshift=10mm]current page.west);
-  \coordinate (colX) at ([xshift=86mm]current page.west);
+  \coordinate (labX) at ([xshift=83mm]current page.west);  % env labels: past the code's right margin
 
-  % Steps 2-4: env(read, x, 42) after the reads, as a braced column of envVis boxes.
-  \begin{scope}[spork slide only=<2-4>]
-    \coordinate (stk) at ([yshift=1ex]colX |- b1);
-    \node (s0) [env box, anchor=north west] at ([xshift=4mm, yshift=13mm]stk) {$\{(\sporktid_{0}, \qIo)\}$};
-    \node (s1) [env box, anchor=north west] at ([yshift=-1mm]s0.south west) {$\{(\sporktid_{1}, \qIo)\}$};
-    \node (sd) [anchor=north, inner sep=0.5mm] at (s1.south) {$\vdots$};
-    \node (s63) [env box, anchor=north west] at (s1.west |- sd.south) {$\{(\sporktid_{63}, \qIo)\}$};
-    \node (brL) [anchor=east, inner sep=0mm] at ([xshift=-0.5mm]$(s0.north west)!0.5!(s63.south west)$)
-      {$\left\{\rule[-13mm]{0pt}{26mm}\right.$};
-    \node (brR) [anchor=west, inner sep=0mm] at ([xshift=0.5mm]$(s0.north east)!0.5!(s63.south east)$)
-      {$\left.\rule[-13mm]{0pt}{26mm}\right\}$};
-    \node [anchor=south west, inner sep=0.5mm, font=\small] at (brL.north west) {$\sporkenv(\sporkread, \sporkx, 42) =$};
-    \draw [pp line] (codeL |- stk) -- (brL.west |- stk);
+  % Steps 2-: env(read, x, 42) after the reads: a braced column of envVis, rows 5mm apart.
+  \begin{scope}[spork reveal=<2->]
+    \coordinate (y1) at ([yshift=0.5ex]labX |- b1);  % b1 is a baseline: middle of the blank line
+    \node (lbl1) [env entry, anchor=west] at (y1) {$\sporkenv(\sporkread, \sporkx, 42) =$};
+    \node (brL) [anchor=west, inner sep=0mm] at (lbl1.east) {$\left\{\rule[-10mm]{0pt}{20mm}\right.$};
+    \node (s0) [env entry, anchor=west] at ([yshift=7.5mm]brL.east) {$\{(\sporktid_{0}, \qIo)\}$};
+    \node (s1) [env entry, anchor=west] at ([yshift=2.5mm]brL.east) {$\{(\sporktid_{1}, \qIo)\}$};
+    \node (sd) [env entry] at ([yshift=-2.5mm]$(s0.center |- brL.east)$) {$\vdots$};
+    \node (s63) [env entry, anchor=west] at ([yshift=-7.5mm]brL.east) {$\{(\sporktid_{63}, \qIo)\}$};
+    \node (brR) [anchor=west, inner sep=0mm] at (s63.east |- y1) {$\left.\rule[-10mm]{0pt}{20mm}\right\}$};
+    \draw [pp line] (codeL |- y1) -- (lbl1.west);
   \end{scope}
-  % Step 3: reads aren't ordered among themselves.
-  % Right of the brace, past the step 4 check marks.
-  \node (rrNote) [annotation, anchor=west, font=\footnotesize, spork slide only=<3-4>] at ([xshift=7mm]brR.east)
-    {Not required:\\\readBullet{} $\rightarrow^*$ \readBullet};
-  \draw [annotation line, spork slide only=<3-4>] (rrNote.west) -- (brR.east);
+  % Removed for now (fewer layout constraints); likely to come back. Would clash with the step 3
+  % check marks as placed here.
+  %% \node (rrNote) [annotation, anchor=west, font=\footnotesize, spork reveal=<3->] at ([xshift=9mm]brR.east)
+  %%   {Not required:\\\readBullet{} $\rightarrow^*$ \readBullet};
+  %% \draw [annotation line, spork reveal=<3->] (rrNote.west) -- (brR.east);
 
-  % Step 4-: tid_0's mutate, at the mutate line.
-  \begin{scope}[spork reveal=<4->]
+  % Step 3-: tid_0's mutate, one code line below the mutate line (room for the step 4 arrow),
+  % joined by an L-shaped leader; left of the env column so it fits on the slide.
+  \begin{scope}[spork reveal=<3->]
     \coordinate (mu) at (pic cs:MultiTrPostAccess-mut);
-    \node (preIn) [env box, minimum width=0mm, anchor=west] at ([yshift=1ex]colX |- mu) {$\{(\sporktid_{0}, \qIo)\}$};
+    \coordinate (muLow) at ($(mu)-(rdFor)+(rd)$);
+    \node (preIn) [rectangle, draw, thick, inner sep=1mm, minimum height=6mm, font=\small, anchor=west]
+      at ([xshift=18mm, yshift=0.5ex]labX |- muLow) {$\{(\sporktid_{0}, \qIo)\}$};
     \node (pre) [tr event, minimum height=10mm, inner sep=1mm, font=\small, anchor=west] at ([xshift=\trObGap]preIn.east)
       {$\sporkTrPreAccess$\\\mutateBullet\ $\sporkx[42]$};
-    \node [anchor=south, inner sep=0.5mm, font=\small] at (preIn.north) {$\sporkObIn$};
-    \draw [pp line] ([xshift=2mm, yshift=1ex]mu) -- (preIn.west);
+    \node (obIn) [anchor=south, inner sep=0.5mm, font=\small] at (preIn.north) {$\sporkObIn$};
+    \draw [pp line] ([xshift=2mm, yshift=0.5ex]mu) -| ([xshift=-3mm]preIn.west) -- (preIn.west);
   \end{scope}
-  % Step 4: checked against every read envVis; all but tid_0's fail.
-  \begin{scope}[spork slide only=<4>]
-    \node [anchor=west] at ([xshift=1.5mm]s0.east) {\chkYes};
-    \node [anchor=west] at ([xshift=1.5mm]s1.east) {\chkNo};
-    \node [anchor=west] at ([xshift=1.5mm]s63.east) {\chkNo};
-    \draw [spork arrow, draw=sporkRedFg] ([xshift=-6mm]pre.north) -- node [right, font=\small, text=sporkRedFg] {overlaps each? \chkNo}
-      ([xshift=-6mm]pre.north |- s63.south);
+  % Step 3: checked against every read envVis; all but tid_0's fail.
+  % Arrow labels on the left (short code lines there), clear of the braces.
+  \begin{scope}[spork slide only=<3>]
+    \node [anchor=west] at ([xshift=1.5mm]brR.east |- s0) {\chkYes};
+    \node [anchor=west] at ([xshift=1.5mm]brR.east |- s1) {\chkNo};
+    \node [anchor=west] at ([xshift=1.5mm]brR.east |- s63) {\chkNo};
+    \draw [spork arrow, draw=sporkRedFg] (obIn.north) -- node [left, font=\small, text=sporkRedFg] {overlaps each? \chkNo}
+      (s63.south);
   \end{scope}
 
-  % Step 5: after the Fence, one envVis (the 64 records are now equal).
-  \begin{scope}[spork slide only=<5->]
-    \coordinate (stk4) at ([yshift=1ex]colX |- b4);
-    \node (f0) [env box, anchor=west] at ([xshift=4mm]stk4) {$\sporkTid_\mathsf{CTA} \times \{\qIo\}$};
-    \node (fL) [anchor=east, inner sep=0mm] at ([xshift=-0.5mm]f0.west) {$\left\{\rule[-3mm]{0pt}{6mm}\right.$};
-    \node (fR) [anchor=west, inner sep=0mm] at ([xshift=0.5mm]f0.east) {$\left.\rule[-3mm]{0pt}{6mm}\right\}$};
-    \node (fLbl) [anchor=south west, inner sep=0.5mm, font=\small] at (fL.north west) {$\sporkenv(\sporkread, \sporkx, 42) =$};
-    \node [anchor=base west, font=\small, text=sporkGrayttColor] at ([xshift=2mm]fLbl.base east) {(64 equal records)};
-    \draw [pp line] (codeL |- stk4) -- (fL.west |- stk4);
-    \draw [spork arrow] ([xshift=-6mm]pre.north) -- node [right, font=\small] {overlaps each? \chkYes}
-      ([xshift=-6mm]pre.north |- f0.south);
+  % Step 4: after the Fence, one envVis (set de-duplication).
+  \begin{scope}[spork slide only=<4->]
+    \coordinate (y5) at ([yshift=0.5ex]labX |- b5);
+    \node (lbl5) [env entry, anchor=west] at (y5) {$\sporkenv(\sporkread, \sporkx, 42) =$};
+    \node (fL) [anchor=west, inner sep=0mm] at (lbl5.east) {$\left\{\rule[-2.5mm]{0pt}{5mm}\right.$};
+    \node (f0) [env entry, anchor=west] at (fL.east) {$\sporkTid_\mathsf{CTA} \times \{\qIo\}$};
+    \node [anchor=west, inner sep=0mm] at (f0.east) {$\left.\rule[-2.5mm]{0pt}{5mm}\right\}$};
+    \draw [pp line] (codeL |- y5) -- (lbl5.west);
+    \draw [spork arrow] (obIn.north) -- node [left, font=\small] {overlaps each? \chkYes} (f0.south);
   \end{scope}
 \end{tikzpicture}
 \end{frame}
