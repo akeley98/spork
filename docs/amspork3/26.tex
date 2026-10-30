@@ -1600,7 +1600,9 @@ What do we need to check?
 
 % Recap of TraceEdgeRequirements / TraceEdgesSync, uncolored. Step 2: bracket grouping the rows
 % (same array element). Step 3: a path TrPostAccess ->* TrPreAccess (dashed, starred as in
-% TraceEdgeRequirements). Steps 4, 5: what the check does with such paths.
+% TraceEdgeRequirements). Steps 4, 5: what the check does with such paths; on step 5 the
+% TrPostAccess's mut? turns blue (\vphantom: same text height highlighted or not; \kern-\fboxsep:
+% spaced like the TrPreAccess's line).
 \begin{frame}[label=RecapTracePaths]{Recap: Trace Paths}
 \begin{itemize}
   \item We analyze only 3 kinds of graph paths:
@@ -1637,15 +1639,19 @@ What do we need to check?
   \end{scope}
 
   \begin{scope}[spork reveal=<3->]
-    \trPost{a1}{anchor=east, at={([xshift=-30mm, yshift=-10mm]early3.south -| tabC)}}{$\sporkmut$ $\sporkx[\sporkz^*]$}
+    \trPost{a1}{anchor=east, at={([xshift=-14mm, yshift=-10mm]early3.south -| tabC)}}
+      {\vphantom{\sporkBlue{$\sporkmut$}}\kern-\fboxsep\sporkBlue[only=<5->]{$\sporkmut$}\kern-\fboxsep{} $\sporkx[\sporkz^*]$}
     \trPre{a2}{anchor=west, at={([xshift=30mm, yshift=-10mm]early3.south -| tabC)}}{$\sporkmut$ $\sporkx[\sporkz^*]$}
     \draw [req arrow] (a1-out) -- coordinate (edgeMid) node [req star, above] {$*$} (a2-in);
   \end{scope}
   \node (pathNote) [annotation, anchor=north, spork reveal=<4->] at ([yshift=-4mm]edgeMid |- a1.south)
     {Check path for \sporkKeyA{each prior $\sporkTrPostAccess$} with same $\sporkx[\sporkz^*]$};
   \draw [annotation line, spork reveal=<4->] (pathNote.north) -- ([yshift=-1mm]edgeMid);
-  \node [annotation, anchor=north, spork reveal=<5->] at ([yshift=-2mm]pathNote.south)
-    {\ldots{} distinguishing \readBullet{} and \mutateBullet};
+  % mut? of the TrPostAccess: second line of a1, near its left (approximate: no marks in nodes).
+  \coordinate (mutPt) at ([xshift=5.5mm, yshift=-2.4mm]a1.west);
+  \node (mutNote) [annotation, anchor=east, spork reveal=<5->] at ([xshift=-5mm]mutPt -| a1.west)
+    {\ldots{} distinguishing\\\readBullet{} and\\\mutateBullet};
+  \draw [annotation line, spork reveal=<5->] (mutNote.east) -- ([xshift=-0.5mm]mutPt);
 \end{sporkfigure}\par
 \endgroup
 \end{frame}
