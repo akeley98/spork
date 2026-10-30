@@ -1998,6 +1998,33 @@ What do we need to check?
 \endgroup
 \end{frame}
 
+\begin{frame}[label=SyncAdditionalTopics]{Synchronization: Additional Topics}
+\sporkMainKey{In the paper:}
+\begin{itemize}
+  \item Handling atomics
+  \item $\sporkQtl$ ``masking'': handling CUDA \sporkKeyA{async proxy}
+  \item Specific split barriers: \sporkKeyA{mbarrier}, \sporkKeyA{commit group}
+\end{itemize}
 
+\end{frame}
+
+\begin{frame}[label=SyncCheckImplementation]{Sync-check Implementation}
+\begin{itemize}
+  \item Optimized C++ interpreter for \sporkKeyA{synchronization environment} semantics
+  \item Sync-check Exo-GPU programs with \sporkKeyA{concrete input sizes} plugged-in
+\end{itemize}
+\vphantom{Talk is cheap, show me the code!}
+\sporkMainKey{Research Suggestion:}
+\begin{itemize}
+  \item State loop invariants, func postconditions, func preconditions\\
+        imposed on synchronization environment
+\end{itemize}
+\end{frame}
+
+\begin{frame}[label=Results]{Results}
+
+\Huge OMG... NONE
+
+\end{frame}
 
 \end{document}
