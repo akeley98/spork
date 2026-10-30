@@ -1923,24 +1923,47 @@ What do we need to check?
 \end{tikzpicture}
 \end{frame}
 
-% TASK: Arrive and Await
-%
-% This will be incredibly hand-wavey due to time.
-%
-% * Arrive/Await statements add TrArrive/TrAwait trace events
-%
-% Diagram: [Ob^in][TrArrive][Pa^out] -> [Pa^in][TrAwait][Ob^out]
-% with code text Arrive(\sporkQtlArrive) >> x_bar[z^*] above TrArrive
-% and with code text Await(x_bar[z^*], \sporkQtlAwait, \codecomment{...}) above TrAwait
-%
-% Reveal annotation [pointing up to arrow]: edges formed by overlapping \sporkKeyB{pending awaits}
-% with Pa^out \cap Pa^in \ne \varnothing appearing above the arrow.
-% At the same time the pa: Pa ::= PendingAwait constructor appears below the annotation (not in a box)
-%
-% Reveal annotation [pointing up to TrArrive]: translates \sporkKeyA{inbound observers} into \sporkKeyB{outbound pending awaits}
-%
-% Reveal annotation [pointing up to TrAwait]: translates \sporkKeyB{inbound pending awaits} into \sporkKeyA{outbound observers}
-%
-% [slide incomplete, I'll look at this first]
+% Arrive / Await, very hand-wavey (time). One TrArrive -> TrAwait pair, in/out sets as in main.tex
+% (InOutSets.tex): TrArrive has Ob^in and Aw^out, TrAwait has Aw^in and Ob^out. Code text above each
+% event (paper syntax: Arrive takes a list of barrier windows, Await a lag z_lag; elided as ...).
+% Step 2: the edge's condition above the arrow, an annotation under it, and the PendingAwait type
+% (unboxed) under that. Steps 3, 4: what each event translates (annotations below the type, joined
+% up to their events; observers in key color A, pending awaits in key color B).
+\begin{frame}[label=ArriveAwait]{Arrive and Await}
+\begin{itemize}
+  \item Arrive/Await statements add $\sporkTrArrive$/$\sporkTrAwait$ trace events
+\end{itemize}
+
+\vspace{3mm}
+\begingroup\centering
+\begin{sporkfigure}
+  \node (arr) [tr event, minimum width=22mm] {$\sporkTrArrive$};
+  \node (arr-in) [tr ob, anchor=east] at ([xshift=-\trObGap]arr.west) {$\sporkObIn$};
+  \node (arr-out) [tr ob, anchor=west] at ([xshift=\trObGap]arr.east) {$\sporkAwOut$};
+  \node (aw-in) [tr ob, anchor=west] at ([xshift=36mm]arr-out.east) {$\sporkAwIn$};
+  \node (aw) [tr event, minimum width=22mm, anchor=west] at ([xshift=\trObGap]aw-in.east) {$\sporkTrAwait$};
+  \node (aw-out) [tr ob, anchor=west] at ([xshift=\trObGap]aw.east) {$\sporkObOut$};
+  \node [above=2mm of arr, font=\ttfamily] {Arrive($\sporkQtlArrive$) >> $\sporkx[\sporkz^*]$};
+  \node [above=2mm of aw, font=\ttfamily] {Await($\sporkx[\sporkz^*]$, $\sporkQtlAwait$, \sporkComment{\ldots})};
+  \draw [spork arrow] (arr-out) -- coordinate (edgeMid)
+    node [above, spork reveal=<2->] {$\sporkAwOut \cap \sporkAwIn \ne \varnothing$} (aw-in);
+
+  % Step 2: edges by pending awaits, and what a pending await is.
+  \node (edgeNote) [annotation, anchor=north, spork reveal=<2->] at ([yshift=-5mm]edgeMid |- arr.south)
+    {Edges formed by overlapping\\\sporkKeyB{pending awaits}};
+  \draw [annotation line, spork reveal=<2->] (edgeNote.north) -- ([yshift=-1mm]edgeMid);
+  \node (awType) [anchor=north, spork reveal=<2->] at ([yshift=-1mm]edgeNote.south)
+    {$\sporkaw: \sporkAw \Coloneqq \sporkPendingAwait(\sporkx, \sporkz^*, \sporkz_\mathrm{await})$};
+
+  % Steps 3, 4: what each event translates.
+  \node (arrNote) [annotation, anchor=north, spork reveal=<3->] at ([yshift=-1.5mm]arr.center |- awType.south)
+    {Translates \sporkKeyA{inbound observers}\\into \sporkKeyB{outbound pending awaits}};
+  \draw [annotation line, spork reveal=<3->] (arrNote.north) -- (arr.south);
+  \node (awNote) [annotation, anchor=north, spork reveal=<4->] at ([yshift=-1.5mm]aw.center |- awType.south)
+    {Translates \sporkKeyB{inbound pending awaits}\\into \sporkKeyA{outbound observers}};
+  \draw [annotation line, spork reveal=<4->] (awNote.north) -- (aw.south);
+\end{sporkfigure}\par
+\endgroup
+\end{frame}
 
 \end{document}
