@@ -1766,7 +1766,7 @@ What do we need to check?
         e0/8/{Initial}/{$\{(\cTid, \cqA)\}$},
         e1/9/{Unreachable sync, no change}/{$\{(\cTid, \cqA)\}$},
         e2/10/{Reachable: add $\sporkObOut$}/{$\{(\cTid, \cqA), (\cTid, \cqIo)\}$},
-        e3/11/{Reachable: add $\sporkObOut$}/{$\{(\cTid, \cqA)\} \cup \cTidCTA \times \{\cqIo\}$}} {
+        e3/11/{Reachable: add $\sporkObOut$}/{$\{(\cTid, \cqA)\} \cup (\cTidCTA \times \{\cqIo\})$}} {
       \node (vis-\e) [tr ob, fill=white, anchor=south west, spork reveal=<\step-11>] at (xv |- \e.south) {\vis};
       \node [anchor=south west, inner sep=0.5mm, font=\bfseries, spork reveal=<\step-11>] at (vis-\e.north west) {\note};
     }
@@ -1797,7 +1797,7 @@ What do we need to check?
       \draw [spork arrow, densely dotted, spork slide only=<13-14>] (\e-out.east) to [out=0, in=180] (pre-in.west);
     % Step 15: the reachable Ob^outs summarized as the final envVis (row 3, above the TrPreAccess).
     \node (visFinal) [tr ob, fill=white, anchor=south west, spork reveal=<15->] at (xv |- e2.south)
-      {$\{(\cTid, \cqA)\} \cup \cTidCTA \times \{\cqIo\}$};
+      {$\{(\cTid, \cqA)\} \cup (\cTidCTA \times \{\cqIo\})$};
     \node [anchor=south west, inner sep=0.5mm, font=\bfseries, spork reveal=<15->] at (visFinal.north west)
       {$\sporkTrPostAccess$'s $\sporkenvVis$};
     \draw [spork arrow, <->, spork reveal=<15->] (pre-in.north) -- node [right] {overlaps?} (pre-in.north |- visFinal.south);
