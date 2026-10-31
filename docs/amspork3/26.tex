@@ -709,8 +709,80 @@ Two notions of ordering
 \end{frame}
 
 \begin{frame}[label=RequiredOrderings]{Required Orderings}
+Need agreement of
+\begin{itemize}
+  \item \sporkKeyA{Trace total order} {\color{sporkGrayttColor} (left$\to$right)}
+  \item \sporkKeyB{Parallel partial order} {\color{sporkGrayttColor} ($\dashrightarrow^*$)}
+\end{itemize}
 
+for cases:
+\hfill
+\sporkReveal<2->{\sporkBlue{\mutateBullet/\mutateBullet\ {\footnotesize of same} $\sporkx[\sporkz^*]$}}
+\hfill
+\sporkReveal<3->{\sporkViolet{\mutateBullet/\readBullet\ {\footnotesize of same} $\sporkx[\sporkz^*]$}}
+
+\vphantom{Gap for blue mutate/mutate and ``totally ordered'' to be distinctive.}
+
+% Mutates in a row with the read between them, lowered so the mutate -> mutate arrow passes just over
+% it. Dashed starred arrows mean ->* (as in fig_exoRewriteFlow_body.tex). The L-shaped arrows
+% into / out of the read are offset vertically (outer mutate on the lower line) so none cross.
+% Each label sits next to its arrows.
+% Reveals match the cases: 2 mutate chain, 3 mutates -> read, 3 read -> mutates.
+\begingroup\centering
+\begin{sporkfigure}
+  \tikzset{
+    req event/.style={rectangle, draw=black!40, thick, align=center, inner sep=0.7mm, minimum width=15mm},
+    req arrow/.style={spork arrow, dash pattern=on 2.5pt off 2pt},
+    req star/.style={font=\fontsize{12}{14}\selectfont, inner sep=0.3mm},
+  }
+  \node (m0) [req event] {\mutateBullet\\$\sporkx[\sporkz^*]$};
+  \node (m1) [req event, right=7mm of m0] {\mutateBullet\\$\sporkx[\sporkz^*]$};
+  \node (r) [req event, anchor=north west] at ([xshift=14mm, yshift=-3.5mm]m1.east)
+    {\readBullet\\$\sporkx[\sporkz^*]$};
+  \node (m2) [req event, anchor=west] at ([xshift=14mm, yshift=3.5mm]r.north east)
+    {\mutateBullet\\$\sporkx[\sporkz^*]$};
+  \node (m3) [req event, right=7mm of m2] {\mutateBullet\\$\sporkx[\sporkz^*]$};
+  \coordinate (rHi) at ([yshift=1.2mm]r.west);
+  \coordinate (rLo) at ([yshift=-1.2mm]r.west);
+  \coordinate (rHiOut) at ([yshift=1.2mm]r.east);
+  \coordinate (rLoOut) at ([yshift=-1.2mm]r.east);
+
+  % Step 2: mutates totally ordered.
+  \begin{scope}[spork reveal=<2->, draw=sporkBlueFg, text=sporkBlueFg]
+    \draw [req arrow] (m0) -- node [req star, above] {$*$} (m1);
+    \draw [req arrow] (m1) -- node [req star, above] {$*$} (m2);
+    \draw [req arrow] (m2) -- node [req star, above] {$*$} (m3);
+    \node [anchor=south] at ($(m0.north)!0.5!(m3.north)$)
+      {Totally ordered by \sporkBlue{\mutateBullet{} $\rightarrow^*$ \mutateBullet}; \textbf{overwrites previous}};
+  \end{scope}
+
+  % Step 3: labels under the lower L lines, centered between the outer mutate and the read.
+  % The outer (longer) arrows' stars sit beside their vertical segments to leave room.
+  \begin{scope}[spork reveal=<3->, draw=sporkVioletFg, text=sporkVioletFg]
+    \draw [req arrow] (m0.south) |- node [req star, left, pos=0.25] {$*$} (rLo);
+    \draw [req arrow] (m1.south) |- node [req star, above, pos=0.85] {$*$} (rHi);
+    \node [anchor=north] at ([xshift=-2mm, yshift=-0.8mm]$(m0.west |- rLo)!0.5!(rLo)$)
+      {Ordered by \sporkViolet{\mutateBullet{} $\rightarrow^*$ \readBullet}};
+  \end{scope}
+  \begin{scope}[spork reveal=<3->, draw=sporkVioletFg, text=sporkVioletFg]
+    \draw [req arrow] (rHiOut) -| node [req star, above, pos=0.15] {$*$} (m2.south);
+    \draw [req arrow] (rLoOut) -| node [req star, right, pos=0.75] {$*$} (m3.south);
+    \node [anchor=north] at ([xshift=2mm, yshift=-0.8mm]$(rLoOut)!0.5!(m3.east |- rLoOut)$)
+      {Ordered by \sporkViolet{\readBullet{} $\rightarrow^*$ \mutateBullet}};
+    % Slide show is where to put these handwavey intuition. Below the labels.
+  \end{scope}
+  \begin{scope}[spork reveal=<4->]
+    \node (squeezeNote) [annotation, text=black, below=4mm of r]
+      {Squeezed between back-to-back $\sporkx[\sporkz^*]$ mutates};
+  \end{scope}
+  \draw [annotation line, spork reveal=<4->] (squeezeNote.north) -- (r.south);
+\end{sporkfigure}\par
+\endgroup
 \end{frame}
+
+% TASK: add reveal 5 where yellow boxes showing "WAW", "RAW", "WAR" pop up on top of the corresponding dashed edges.
+% May occlude other elements if needed.
+% I'll just orally state that the required orderings correspond to preventing these three classic hazards.
 
 \begin{frame}[label=TraceEvents]{Trace Events}
 
