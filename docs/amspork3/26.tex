@@ -631,11 +631,43 @@ Problem: Exo rewrites written against \sporkKeyA{deterministic}, sequential sema
 \end{frame}
 
 \begin{frame}[label=SequentialInterpretation]{Sequential Interpretation}
+\begin{itemize}
+  \item Similar to serial projection (Cilk)
+  \item \sporkKeyA{Deterministic semantics} in terms of similar \sporkKeyA{sequential constructs}
+\end{itemize}
+\hfill parallel for $\equiv$ seq for \hfill async instr $\equiv$ in-order instr \hfill \hphantom{x}  % force hfill to work
+
+\vphantom{Pause for dramatic effect...}
+
+\sporkReveal<2->{Have to reason about parallelism eventually:
+  \begin{equation*}
+  % TODO \sporktr'^* inconsistent with main.tex deal with later
+  \langle \sporks, \sporksigma, \sporkGreen{$\sporktr^*$} \rangle
+  \to
+  \langle \sporks', \sporksigma', \sporkGreen{$\sporktr'^*$} \rangle
+  \end{equation*}
+  \begin{itemize}
+    \item $\sporksigma$ same in both cases
+    \item Trace $\sporktr^*$ \sporkKeyA{detects parallelism}
+  \end{itemize}
+}
 
 \end{frame}
 
-\begin{frame}[label=TraceIntro]{Traces}
+\begin{frame}[label=TracesIntro]{Traces: Intro}
 
+% TASK: Copy OldSketchTrace green boxes, stacked vertically now and same width
+% Above them (not in box), black bold 'Trace Event Categories: %% "categories" buys us permission to lie'
+% Reveal 2, green bracket to the right (see style of LanguageScope) encompassing green boxes
+% with label "Includes Observers"
+
+\sporkReveal<2->{
+  \sporkKeyA{Observers}:
+  \begin{itemize}
+    \item Distingish which threads execute
+    \item Detect async instruction effects
+  \end{itemize}
+}
 \end{frame}
 
 \begin{frame}[label=ReasoningOnTraces]{Reasoning On Traces}
@@ -784,7 +816,7 @@ for cases:
 % May occlude other elements if needed.
 % I'll just orally state that the required orderings correspond to preventing these three classic hazards.p
 
-\begin{frame}[label=TraceEvents]{Trace Events}
+\begin{frame}[label=TraceGraph]{Trace Graph}
 
 \end{frame}
 
@@ -792,7 +824,15 @@ for cases:
 
 \end{frame}
 
-% Human todo later: maybe roadmap/transition, even before cornerstones.
+\begin{frame}[label=PathRequirements]{Path Requirements}
+
+\sporkMainKey{Roadmap:}
+\begin{itemize}
+  \item How the language \sporkKeyA{exposes information} to produce the trace
+  \item How we \sporkKeyA{efficiently check} for correct instr usage, synchronization
+\end{itemize}
+
+\end{frame}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% OLD SLIDES:
