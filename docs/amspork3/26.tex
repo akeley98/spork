@@ -626,7 +626,101 @@ Problem: Exo rewrites written against \sporkKeyA{deterministic}, sequential sema
 
 \sporkReveal<5->{Does $p_n$ (compiled to C/CUDA) have \sporkKeyA{sufficient synchronization} to guarantee the output $\sporksigma$ is \sporkKeyA{as-if computed sequentially}?}
 
+\sporkReveal<6->{\hfill Completes reasoning chain $p_0$ $\to$ parallelized $p_n$}
+
 \end{frame}
+
+\begin{frame}[label=SequentialInterpretation]{Sequential Interpretation}
+
+\end{frame}
+
+\begin{frame}[label=TraceIntro]{Traces}
+
+\end{frame}
+
+\begin{frame}[label=ReasoningOnTraces]{Reasoning On Traces}
+
+Two notions of ordering
+\begin{itemize}
+  \item \sporkKeyA{Total trace order}: implied by \sporkKeyA{sequential} interpretation
+  \item \sporkKeyB{Partial parallel order}: implied by \sporkKeyB{GPU synchronization} in program
+\end{itemize}
+
+\vphantom{Gap above}
+
+\sporkReveal<2->{\sporkKeyA{Sequential-parallel equivalence:}\\requires 2 orders to agree in specific cases only}
+
+\vphantom{Gap below}
+
+\sporkReveal<3->{
+  \sporkMainKey{Next Slides:}
+  \begin{itemize}
+    \item What cases?
+    \item What is the partial parallel order?
+  \end{itemize}
+}
+
+\end{frame}
+
+% Required Property: the trace as one execution order. Six trace events left to
+% right; reveals: the blue read-from arrows for x[0] then x[1] (above / below), then the red
+% dotted "must not" arrows for x[0] (outside the blue ones).
+% \seqReqProp{<spec>}{i}: x[i], highlighted in \sporkBlue on <spec> only (0: never); otherwise an invisible box of
+% the same size (white on the white event box), so nothing moves between steps.
+\newcommand{\seqReqProp}[2]{{\colorlet{seqReqPropfg}{.}\colorlet{seqReqPropbg}{white}%
+  \sporkSlideOnly<#1>{\colorlet{seqReqPropfg}{sporkBlueFg}\colorlet{seqReqPropbg}{sporkBlueBg}}%
+  \color{seqReqPropfg}\colorbox{seqReqPropbg}{$\sporkx[#2]$}}}
+
+
+\begin{frame}[label=RequiredProperty]{Required Property}
+\begin{itemize}
+  \sporkReveal<1->{\item Needed \sporkKeyA{parallel program property}:\\
+    \sporkReveal<2->{each ``read $\sporkx[\sporkz^*]$'' gets the value of the
+    \sporkKeyA{most recent} ``mutate $\sporkx[\sporkz^*]$''}}
+\end{itemize}
+
+\vphantom{Visual separation with ``must not read older values'' below}
+
+\begingroup\centering
+\begin{sporkfigure}
+  \tikzset{seq event/.style={rectangle, draw, thick, align=center, inner sep=1mm,
+    minimum width=15mm}}
+  \node (e0) [seq event] {\mutateBullet\\\seqReqProp{0}{0}};
+  \node (e1) [seq event, right=5mm of e0] {\mutateBullet\\\seqReqProp{4}{1}};
+  \node (e2) [seq event, right=5mm of e1] {\mutateBullet\\\seqReqProp{3}{0}};
+  \node (e3) [seq event, right=5mm of e2] {\readBullet\\\seqReqProp{4}{1}};
+  \node (e4) [seq event, right=5mm of e3] {\readBullet\\\seqReqProp{3}{0}};
+  \node (e5) [seq event, right=5mm of e4] {\mutateBullet\\\seqReqProp{0}{0}};
+
+  % Square arrows to keep the figure short: blue read-from arrows 3mm out, red ones 6mm out
+  % above (outside the blue) and 3mm below (no horizontal overlap with the blue x[1]).
+  \draw [spork reveal=<3->, spork arrow, draw=sporkBlueFg]
+    ([xshift=2mm]e2.north) -- ++(0, 3mm) -| ([xshift=2mm]e4.north);
+  \draw [spork reveal=<4->, spork arrow, draw=sporkBlueFg]
+    (e1.south) -- ++(0, -3mm) -| (e3.south);
+  \draw [spork reveal=<5->, spork arrow, draw=sporkRedFg, densely dotted]
+    (e0.north) -- ++(0, 6mm) -| node (olderMid) [pos=0.25, inner sep=0pt] {} ([xshift=-2mm]e4.north);
+  \node [spork reveal=<5->, above=0.5mm of olderMid] {Must not read \sporkKeyA{older} values};
+  \draw [spork reveal=<6->, spork arrow, draw=sporkRedFg, densely dotted]
+    (e5.south) -- ++(0, -3mm) -| node (futureMid) [pos=0.25, inner sep=0pt] {} (e4.south);
+  \node [spork reveal=<6->, below=0.5mm of futureMid] {Must not read \sporkKeyA{future} values};
+\end{sporkfigure}\par
+\endgroup
+\end{frame}
+
+\begin{frame}[label=RequiredOrderings]{Required Orderings}
+
+\end{frame}
+
+\begin{frame}[label=TraceEvents]{Trace Events}
+
+\end{frame}
+
+\begin{frame}[label=Parallel Partial Order]{Parallel Partial Order}
+
+\end{frame}
+
+% Human todo later: maybe roadmap/transition, even before cornerstones.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% OLD SLIDES:
