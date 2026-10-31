@@ -332,9 +332,8 @@ More interesting:\\
 % the 8mm text margin) gains its answer on step 2, the same way the array notes grow below.
 % Steps 3-6 (lang_control listing versions 1-4) each reveal annotations, which stay; the matching
 % code color shows on that step only. Array notes (one per array, in a column right of the
-% A_tile line, the longest) grow a second line, the memory type, on step 4: a one-line node on
-% step 3 and a two-line node on later steps, sharing their north west corner; the connector
-% goes to the first line, so nothing moves. Loop notes sit inline after their (shorter) loop
+% A_tile line, the longest, under a shared header) say param / alloc on step 3; equal widths, so
+% the memory notes revealed right of them on step 4 line up too. Loop notes sit inline after their (shorter) loop
 % lines, like the code comments they replace, with a fixed text height/depth (pt: ex would be
 % the code font's) so they stay within their line; the instruction note goes under the call.
 % Marks: amspork3.py.
@@ -352,22 +351,23 @@ More interesting:\\
   \coordinate (notesX) at ([xshift=5mm]tileEnd);
   \coordinate (marginX) at ([xshift=-8mm]current page.east);
   \node (question) [annotation, anchor=north east, spork slide only=<1>]
-    at ([yshift=1.2em]marginX |- topEnd) {What do I mean by ``control''?};
+    at ([yshift=1.2em+1mm]marginX |- topEnd) {What do I mean by ``control''?};
   \node [annotation, anchor=north east, spork reveal=<2->] at (question.north east)
     {What do I mean by ``control''?\\\sporkKeyA{Imperative programming}.};
-  \foreach \e/\what/\mem in {aEnd/proc parameter/global, cEnd/allocated in-proc/global,
-                             tileEnd/allocated in-proc/shared} {
-    \node (note) [lc note, anchor=west, spork slide only=<3>] at ([yshift=0.6ex]notesX |- \e)
-      {\sporkKeyA{Mutable}, \what};
-    \node [lc note, anchor=north west, spork reveal=<4->] at (note.north west)
-      {\sporkKeyA{Mutable}, \what\\\sporkKeyA{Memory:} \mem};
-    \draw [annotation line, spork reveal=<3->] ([xshift=1mm, yshift=0.6ex]\e) -- (note.west);
+  \foreach \e/\what/\mem in {aEnd/param/global, cEnd/alloc/global, tileEnd/alloc/shared} {
+    \node (\e Note) [lc note, minimum width=11mm, anchor=west, spork reveal=<3->]
+      at ([yshift=0.6ex]notesX |- \e) {\what};
+    \draw [annotation line, spork reveal=<3->] ([xshift=1mm, yshift=0.6ex]\e) -- (\e Note.west);
+    \node [lc note, anchor=west, spork reveal=<4->] at ([xshift=1.5mm]\e Note.east)
+      {in \sporkKeyA{\mem} memory};
   }
+  \node [anchor=south west, inner sep=0pt, font=\footnotesize\bfseries, spork reveal=<3->]
+    at ([yshift=0.6mm]aEndNote.north west) {Mutable Arrays:};
   \foreach \e/\kind in {taskEnd/Parallel, kEnd/Sequential, mEnd/Parallel} {
     \node [lc loop, spork reveal=<5->] at ([xshift=2mm]\e) {\sporkKeyA{\kind} loop};
   }
   \node [lc note, anchor=north east, spork reveal=<6->] at ([yshift=-3mm]instrEnd)
-    {Call \sporkKeyA{instruction} with \sporkKeyA{windows} into arrays};
+    {Call \sporkKeyA{instruction} with windows into arrays};
 \end{tikzpicture}
 
 \end{frame}
