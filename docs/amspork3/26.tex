@@ -594,7 +594,12 @@ ASPLOS 2025\par
 }
 \end{frame}
 
-\begin{frame}[label=ProblemRewrites]{Problem: Rewrites \& the GPU}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% OLD SLIDES:
+%% REMOVE when new trace intro slides and sequential-parallel equivalence slides are done.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{frame}[label=OldProblemRewrites]{(OLD) Problem: Rewrites \& the GPU}
 
 Problem: Exo rewrites written against \sporkKeyA{deterministic}, sequential semantics
 \begin{equation*}
@@ -622,7 +627,7 @@ Problem: Exo rewrites written against \sporkKeyA{deterministic}, sequential sema
 
 \end{frame}
 
-\begin{frame}[label=SketchTrace]{Sketch: Trace Semantics}
+\begin{frame}[label=OldSketchTrace]{(OLD) Sketch: Trace Semantics}
 New GPU semantics are \sporkKeyA{still deterministic}
 
 \begin{itemize}
@@ -680,7 +685,7 @@ New GPU semantics are \sporkKeyA{still deterministic}
 
 % Rewrite flow again, now for Exo-GPU: rewrites preserve sigma but not the trace, so the
 % backend checks analyze traces (sequential-parallel equivalence comes in a later frame).
-\begin{frame}[label=ExoGPURewrites]{Exo-GPU Rewrites}
+\begin{frame}[label=OldExoGPURewrites]{(OLD) Exo-GPU Rewrites}
 \begingroup\centering
 \begin{sporkfigure}
   \input{fig_exoRewriteFlow_body.tex}
@@ -723,7 +728,7 @@ New GPU semantics are \sporkKeyA{still deterministic}
 \newcommand{\seqX}[2]{{\colorlet{seqXfg}{.}\colorlet{seqXbg}{white}%
   \sporkSlideOnly<#1>{\colorlet{seqXfg}{sporkBlueFg}\colorlet{seqXbg}{sporkBlueBg}}%
   \color{seqXfg}\colorbox{seqXbg}{$\sporkx[#2]$}}}
-\begin{frame}[label=SeqParEquiv]{Sequential-Parallel Equivalence}
+\begin{frame}[label=OldSeqParEquiv]{(OLD) Sequential-Parallel Equivalence}
 \begin{itemize}
   \item Applies to the fully-scheduled $p_n$ only
   \item Trace defined by \sporkKeyA{sequential} interpretation
@@ -765,7 +770,7 @@ New GPU semantics are \sporkKeyA{still deterministic}
 
 % Simple trace events, one row per statement kind (TrPreAccess, TrPostAccess, TrFence boxes:
 % preamble macros). Ignores pending await and the qtl details for the slides.
-\begin{frame}[label=SimpleTrEvents]{Simple Trace Events}
+\begin{frame}[label=OldSimpleTrEvents]{(OLD) Simple Trace Events}
 \begin{itemize}
   \item \sporkKeyA{Observer}: generalized thread
   \item Per-event observers: \sporkKeyA{inbound} $\sporkObIn$ and \sporkKeyA{outbound} $\sporkObOut$ sets
@@ -795,7 +800,7 @@ New GPU semantics are \sporkKeyA{still deterministic}
 
 % Trace edges. Ignores the trace event / vertex distinction, pending await, and Qtl_mask
 % (so the Ob^out \cap Ob^in label is a simplification).
-\begin{frame}[label=TraceEdges]{Trace Edges}
+\begin{frame}[label=OldTraceEdges]{(OLD) Trace Edges}
 Edge forms between trace events $\sporktr$ and $\sporktr'$ when
 \begin{itemize}
   \item $\sporktr$ precedes $\sporktr'$ in trace order
@@ -863,7 +868,7 @@ Edge forms between trace events $\sporktr$ and $\sporktr'$ when
 \end{frame}
 
 % This is deviating from the PATH-based main.tex explanation on purpose
-\begin{frame}[label=TraceEdgeRequirements]{Trace Edge Requirements (for each $\sporkx[\sporkz^*]$)}
+\begin{frame}[label=OldTraceEdgeRequirements]{(OLD) Trace Edge Requirements (for each $\sporkx[\sporkz^*]$)}
 
 % Mutates in a row with the read between them, lowered so the mutate -> mutate arrow passes just over
 % it. Dashed starred arrows mean ->* (as in fig_exoRewriteFlow_body.tex). The L-shaped arrows
@@ -948,6 +953,10 @@ Edge forms between trace events $\sporktr$ and $\sporktr'$ when
 \end{sporkfigure}\par
 \endgroup
 \end{frame}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% End old slides
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % \cornerstones{R1}{R2}{R3}{R4}{BOX}{H}: body of the "Language Cornerstones" slide, shown again
 % later as a roadmap. Rk = reveal spec of box k (e.g. <2->), BOX = box1..box4 to border in
