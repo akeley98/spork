@@ -656,7 +656,7 @@ Problem: Exo rewrites written against \sporkKeyA{deterministic}, sequential sema
 
 \begin{frame}[label=TracesIntro]{Traces: Intro}
 
-% Trace event categories (green boxes from OldSketchTrace), stacked, equal widths, under a bold
+% Trace event categories (green boxes), stacked, equal widths, under a bold
 % header ("categories" buys us permission to lie). Step 2: green bracket on the right (LanguageScope
 % style, ticks pointing left) around the boxes, labelled "Includes Observers".
 \begingroup\centering
@@ -839,6 +839,10 @@ for cases:
 
 \begin{frame}[label=TraceGraphVertices]{Trace Graph Vertices}
 
+% TASK: exchange mut? and "Technical:" reveal order
+%
+% Remove "layout not final" (unless there's really outstanding issues I overlooked)
+
 % Trace events as graph vertices; unlike the old slides, observers wait for the next frame.
 % Step 1: access row (OldSimpleTrEvents look, no Ob boxes, one mut? row instead of read/mutate rows).
 % Step 2: both mut? in blue on that step only, plus the persistent "mut? is read or mutate" note
@@ -884,6 +888,7 @@ Trace events are graph vertices
       \draw [spork arrow] ([yshift=\dy]fence.east) -- ([xshift=8mm, yshift=\dy]fence.east);
     }
     \node [annotation, anchor=west] at ([xshift=12mm]fence.east) {Inbound \& outbound edges};
+    % TASK: extra final reveal: {Later: split barriers} under {Inbound \& outbound edges}
   \end{scope}
 \end{sporkfigure}\par
 \endgroup
@@ -891,6 +896,48 @@ Trace events are graph vertices
 \end{frame}
 
 \begin{frame}[label=TraceGraphEdges]{Trace Graph Edges}
+Intuition: (\emph{src}$\to$\emph{dst}) when \sporkKeyA{common thread} issued events \sporkKeyA{in sequence}
+\begin{itemize}
+  \sporkReveal<2->{\item Generalize ``thread'' to \sporkKeyA{observer} (async instrs)}
+  \sporkReveal<3->{\item Trace events have \sporkKeyA{inbound} and \sporkKeyA{outbound} observer sets:}
+  % True even for TrPreAccess/TrPostAccess: respectively, the inbound/outbound sets are empty.
+  % Prefer not to spend words on what the upcoming figure shows.
+\end{itemize}
+
+% TASK: Reveal 3 shows TrPostArrive/TrFence/TrPreArrive diagram from OldTraceEdgesSync,
+% without mut? note, paper disclaimer, and edges (for now)
+% Add green-out/violet-in coloring used in later slides.
+% Kind of overloaded with other uses of green/violet but I'm OK with that for now.
+%
+% Reveal 5 (after bullet points below), edges appear, and
+% \sporkObOut \cap \sporkObIn = \varnothing appears above both edges in annotation bubble.
+% Similar to OldTraceEdges except annotation required from lack of horizontal space.
+
+\sporkReveal<4->{Edge (\emph{src}$\to$\emph{dst}) forms when:
+  \begin{itemize}
+    % "before" instead of "preceeds" or "ordered before" since every char matters for slide scan-ability
+    \item \emph{src} before \emph{dst} in \sporkKeyA{trace total order}
+    \item \emph{src} \sporkGreen{$\sporkObOut$} overlaps \emph{dst} \sporkViolet{$\sporkObIn$}
+    % Human todo: possibly explain now inbound/outbound split is also due to async instructions?
+  \end{itemize}
+}
+
+\vfill
+
+\sporkCodeRule
+
+% Talk will actually briefly mention split barriers later (as previous
+% slide said) but this footnote exists in case someone is reading this
+% slide offline, so they have a warning this slide is not the
+% "canonical" rule. This footnote is exempt from my general audience
+% visibility rule of avoiding the bottom of the slide since I don't
+% care to mention this for a live audience.
+\footnotesize
+\sporkReveal<4->{
+  \color{sporkGrayttColor}
+  Simplified:
+  see paper for atomics, split barriers, $\sporkQtl$-masking (for async proxy handling)
+}
 
 \end{frame}
 
