@@ -656,10 +656,25 @@ Problem: Exo rewrites written against \sporkKeyA{deterministic}, sequential sema
 
 \begin{frame}[label=TracesIntro]{Traces: Intro}
 
-% TASK: Copy OldSketchTrace green boxes, stacked vertically now and same width
-% Above them (not in box), black bold 'Trace Event Categories: %% "categories" buys us permission to lie'
-% Reveal 2, green bracket to the right (see style of LanguageScope) encompassing green boxes
-% with label "Includes Observers"
+% Trace event categories (green boxes from OldSketchTrace), stacked, equal widths, under a bold
+% header ("categories" buys us permission to lie). Step 2: green bracket on the right (LanguageScope
+% style, ticks pointing left) around the boxes, labelled "Includes Observers".
+\begingroup\centering
+\begin{sporkfigure}
+  \node (catHead) [font=\bfseries] {Trace Event Categories:};
+  \tikzset{cat box/.style={spork green style, rectangle, thick, minimum width=40mm, minimum height=7mm}}
+  \node (reads) [cat box, below=2mm of catHead] {read at $\sporkx[\sporkz^*]$};
+  \node (mutates) [cat box, below=1.5mm of reads] {mutate at $\sporkx[\sporkz^*]$};
+  \node (syncs) [cat box, below=1.5mm of mutates] {synchronization};
+  \coordinate (catX) at ([xshift=3mm]reads.north east);
+  \draw [spork reveal=<2->, line width=1.2pt, draw=sporkGreenFg]
+    ([xshift=-1.5mm]reads.north -| catX) -- (reads.north -| catX)
+    -- node [right=1mm, text=sporkGreenFg, font=\bfseries] {Includes Observers}
+    (syncs.south -| catX) -- ([xshift=-1.5mm]syncs.south -| catX);
+\end{sporkfigure}\par
+\endgroup
+
+\vspace{4mm}
 
 \sporkReveal<2->{
   \sporkKeyA{Observers}:
@@ -808,46 +823,70 @@ for cases:
       {Squeezed between back-to-back $\sporkx[\sporkz^*]$ mutates};
   \end{scope}
   \draw [annotation line, spork reveal=<4->] (squeezeNote.north) -- (r.south);
+
+  % Step 5: the classic hazard each case prevents, in yellow boxes on top of its dashed edges
+  % (occluding stars is fine); explained orally.
+  \begin{scope}[spork reveal=<5->]
+    \tikzset{hazard/.style={spork yellow style, rectangle, thick, inner sep=0.8mm, font=\bfseries}}
+    \node [hazard] at ($(m1.east)!0.5!(m2.west)$) {WAW};
+    \node [hazard] at ($(m1.south |- rHi)!0.5!(rHi)$) {RAW};
+    \node [hazard] at ($(rHiOut)!0.5!(m2.south |- rHiOut)$) {WAR};
+  \end{scope}
 \end{sporkfigure}\par
 \endgroup
-
-% TASK: add reveal 5 where yellow boxes showing "WAW", "RAW", "WAR" pop up on top of the corresponding dashed edges.
-% May occlude other elements if needed.
-% I'll just orally state that the required orderings correspond to preventing these three classic hazards.
 
 \end{frame}
 
 \begin{frame}[label=TraceGraphVertices]{Trace Graph Vertices}
 
-% TASK: introducing trace events; unlike old slides, will defer observers until next frame.
-%
-% Reveal 1: Top text "trace events are graph vertices" (I may revise this later).
-%
-% Also reveal 1: Vaguely similar to OldSimpleTrEvents TrPreAccess/TrPostAccess row,
-% but no Observers (yet) and use \sporkmut (mut?) instead of separate read/mutate rows.
-% Left-side label is "Upon accessing \sporkx[\sporkz^*]"
-%
-% Reveal 2: highlight two mut? in blue this overlay step only,
-% and reveal (persistent) annotation to the lower-left "mut? is read or mutate" (like in OldTraceEdges)
-% The annotation doesn't have to point to the right-side TrPostAccess.
-%
-% Reveal 3: Bullet point "Technical: splint into access \sporkKeyA{precondition} and access \sporkKey{postcondition} events"
-% underneath Reveal 1 text, above of figure.
-% Intent is the precondition/postcondition with vaguely natuarlly line up with TrPreAccess/TrPostAccess,
-% not by force.
-%
-% Reveal 4: Decorative short rightward edge arrows (to and from nowhere) appear.
-% Inbound edges only for TrPreAccess; outbound edges only for TrPostAccess.
-% Annotation "Sink: inbound edges only" and "Source: outbound edges only" appear underneath the respective vertices
-%
-% Reveal 5: "Upon synchronization": [TrFence box, similar to OldSimpleTrEvents]
-% No observers; decorative inbound/outbound vertices.
-% Annotation somewhere "both inbound and outbound edges"
-%
-% Add comments reminding me of un-placed "later: split barriers" and "ignored atomics, \sporkQtlMask" notes.
-%
-% I'm not at all 100% sure about the proposed layout but I want to visualize it first.
-% Leave font sizes and overflowing boxes as-is so I can see the real status.
+% Trace events as graph vertices; unlike the old slides, observers wait for the next frame.
+% Step 1: access row (OldSimpleTrEvents look, no Ob boxes, one mut? row instead of read/mutate rows).
+% Step 2: both mut? in blue on that step only, plus the persistent "mut? is read or mutate" note
+% (lower left, under the row label, clear of the sink note). Step 3: bullet on the pre/postcondition split, above the figure. Step 4: decorative
+% edge stubs (inbound only into TrPreAccess, outbound only out of TrPostAccess) with sink / source
+% notes underneath (source note one row lower, so TrPostAccess can sit close to TrPreAccess;
+% its connector passes right of the sink note). Step 5: synchronization row, TrFence with both kinds of stubs.
+% Layout not final: font sizes / overflow left as-is on purpose.
+% Not yet placed (from the old slides): "Later: split barriers"; "Paper detail: ignored atomics, \sporkQtlMask".
+Trace events are graph vertices
+
+\vspace{2mm}
+\sporkReveal<3->{Technical: split into access \sporkKeyA{precondition} and access \sporkKeyA{postcondition} events}
+
+\vspace{2mm}
+\begingroup\centering
+\begin{sporkfigure}
+  % \vphantom: each line as tall as when highlighted, so the boxes' text doesn't jitter on step 2.
+  \newcommand{\tgvMut}{\vphantom{\sporkBlue{$\sporkmut$}}\sporkBlue[only=<2>]{$\sporkmut$} $\sporkx[\sporkz^*]$}
+  \tikzset{stub/.style={spork arrow, spork reveal=<4->}, stub len/.style={xshift=-8mm}}
+  \node [anchor=east] at (0, 0) {Upon accessing $\sporkx[\sporkz^*]$};
+  \node (pre) [tr access, anchor=west] at (12mm, 0) {$\sporkTrPreAccess$\\\tgvMut};
+  \node (post) [tr access, right=6mm of pre] {$\sporkTrPostAccess$\\\tgvMut};
+
+  \node (mutNote) [annotation, spork reveal=<2->, anchor=north east] at (0, -9mm)
+    {$\sporkmut$ is \readBullet{} or \mutateBullet};
+  \draw [annotation line, spork reveal=<2->] (mutNote.east) -- (pre.south west);
+
+  \foreach \dy in {2mm, -2mm} {
+    \draw [stub] ([xshift=-8mm, yshift=\dy]pre.west) -- ([yshift=\dy]pre.west);
+    \draw [stub] ([yshift=\dy]post.east) -- ([xshift=8mm, yshift=\dy]post.east);
+  }
+  \node (sinkNote) [annotation, spork reveal=<4->, below=4mm of pre] {\sporkKeyA{Sink}: inbound edges only};
+  \draw [annotation line, spork reveal=<4->] (sinkNote.north) -- (pre.south);
+  \node (sourceNote) [annotation, spork reveal=<4->, anchor=north] at ([yshift=-2mm]post.south |- sinkNote.south) {\sporkKeyA{Source}: outbound edges only};
+  \draw [annotation line, spork reveal=<4->] (sourceNote.north) -- (post.south);
+
+  \begin{scope}[spork reveal=<5->]
+    \node [anchor=east] at (0, -35mm) {Upon synchronization};
+    \node (fence) [tr event, anchor=west] at (12mm, -35mm) {$\sporkTrFence$};
+    \foreach \dy in {2mm, -2mm} {
+      \draw [spork arrow] ([xshift=-8mm, yshift=\dy]fence.west) -- ([yshift=\dy]fence.west);
+      \draw [spork arrow] ([yshift=\dy]fence.east) -- ([xshift=8mm, yshift=\dy]fence.east);
+    }
+    \node [annotation, anchor=west] at ([xshift=12mm]fence.east) {Both inbound and outbound edges};
+  \end{scope}
+\end{sporkfigure}\par
+\endgroup
 
 \end{frame}
 
@@ -862,10 +901,37 @@ for cases:
   \sporkReveal<2->{\item Must agree with \sporkKeyA{trace total order} for cases:}
 \end{itemize}
 
-% TASK: copy OldTraceEdgeRequirements sub-figure; portion gestured-to by "Same \sporkx[\sporkz^*] always"
-% Include headers "Earlier \sporkTrPreAccess" and "Later \sporkTrPostAccess" (same style as existing Earlier/Later).
-% Headers and "Same \sporkx[\sporkz^*] always" are revealed at 2; 3 cases are revealed at 3 together
-% (I'm no longer belaboring the WAW RAW WAR talking point at this stage of the talk).
+% Requirements table from OldTraceEdgeRequirements (the part the "Same x[z*] always" bracket covers),
+% event kinds moved into the headers: paths run from an earlier TrPostAccess (source) to a later
+% TrPreAccess (sink). Step 2: headers and bracket; step 3: all three cases together
+% (no WAW / RAW / WAR belaboring at this point of the talk).
+\begingroup\centering
+\begin{sporkfigure}
+  \tikzset{req row/.style={rectangle, draw, thick, inner sep=1mm, minimum width=38mm, minimum height=6mm}}
+  \coordinate (tabC) at (0, 0);
+  \foreach \i/\pre/\post/\col/\style in {
+      1/\mutateBullet/\mutateBullet/sporkBlueFg/spork blue style,
+      2/\mutateBullet/\readBullet/sporkVioletFg/spork violet style,
+      3/\readBullet/\mutateBullet/sporkVioletFg/spork violet style} {
+    \begin{scope}[spork reveal=<3->]
+      \node (early\i) [\style, req row, anchor=east] at ([xshift=-6mm, yshift=-7.5mm*(\i-1)]tabC) {\pre};
+      \node (late\i) [\style, req row, anchor=west] at ([xshift=6mm, yshift=-7.5mm*(\i-1)]tabC) {\post};
+      \node [text=\col] at (early\i.east -| tabC) {$\rightarrow^*$};
+    \end{scope}
+  }
+  \begin{scope}[spork reveal=<2->]
+    \node [above=0.5mm of early1, font=\bfseries] {Earlier $\sporkTrPostAccess$};
+    \node [above=0.5mm of late1, font=\bfseries] {Later $\sporkTrPreAccess$};
+    \coordinate (tabTop) at (early1.north west);
+    \coordinate (tabBot) at ([yshift=-15mm]early1.south west);
+    \coordinate (tabX) at ([xshift=-3mm]tabTop);
+    \draw [line width=1.2pt]
+      ([xshift=1.5mm]tabTop -| tabX) -- (tabTop -| tabX)
+      -- node [left=1mm, align=right] {Same $\sporkx[\sporkz^*]$\\always} (tabBot -| tabX)
+      -- ([xshift=1.5mm]tabBot -| tabX);
+  \end{scope}
+\end{sporkfigure}\par
+\endgroup
 
 \sporkReveal<4->{
   \sporkMainKey{Roadmap:}
