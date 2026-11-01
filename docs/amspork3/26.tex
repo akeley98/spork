@@ -706,7 +706,7 @@ Two notions of ordering
 
 \begin{frame}[label=RequiredProperty]{Required Property}
 \begin{itemize}
-  \sporkReveal<1->{\item Needed \sporkKeyA{parallel program property}:\\
+  \sporkReveal<1->{\item Needed \sporkKeyB{parallel program property}:\\
     \sporkReveal<2->{each ``read $\sporkx[\sporkz^*]$'' gets the value of the
     \sporkKeyA{most recent} ``mutate $\sporkx[\sporkz^*]$''}}
 \end{itemize}
@@ -810,27 +810,70 @@ for cases:
   \draw [annotation line, spork reveal=<4->] (squeezeNote.north) -- (r.south);
 \end{sporkfigure}\par
 \endgroup
-\end{frame}
 
 % TASK: add reveal 5 where yellow boxes showing "WAW", "RAW", "WAR" pop up on top of the corresponding dashed edges.
 % May occlude other elements if needed.
-% I'll just orally state that the required orderings correspond to preventing these three classic hazards.p
-
-\begin{frame}[label=TraceGraph]{Trace Graph}
+% I'll just orally state that the required orderings correspond to preventing these three classic hazards.
 
 \end{frame}
 
-\begin{frame}[label=Parallel Partial Order]{Parallel Partial Order}
+\begin{frame}[label=TraceGraphVertices]{Trace Graph Vertices}
+
+% TASK: introducing trace events; unlike old slides, will defer observers until next frame.
+%
+% Reveal 1: Top text "trace events are graph vertices" (I may revise this later).
+%
+% Also reveal 1: Vaguely similar to OldSimpleTrEvents TrPreAccess/TrPostAccess row,
+% but no Observers (yet) and use \sporkmut (mut?) instead of separate read/mutate rows.
+% Left-side label is "Upon accessing \sporkx[\sporkz^*]"
+%
+% Reveal 2: highlight two mut? in blue this overlay step only,
+% and reveal (persistent) annotation to the lower-left "mut? is read or mutate" (like in OldTraceEdges)
+% The annotation doesn't have to point to the right-side TrPostAccess.
+%
+% Reveal 3: Bullet point "Technical: splint into access \sporkKeyA{precondition} and access \sporkKey{postcondition} events"
+% underneath Reveal 1 text, above of figure.
+% Intent is the precondition/postcondition with vaguely natuarlly line up with TrPreAccess/TrPostAccess,
+% not by force.
+%
+% Reveal 4: Decorative short rightward edge arrows (to and from nowhere) appear.
+% Inbound edges only for TrPreAccess; outbound edges only for TrPostAccess.
+% Annotation "Sink: inbound edges only" and "Source: outbound edges only" appear underneath the respective vertices
+%
+% Reveal 5: "Upon synchronization": [TrFence box, similar to OldSimpleTrEvents]
+% No observers; decorative inbound/outbound vertices.
+% Annotation somewhere "both inbound and outbound edges"
+%
+% Add comments reminding me of un-placed "later: split barriers" and "ignored atomics, \sporkQtlMask" notes.
+%
+% I'm not at all 100% sure about the proposed layout but I want to visualize it first.
+% Leave font sizes and overflowing boxes as-is so I can see the real status.
+
+\end{frame}
+
+\begin{frame}[label=TraceGraphEdges]{Trace Graph Edges}
 
 \end{frame}
 
 \begin{frame}[label=PathRequirements]{Path Requirements}
 
-\sporkMainKey{Roadmap:}
 \begin{itemize}
-  \item How the language \sporkKeyA{exposes information} to produce the trace
-  \item How we \sporkKeyA{efficiently check} for correct instr usage, synchronization
+  \item \sporkKeyB{Parallel partial order} $\triangleq$ PATH existence
+  \sporkReveal<2->{\item Must agree with \sporkKeyA{trace total order} for cases:}
 \end{itemize}
+
+% TASK: copy OldTraceEdgeRequirements sub-figure; portion gestured-to by "Same \sporkx[\sporkz^*] always"
+% Include headers "Earlier \sporkTrPreAccess" and "Later \sporkTrPostAccess" (same style as existing Earlier/Later).
+% Headers and "Same \sporkx[\sporkz^*] always" are revealed at 2; 3 cases are revealed at 3 together
+% (I'm no longer belaboring the WAW RAW WAR talking point at this stage of the talk).
+
+\sporkReveal<4->{
+  \sporkMainKey{Roadmap:}
+  \begin{itemize}
+    \item How the language \sporkKeyA{exposes information} to produce the trace
+    \item How we \sporkKeyA{efficiently check} for correct instr usage, synchronization
+  \end{itemize}
+}
 
 \end{frame}
 
