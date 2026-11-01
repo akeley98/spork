@@ -840,8 +840,7 @@ for cases:
 \begin{frame}[label=TraceGraphVertices]{Trace Graph Vertices}
 
 % Trace events as graph vertices; unlike the old slides, observers wait for the next frame.
-% (Old* frames named in comments were deleted; see git e08f2fc.)
-% Step 1: access row (OldSimpleTrEvents look, no Ob boxes, one mut? row instead of read/mutate rows).
+% Step 1: access row: TrPreAccess / TrPostAccess boxes, no Ob boxes, one mut? row.
 % Step 2: line on the pre/postcondition split, above the figure. Step 3: both mut? in blue on that
 % step only, plus the persistent "mut? is read or mutate" note (lower left, under the row label,
 % clear of the sink note). Step 4: decorative
@@ -901,12 +900,12 @@ Intuition: (\emph{src}$\to$\emph{dst}) when \sporkKeyA{common thread} issued eve
   % Prefer not to spend words on what the upcoming figure shows.
 \end{itemize}
 
-% Step 3: TrPostAccess / TrFence / TrPreAccess row from OldTraceEdgesSync (no mut? note, paper
-% disclaimer, or edges yet), Ob^out boxes green and Ob^in boxes violet as on later slides (overloads
-% other green/violet uses; fine for now). TrFence drawn inline: \trFence has no Ob box color option.
+% Step 3: TrPostAccess / TrFence / TrPreAccess row (no edges yet), Ob^out boxes green and Ob^in
+% boxes violet as on later slides (overloads other green/violet uses; fine for now).
+% TrFence drawn inline: \trFence has no Ob box color option.
 % Step 5 (after the bullets below): the two edges, an Ob^out \cap Ob^in \ne \varnothing bubble above the
 % first and a ditto bubble above the second (one shared bubble would suggest both edges test the
-% same Ob sets; no room for the full label twice, unlike OldTraceEdges). The ditto bubble has the
+% same Ob sets; no room for the full label twice). The ditto bubble has the
 % label's height (\vphantom), so the two line up.
 \vspace{2mm}
 \begingroup\centering
@@ -969,9 +968,9 @@ Intuition: (\emph{src}$\to$\emph{dst}) when \sporkKeyA{common thread} issued eve
   \sporkReveal<2->{\item Must agree with \sporkKeyA{trace total order} for cases:}
 \end{itemize}
 
-% Requirements table from OldTraceEdgeRequirements (the part the "Same x[z*] always" bracket covers),
-% event kinds moved into the headers: paths run from an earlier TrPostAccess (source) to a later
-% TrPreAccess (sink). Step 2: headers and bracket; step 3: all three cases together
+% Requirements table (the "Same x[z*] always" bracket), event kinds in the headers: paths run
+% from an earlier TrPostAccess (source) to a later TrPreAccess (sink). Step 2: headers and bracket;
+% step 3: all three cases together
 % (no WAW / RAW / WAR belaboring at this point of the talk).
 \begingroup\centering
 \begin{sporkfigure}
