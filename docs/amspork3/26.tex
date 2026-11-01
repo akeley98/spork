@@ -839,37 +839,33 @@ for cases:
 
 \begin{frame}[label=TraceGraphVertices]{Trace Graph Vertices}
 
-% TASK: exchange mut? and "Technical:" reveal order
-%
-% Remove "layout not final" (unless there's really outstanding issues I overlooked)
-
 % Trace events as graph vertices; unlike the old slides, observers wait for the next frame.
 % Step 1: access row (OldSimpleTrEvents look, no Ob boxes, one mut? row instead of read/mutate rows).
-% Step 2: both mut? in blue on that step only, plus the persistent "mut? is read or mutate" note
-% (lower left, under the row label, clear of the sink note). Step 3: bullet on the pre/postcondition split, above the figure. Step 4: decorative
+% Step 2: line on the pre/postcondition split, above the figure. Step 3: both mut? in blue on that
+% step only, plus the persistent "mut? is read or mutate" note (lower left, under the row label,
+% clear of the sink note). Step 4: decorative
 % edge stubs (inbound only into TrPreAccess, outbound only out of TrPostAccess) with sink / source
 % notes underneath (source note one row lower, so TrPostAccess can sit close to TrPreAccess;
 % its connector passes right of the sink note). Step 5: synchronization row, TrFence with both kinds of stubs.
-% Layout not final: font sizes / overflow left as-is on purpose.
-% Not yet placed (from the old slides): "Later: split barriers"; "Paper detail: ignored atomics, \sporkQtlMask".
+% Step 6: gray "Later: split barriers" under its note. (Atomics / Qtl masking: TraceGraphEdges footnote.)
 Trace events are graph vertices
 
 \vspace{2mm}
-\sporkReveal<3->{Technical: split into access \sporkKeyA{precondition} and access \sporkKeyA{postcondition} events}
+\sporkReveal<2->{Technical: split into access \sporkKeyA{precondition} and access \sporkKeyA{postcondition} events}
 
 \vspace{2mm}
 \begingroup\centering
 \begin{sporkfigure}
-  % \vphantom: each line as tall as when highlighted, so the boxes' text doesn't jitter on step 2.
-  \newcommand{\tgvMut}{\vphantom{\sporkBlue{$\sporkmut$}}\sporkBlue[only=<2>]{$\sporkmut$} $\sporkx[\sporkz^*]$}
+  % \vphantom: each line as tall as when highlighted, so the boxes' text doesn't jitter on step 3.
+  \newcommand{\tgvMut}{\vphantom{\sporkBlue{$\sporkmut$}}\sporkBlue[only=<3>]{$\sporkmut$} $\sporkx[\sporkz^*]$}
   \tikzset{stub/.style={spork arrow, spork reveal=<4->}, stub len/.style={xshift=-8mm}}
   \node [anchor=east] at (0, 0) {Upon accessing $\sporkx[\sporkz^*]$};
   \node (pre) [tr access, anchor=west] at (12mm, 0) {$\sporkTrPreAccess$\\\tgvMut};
   \node (post) [tr access, right=6mm of pre] {$\sporkTrPostAccess$\\\tgvMut};
 
-  \node (mutNote) [annotation, spork reveal=<2->, anchor=north east] at (0, -9mm)
+  \node (mutNote) [annotation, spork reveal=<3->, anchor=north east] at (0, -9mm)
     {$\sporkmut$ is \readBullet{} or \mutateBullet};
-  \draw [annotation line, spork reveal=<2->] (mutNote.east) -- (pre.south west);
+  \draw [annotation line, spork reveal=<3->] (mutNote.east) -- (pre.south west);
 
   \foreach \dy in {2mm, -2mm} {
     \draw [stub] ([xshift=-8mm, yshift=\dy]pre.west) -- ([yshift=\dy]pre.west);
@@ -887,9 +883,9 @@ Trace events are graph vertices
       \draw [spork arrow] ([xshift=-8mm, yshift=\dy]fence.west) -- ([yshift=\dy]fence.west);
       \draw [spork arrow] ([yshift=\dy]fence.east) -- ([xshift=8mm, yshift=\dy]fence.east);
     }
-    \node [annotation, anchor=west] at ([xshift=12mm]fence.east) {Inbound \& outbound edges};
-    % TASK: extra final reveal: {Later: split barriers} under {Inbound \& outbound edges}
+    \node (bothNote) [annotation, anchor=west] at ([xshift=12mm]fence.east) {Inbound \& outbound edges};
   \end{scope}
+  \node [spork reveal=<6->, below=1mm of bothNote, text=sporkGrayttColor] {Later: split barriers};
 \end{sporkfigure}\par
 \endgroup
 
@@ -904,14 +900,38 @@ Intuition: (\emph{src}$\to$\emph{dst}) when \sporkKeyA{common thread} issued eve
   % Prefer not to spend words on what the upcoming figure shows.
 \end{itemize}
 
-% TASK: Reveal 3 shows TrPostArrive/TrFence/TrPreArrive diagram from OldTraceEdgesSync,
-% without mut? note, paper disclaimer, and edges (for now)
-% Add green-out/violet-in coloring used in later slides.
-% Kind of overloaded with other uses of green/violet but I'm OK with that for now.
-%
-% Reveal 5 (after bullet points below), edges appear, and
-% \sporkObOut \cap \sporkObIn = \varnothing appears above both edges in annotation bubble.
-% Similar to OldTraceEdges except annotation required from lack of horizontal space.
+% Step 3: TrPostAccess / TrFence / TrPreAccess row from OldTraceEdgesSync (no mut? note, paper
+% disclaimer, or edges yet), Ob^out boxes green and Ob^in boxes violet as on later slides (overloads
+% other green/violet uses; fine for now). TrFence drawn inline: \trFence has no Ob box color option.
+% Step 5 (after the bullets below): the two edges, an Ob^out \cap Ob^in \ne \varnothing bubble above the
+% first and a ditto bubble above the second (one shared bubble would suggest both edges test the
+% same Ob sets; no room for the full label twice, unlike OldTraceEdges). The ditto bubble has the
+% label's height (\vphantom), so the two line up.
+\vspace{2mm}
+\begingroup\centering
+\begin{sporkfigure}
+  \begin{scope}[spork reveal=<3->]
+    \trPost[spork green style]{b1}{}{$\sporkmut$ $\sporkx[\sporkz^*]$}
+    \trPre[spork violet style]{b2}{right=72mm of b1}{$\sporkmut$ $\sporkx[\sporkz^*]$}
+    \node (bf) [tr event] at ($(b1-out.east)!0.5!(b2-in.west)$) {$\sporkTrFence$};
+    \node (bf-in) [tr ob, spork violet style, anchor=east] at ([xshift=-\trObGap]bf.west) {$\sporkObIn$};
+    \node (bf-out) [tr ob, spork green style, anchor=west] at ([xshift=\trObGap]bf.east) {$\sporkObOut$};
+  \end{scope}
+  \begin{scope}[spork reveal=<5->]
+    \draw [spork arrow] (b1-out) -- coordinate (e1) (bf-in);
+    \draw [spork arrow] (bf-out) -- coordinate (e2) (b2-in);
+    \coordinate (noteY) at ([yshift=3mm]bf.north);
+    \node (edgeNote) [annotation, anchor=south] at (e1 |- noteY)
+      {$\sporkObOut \cap \sporkObIn \ne \varnothing$};
+    \draw [annotation line] (edgeNote.south) -- (e1);
+    \node (dittoNote) [annotation, anchor=south] at (e2 |- noteY)
+      {\vphantom{$\sporkObOut \cap \sporkObIn$}''};
+    \draw [annotation line] (dittoNote.south) -- (e2);
+  \end{scope}
+\end{sporkfigure}\par
+\endgroup
+
+\vspace{2mm}
 
 \sporkReveal<4->{Edge (\emph{src}$\to$\emph{dst}) forms when:
   \begin{itemize}
