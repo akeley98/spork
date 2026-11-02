@@ -5,3 +5,35 @@ We claim that $\sporkConcatEnv$ is a monotone (increasing) function; this forms 
 Claim: $\sporkenv_s \sporksqEnv \sporkenv_p \land (\sporkenv_s, \sporktr) \in \textrm{dom}(\sporkConcatEnv) \implies (\sporkenv_s \sporkConcatEnv \sporktr) \sporksqEnv (\sporkenv_p \sporkConcatEnv \sporktr)$
 
 \textbf{AI Disclosure: Written by Claude Opus 5.5}
+
+Note the conclusion implicitly also claims $(\sporkenv_p, \sporktr) \in \textrm{dom}(\sporkConcatEnv)$, i.e. a less strict environment never gets stuck where a stricter one does not; we prove this too.
+
+\sporkMainKey{Preliminary (monotone $\sporksyncsWith$):}
+If $\sporkenvVis_s \sporksqVis \sporkenvVis_p$ and $\sporksyncsWith(\sporkenvVis_s, \sporktr)$, then $\sporksyncsWith(\sporkenvVis_p, \sporktr)$.
+Both disjuncts of equation~\ref{eq:syncsWith} are non-empty intersection tests, and each set intersected on the $s$ side ($\sporkOb_s$, $\sporkTid \times \sporkQtlMask[s]$, $\sporkAw_s$) is a subset of the corresponding $p$ set; the in-sets depend only on $\sporktr$.
+Also note $\sporksqVis$ is reflexive, so $\sporkenvVis \sporksqVis \sporkenvVis$.
+
+Assume $\sporkenv_s \sporksqEnv \sporkenv_p$ and proceed by cases on $\sporktr$.
+
+\sporkMainKey{Case $\sporkTrPostAccess$:}
+Both sides add the same pair $q$ (equation~\ref{eq:envConcatPost} depends only on $\sporktr$).
+For a pair of $\sporkenv_p \cup \{q\}$ taken from $\sporkenv_p$, use the witness from the hypothesis (it is still in $\sporkenv_s \cup \{q\}$);
+for $q$ itself, use $q$ (reflexivity).
+
+\sporkMainKey{Case $\sporkTrFence$/$\sporkTrArrive$/$\sporkTrAwait$:}
+Every pair of $\sporkenv_p \sporkConcatEnv \sporktr$ has the form $(\sporkenvEff, \lambda(\sporkenvVis_p))$ for some $(\sporkenvEff, \sporkenvVis_p) \in \sporkenv_p$.
+Take the witness $(\sporkenvEff, \sporkenvVis_s) \in \sporkenv_s$ with $\sporkenvVis_s \sporksqVis \sporkenvVis_p$; then $(\sporkenvEff, \lambda(\sporkenvVis_s)) \in \sporkenv_s \sporkConcatEnv \sporktr$, and it suffices to show $\lambda(\sporkenvVis_s) \sporksqVis \lambda(\sporkenvVis_p)$.
+By the preliminary, ``$\sporkenvVis_s$ syncs but $\sporkenvVis_p$ does not'' is impossible, leaving three sub-cases:
+\begin{itemize}
+  \item Neither syncs: both unchanged; holds by hypothesis.
+  \item Only $\sporkenvVis_p$ syncs: $\lambda$ only grows the $\sporkOb$, $\sporkAw$ components (mask unchanged), so $\sporkenvVis_s \sporksqVis \sporkenvVis_p \sporksqVis \lambda(\sporkenvVis_p)$, and $\sporksqVis$ is transitive (componentwise $\subseteq$).
+  \item Both sync: the $\sporkAw$ components are $\sporkAw_s \cup \sporkAwOut(\sporktr) \subseteq \sporkAw_p \cup \sporkAwOut(\sporktr)$;
+    the $\sporkOb$ components are $\sporkOb_s \cup (\sporkObOut(\sporktr) \cap (\sporkTid \times \sporkQtlMask[s])) \subseteq \sporkOb_p \cup (\sporkObOut(\sporktr) \cap (\sporkTid \times \sporkQtlMask[p]))$ since $\sporkQtlMask[s] \subseteq \sporkQtlMask[p]$;
+    masks are unchanged.
+\end{itemize}
+
+\sporkMainKey{Case $\sporkTrPreAccess$:}
+Since $(\sporkenv_s, \sporktr) \in \textrm{dom}(\sporkConcatEnv)$, \textsf{isLegal} holds for $\sporkenv_s$.
+For \textsf{isLegal} on $\sporkenv_p$, take any $\sporkenvEff \in \sporkEnvEff_e$ and $\sporkenvVis_p \in \sporkenv_p(\sporkenvEff)$.
+The hypothesis gives $\sporkenvVis_s \in \sporkenv_s(\sporkenvEff)$ with $\sporkenvVis_s \sporksqVis \sporkenvVis_p$; $\sporksyncsWith(\sporkenvVis_s, \sporktr)$ holds, so by the preliminary $\sporksyncsWith(\sporkenvVis_p, \sporktr)$ does too.
+Hence $\sporkenv_p \sporkConcatEnv \sporktr = \sporkenv_p$ is defined, $\sporkenv_s \sporkConcatEnv \sporktr = \sporkenv_s$, and the conclusion is the hypothesis. $\square$
