@@ -132,7 +132,8 @@
 \newcommand{\sporkQtlPre}{\mathord{\sporkPaperLink{fig:WindowGrammar}{\underset{\textrm{pre}}{\textgpu{Qtl}}}}}
 \newcommand{\sporkqtlInit}{\mathord{\sporkPaperLink{fig:WindowGrammar}{\underset{\textrm{init}}{\textgpu{qtl}}}}}
 \newcommand{\sporkQtlAtom}{\mathord{\sporkPaperLink{fig:WindowGrammar}{\underset{\textrm{atom}}{\textgpu{Qtl}}}}}
-\newcommand{\sporkQtlMask}{\mathord{\sporkPaperLink{fig:WindowGrammar}{\underset{\textrm{mask}}{\textgpu{Qtl}}}}}
+% Optional subscript goes inside the stack. Really all of the underset commands should change to allow this.
+\newcommand{\sporkQtlMask}[1][]{\mathord{\sporkPaperLink{fig:WindowGrammar}{\underset{\textrm{mask}}{\sporkSubOpt{\textgpu{Qtl}}{#1}}}}}
 \newcommand{\sporkQtlArrive}{\mathord{\sporkPaperLink{fig:WindowGrammar}{\underset{\textrm{arrive}}{\textgpu{Qtl}}}}}
 \newcommand{\sporkQtlAwait}{\mathord{\sporkPaperLink{fig:WindowGrammar}{\underset{\textrm{await}}{\textgpu{Qtl}}}}}
 \newcommand{\sporkc}{\mathord{\sporkPaperLink{fig:WindowGrammar}{{c}}}}
@@ -257,6 +258,8 @@
 \newcommand{\sporktoEnvTotal}{\mathord{\sporkPaperLink{eq:toEnvTotal}{\textsf{toEnvTotal}}}}
 \newcommand{\sporkvVis}{\mathord{\sporkPaperLink{eq:vVis}{\textsf{vVis}}}}
 \newcommand{\sporktoChk}{\mathord{\sporkPaperLink{eq:toChk}{\textsf{toChk}}}}
+\newcommand{\sporksqVis}{\mathord{\sporkPaperLink{eq:sqVis}{\underset{\textsf{vis}}{\sqsubseteq}}}}
+\newcommand{\sporksqEnv}{\mathord{\sporkPaperLink{eq:sqEnv}{\underset{\textsf{env}}{\sqsubseteq}}}}
 
 %% TODO links to forthcoming definitions
 \newcommand{\sporkqtlConvergent}{\mathord{\textsf{qtlConvergent}}}

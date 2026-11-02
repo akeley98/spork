@@ -1,0 +1,22 @@
+\sporkSubsection{Strictness Comparison}{sec:SyncEnvStrict}
+
+We write $\sporkenvVis_s \sporksqVis \sporkenvVis_p$ to mean that $\sporkenvVis_s$ is at least as \sporkKeyA{strict} as $\sporkenvVis_p$; define this as:
+\begin{equation}
+  (\sporkOb_s, \sporkAw_s, \sporkQtlMask[s]) \sporksqVis (\sporkOb_p, \sporkAw_p, \sporkQtlMask[p]) \Coloneqq  % Is this the right symbol?
+  \sporkOb_s \subseteq \sporkOb_p \land
+  \sporkAw_s \subseteq \sporkAw_p \land
+  \sporkQtlMask[s] \subseteq \sporkQtlMask[p]
+  \label{eq:sqVis}
+\end{equation}
+The intuition is the $\sporkConcatEnv\sporkTrPreAccess$ check (equation~\ref{eq:envConcatPre}) cannot have the $\sporksyncsWith$ requirement fail for $\sporkenvVis_p$ if it already cannot fail for the subset $\sporkenvVis_s$ since the requirement is entirely based on non-empty intersection tests.
+
+Similarly, $\sporkenv_s \sporksqEnv \sporkenv_p$ means $\sporkenv_s$ is at least as strict as $\sporkenv_p$.
+Define this as
+\begin{align}
+  \sporkenv_s \sporksqEnv \sporkenv_p \Coloneqq  % Is this the right symbol?
+  & \forall(\sporkenvEff_p, \sporkenvVis_p) \in \sporkenv_p.\,
+    \exists (\sporkenvEff_s, \sporkenvVis_s) \in \sporkenv_s. \notag \\
+  & \sporkenvEff_s = \sporkenvEff_p \land \sporkenvVis_s \sporksqVis \sporkenvVis_p
+  \label{eq:sqEnv}
+\end{align}
+We note that $\sporkenv_p \subseteq \sporkenv_s$ trivially implies $\sporkenv_s \sporksqEnv \sporkenv_p$ ($p,s$ are transposed!), and that $\varnothing$ is the most permissive (i.e. least strict) $\sporkenv$ possible.
