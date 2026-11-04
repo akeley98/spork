@@ -13,39 +13,46 @@ On the other hand, CUDA C++ exposes programmers to a variety of potential bugs, 
 \begin{enumerate}
     \item \emph{Dataflow Logic Bugs}: Program optimization usually requires changing the storage or computation order of intermediate values, e.g. caching data in a faster memory, or reordering instructions to hide latency.
     A flawed optimization, such as an indexing bug in copying a tile, or exchanging two statements that don't commute safely, can change the functional behavior of the program.
-    \item \emph{Instruction Logic Bugs}: Accelerator instructions won't work as intended if not used as specified by the hardware vendor.
-    For example, \texttt{wgmma} tensor core instructions require data in a certain input format and  uniform execution by a full warpgroup (128 aligned threads).
-    \item \emph{Inter-Thread Synchronization Bugs}: Garden-variety synchronization bugs involve two threads accessing the same memory location (with one access being a write) without ordering enforced by synchronization.
+    \item \emph{Instruction Logic Bugs}: Accelerator instructions won't work as intended if not used as specified by the hardware vendor, or if the programmer misunderstands the functionality of the instruction.
+    For example, \texttt{wgmma} tensor core instructions require data in a certain input format and uniform execution by a full warpgroup (128 aligned threads).
+    \item \emph{Inter-Thread Synchronization Bugs}: Garden-variety synchronization bugs involve two threads accessing the same memory location (with one access being a mutation) without ordering enforced by synchronization.
     \item \emph{Intra-Thread Synchronization Bugs}: If one thread issues an asynchronous (async) instruction, and that \emph{same thread} later issues another instruction (async or not) that operates on the same memory location, overlapped or reordered instruction execution can undermine correctness.
 \end{enumerate}
 \vspace{-0.3em}
 
 Our goal is to provide a programming model that gives CUDA-like control \emph{without} accepting the risk of these bugs as a fact of life.
-Existing CUDA C++ libraries such as CuTe \cite{cute} and ThunderKittens \cite{thunderkittens} provide close-to-the-metal abstractions that minimize the risk of logic bugs, particularly data movement and instruction input format bugs; however, none of them support large-scale program analysis and synchronization checking of arbitrary input programs.
+Existing CUDA C++ libraries such as CuTe \cite{cute} and ThunderKittens \cite{thunderkittens} provide close-to-the-metal abstractions that minimize the risk of logic bugs, particularly data movement and instruction input format bugs; however, none of them support large-scale automated correctness checking (e.g. race freedom) of arbitrary input programs.
 
-As a starting point for the \sporkName{} language design, we postulate that programs with \emph{sequential semantics} are far easier to analyze, both by humans and by compilers.
-We define program behavior using standard sequential semantics, treating language features for parallelism and synchronization--including parallel for-loops across CUDA thread hierarchies and barrier statements--simply as \emph{annotations} on sequential code.
-This design provides two key benefits: programmers can intuitively reason about their code without hidden control flow or side effects, and more importantly, compilers can verify whether synchronizations are legal; that is, they can verify these annotations do not alter the program behavior relative to its baseline sequential interpretation.
+We briefly clarify our dual goals of \emph{control} and \emph{correctness checking}.
+By ``control'' we mean that programs are written in an imperative style, with the fundamental elements being
+\emph{mutable arrays} (tensors, explicitly allocated in a user-chosen memory type),
+\emph{loop nests} (both sequential and parallel),
+\emph{user-chosen accelerator instruction usage},
+and \emph{user-inserted synchronization} (including split barrier constructs such as \texttt{commit\_group} and \texttt{mbarrier} \cite{ptx}).
+By ``correctness checking'', we mean not only that the program avoids certain incorrect behavior (e.g. data races or incorrect instruction usage),
+but that it is functionally equivalent to a baseline \emph{algorithm}.
+Although the primary contribution of \sporkName{} is automated synchronization checking of programs written with explicit usage of CUDA accelerator instructions,
+this checking is only necessary, not sufficient, for guaranteeing functional equivalence;
+the language design is holistic in support of this end-to-end equivalence goal.
 
-The \sporkName{} program, interpreted sequentially, serves as as the semantic baseline---defining \emph{what} the user intends to compute. Parallelism annotations specify \emph{which threads} execute which statement instances, while synchronization constructs specify \emph{how} the user intends to uphold baseline behavior.
-This raises a question: what degree of safety and control does \sporkName{} provide?
+As a starting point for the \sporkName{} approach to correctness checking, we postulate that programs with \emph{sequential semantics} are far easier to analyze, both by humans and by compilers.
+We define program behavior using standard sequential semantics, treating language features for synchronization and parallelism---including barrier statements and parallel for-loops across CUDA thread hierarchies---as metaphorical \emph{annotations} on sequential code.
+This design provides two key benefits: programmers can intuitively reason about code without hidden asynchronous side effects, and more importantly, compilers can verify whether synchronizations are legal; that is, they can verify these annotations do not alter the program behavior relative to its baseline sequential interpretation.
+
+The \sporkName{} program, interpreted sequentially, serves as a semantic baseline---defining \emph{what} the user intends to compute. Parallelism annotations specify \emph{which threads} (and potentially what explicitly-asynchronous instructions) execute which statement instances, while synchronization constructs specify \emph{how} the user intends to uphold baseline behavior.
+This raises a question: for parallelism, what degree of safety and control does \sporkName{} provide?
 We define safety as \emph{sequential-parallel equivalence}--ensuring that the parallel interpretation of a program matches the sequential one.
 Parallelism is explicitly controlled by the programmer's annotations, rather than being hidden and automated by the compiler.
 The \sporkName{} compiler's role is limited to \emph{verifying} that the user-provided synchronization ensures equivalence.
+The current implementation is restricted to verifying this for a user-provided selection of concrete input tensor sizes.
 
-\sporkRed{TODO: AMIR does not exist anymore}
+Through collective analysis (Section~\sporkTodoLink), we annotate statements and expressions with a \emph{thread mapping} $\sporktidMap$, specifying which thread(s) execute each statement or expression instance.
+This enables static analysis of the thread assignment counts, ensuring instructions with thread convergence requirements (e.g. warp MMA) are used correctly (Section~\sporkTodoLink).
+To ensure sequential-parallel equivalence, we analyze program traces consisting of memory read, memory mutate, and synchronization events, with trace events recording \emph{observers} (\sporkTodoLink) encoding the thread(s) and possibly-asynchronous instructions responsible for the event.
+We analyze traces with \emph{synchronization environment} semantics (\sporkTodoLink) where data variables store access histories (reads and mutations) with their thread and async instruction \emph{visibility}, rather than numeric values.
+Synchronization events become meaningful in the synchronization environment, conditionally expanding the visibility of all prior recorded accesses.
 
-\sporkRed{TODO: say sync checking is only for concrete problem sizes}
-
-% Semicolon is uncommon but valid grammar for lists where confusion with commas is possible.
-
-Through collective analysis (Section~\sporkRed{TODO link}), we annotate each statement with a \emph{collective tiling}, specifying which thread(s) execute each statement instance.
-This enables static analysis of the thread assignment counts, ensuring instructions with thread convergence requirements (e.g. warp MMA) are used correctly.
-To ensure sequential-parallel equivalence, we simulate execution on an \emph{abstract machine}  (Section~\sporkRed{TODO link}).
-The \sporkName{} program converts to an Abstract Machine program where data variables store access histories (reads and mutations) with their thread and async instruction \emph{visibility}, rather than numeric values.
-Synchronization statements become meaningful only in the abstract machine, conditionally expanding the visibility of all prior recorded accesses.
-
-We built \sporkName{} as an extension to Exo \cite{exo, exo2}, a user-schedulable language providing composable, checked rewrite rules for transforming sequential programs.
+We built \sporkName{} as an extension to Exo \cite{exo, exo2}, a user-schedulable language providing composable, checked rewrite rules for transforming (optimizing) sequential programs without risking dataflow or instruction usage bugs.
 Exo lacks GPU support, and we significantly extended its frontend language design, static analysis, semantics, and codegen to enable safe parallel program transformation.
-Treating parallel constructs as annotations over a sequential semantic baseline enabled us to reuse Exo's over 60 verified rewrites as-is, which allowed us to transform a simple sequential GEMM program into a complex GEMM kernel for the NVIDIA Hopper architecture, with every step of transformation verified via a \emph{chain of equivalence}: Exo verified equivalence between the original $p_1$ and the final $p_n$ while ignoring all the synchronization constructs, and \sporkName{} verified functional equivalence between the parallel and sequential interpretations of $p_n$, checking the legality of the parallel and synchronous annotations (Section~\sporkRed{TODO link}).
-Combining Exo's pre-existing checked rewrite rules with \sporkName{}'s new language features and synchronization checking, we created a GEMM kernel achieving over 80\% of theoretical peak for large problem sizes, in some cases outperforming the vendor-supplied CUBLAS library (Section~\sporkRed{TODO link}).
+Treating parallel constructs as annotations over a sequential semantic baseline enabled us to reuse Exo's over 60 verified rewrites as-is, which allowed us to transform a simple sequential GEMM program into a complex GEMM kernel for the NVIDIA Hopper architecture, with every step of transformation\footnote{Except unsound rewrites modelling TMA's zero padding \sporkTodoLink} verified via a \emph{chain of equivalence}: Exo verified equivalence between the original $p_0$ and the final $p_n$ while ignoring all the synchronization constructs, and \sporkName{} verified functional equivalence between the parallel and sequential interpretations of $p_n$, checking the legality of the parallel and synchronous annotations (Section~\sporkTodoLink).
+Combining Exo's pre-existing checked rewrite rules with \sporkName{}'s new language features and synchronization checking, we created a GEMM kernel achieving over 80\% of theoretical peak for large problem sizes, in some cases outperforming the vendor-supplied CUBLAS library (Section~\sporkRed{TODO link; new results}). \sporkRed{TODO cry about efficency failures}
