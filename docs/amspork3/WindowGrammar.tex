@@ -3,7 +3,7 @@
 \begin{tabular}{rrll}
 \toprule
   $\sporkqtl : \sporkQtl$ & $\Coloneqq$ & \texttt{cuda\_in\_order\_ram\_qual}... & qualitative timeline (\sporkRed{todo table link}) \\
-  $\sporkwinAnn : \sporkWinAnn$ & $\Coloneqq$ & $(\sporktidMap, \sporkQtlPre, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask)$ & window annotation \\
+  $\sporkwinAnn : \sporkWinAnn$ & $\Coloneqq$ & $(\sporktidMap, \sporkQtlPre, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask)$ & window annotation (\textbf{not in user language}) \\
   $\sporkc$ & $\Coloneqq$ & $\sporkexpr | \sporkeLo\texttt{:}\sporkeHi$ & window \textbf{c}oordinate (point $\sporkexpr$ or interval $\sporkeLo\texttt{:}\sporkeHi$) \\
   $\sporkcz$ & $\Coloneqq$ & $\sporkz | \sporkz_\mathrm{lo}\texttt{:}\sporkz_\mathrm{hi}$ & $\sporkZ$-constant window coordinate \\
   $\sporkw$ & $\Coloneqq$ & $\sporkx[\sporkc^*]$ & non-annotated window \\
@@ -21,6 +21,9 @@
 \end{tabular}
 %% Scalar allocation access note may need to be emphasized in the right place for a real paper
 %% but this is good enough for this staging document for now.
-\caption{Window Grammar. Access scalar allocations $\sporkx$ with the degenerate scalar window $\sporkx[]$.}
+\caption{Window Grammar.
+Access scalar allocations $\sporkx$ with the degenerate scalar window $\sporkx[]$ (embedded in Python syntax as plain $\sporkx$).
+The window annotation $\sporkwinAnn$ is added by compiler analysis, based on analyzing warp specialization, parallel loops, and (if applicable) the instruction parameter that the window is substituting.
+}
 \label{fig:WindowGrammar}
 \end{figure}
