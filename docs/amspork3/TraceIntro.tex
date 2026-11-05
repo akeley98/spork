@@ -1,0 +1,60 @@
+\sporkSection{Trace Introduction}{sec:TraceIntro}
+
+Before introducing the full language,
+we introduce the basics of what constitutes a trace,
+and describe the reasoning behind our notion of sequential-parallel equivalence.
+This will be presented without proof in natural language,
+and forms the basis of our language design and synchronization checking.
+
+Informally, the sequence of trace events is ordered in two ways:
+in \emph{trace total order}, which is given by the trace sequence order
+(i.e. the order a sequential execution would issue the trace events),
+and in \emph{parallel partial order},
+which orders pairs of trace events only when guaranteed by executed synchronization or by sequencing of non-async instructions within a single thread.
+
+We do not require perfect agreement of the two orderings.
+We require only enough to guarantee that each read of an array element $\sporkx[\sporkz^*]$,
+as executed by the parallel hardware,
+will observe the value stored by the most recent prior mutate of $\sporkx[\sporkz^*]$,
+with \emph{recent} and \emph{prior} defined by trace total order (Figure~\sporkTodoLink{}).
+
+% TODO: figure
+
+The requirements we need correspond to resolving the classic hazards:
+write-after-write (WAW), read-after-write (RAW), and write-after-read (WAR).
+We require agreement between the two orders for pairs of mutates of the same array element $\sporkx[\sporkz^*]$ (WAW),
+so that each mutate cleanly overwrites the previous,
+and we require order agreement between pairs of read events and mutate events of $\sporkx[\sporkz^*]$,
+so that parallel partial order ``squeezes'' a read event between back-to-back mutates (Figure~\sporkTodoLink{}).
+The executed read is left with no choice but to read one possible value:
+the value that would be read in a totally-ordered execution.
+
+What remains is to summarize the contents of a trace event and what parallel partial order is.
+To ease analysis,  % Kind of not true; it's actually strictly necessary to avoid transitivity through instructions.
+we split array accesses into ``precondition'' and ``postcondition'' events $\sporkTrPreAccess$ and $\sporkTrPostAccess$.
+These record the accessed array element $\sporkx[\sporkz^*]$,
+a read-or-mutate tag $\sporkmut$,
+and other state described in Section~\sporkTodoLink, I'm not sure yet.
+``Read only'' expressions are carefully stepped to ensure reads are traced
+(\sporkTrRead, Figure~\ref{fig:SyncTraceSemantics}).
+Synchronization events are recorded as $\sporkTrFence$ events (non-split barriers)
+or pairs of $\sporkTrArrive,\sporkTrAwait$ events (split barriers).
+
+Totally-trace-ordered events $\sporktr,\sporktr'$ are additionally partially-parallel-ordered when they
+\begin{enumerate}
+  \item share a common thread and are implicitly ``in-order'', hence seqenced by the thread, or
+  \item share a common thread and correspond to an async instruction \& specialized barrier, or
+  \item are ordered by usage of a common split barrier (e.g. same mbarrier)
+\end{enumerate}
+To implement the first two cases,
+we give each trace event inbound and outbound \emph{observer sets},
+where observers $\sporkob: \sporkOb$ consist of a pair of thread ID $\sporktid$  % \emph{thread ID} is super ugly
+and \emph{qualitative timeline} $\sporkqtl$.
+The latter distinguishes effects of asynchronous instructions, and their specialized barriers, from ordinary implicitly in-order instructions.
+Parallel partial ordering between two totally-trace-ordered events $\sporktr_1,\sporktr_2$ is  % not"'are"; "ordering" is singular.
+decided based on overlaps between $\sporktr_1$'s outbound observer set and $\sporktr_2$'s inbound observer set (Section~\ref{sec:TraceEdges}).
+The added qualitative timeline makes the overlap test stricter and filters out orderings not guaranteed by hardware semantics.
+For the split barrier case, we define inbound and outbound \emph{pending await sets}, used similarly.
+
+
+

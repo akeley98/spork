@@ -37,7 +37,7 @@ Rules define steps of the form $\langle \sporks_1, \sporksigma_1, \sporktr^*_1 \
 
 Continuing the sequential-or-parallel loop example, the computed value environment $\sporksigma$ is invariant of the $\sporkloopMode$.
 The trace alone ``remembers'' the parallelism (indirectly, due to parallel loops influencing the deduced $\sporktidMap$), and is analyzed for correct synchronization.
-Specifically, traces are constructed using the \emph{checked trace concatenation operator} $\sporkConcatChk$ (Section~\ref{sec:TraceChecks}), which causes the stepping to get stuck upon attempting to append a trace event that risks violating sequential-parallel equivalence.
+Specifically, traces are constructed using the \emph{checked trace concatenation operator} $\sporkConcatChk$ (Section~\ref{sec:TraceConcatChk}), which causes the stepping to get stuck upon attempting to append a trace event that risks violating sequential-parallel equivalence.
 In spite of the determinism, we call the full semantics presented \emph{parallel semantics}.
 For the purposes of reasoning about rewrites, we define \emph{sequential semantics}, which are identical except for the omission of the trace and associated risk of failed trace concatenation.
 

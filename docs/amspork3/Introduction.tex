@@ -17,6 +17,10 @@ On the other hand, CUDA C++ exposes programmers to a variety of potential bugs, 
     For example, \texttt{wgmma} tensor core instructions require data in a certain input format and uniform execution by a full warpgroup (128 aligned threads).
     \item \emph{Inter-Thread Synchronization Bugs}: Garden-variety synchronization bugs involve two threads accessing the same memory location (with one access being a mutation) without ordering enforced by synchronization.
     \item \emph{Intra-Thread Synchronization Bugs}: If one thread issues an asynchronous (async) instruction, and that \emph{same thread} later issues another instruction (async or not) that operates on the same memory location, overlapped or reordered instruction execution can undermine correctness.
+    These instructions require usage of specialized barrier instructions
+    (often split barriers constructs such as \texttt{commit\_group} and \texttt{mbarrier} \cite{ptx})
+    to observe deterministically,
+    instead of classic barriers like \texttt{\_\_syncthreads}.
 \end{enumerate}
 \vspace{-0.3em}
 
@@ -28,7 +32,7 @@ By ``control'' we mean that programs are written in an imperative style, with th
 \emph{mutable arrays} (tensors, explicitly allocated in a user-chosen memory type),
 \emph{loop nests} (both sequential and parallel),
 \emph{user-chosen accelerator instruction usage},
-and \emph{user-inserted synchronization} (including split barrier constructs such as \texttt{commit\_group} and \texttt{mbarrier} \cite{ptx}).
+and \emph{user-inserted synchronization} (including split barriers).
 By ``correctness checking'', we mean not only that the program avoids certain incorrect behavior (e.g. data races or incorrect instruction usage),
 but that it is functionally equivalent to a baseline \emph{algorithm}.
 Although the primary contribution of \sporkName{} is automated synchronization checking of programs written with explicit usage of CUDA accelerator instructions,
