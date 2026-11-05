@@ -1,20 +1,22 @@
 \sporkSubsection{System Overview}{sec:SystemOverview}
 
-\sporkName{} programmers can either directly write optimized object code or apply a sequence of scheduling transformations to simple initial code.
+% David Zhao Akeley 2026-11-04: I'm done saying "object code"
+\sporkName{} programmers can either directly write optimized code or apply a sequence of scheduling transformations to simple initial code.
 Both approaches grant full control over performance-critical details.
 However, the scheduling approach offers significant practical advantages for performance engineering:
 optimization strategies become reusable functions across similar kernels, complex transformations decompose into sequences of verified primitives that enable rapid iteration with correctness guarantees, and the compiler automatically handles complex index calculations for tiling strategies---especially valuable for GPU optimization.
 Below, we describe \sporkName{}'s scheduling-based optimization process.
 
 The scheduling flow in \sporkName{} begins with a simple initial procedure $\sporkp_0$.
+% WARNING: we use $R$ ad-hoc here, not to be confused with \sporkR, which is the real numbers.
 The programmer issues a series of \emph{rewrite operations} $R_1$ ... $R_n$ to create transformed procedures $\sporkp_1 ... \sporkp_n$ (Figure~\ref{fig:RewriteFlow}).
 
 \input{RewriteFlow.tex}
 
-Exo's scheduling rewrite verifies functional equivalence of $\sporkseqInterp{\sporkp_0} ... \sporkseqInterp{\sporkp_n}$ under sequential semantics (denoted $\sporkseqInterp{...}$).
-\sporkName{} adds new scheduling operations for parallel and synchronization constructs, but these non-semantics-altering annotations are ignored under $\sporkseqInterp{...}$ checks.
+Exo's scheduling rewrites verify functional equivalence of $\sporkseqInterp{\sporkp_0} ... \sporkseqInterp{\sporkp_n}$ under sequential semantics (denoted $\sporkseqInterp{...}$).
+\sporkName{} adds new scheduling operations for parallel and synchronization constructs, but these have no impact in sequential semantics and trivially pass $\sporkseqInterp{...}$-equivalence checks.
 The backend checks apply only to the final procedure $\sporkp_n$, prior to translating to C and CUDA C++.
 Most notably, synchronization checking ensures $\sporkseqInterp{\sporkp_n} \equiv \sporkparInterp{\sporkp_n}$, where $\sporkparInterp{...}$ denotes parallel semantics.
-Transitively, this completes the \emph{chain of equivalence} from $\sporkseqInterp{\sporkp_0} \equiv ... \equiv \sporkseqInterp{\sporkp_n} \equiv \sporkparInterp{\sporkp_n}$, guaranteeing that $\sporkp_0$'s behavior is preserved throughout all transformations.
+Transitively, this completes the \emph{chain of equivalence} from $\sporkseqInterp{\sporkp_0} \equiv ... \equiv \sporkseqInterp{\sporkp_n} \equiv \sporkparInterp{\sporkp_n}$, guaranteeing that $\sporkp_0$'s behavior is preserved through to the parallel code generated from $\sporkp_n$.
 
 End-to-end functional equivalence relies on these categories of reasoning:
