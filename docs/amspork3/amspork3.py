@@ -511,7 +511,7 @@ def MultiTrPostAccess_example(enable_fence: bool):
           # TeX: color MultiTrPostAccess elide "y[t]"
           # TeX: color MultiTrPostAccess blue "x[42]"
           # TeX: mark MultiTrPostAccess reads end
-          y[t] = x[42]  # $\readBullet$ using $\sporkqtl_\mathsf{io}$
+          y[t] = x[42]  # $\sporkReadBullet$ using $\sporkqtl_\mathsf{io}$
 
         # TeX: end MultiTrPostAccess
       if enable_fence:
@@ -534,7 +534,7 @@ def MultiTrPostAccess_example(enable_fence: bool):
           # TeX: color MultiTrPostAccess[1:] elide "86"
           # TeX: color MultiTrPostAccess[1:] blue "x[42]"
           # TeX: mark MultiTrPostAccess[1:] mut end
-          x[42] = 86  # $\mutateBullet$ using $\sporkqtl_\mathsf{io}$
+          x[42] = 86  # $\sporkMutateBullet$ using $\sporkqtl_\mathsf{io}$
         # TeX: end MultiTrPostAccess[1:]
 
       # Example ends

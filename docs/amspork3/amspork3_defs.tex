@@ -276,3 +276,24 @@
 %% TODO links to forthcoming definitions
 \newcommand{\sporkqtlConvergent}{\mathord{\textsf{qtlConvergent}}}
 \newcommand{\sporkQtlCuda}{\mathord{\underset{\textrm{cuda}}{\sporkQtl}}}
+
+%% Trace event read/mutate labels (TraceIntro figures, 26.tex, amspork3.py listing comments).
+%% Wrapped in textsf to force it to work in math mode.
+\newcommand{\sporkReadBullet}{\textsf{$\circ$ read}}
+\newcommand{\sporkMutateBullet}{\textsf{$\bullet$ mutate}}
+
+%% Shared figure helpers (fig_*_body.tex, used by main.tex and 26.tex).
+% \sporkSeqReqProp{<spec>}{i}: x[i], highlighted in \sporkBlue on <spec> only (0: never); otherwise an invisible box of
+% the same size (white on the white event box), so nothing moves between steps.
+\newcommand{\sporkSeqReqProp}[2]{{\colorlet{seqReqPropfg}{.}\colorlet{seqReqPropbg}{white}%
+  \sporkSlideOnly<#1>{\colorlet{seqReqPropfg}{sporkBlueFg}\colorlet{seqReqPropbg}{sporkBlueBg}}%
+  \color{seqReqPropfg}\colorbox{seqReqPropbg}{$\sporkx[#2]$}}}
+
+% TikZ styles for commentary on a diagram: a neutral gray box (keyword colors inside stay
+% meaningful) tied to what it describes by a gray `annotation line`.
+% Plain black!N grays on purpose, so restyling sporkGrayttColor doesn't change them.
+\tikzset{
+  annotation/.style={rectangle, draw=black!45, fill=black!3, rounded corners=1mm,
+    inner sep=1.5mm, align=left},
+  annotation line/.style={draw=black!45, thick},
+}

@@ -16,18 +16,20 @@ We do not require perfect agreement of the two orderings.
 We require only enough to guarantee that each read of an array element $\sporkx[\sporkz^*]$,
 as executed by the parallel hardware,
 will observe the value stored by the most recent prior mutate of $\sporkx[\sporkz^*]$,
-with \emph{recent} and \emph{prior} defined by trace total order (Figure~\sporkTodoLink{}).
+with \emph{recent} and \emph{prior} defined by trace total order (Figure~\ref{fig:RequiredProperty}).
 
-% TODO: figure
+\input{RequiredProperty.tex}
 
 The requirements we need correspond to resolving the classic hazards:
 write-after-write (WAW), read-after-write (RAW), and write-after-read (WAR).
 We require agreement between the two orders for pairs of mutates of the same array element $\sporkx[\sporkz^*]$ (WAW),
 so that each mutate cleanly overwrites the previous,
 and we require order agreement between pairs of read events and mutate events of $\sporkx[\sporkz^*]$,
-so that parallel partial order ``squeezes'' a read event between back-to-back mutates (Figure~\sporkTodoLink{}).
+so that parallel partial order ``squeezes'' a read event between back-to-back mutates (Figure~\ref{fig:RequiredOrderings}).
 The executed read is left with no choice but to read one possible value:
-the value that would be read in a totally-ordered execution.
+the value that would be read in a totally-ordered execution (Figure~\ref{fig:RequiredOrderings}).
+
+\input{RequiredOrderings.tex}
 
 What remains is to summarize the contents of a trace event and what parallel partial order is.
 To ease analysis,  % Kind of not true; it's actually strictly necessary to avoid transitivity through instructions.
