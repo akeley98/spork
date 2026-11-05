@@ -25,6 +25,14 @@ and syntactically substituting $A$ for $\sporkSub{B}{A}$ inside ``common'' yield
 %% including one with an empty (\sporkSubNothing) side, e.g. C-ForIter.
 The $\sporkSub{B}{A}$ operator is on the meta-language of rules and has no Exo-GPU operator precedence.
 
+The presented semantics are the \emph{parallel semantics};
+for brevity, we do not repeat everything to specify sequential semantics (Section~\ref{sec:LanguageOverview}).
+The rules for sequential semantics are specified by deleting traces from the rules,
+disregarding annotations $\sporkwinAnn,\sporktidMap$
+(thus eliminating the need to run collective analysis prior to sequential interpretation),
+and deleting any resulting no-op rules.
+This is always well-defined, as the output $\sporks, \sporksigma$ has no dependence on the trace or deleted annotations.
+
 \FloatBarrier
 \input{WindowUnrollSemantics.tex}
 \input{WindowSubSemantics.tex}
