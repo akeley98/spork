@@ -31,7 +31,7 @@
   \draw [spork arrow] (checks) -- (code);
 
   % Equivalence row, above the rewrites row.
-  \coordinate (eqY) at ([yshift=9mm]proc0.north);
+  \coordinate (eqY) at ([yshift=4mm]proc0.north);
   \node (seq0) [anchor=base] at (eqY -| proc0) {$\sporkseqInterp{\sporkp_0}$};
   \node (seq1) [anchor=base] at (eqY -| proc1) {$\sporkseqInterp{\sporkp_1}$};
   \node (seqM) [anchor=base] at (eqY -| procM) {$\sporkseqInterp{\sporkp_{n-1}}$};
@@ -44,17 +44,17 @@
   \path (seqN.base east) -- node [anchor=base] {$\equiv$} (parN.base west);
 
   % Backend checks, expanded below; the row is right-aligned with the C/CUDA box
-  % and extends left under the rewrites.
-  \coordinate (rowTop) at ([yshift=-14mm]checks.south);
+  % and extends left under the rewrites. The cross bar sits just under "Exo Rewrites".
+  \coordinate (bracketY) at ([yshift=-2mm]rewrites.south);
+  \coordinate (rowTop) at ([yshift=-3.5mm]bracketY);
   \node (syncNote) [check note, text width=12mm, anchor=north east] at (rowTop -| code.east)
     {Sync\\Check};
-  \node (threadsNote) [check note, text width=22mm, anchor=north east]
-    at ([xshift=-3mm]syncNote.north west) {Instr Thread\\Checks};
-  \node (layoutNote) [check note, text width=22mm, anchor=north east]
-    at ([xshift=-3mm]threadsNote.north west) {Instr Data\\Layout Checks};
-  \node (collNote) [check note, text width=20mm, anchor=north east]
-    at ([xshift=-3mm]layoutNote.north west) {Collective\\Analysis\\($\sporktidMap$)};
-  \coordinate (bracketY) at ([yshift=3.5mm]rowTop);
+  \node (threadsNote) [check note, text width=24mm, anchor=north east]
+    at ([xshift=-4mm]syncNote.north west) {Instr Thread\\Checks};
+  \node (layoutNote) [check note, text width=30mm, anchor=north east]
+    at ([xshift=-4mm]threadsNote.north west) {Instr Data\\Layout Checks};
+  \node (collNote) [check note, text width=32mm, anchor=north east]
+    at ([xshift=-4mm]layoutNote.north west) {Collective Analysis\\($\sporktidMap$)};
   \draw [spork line, draw=sporkYellowFg]
     ([yshift=-2.5mm]bracketY -| collNote.west) -- (bracketY -| collNote.west)
     -- (bracketY -| syncNote.east) -- ([yshift=-2.5mm]bracketY -| syncNote.east)
