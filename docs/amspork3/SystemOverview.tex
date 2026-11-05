@@ -42,5 +42,5 @@ This sets the stage for the instruction thread checks and synchronization check.
 \sporkMainKey{Synchronization Check:} Since parallel loops and synchronization statements are ignored during rewrites, synchronization checking must ensure that their usage is valid and does not alter observed procedure outputs or introduce race conditions.
 Although we present more intuitive trace-based parallel semantics,
 the real implemented synchronization checker interprets the checked procedure with equivalent (but more efficient) \emph{synchronization environment semantics} (Section~\ref{sec:SyncEnv}),
-which protects the checked procedre against both \emph{inter- and intra-thread synchronization bugs} for selected concrete problem sizes.
+which protects the checked procedure against both \emph{inter- and intra-thread synchronization bugs} for selected concrete problem sizes.
 
