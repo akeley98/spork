@@ -37,7 +37,7 @@
   \node (seqM) [anchor=base] at (eqY -| procM) {$\sporkseqInterp{\sporkp_{n-1}}$};
   \node (seqN) [anchor=base] at (eqY -| procN) {$\sporkseqInterp{\sporkp_n}$};
   \node (parN) [anchor=base] at (eqY -| checks) {$\sporkparInterp{\sporkp_n}$};
-  \node [anchor=base east] at (eqY -| rewritesLabel.east) {\textbf{Equivalence:}};
+  \node (eqLabel) [anchor=base east] at (eqY -| rewritesLabel.east) {\textbf{Equivalence:}};
   \path (seq0.base east) -- node [anchor=base] {$\equiv$} (seq1.base west);
   \path (seq1.base east) -- node [anchor=base] {$\equiv \cdots \equiv$} (seqM.base west);
   \path (seqM.base east) -- node [anchor=base] {$\equiv$} (seqN.base west);
@@ -62,6 +62,11 @@
   \fill [sporkYellowBg]
     ([xshift=1mm, yshift=-0.8mm]bracketY -| collNote.west)
     rectangle ([xshift=-1mm, yshift=-2mm]bracketY -| syncNote.east);
+
+  % Informal definition of $\equiv$, in the dead space left of the backend checks.
+  \node (equivNote) [check note, fill=none, align=left, font=\sporkFigSmall, anchor=north east]
+    at ([xshift=-3mm]bracketY -| collNote.west)
+    {$\equiv$ (functional equiv.)\\means same output $\sporksigma'$\\given same input $\sporksigma$};
 \end{sporkfigure}
 \caption{\sporkName{} rewrite flow and chain of equivalence.}
 \label{fig:RewriteFlow}
