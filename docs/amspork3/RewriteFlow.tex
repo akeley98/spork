@@ -1,0 +1,68 @@
+% Rewrite flow with the chain of equivalence above it and the backend checks expanded below.
+% Adapted from the InstrChecksRewrite frame of 26.tex (fig_exoRewriteFlow_body.tex plus annotations);
+% deliberately a separate copy, since the paper version differs enough.
+\begin{figure}[h]
+\centering
+\begin{sporkfigure}
+  \tikzset{
+    flow node/.style={rectangle, draw, minimum height=10mm, align=center, inner sep=1.5mm},
+    proc node/.style={flow node, minimum width=12mm},
+    check note/.style={rectangle, draw=black!45, fill=black!3, rounded corners=1mm,
+      inner sep=1.5mm, align=center, anchor=north},
+    rewrite arrow/.style={spork arrow, draw=sporkBlueFg},
+    rewrite label/.style={above=0.3mm, text=sporkBlueFg},
+  }
+
+  % Rewrites row.
+  \node (proc0) [proc node] {$\sporkp_0$};
+  \node (proc1) [proc node, right=10mm of proc0] {$\sporkp_1$};
+  \node (procM) [proc node, right=20mm of proc1] {$\sporkp_{n-1}$};
+  \node (procN) [proc node, right=10mm of procM] {$\sporkp_n$};
+  \node (checks) [flow node, spork yellow style, text width=16mm, right=5mm of procN] {Backend\\checks};
+  \node (code) [flow node, minimum width=14mm, right=5mm of checks] {C/CUDA};
+  \node (rewritesLabel) [anchor=east] at ([xshift=-2mm]proc0.west) {\textbf{Rewrites:}};
+
+  \draw [rewrite arrow] (proc0) -- node [rewrite label] {$R_1$} (proc1);
+  \draw [rewrite arrow, dash pattern=on 2.5pt off 2pt] (proc1) --
+    node (rewritesStar) [above=0.3mm, font=\fontsize{16}{19}\selectfont, text=sporkBlueFg] {$*$} (procM);
+  \draw [rewrite arrow] (procM) -- node [rewrite label] {$R_n$} (procN);
+  \path (proc0.south) -- node (rewrites) [below=1mm, text=sporkBlueFg] {Exo Rewrites} (procN.south);
+  \draw [spork arrow] (procN) -- (checks);
+  \draw [spork arrow] (checks) -- (code);
+
+  % Equivalence row, above the rewrites row.
+  \coordinate (eqY) at ([yshift=9mm]proc0.north);
+  \node (seq0) [anchor=base] at (eqY -| proc0) {$\sporkseqInterp{\sporkp_0}$};
+  \node (seq1) [anchor=base] at (eqY -| proc1) {$\sporkseqInterp{\sporkp_1}$};
+  \node (seqM) [anchor=base] at (eqY -| procM) {$\sporkseqInterp{\sporkp_{n-1}}$};
+  \node (seqN) [anchor=base] at (eqY -| procN) {$\sporkseqInterp{\sporkp_n}$};
+  \node (parN) [anchor=base] at (eqY -| checks) {$\sporkparInterp{\sporkp_n}$};
+  \node [anchor=base east] at (eqY -| rewritesLabel.east) {\textbf{Equivalence:}};
+  \path (seq0.base east) -- node [anchor=base] {$\equiv$} (seq1.base west);
+  \path (seq1.base east) -- node [anchor=base] {$\equiv \cdots \equiv$} (seqM.base west);
+  \path (seqM.base east) -- node [anchor=base] {$\equiv$} (seqN.base west);
+  \path (seqN.base east) -- node [anchor=base] {$\equiv$} (parN.base west);
+
+  % Backend checks, expanded below; the row is right-aligned with the C/CUDA box
+  % and extends left under the rewrites.
+  \coordinate (rowTop) at ([yshift=-14mm]checks.south);
+  \node (syncNote) [check note, text width=12mm, anchor=north east] at (rowTop -| code.east)
+    {Sync\\Check};
+  \node (threadsNote) [check note, text width=22mm, anchor=north east]
+    at ([xshift=-3mm]syncNote.north west) {Instr Thread\\Checks};
+  \node (layoutNote) [check note, text width=22mm, anchor=north east]
+    at ([xshift=-3mm]threadsNote.north west) {Instr Data\\Layout Checks};
+  \node (collNote) [check note, text width=20mm, anchor=north east]
+    at ([xshift=-3mm]layoutNote.north west) {Collective\\Analysis\\($\sporktidMap$)};
+  \coordinate (bracketY) at ([yshift=3.5mm]rowTop);
+  \draw [spork line, draw=sporkYellowFg]
+    ([yshift=-2.5mm]bracketY -| collNote.west) -- (bracketY -| collNote.west)
+    -- (bracketY -| syncNote.east) -- ([yshift=-2.5mm]bracketY -| syncNote.east)
+    (bracketY -| checks.south) -- (checks.south);
+  \fill [sporkYellowBg]
+    ([xshift=1mm, yshift=-0.8mm]bracketY -| collNote.west)
+    rectangle ([xshift=-1mm, yshift=-2mm]bracketY -| syncNote.east);
+\end{sporkfigure}
+\caption{\sporkName{} rewrite flow and chain of equivalence.}
+\label{fig:RewriteFlow}
+\end{figure}
