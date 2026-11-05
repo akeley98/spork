@@ -9,14 +9,14 @@ Below, we describe \sporkName{}'s scheduling-based optimization process.
 
 The scheduling flow in \sporkName{} begins with a simple initial procedure $\sporkp_0$.
 % WARNING: we use $R$ ad-hoc here, not to be confused with \sporkR, which is the real numbers.
-The programmer issues a series of \emph{rewrite operations} $R_1$ ... $R_n$ to create transformed procedures $\sporkp_1 ... \sporkp_n$ (Figure~\ref{fig:RewriteFlow}).
+The programmer issues a series of \emph{rewrite operations} $R_1, \ldots, R_n$ to create transformed procedures $\sporkp_1, \ldots, \sporkp_n$ (Figure~\ref{fig:RewriteFlow}).
 
 \input{RewriteFlow.tex}
 
-Exo's scheduling rewrites verify functional equivalence of $\sporkseqInterp{\sporkp_0} ... \sporkseqInterp{\sporkp_n}$ under sequential semantics (denoted $\sporkseqInterp{...}$).
-\sporkName{} adds new scheduling operations for parallel and synchronization constructs, but these have no impact in sequential semantics and trivially pass $\sporkseqInterp{...}$-equivalence checks.
+Exo's scheduling rewrites verify functional equivalence of $\sporkseqInterp{\sporkp_0}, \ldots, \sporkseqInterp{\sporkp_n}$ under sequential semantics (denoted $\sporkseqInterp{\cdot}$).
+\sporkName{} adds new scheduling operations for parallel and synchronization constructs, but these have no impact in sequential semantics and trivially pass $\sporkseqInterp{\cdot}$-equivalence checks.
 The backend checks apply only to the final procedure $\sporkp_n$, prior to translating to C and CUDA C++.
-Most notably, synchronization checking ensures $\sporkseqInterp{\sporkp_n} \equiv \sporkparInterp{\sporkp_n}$, where $\sporkparInterp{...}$ denotes parallel semantics.
-Transitively, this completes the \emph{chain of equivalence} from $\sporkseqInterp{\sporkp_0} \equiv ... \equiv \sporkseqInterp{\sporkp_n} \equiv \sporkparInterp{\sporkp_n}$, guaranteeing that $\sporkp_0$'s behavior is preserved through to the parallel code generated from $\sporkp_n$.
+Most notably, synchronization checking ensures $\sporkseqInterp{\sporkp_n} \equiv \sporkparInterp{\sporkp_n}$, where $\sporkparInterp{\cdot}$ denotes parallel semantics.
+Transitively, this completes the \emph{chain of equivalence} from $\sporkseqInterp{\sporkp_0} \equiv \cdots \equiv \sporkseqInterp{\sporkp_n} \equiv \sporkparInterp{\sporkp_n}$, guaranteeing that $\sporkp_0$'s behavior is preserved through to the parallel code generated from $\sporkp_n$.
 
 End-to-end functional equivalence relies on these categories of reasoning:
