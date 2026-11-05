@@ -58,7 +58,7 @@ and \emph{qualitative timeline} $\sporkqtl$.
 The latter distinguishes effects of asynchronous instructions, and their specialized barriers, from ordinary implicitly-in-order instructions.
 Parallel partial ordering between two totally-trace-ordered events $\sporktr_1,\sporktr_2$ is  % not"'are"; "ordering" is singular.
 decided based on overlaps between $\sporktr_1$'s outbound observer set and $\sporktr_2$'s inbound observer set (Section~\ref{sec:TraceEdges}).
-The added qualitative timeline makes the overlap test stricter and filters out orderings not guaranteed by hardware semantics.
+The added qualitative timeline makes the overlap test stricter and filters out intra-thread orderings not guaranteed by hardware semantics.
 For the split barrier case, we define inbound and outbound \emph{pending await sets}, used similarly.
 
 
