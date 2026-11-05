@@ -37,12 +37,15 @@ we split array accesses into ``precondition'' and ``postcondition'' events $\spo
 These record the accessed array element $\sporkx[\sporkz^*]$,
 a read-or-mutate tag $\sporkmut$,
 and other state described in Section~\sporkTodoLink, I'm not sure yet.
-``Read only'' expressions are carefully stepped to ensure reads are traced
+Statements and ``read only'' expressions are carefully stepped to correctly append to the trace
 (\sporkTrRead, Figure~\ref{fig:SyncTraceSemantics}).
+This is done with the checked trace concatenation operator (Section~\ref{sec:TraceConcatChk}),
+which checks, upon appending preconditions events $\sporkTrPreAccess$,
+that correct parallel partial ordering was established with previous $\sporkTrPostAccess$ events.
 Synchronization events are recorded as $\sporkTrFence$ events (non-split barriers)
 or pairs of $\sporkTrArrive,\sporkTrAwait$ events (split barriers).
 
-Totally-trace-ordered events $\sporktr,\sporktr'$ are additionally partially-parallel-ordered when they
+Totally-trace-ordered events $\sporktr_1,\sporktr_2$ are additionally partially-parallel-ordered when they
 \begin{enumerate}
   \item share a common thread and are implicitly ``in-order'', hence seqenced by the thread, or
   \item share a common thread and correspond to an async instruction \& specialized barrier, or
@@ -52,7 +55,7 @@ To implement the first two cases,
 we give each trace event inbound and outbound \emph{observer sets},
 where observers $\sporkob: \sporkOb$ consist of a pair of thread ID $\sporktid$  % \emph{thread ID} is super ugly
 and \emph{qualitative timeline} $\sporkqtl$.
-The latter distinguishes effects of asynchronous instructions, and their specialized barriers, from ordinary implicitly in-order instructions.
+The latter distinguishes effects of asynchronous instructions, and their specialized barriers, from ordinary implicitly-in-order instructions.
 Parallel partial ordering between two totally-trace-ordered events $\sporktr_1,\sporktr_2$ is  % not"'are"; "ordering" is singular.
 decided based on overlaps between $\sporktr_1$'s outbound observer set and $\sporktr_2$'s inbound observer set (Section~\ref{sec:TraceEdges}).
 The added qualitative timeline makes the overlap test stricter and filters out orderings not guaranteed by hardware semantics.
