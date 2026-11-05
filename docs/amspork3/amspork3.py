@@ -475,6 +475,21 @@ def scope_example(X: size):
 # TeX: end scope
 
 
+# TeX: listing overview_scope 1
+@proc
+def overview_scope_example():
+  with CudaDeviceFunction(blockDim=128):
+    # TeX: begin overview_scope
+    for blk in cuda_tasks(0, 37):
+      # scope-1 (CTA-scope)
+      for w in cuda_threads(0, 4, unit=cuda_warp):
+        # scope-2 (warp-scope)
+        for t in cuda_threads(0, 32, unit=cuda_thread):
+          # scope-3 (thread-scope)
+          # TeX: end overview_scope
+          do_something()
+
+
 @proc
 def MultiTrPostAccess_example(enable_fence: bool):
   with CudaDeviceFunction(blockDim=64):

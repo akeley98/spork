@@ -1,0 +1,48 @@
+\sporkSection{Language Overview}{sec:LanguageOverview}
+
+\sporkName{} extends the Python-embedded DSL design of the original Exo language.
+We scope the language to procedures (programs) targetting a single CPU core driving a single CUDA device of the Ampere (\texttt{sm\_80}) or Hopper (\texttt{sm\_90a}) architecture.
+The \sporkName{} compiler generates CUDA C++ that may compile to other architectures, but we have only added accelerator instructions for these architectures.
+We added a \texttt{with~CudaDeviceFunction: $\sporks$} statement that distinguished CPU code (outside) from CUDA-accelerated code (the $\sporks:\sporkStmt$ inside),
+and generalized the original loops into three kinds, distinguished by $\sporkloopMode$: \\
+(1) \texttt{seq}$(\sporkexpr_\mathrm{lo},\sporkexpr_\mathrm{hi})$ is a sequential loop that iterates $i$ from $\sporkexpr_\mathrm{lo}$ to $\sporkexpr_\mathrm{hi}-1$.\\
+(2) \texttt{cuda\_tasks}$(\sporkexpr_\mathrm{lo},\sporkexpr_\mathrm{hi})$ distributes iterations across CUDA clusters; on pre-\texttt{sm\_90} (H100) GPUs a cluster coincides with a single CTA (thread block).\\
+(3) \texttt{cuda\_threads}$(\sporkexpr_\mathrm{lo},\sporkexpr_\mathrm{hi},\; \texttt{unit}=\sporkcollUnit)$ assigns iterations to subsets of threads inside the current cluster. %
+The \texttt{unit} parameter is a \emph{collective unit} that specifies the shape of the participating thread set but not concrete indices—for example, $\sporkcollUnit=\,$\texttt{cuda\_warp} denotes contiguous 32-thread groups with thread IDs \(0\text{--}31\), \(32\text{--}63\), \(64\text{--}95\), etc.\ (inclusive), while $\sporkcollUnit=\,$\texttt{cuda\_thread} denotes a single thread (see Figure~\sporkTodoLink{}).
+
+\input{ScopeExample.tex}
+
+Each loop body, conditional branch, \texttt{with}-block, or procedure defines a \emph{program scope}.
+As part of \emph{collective analysis} (Section~\sporkTodoLink{}), we deduce a per-scope \emph{thread mapping} $\sporktidMap: \sporkSigma \to \mathcal{P}(\sporkTid)$.
+This describes a mapping between the control variable values and the \emph{thread collective} (set of threads) assigned to execute statement instances in the scope (i.e. which threads execute which loop iterations).
+We say that a scope is a $\sporkcollUnit$-scope when $\sporkcollUnit$ accurately describes the thread sets produced by the mapping.
+In Figure~\ref{fig:ScopeExample}, the outermost parallel loop \texttt{cuda\_tasks(0,37)} creates \texttt{scope-1} (which is a cluster scope, and, assuming \texttt{clusterDim=1}, also a CTA scope); nesting \texttt{cuda\_threads(..., unit=\texttt{cuda\_warp})} creates \texttt{scope-2} (warp scope); and nesting \texttt{cuda\_threads(..., unit=\texttt{cuda\_thread})} creates \texttt{scope-3} (single-thread scope).
+Statement instances in \texttt{scope-3} are executed by one thread.
+
+We inherit from Exo the requirement of \emph{control-data separation}.
+Variables of boolean, size, or index (loop iterator) type are of $\sporkcontrol$ type.
+All others (including the contents of arrays) are of a data type (e.g. \texttt{bf16}).
+This restriction stems from Exo's rewrites,
+and the real synchronization checking implementation relies on this,
+but the synchronization environment semantics (\sporkTodoLink{}) do not depend on this restriction.
+
+All statements and expressions are given deterministic sequential small-step semantics (Section~\ref{sec:Semantics}).
+The semantics for parallel and asynchronous constructs in \sporkName{} are similar to the \emph{serial projection} in Cilk
+\cite{Cilk5} \cite{OpenCilk:serial-projection}
+in that their semantics are defined identically to a similar sequential construct.
+For example, the step and done rules for parallel loops and sequential loops are the same
+(Figure~\ref{fig:ControlSemantics}).
+
+Rules define steps of the form $\langle \sporks_1, \sporksigma_1, \sporktr^*_1 \rangle \to \langle \sporks_2, \sporksigma_2, \sporktr^*_2 \rangle$; the 3-tuples consist of a \emph{statement}, a \emph{value environment} giving the numeric values of array elements, and a \emph{trace} consisting of a sequence of memory access (read/mutate) events and synchronization events ascribed to certain threads.  % Forget about observers/qtl until next full section.
+
+Continuing the sequential-or-parallel loop example, the computed value environment $\sporksigma$ is invariant of the $\sporkloopMode$.
+The trace alone ``remembers'' the parallelism (indirectly, due to parallel loops influencing the deduced $\sporktidMap$), and is analyzed for correct synchronization.
+Specifically, traces are constructed using the \emph{checked trace concatenation operator} $\sporkConcatChk$ (Section~\ref{sec:TraceChecks}), which causes the stepping to get stuck upon attempting to append a trace event that risks violating sequential-parallel equivalence.
+In spite of the determinism, we call the full semantics presented \emph{parallel semantics}.
+For the purposes of reasoning about rewrites, we define \emph{sequential semantics}, which are identical except for the omission of the trace and associated risk of failed trace concatenation.
+
+% This is kind of presented without justification for now.
+We say that a procedure (with statement body $\sporks$) satisfies sequential-parallel equivalence for a given input environment $\sporksigma$ when its \emph{sequential interpretation} -- $\langle \sporks, \sporksigma \rangle$ fully stepped under sequential semantics -- and its \emph{parallel interpretation} -- $\langle \sporks, \sporksigma, () \rangle$ fully stepped under parallel semantics -- either both get stuck or both step to completion (if neither get stuck, the output $\sporksigma'$ will trivially be identical, and the parallel interpretation recorded no equivalence-violating trace events).
+
+\input{SystemOverview.tex}
+
