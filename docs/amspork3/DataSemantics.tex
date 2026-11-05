@@ -65,6 +65,20 @@
   \sporkRule{\sporkSub{\texttt{free($\sporkx$)}}{\texttt{pass}}, \sporkSub{\sporksigma}{\sporksigma'}, \sporktr^*}
 }
 \\
+\inferrule*[right=D-CtrlStep]{
+  \sporkRule{\sporkSub{\sporkexpr_1}{\sporkexpr_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
+}
+{
+  \sporkRule{\texttt{$\sporkx:\sporkcontrol$ = $\sporkSub{\sporkexpr_1}{\sporkexpr_2}$}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
+}
+\inferrule*[right=D-CtrlVal]{
+  % Stored like a loop variable (C-ForIter): 0-dimensional, read back as x[] by E-Read.
+  \sporksigma' = \sporksigma[(\sporkx, ()) \mapsto \sporkvalue]
+}
+{
+  \sporkRule{\sporkSub{\texttt{$\sporkx:\sporkcontrol$ = $\sporkvalue$}}{\texttt{pass}}, \sporkSub{\sporksigma}{\sporksigma'}, \sporktr^*}
+}
+\\
 \inferrule*[right=\sporkDInstrStepParam]{
   \sporkRule{\sporkSub{\sporkwH_1}{\sporkwH_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
