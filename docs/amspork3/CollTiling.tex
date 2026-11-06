@@ -1,1 +1,42 @@
 \sporkSubsection{Collective Tiling}{sec:CollTiling}
+
+% I'm avoiding the "domain" name in the implementation because it's asinine (wtaf was I thinking).
+
+In the implementation, the per-CUDA-scope $\sporktidMap$ is represented as a \emph{collective tiling} object.
+The generated task ID (Section~\ref{sec:KernelStructure}) is trivial (from \texttt{cuda\_tasks} iterator values),
+so we only encode details of mapping threads within clusters.
+The key concept is that the threads within the cluster are arranged lexicographically into a multidimensional point lattice,
+and control variable values in $\sporksigma:\sporkSigma$ select a ``box'' of threads within the lattice.
+
+The collective tiling consists of a tuple of \emph{collective dimension descriptors} $\sporkdim: \sporkDim$,
+each consisting of an \emph{extent} $\sporkdimExt(\sporkdim): \mathbb{N}$,
+a \emph{box size} $\sporkdimBox(\sporkdim): \mathbb{N}$,
+and an \emph{offset} $\sporkdimOff(\sporkdim): \sporkSigma \to \mathbb{N}$ that is an affine function of \texttt{for $\sporkx$ in cuda\_threads} iterator values $\sporksigma(\sporkx)$.
+
+The Cartesian product of the extents gives the point lattice,
+with points corresponding to the local thread indices lexicographically.
+For example, extents $\texttt{clusterDim} \times \texttt{blockDim}$ make the lattice points equivalent to (CTA rank, thread index in CTA),
+and extents $\texttt{clusterDim} \times \texttt{blockDim}/32 \times 32$ give lattice points (CTA rank, warp index in CTA, lane).
+% I hate 1-indexing and don't want it in my paper.
+With $(\sporkdim_0, \ldots, \sporkdim_{n-1})$ being the collective tiling,
+the per-dimension offset and box determine (from given $\sporksigma$)
+the specific ranges of local thread indices selected by $\sporktidMap(\sporksigma)$,
+as follows:
+\begin{align*}
+    & \textbf{let } \textsf{toLocal}(\sporkz_0, \ldots, \sporkz_{n-1}) = \sum_{i=0}^{n-1} \sporkz_i \prod_{j=i+1}^{n-1} \sporkdimExt(\sporkdim_j) \textbf{ in}
+    & \sporkComment{ (lexicographical ordering)} \\
+    & \textbf{let } \textsf{Range}(i) = \{ \sporkz + \sporkdimOff(\sporkdim_i)(\sporksigma) \mid \sporkz \in 0..\sporkdimBox(\sporkdim_i) - 1 \} \textbf{ in}
+    & \sporkComment{ ($i^\text{th}$ dim selected range)} \\
+    & \{ \textsf{toLocal}(\sporkz^*) \mid \sporkz^* \in \textsf{Range}(0) \times \cdots \times \textsf{Range}(n-1) \}
+\end{align*}
+Collective analysis of \texttt{cuda\_threads} loops and warp specialization statements takes the collective tiling of the parent scope and deduces a modified collective tiling for the child scope, possibly by
+\begin{itemize}
+  \item Adjusting a dimension's box size or offset, to account for the subdivision of thread collectives or de-activation of warps.
+  \item \emph{Re-dimensionalization}\footnote{Known as ``domain reshape'' in the codebase, but we regret this name due to confusion with function domains.},
+  fissioning a single collective dimension descriptor into two.
+  This may be used to produce thread collectives that are discontinuous in local thread indices
+  (e.g. one active warp per CTA in a CTA pair)
+  or to enforce alignment restrictions
+  (e.g. re-dimensionalizing so the last extent is 32, such that non-aligned ranges of 32 threads no longer form valid boxes and are detected as invalid warps).
+\end{itemize}
+Finally, we query whether a scope \emph{types} as some $\sporkcollUnit$-scope by inspecting the dimension extents and boxes of the scope's collective tiling, possibly with re-dimensionalization that does not relax alignment constraints.

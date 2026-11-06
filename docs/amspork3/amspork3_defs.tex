@@ -28,6 +28,7 @@
     \small
 }
 
+% David Zhao Akeley: TODO some Claude added this and idk why. May just capitulate and bulk replace bare textsf.
 \newcommand{\textgpu}[1]{\textsf{#1}}
 \definecolor{barriercolor}{HTML}{BB00BB}
 %% CPU vs GPU code: Intel-ish sky blue, NVIDIA-ish yellow-green.
@@ -275,6 +276,13 @@
 
 %% Warp Specialization
 \newcommand{\sporkwarpConfig}{\mathord{\sporkPaperLink{fig:CudaWarps}{\textgpu{warpConfig}}}}
+
+%% CollTiling
+\newcommand{\sporkdim}{\mathord{\sporkPaperLink{sec:CollTiling}{\textgpu{dim}}}}
+\newcommand{\sporkDim}{\mathord{\sporkPaperLink{sec:CollTiling}{\textgpu{Dim}}}}
+\newcommand{\sporkdimExt}{\mathord{\sporkPaperLink{sec:CollTiling}{\textgpu{dimExt}}}}
+\newcommand{\sporkdimOff}{\mathord{\sporkPaperLink{sec:CollTiling}{\textgpu{dimOff}}}}
+\newcommand{\sporkdimBox}{\mathord{\sporkPaperLink{sec:CollTiling}{\textgpu{dimBox}}}}
 
 %% Smem
 %% Make them not red when the section is written.

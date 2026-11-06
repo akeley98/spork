@@ -27,3 +27,7 @@ The local thread index identifies the specific thread within the (abstracted) cl
 Threads are numbered lexicographically by CTA rank (within the cluster), then by thread index in the CTA.
 Hence, the local thread indices range from 0 to $\texttt{clusterDim}\times\texttt{blockDim}-1$;
 \texttt{blockDim} being the number of threads per CTA.
+The \texttt{cuda\_threads} loops and warp specialization statements decide the local thread indices given by a scope's $\sporktidMap$;
+a \texttt{cuda\_threads(0, $\sporkz$)} loop effectively takes its executing thread collective and splits it into $\sporkz$-many disjoint subsets
+(possibly with threads left-over),
+and assigns 1 each to each loop iteration without any implied fork-join semantics.
