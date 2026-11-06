@@ -20,9 +20,6 @@
   $\sporkcollUnit : \sporkCollUnit$ & $\Coloneqq$ & \texttt{cuda\_thread}|\texttt{cuda\_warp}... & collective unit \\
   $\sporkloopMode : \sporkLoopMode$ & $\Coloneqq$ & \texttt{Seq}|\texttt{CudaTasks}|\texttt{CudaThreads}($\sporkcollUnit$) & loop mode \\
   $\sporkwarpName$ & & & warp specialization name \\
-  $\sporkwarpConfig$ & $\Coloneqq$ & \texttt{CudaWarpConfig($\sporkwarpName$, $\sporkz$)} & $\sporkz$-many warps' configuration \\
-  & $|$ & ``\,''\texttt{($\sporkwarpName$, $\sporkz$, setmaxnreg\_dec=$\sporkz$)} & (decrease from default reg count) \\
-  & $|$ & ``\,''\texttt{($\sporkwarpName$, $\sporkz$, setmaxnreg\_inc=$\sporkz$)} & (increase from default reg count) \\
 \midrule
   % Behind the scenes
   $\sporkmut : \sporkMut$ & $\Coloneqq$ & $\sporkread|\sporkmutate$ & read/mutate tag \\

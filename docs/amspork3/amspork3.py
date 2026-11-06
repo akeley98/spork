@@ -13,6 +13,28 @@ from exo.platforms.cuda import *
 from exo.platforms.Sm80 import *
 from exo.platforms.Sm90 import *
 
+
+warp_config=[CudaWarpConfig("whatever", 8)]
+
+@proc
+def kernel_structure(M: size, N: size):
+    # TeX: listing kernel_structure 1
+    # TeX: begin kernel_structure
+    # warp_config: see next section
+    # TeX: color kernel_structure elide "warp_config" 2:1
+    with CudaDeviceFunction(clusterDim=2, warp_config=warp_config):
+        # cuda_tasks loops define (`i`, `j`) task ID component of $\sporktid$
+        for i in cuda_tasks(0, M):
+            for j in cuda_tasks(0, N):
+                # Multiple cuda_threads loops allowed in device task
+                # TeX: color kernel_structure elide "pass"
+                for t in cuda_threads(0, 256): pass
+                # TeX: color kernel_structure elide "pass"
+                for w in cuda_threads(0, 8, unit=cuda_warp): pass
+    # TeX: end kernel_structure
+
+del warp_config
+
 # TeX: listing intro_cp_async 1
 # TeX: listing intro_mma 1
 M = 64
@@ -342,26 +364,28 @@ def TidMap_example(X: size, Y: size):
 @proc
 def CudaWarps_example(X: size, Y: size):
   # TeX: listing CudaWarps 4
-  # TeX: begin CudaWarps[:]
+  # CudaWarpsPaper: paper version of CudaWarps, every color at once
+  # TeX: listing CudaWarpsPaper 1
+  # TeX: begin CudaWarps[:],CudaWarpsPaper
   with CudaDeviceFunction(
     warp_config=[
-      # TeX: color CudaWarps[1] red "producer" "1"
+      # TeX: color CudaWarps[1],CudaWarpsPaper red "producer" "1"
       CudaWarpConfig("producer", 1),
-      # TeX: color CudaWarps[1] green "writer" "3"
+      # TeX: color CudaWarps[1],CudaWarpsPaper green "writer" "3"
       CudaWarpConfig("writer", 3),
-      # TeX: color CudaWarps[1:] blue "consumer" "8"
+      # TeX: color CudaWarps[1:],CudaWarpsPaper blue "consumer" "8"
       CudaWarpConfig("consumer", 8),]):
     for xt in cuda_tasks(0, X):
       # TeX: end CudaWarps[:2]
-      # TeX: color CudaWarps[2:] blue "CudaWarps" "consumer"
+      # TeX: color CudaWarps[2:],CudaWarpsPaper blue "CudaWarps" "consumer"
       with CudaWarps(name="consumer"):
-        # TeX: color CudaWarps[3] violet "w" "cuda_threads"
-        # TeX: mark CudaWarps[2:] body_top end
+        # TeX: color CudaWarps[3],CudaWarpsPaper violet "w" "cuda_threads"
+        # TeX: mark CudaWarps[2:],CudaWarpsPaper body_top end
         for w in cuda_threads(0, 8,
-            # TeX: mark CudaWarps[2:] body_bot start
-            # TeX: color CudaWarps[3] violet "cuda_warp"
+            # TeX: mark CudaWarps[2:],CudaWarpsPaper body_bot start
+            # TeX: color CudaWarps[3],CudaWarpsPaper violet "cuda_warp"
             unit=cuda_warp):
-          # TeX: end CudaWarps[2:]
+          # TeX: end CudaWarps[2:],CudaWarpsPaper
           warp_do_something()
 
 

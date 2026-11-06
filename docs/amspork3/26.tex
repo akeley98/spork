@@ -1088,55 +1088,16 @@ Intuition: (\emph{src}$\to$\emph{dst}) when \sporkKeyA{common thread} issued eve
 
 \sporkListing{CudaWarps}
 
-% Stack of the CTA's 12 warps in the top right corner of the page (right of code and prose).
-% Step 1: plain boxes. Step 2: colored by warp name (as in the listing) with LanguageScope-style brackets
-% naming each group. Step 3: non-consumers gray and struck through; blue bracket on the
-% CudaWarps body (marks: amspork3.py). Step 4: `w` violet in the listing, and violet w=0..7
-% boxes to the right of consumer warps 4..11 (right side so 4..11 and 0..7 line up side by side).
+% Stack of the CTA's 12 warps in the top right corner of the page (right of code and prose):
+% shared body fig_warpStack_body.tex (steps described there), placed by its top right corner;
+% the w boxes end 8mm from the page edge. Step 3: blue bracket on the CudaWarps body (marks: amspork3.py).
+% Step 4: `w` violet in the listing.
+\sbox{\warpStackBox}{\begin{sporkfigure}\input{fig_warpStack_body.tex}\end{sporkfigure}}%
 \begin{tikzpicture}[remember picture, overlay]
-  \tikzset{
-    warp box/.style={rectangle, draw, thick, minimum width=16mm, minimum height=4.8mm,
-      inner sep=0.5mm, font=\sporkFigSmall, anchor=north east},
-    warp off/.style={spork slide only=<3->{draw=sporkGrayttColor, text=sporkGrayttColor}},
-    warp bracket/.style={line width=1.2pt, spork reveal=<2->},
-  }
-  \def\warpPitch{5.6mm}
-  % Right edge of the warp boxes; the w boxes (10mm + 1.5mm gap) end 8mm from the page edge.
-  \coordinate (stackTop) at ([xshift=-19.5mm, yshift=-8mm]current page.north east);
-  \node (warp0) [warp box, spork slide only=<2>{spork red style}, warp off] at (stackTop) {warp 0};
-  \foreach \n in {1, 2, 3} {
-    \node (warp\n) [warp box, spork slide only=<2>{spork green style}, warp off]
-      at ([yshift=-\warpPitch*\n]stackTop) {warp \n};
-  }
-  \foreach \n in {0, ..., 3} {
-    \draw [thick, sporkGrayttColor, spork slide only=<3->] (warp\n.west) -- (warp\n.east);
-  }
-  \foreach \n in {4, ..., 11} {
-    \pgfmathtruncatemacro{\w}{\n - 4}
-    \node (warp\n) [warp box, spork slide only=<2->{spork blue style}] at ([yshift=-\warpPitch*\n]stackTop) {warp \n};
-    \node [warp box, spork violet style, minimum width=10mm, anchor=west, spork reveal=<4->]
-      at ([xshift=1.5mm]warp\n.east) {w=\w};
-  }
-  % Group brackets, left of the warp boxes; inset 0.6mm so neighboring brackets don't touch.
-  \coordinate (bracketX) at ([xshift=-3mm]warp0.west);
-  \foreach \first/\last/\name/\col in {0/0/producer/sporkRedFg, 1/3/writer/sporkGreenFg,
-      4/11/consumer/sporkBlueFg} {
-    \coordinate (gTop) at ([yshift=-0.6mm]warp\first.north -| bracketX);
-    \coordinate (gBot) at ([yshift=0.6mm]warp\last.south -| bracketX);
-    \draw [warp bracket, draw=\col]
-      ([xshift=1.5mm]gTop) -- (gTop) -- node [left=1mm, text=\col, font=\bfseries] {\name} (gBot)
-      -- ([xshift=1.5mm]gBot);
-  }
-  % Bracket on the CudaWarps body, mirrored on its right (the indentation leaves no room for
-  % the label on the left). body_top marks the end of the body's longest line.
-  \coordinate (bodyTop) at ([yshift=1.0ex]pic cs:CudaWarps-body_top);
-  \coordinate (bodyBot) at ([yshift=-0.7ex]pic cs:CudaWarps-body_bot);
-  \coordinate (bodyX) at ([xshift=3mm]bodyTop);
-  \draw [line width=1.2pt, draw=sporkBlueFg, spork reveal=<3->]
-    ([xshift=-1.5mm]bodyTop -| bodyX) -- (bodyTop -| bodyX)
-    -- node [right=1mm, text=sporkBlueFg, font=\bfseries] {consumer only} (bodyBot -| bodyX)
-    -- ([xshift=-1.5mm]bodyBot -| bodyX);
-\end{tikzpicture}
+  \node [anchor=north east, inner sep=0] at ([xshift=-8mm, yshift=-8mm]current page.north east)
+    {\usebox{\warpStackBox}};
+\end{tikzpicture}%
+\sporkCudaWarpsBodyBracket{CudaWarps}
 
 \end{frame}
 

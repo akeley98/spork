@@ -1,0 +1,28 @@
+% Paper version of the CudaWarps frame of 26.tex: the same listing lines (CudaWarpsPaper, every color
+% at once), "consumer only" bracket, and warp stack body (fig_warpStack_body.tex), all steps shown.
+% The warpConfig grammar sits above the code, in the space left of the (taller) warp stack.
+\begin{figure}[h]
+\sporkCodeRule
+\sbox{\warpStackBox}{\begin{sporkfigure}\input{fig_warpStack_body.tex}\end{sporkfigure}}%
+\begin{minipage}[t]{\dimexpr\linewidth-\wd\warpStackBox-4mm\relax}
+\vspace{0pt}
+{\sporkGrammarStuff\raggedright
+\begin{tabular}{rrl}
+  $\sporkwarpConfig$ & $\Coloneqq$ & \texttt{CudaWarpConfig($\sporkwarpName$, $\sporkz_\mathrm{warp}$)} \\
+  & $|$ & \texttt{CudaWarpConfig($\sporkwarpName$, $\sporkz_\mathrm{warp}$, setmaxnreg\_dec=$\sporkz_\mathrm{reg}$)} \\
+  & $|$ & \texttt{CudaWarpConfig($\sporkwarpName$, $\sporkz_\mathrm{warp}$, setmaxnreg\_inc=$\sporkz_\mathrm{reg}$)} \\
+\bottomrule
+\end{tabular}\par}
+\vspace{4mm}
+\sporkListing{CudaWarpsPaper}
+\end{minipage}%
+\sporkCudaWarpsBodyBracket{CudaWarpsPaper}%
+\hfill
+\begin{minipage}[t]{\wd\warpStackBox}
+\vspace{0pt}
+\usebox{\warpStackBox}
+\end{minipage}
+\caption{Warp specialization: $\sporkwarpConfig$ grammar ($\sporkz_\mathrm{warp}$ warps, optionally lowering or raising the per-thread register count to $\sporkz_\mathrm{reg}$ with \texttt{setmaxnreg}), named warp partitions, a \texttt{CudaWarps} block restricted to the consumer warps, and a \texttt{cuda\_threads} loop over those warps.}
+\label{fig:CudaWarps}
+\sporkCodeRule
+\end{figure}

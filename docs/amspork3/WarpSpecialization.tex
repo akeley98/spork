@@ -1,1 +1,34 @@
 \sporkSubsection{Warp Specialization}{sec:WarpSpecialization}
+
+Critical for modern GPU kernel programming is \emph{warp specialization}:
+the practice of assigning qualitatively different work to different warps within a CTA.
+This is commonplace for producer/consumer patterns, but \sporkName{} does not hard-wire this specifically.
+
+The \texttt{CudaDeviceFunction} launch takes a list of $\sporkwarpConfig$
+(Figure~\ref{fig:CudaWarps}, this is a Python DSL-embedded list, not a C++ runtime value),
+each defining a named partition of a certain number of warps,
+optionally with a custom number of registers per thread.
+Launched CTAs consist of those partitions.
+This is somewhat similar to partitions in Gluon \cite{gluon_warp_specialize},
+although we support further sub-partitioning via \texttt{cuda\_threads} loops.
+
+From there, \texttt{with CudaWarps($\sporkz$, $\sporkz$, name=$\sporkwarpName$)}
+restricts its body to run only on the named warp partition,
+with the optional integer parameters further restricting to a sub-range of those warps.
+% LIE: it's more complicated than that.
+% This is only true for a top-level CudaWarps statement.
+% But I can't get into that here.
+This restriction propagates through to \texttt{cuda\_threads} loops within (Figure~\ref{fig:CudaWarps}).
+
+\input{fig_cudaWarps.tex}
+
+A critical optimization, similar to \emph{loop unswitching}:
+the \sporkName{} compiler compiles the kernel into a separate code path,
+with a separate persistent kernel loop,
+for each $\sporkwarpConfig$.
+Each path uses PTX's \texttt{setmaxnreg} instruction to vary per-thread register counts,
+and syntactically omits all code paths guarded by a warp specialization block holding code not intended for the current warp.
+In our experience, this is required to allow \texttt{ptxas} to verify that register-heavy instructions
+(e.g. \texttt{wgmma}) don't appear on low-register code paths.
+
+

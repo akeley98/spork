@@ -1,0 +1,29 @@
+\sporkSubsection{Kernel Structure}{sec:KernelStructure}
+
+We open a CUDA scope using a \texttt{with CudaDeviceFunction} statement.
+The statement takes a \texttt{clusterDim} parameter,
+specifying the number of CTAs (thread blocks) per cluster (must be 1 for Ampere and older architectures),
+as well as a list of warp configurations for warp specialization (Section~\ref{sec:WarpSpecialization}).
+Figure~\ref{fig:KernelStructure} shows the overall structure of a kernel:
+we require the body of the kernel to consist of a single nest of \texttt{cuda\_tasks} loops;
+the inner-most \texttt{cuda\_tasks} loop body comprises a \emph{device task},
+which can contain \texttt{seq} and \texttt{cuda\_threads} loops and warp specialization statements.
+A single execution of a device task is assigned to one CUDA cluster.
+The compiler implements a \emph{persistent kernel} strategy, where multiple device tasks may be executed by a single cluster.
+
+\input{fig_kernelStructure.tex}
+
+Each thread is identified with a $\sporktid$ (thread ID), consisting of a \emph{task ID} component and \emph{local thread index} component.
+
+% I'm just info-dumping here but I'm catastrophically out of time and it breaks my heart, it really does.
+
+The task ID is simply the tuple of current \texttt{cuda\_tasks}-loop iterator values.
+This abstracts over the specific mapping between device tasks and hardware clusters.
+We currently only implement a static schedule where device tasks are assigned round-robin to CUDA clusters,
+but future work could swap this with a selection of strategies (e.g. Morton swizzling)
+without affecting downstream analysis.
+
+The local thread index identifies the specific thread within the (abstracted) cluster.
+Threads are numbered lexicographically by CTA rank (within the cluster), then by thread index in the CTA.
+Hence, the local thread indices range from 0 to $\texttt{clusterDim}\times\texttt{blockDim}-1$;
+\texttt{blockDim} being the number of threads per CTA.

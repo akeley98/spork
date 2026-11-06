@@ -1,3 +1,10 @@
 \sporkSection{Collective Analysis}{sec:CollAnalysis}
 
+The collective analysis step in the backend checks deduces a thread mapping $\sporktidMap: \sporkSigma \to \mathcal{P}(\sporkTid)$ for each CUDA scope in an \sporkName{} program.
+Critical to the language is the ability to \emph{type} a $\sporktidMap$ as producing thread collectives (sets of $\sporktid$) matching a certain collective unit.
+We build up the intuition in this section of how the user controls the thread mapping and the resulting typing.
+
+\input{KernelStructure.tex}
 \input{WarpSpecialization.tex}
+\input{CollTiling.tex}
+

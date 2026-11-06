@@ -1,0 +1,41 @@
+% Body of the warp stack figure (26.tex frame CudaWarps, paper WarpSpecialization.tex):
+% raw TikZ, \input inside a sporkfigure. The CTA's 12 warps, top right corner at the origin
+% (right edge of the warp boxes). Step 1: plain boxes. Step 2: colored by warp name (as in the
+% CudaWarps listing) with LanguageScope-style brackets naming each group. Step 3: non-consumers
+% gray and struck through (slides only). Step 4: violet w=0..7 boxes to the right of consumer
+% warps 4..11 (right side so 4..11 and 0..7 line up side by side).
+% The paper shows every color at once, with no strikethrough. Node names warp0..warp11 are its interface.
+\tikzset{
+  warp box/.style={rectangle, draw, thick, minimum width=16mm, minimum height=4.8mm,
+    inner sep=0.5mm, font=\sporkFigSmall, anchor=north east},
+  warp off/.style={spork slide only=<3->{draw=sporkGrayttColor, text=sporkGrayttColor}},
+  warp bracket/.style={line width=1.2pt, spork reveal=<2->},
+}
+\def\warpPitch{5.6mm}
+\coordinate (stackTop) at (0, 0);
+\node (warp0) [warp box, spork slide only=<2>{spork red style}, spork paper style={spork red style}, warp off]
+  at (stackTop) {warp 0};
+\foreach \n in {1, 2, 3} {
+  \node (warp\n) [warp box, spork slide only=<2>{spork green style}, spork paper style={spork green style}, warp off]
+    at ([yshift=-\warpPitch*\n]stackTop) {warp \n};
+}
+\foreach \n in {0, ..., 3} {
+  \draw [thick, sporkGrayttColor, spork slide only=<3->] (warp\n.west) -- (warp\n.east);
+}
+\foreach \n in {4, ..., 11} {
+  \pgfmathtruncatemacro{\w}{\n - 4}
+  \node (warp\n) [warp box, spork slide only=<2->{spork blue style}, spork paper style={spork blue style}]
+    at ([yshift=-\warpPitch*\n]stackTop) {warp \n};
+  \node [warp box, spork violet style, minimum width=10mm, anchor=west, spork reveal=<4->]
+    at ([xshift=1.5mm]warp\n.east) {w=\w};
+}
+% Group brackets, left of the warp boxes; inset 0.6mm so neighboring brackets don't touch.
+\coordinate (bracketX) at ([xshift=-3mm]warp0.west);
+\foreach \first/\last/\name/\col in {0/0/producer/sporkRedFg, 1/3/writer/sporkGreenFg,
+    4/11/consumer/sporkBlueFg} {
+  \coordinate (gTop) at ([yshift=-0.6mm]warp\first.north -| bracketX);
+  \coordinate (gBot) at ([yshift=0.6mm]warp\last.south -| bracketX);
+  \draw [warp bracket, draw=\col]
+    ([xshift=1.5mm]gTop) -- (gTop) -- node [left=1mm, text=\col, font=\bfseries] {\name} (gBot)
+    -- ([xshift=1.5mm]gBot);
+}

@@ -132,7 +132,6 @@
 \newcommand{\sporkcollUnit}{\mathord{\sporkPaperLink{fig:BasicGrammar}{\textgpu{collUnit}}}}
 \newcommand{\sporkCollUnit}{\mathord{\sporkPaperLink{fig:BasicGrammar}{\textgpu{CollUnit}}}}
 \newcommand{\sporkwarpName}{\mathord{\sporkPaperLink{fig:BasicGrammar}{\textgpu{warpName}}}}
-\newcommand{\sporkwarpConfig}{\mathord{\sporkPaperLink{fig:BasicGrammar}{\textgpu{warpConfig}}}}
 
 %% Window Grammar
 \newcommand{\sporkqtl}{\mathord{\sporkPaperLink{fig:WindowGrammar}{\textgpu{qtl}}}}
@@ -274,6 +273,9 @@
 \newcommand{\sporksqVis}{\mathord{\sporkPaperLink{eq:sqVis}{\underset{\textsf{vis}}{\sqsubseteq}}}}
 \newcommand{\sporksqEnv}{\mathord{\sporkPaperLink{eq:sqEnv}{\underset{\textsf{env}}{\sqsubseteq}}}}
 
+%% Warp Specialization
+\newcommand{\sporkwarpConfig}{\mathord{\sporkPaperLink{fig:CudaWarps}{\textgpu{warpConfig}}}}
+
 %% Smem
 %% Make them not red when the section is written.
 \newcommand{\sporkallocTrDetail}{\mathord{\sporkPaperLink{sec:Smem}{\textsf{\sporkRed{allocTrDetail}}}}}
@@ -289,6 +291,25 @@
 \newcommand{\sporkMutateBullet}{\textsf{$\bullet$ mutate}}
 
 %% Shared figure helpers (fig_*_body.tex, used by main.tex and 26.tex).
+% Warp stack figure (fig_warpStack_body.tex), rendered before placing it (26.tex page overlay, fig_cudaWarps.tex).
+\newsavebox{\warpStackBox}
+
+% \sporkCudaWarpsBodyBracket{P}: "consumer only" bracket on the CudaWarps body of a CudaWarps listing
+% whose marks have prefix P (CudaWarps in 26.tex, CudaWarpsPaper in WarpSpecialization.tex), mirrored on
+% its right (the indentation leaves no room for the label on the left). body_top marks the end of the
+% body's longest line. Draws in its own remember picture overlay; revealed on step 3 (shown in paper).
+\newcommand{\sporkCudaWarpsBodyBracket}[1]{%
+  \begin{tikzpicture}[remember picture, overlay]
+    \coordinate (bodyTop) at ([yshift=1.0ex]pic cs:#1-body_top);
+    \coordinate (bodyBot) at ([yshift=-0.7ex]pic cs:#1-body_bot);
+    \coordinate (bodyX) at ([xshift=3mm]bodyTop);
+    \draw [line width=1.2pt, draw=sporkBlueFg, spork reveal=<3->]
+      ([xshift=-1.5mm]bodyTop -| bodyX) -- (bodyTop -| bodyX)
+      -- node [right=1mm, text=sporkBlueFg, font=\bfseries] {consumer only} (bodyBot -| bodyX)
+      -- ([xshift=-1.5mm]bodyBot -| bodyX);
+  \end{tikzpicture}%
+}
+
 % \sporkSeqReqProp{<spec>}{i}: x[i], highlighted in \sporkBlue on <spec> only (0: never); otherwise an invisible box of
 % the same size (white on the white event box), so nothing moves between steps.
 \newcommand{\sporkSeqReqProp}[2]{{\colorlet{seqReqPropfg}{.}\colorlet{seqReqPropbg}{white}%
