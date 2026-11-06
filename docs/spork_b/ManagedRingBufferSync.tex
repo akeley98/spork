@@ -31,9 +31,15 @@ There must be no out-of-range barrier array elements referenced in the above cal
 With $Z$ being the dimensionality of $z$, let $\widehat{u}$ be a $Z$-dimensional unit vector with 1 on the managed ring buffer dimension.
 Then $z[j^*]$ has
 \begin{itemize}
-  \item guard barriers being the multicast group of $z[j^* - (\texttt{ring\_depth}) \widehat{u}]$ (def~\ref{sec:gMulticastGroup})
+  \item guard barrier being $z[j^* - (\texttt{ring\_depth}) \widehat{u}]$ alone
   \item free-on-arrive barrier $z[j^* + (\texttt{ring\_depth}) \widehat{u}]$.
 \end{itemize}
+
+Unlike for data allocations, the guard is \emph{not} expanded to the multicast group (def~\ref{sec:gMulticastGroup}).
+The barrier array elements $z[j^* - (\texttt{ring\_depth}) \widehat{u}]$ and $z[j^*]$ are aliased to the same physical mbarrier (Section~\ref{sec:ManagedRingBufferIndexing}), as consecutive phases of it.
+So the Await Requirement below forces any \lighttt{Arrive} on $z[j^*]$ to be preceded by an \lighttt{Await} on the previous phase of the same physical mbarrier.
+This is how we uphold the PTX requirement (\webText{PTX ISA: Phase of the mbarrier object}{https://docs.nvidia.com/cuda/parallel-thread-execution/index.html\#parallel-synchronization-and-communication-instructions-mbarrier-phase}) that for each phase of an mbarrier object, at least one \lighttt{test\_wait} or \lighttt{try\_wait} returning true must be performed before an arrive-on operation in the subsequent phase.
+Awaiting another member of the multicast group would not suffice, since that is a different mbarrier object (e.g. in another CTA).
 
 Out-of-range array elements are removed in the above calculations.
 This means the last few barrier array elements may have no free-on-arrive barrier.
