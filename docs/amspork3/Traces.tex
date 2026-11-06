@@ -10,7 +10,7 @@
   &$|$& $\sporkTrPreAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTidPre, \sporkQtlPre, \sporkAwFree)$ \\
 \bottomrule
 \end{tabular}
-\caption{Trace Types. The $\sporkAwFree$ is explained in a \sporkRed{TODO} SMEM appendix.\\
+\caption{Trace Types. $\sporkAwFree$ is only non-empty for events from \textsc{Tr-Hook} (Figure~\ref{fig:DataSemantics}), e.g. to require all prior accesses to synchronize-with an \texttt{Arrive} that frees the memory.\\
 Section~\ref{sec:TraceChecks} forms a graph from the trace events,
 and analyzes paths starting at a $\sporkTrPostAccess$,
 passing through 0 or more $\sporkTrFence$, $\sporkTrArrive$, and $\sporkTrAwait$ events,

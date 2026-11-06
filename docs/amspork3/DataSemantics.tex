@@ -51,18 +51,22 @@
   \sporkRule{\texttt{$\sporkx$: $\sporkprim$[$\sporkz^*$, $\sporkSub{\sporkexpr_1}{\sporkexpr_2}$, $\sporkexpr^*$] @ $\sporkmem$}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }\\
 \inferrule*[right=D-Alloc]{
-  \text{$\sporkmem$ is not SMEM \sporkRed{TODO}} \\\\
   \sporksigma' = \sporksigma[(\sporkx, \sporkz^*) \mapsto \bot \mid (\sporkx, \sporkz^*) \in \sporkWunroll(\sporkx[0\texttt{:}\sporkz_1, \ldots, 0\texttt{:}\sporkz_n])]
 }
 {
   \sporkRule{\sporkSub{\texttt{$\sporkx$: $\sporkprim$[$\sporkz_1, \ldots, \sporkz_n$] @ $\sporkmem$}}{\texttt{pass}}, \sporkSub{\sporksigma}{\sporksigma'}, \sporktr^*}
 }\\
 \inferrule*[right=D-Free]{
-  \text{$\sporkx$ is not in SMEM \sporkRed{TODO}} \\
   \sporksigma' = \sporksigma|_{\textrm{dom}(\sporksigma) \setminus (\{\sporkx\} \times \mathbb{N}^*)}
 }
 {
   \sporkRule{\sporkSub{\texttt{free($\sporkx$)}}{\texttt{pass}}, \sporkSub{\sporksigma}{\sporksigma'}, \sporktr^*}
+}
+\inferrule*[right=Tr-Hook]{
+  \sporktr^*_2 = \sporktr^*_1 \sporkConcatChk \sporktrHook(\sporksigma)
+}
+{
+  \sporkRule{\sporkSub{\texttt{hook}\#\sporktrHook}{\texttt{pass}}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 \\
 \inferrule*[right=D-CtrlStep]{
@@ -103,6 +107,7 @@
 \caption{Data Semantics. \sporkDAssign, \sporkDReduce, \sporkDInstrSub\ cannot accept windows with $\#\sporkwinAnn$ annotations.
 These are first stepped with \textsc{Tr-} rules (Figure~\ref{fig:SyncTraceSemantics}).
 $[...\sporkWindowSub...]$ is Figure~\ref{fig:WindowSubSemantics}.
+In \textsc{Tr-Hook}, $\sporktrHook: \sporkSigma \to \sporkTr^*$ is supplied by compiler analysis (like $\sporktidMap$) to model mbarriers and managed ring buffers in CUDA shared memory.
 }
 \label{fig:DataSemantics}
 \hrule
