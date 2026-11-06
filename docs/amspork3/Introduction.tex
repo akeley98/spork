@@ -50,10 +50,10 @@ Parallelism is explicitly controlled by the programmer's annotations, rather tha
 The \sporkName{} compiler's role is limited to \emph{verifying} that the user-provided synchronization ensures equivalence.
 The current implementation is restricted to verifying this for a user-provided selection of concrete input tensor sizes.
 
-Through collective analysis (Section~\sporkTodoLink), we annotate statements and expressions with a \emph{thread mapping} $\sporktidMap$, specifying which thread(s) execute each statement or expression instance.
-This enables static analysis of the thread assignment counts, ensuring instructions with thread convergence requirements (e.g. warp MMA) are used correctly (Section~\sporkTodoLink).
+Through collective analysis (Section~\ref{sec:CollAnalysis}), we annotate statements and expressions with a \emph{thread mapping} $\sporktidMap$, specifying which thread(s) execute each statement or expression instance.
+This enables static analysis of the thread assignment counts, ensuring instructions with thread convergence requirements (e.g. warp MMA) are used correctly (Section~\ref{sec:StaticInstrChecks}).
 To ensure sequential-parallel equivalence, we analyze program traces consisting of memory read, memory mutate, and synchronization events, with trace events recording \emph{observers} (\sporkTodoLink) encoding the thread(s) and possibly-asynchronous instructions responsible for the event.
-We analyze traces with \emph{synchronization environment} semantics (\sporkTodoLink) where data variables store access histories (reads and mutations) with their thread and async instruction \emph{visibility}, rather than numeric values.
+We analyze traces with \emph{synchronization environment} semantics (Section~\ref{sec:SyncEnv}) where data variables store access histories (reads and mutations) with their thread and async instruction \emph{visibility}, rather than numeric values.
 Synchronization events become meaningful in the synchronization environment, conditionally expanding the visibility of all prior recorded accesses.
 
 We built \sporkName{} as an extension to Exo \cite{exo, exo2}, a user-schedulable language providing composable, checked rewrite rules for transforming (optimizing) sequential programs without risking dataflow or instruction usage bugs.

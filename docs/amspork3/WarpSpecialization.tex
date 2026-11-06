@@ -26,7 +26,7 @@ A critical optimization, similar to \emph{loop unswitching}:
 the \sporkName{} compiler compiles the kernel into a separate code path,
 with a separate persistent kernel loop,
 for each $\sporkwarpConfig$.
-Each path uses PTX's \texttt{setmaxnreg} instruction to vary per-thread register counts,
+Each path may execute PTX's \texttt{setmaxnreg} instruction once to vary per-thread register counts,
 and syntactically omits all code paths guarded by a warp specialization block holding code not intended for the current warp.
 In our experience, this is required to allow \texttt{ptxas} to verify that register-heavy instructions
 (e.g. \texttt{wgmma}) don't appear on low-register code paths.

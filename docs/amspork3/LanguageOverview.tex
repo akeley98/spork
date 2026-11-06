@@ -13,7 +13,7 @@ The \texttt{unit} parameter is a \emph{collective unit} that specifies the shape
 \input{ScopeExample.tex}
 
 Each loop body, conditional branch, \texttt{with}-block, or procedure defines a \emph{program scope}.
-As part of \emph{collective analysis} (Section~\sporkTodoLink{}), we deduce a per-scope \emph{thread mapping} $\sporktidMap: \sporkSigma \to \mathcal{P}(\sporkTid)$.
+As part of \emph{collective analysis} (Section~\ref{sec:CollAnalysis}), we deduce a per-scope \emph{thread mapping} $\sporktidMap: \sporkSigma \to \mathcal{P}(\sporkTid)$.
 This describes a mapping between the control variable values and the \emph{thread collective} (set of threads) assigned to execute statement instances in the scope (i.e. which threads execute which loop iterations).
 We say that a scope is a $\sporkcollUnit$-scope when $\sporkcollUnit$ accurately describes the thread sets produced by the mapping.
 In Figure~\ref{fig:ScopeExample}, the outermost parallel loop \texttt{cuda\_tasks(0,37)} creates \texttt{scope-1} (which is a cluster scope, and, assuming \texttt{clusterDim=1}, also a CTA scope); nesting \texttt{cuda\_threads(..., unit=\texttt{cuda\_warp})} creates \texttt{scope-2} (warp scope); and nesting \texttt{cuda\_threads(..., unit=\texttt{cuda\_thread})} creates \texttt{scope-3} (single-thread scope).
@@ -24,7 +24,7 @@ Variables of boolean, size, or index (loop iterator) type are of $\sporkcontrol$
 All others (including the contents of arrays) are of a data type (e.g. \texttt{bf16}).
 This restriction stems from Exo's rewrites,
 and the real synchronization checking implementation relies on this,
-but the synchronization environment semantics (\sporkTodoLink{}) do not depend on this restriction.
+but the synchronization environment semantics (Section~\ref{sec:SyncEnv}) do not depend on this restriction.
 
 All statements and expressions are given deterministic sequential small-step semantics (Section~\ref{sec:Semantics}).
 The semantics for parallel and asynchronous constructs in \sporkName{} are similar to the \emph{serial projection} in Cilk
