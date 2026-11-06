@@ -80,6 +80,8 @@ Reduce to $\sporkwzH$ with \sporkDInstrStepParam\ and similar rules (window: Fig
 A similar story holds for a non-empty trailing barrier expression $\sporkfBarH$ (\texttt{>>}$\sporkwH_\mathrm{bar}$).
 It is given concrete $\sporkZ$ coordinates by \sporkDInstrStepBarrier,
 then its $\#\sporkwinAnn$ (if present) is stripped by \sporkTrInstrBarrier.
+Note, \textsc{Tr-Arrive} does not manipulate the arrive count $\sporksigma(\sporkx, \sporkz^*)$,
+but de-sugaring inserts the arrive count increment in a $\sporkbarMech$-specific way (Section~\ref{sec:CommitGroups}, Section~\ref{sec:Smem}).
 }
 \label{fig:SyncTraceSemantics}
 \hrule

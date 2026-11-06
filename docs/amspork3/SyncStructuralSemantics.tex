@@ -8,7 +8,7 @@
 {
   \sporkRule{\texttt{$\sporkx$: $\texttt{barrier}$[$\sporkz^*$, $\sporkSub{\sporkexpr_1}{\sporkexpr_2}$, $\sporkexpr^*$] @ $\sporkbarMech$}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }\\
-\inferrule*[right=S-ZeroArriveCounts]{
+\inferrule*[right=S-Alloc]{
   \sporksigma' = \sporksigma[(\sporkx, \sporkz^*) \mapsto 0 \mid (\sporkx, \sporkz^*) \in \sporkWunroll(\sporkx[0\texttt{:}\sporkz_1, \ldots, 0\texttt{:}\sporkz_n])]
 }
 {
@@ -30,8 +30,8 @@
 \end{mathpar}
 \caption{Synchronization Structural Semantics.
 Note, $\sporksigma(\sporkx)$ is used to store ``arrive counts'' for barrier variables $\sporkx$.
-\sporkRed{TODO} link to additional semantics about commit group and mbarrier, which will also increment arrive counts
-(\textsc{Tr-Arrive} and instruction \texttt{>>} barriers currently leave $\sporksigma$ unchanged); re-evaluate \textsc{S-ZeroArriveCounts} for mbarrier.
+This is initially 0 (\textsc{S-Alloc}), but is overridden in some cases for mbarriers (Section~\ref{sec:Smem}).
+% Totally ignored: Await count assertion.
 }
 \label{fig:SyncStructuralSemantics}
 \hrule

@@ -8,8 +8,10 @@
   &$|$& \texttt{pass} & pass (skip, no-op) \\
   &$|$& \texttt{if $\sporkexpr$:$\sporks$} & guard \\
   &$|$& \texttt{for $\sporkx$ in $\sporkloopMode$($\sporkeLo,\sporkeHi$):$\sporks$} & sequential or parallel loop \sporkbinder \\
-  &$|$& \texttt{with CudaWarps($\sporkz$, $\sporkz$, name=$\sporkwarpName$): $\sporks$} & warp specialization block \\
-  &$|$& \texttt{with CudaDeviceFunction(clusterDim=$\sporkz$,} & cuda device function launch \\
+  &$|$& \texttt{with CudaWarps($\sporkz$, $\sporkz$,} & warp specialization block \\
+  &   & \texttt{~~~~~~~name=$\sporkwarpName$): $\sporks$} & \\
+  &$|$& \texttt{with CudaDeviceFunction(} & cuda device function launch \\
+  &   & \texttt{~~~~~~~clusterDim=$\sporkz$,} & \\
   &   & \texttt{~~~~~~~warp\_config=$\sporkwarpConfig^*$): $\sporks$} & \\
   &$|$& \texttt{assert $\sporkexpr$} & assertion \\
 \midrule
@@ -20,14 +22,18 @@
   &$|$& \texttt{$\sporkf$($\sporkwH^*$)$\sporkfBarH$} & instruction call with \emph{optional} trailing barrier expr $\sporkfBarH$ \\
   &$|$& \texttt{$\sporkx$: $\sporkprim$[$\sporkexpr^*$] @ $\sporkmem$} & data allocation \sporkbinder \\
 \midrule
-  &$|$& \texttt{free($\sporkx$)} & free (\textbf{not in user language}) \\
   &$|$& \texttt{$\sporkx:\sporkcontrol$ = $\sporkexpr$} & temporary control value \sporkbinder\ (\textbf{not in user language}) \\
+  &$|$& \texttt{free($\sporkx[\sporkexpr^*]$, $\sporkmem$)} & free data (same bounds, $\sporkmem$ as alloc) \\
+  &$|$& \texttt{free($\sporkx[\sporkexpr^*]$, $\sporkbarMech$)} & free barriers (same bounds, $\sporkbarMech$ as alloc) \\
+  &$|$& \texttt{free($\sporkx[\sporkexpr^*]$, \texttt{None})} & free control value \\
+  &   & & (all free stmts \textbf{not in user language}) \\
 \midrule
   % Barriers
   &$|$& \texttt{$\sporkx$: barrier[$\sporkexpr^*$] @ $\sporkbarMech$} & barrier allocation \sporkbinder \\
-  &$|$& \texttt{Fence($\sporkQtlArrive, \sporkQtlAwait$)} $\#\sporktidMap$ & fence synchronization statement ($\sporktidMap$ \textbf{not in user language}) \\
-  &$|$& \texttt{Arrive($\sporkQtlArrive$) >> $\sporkwH^*$} $\#\sporktidMap$ & arrive synchronization statement ($\sporktidMap$ \textbf{not in user language}) \\
-  &$|$& \texttt{Await($\sporkwScalarH$, $\sporkQtlAwait$, $\sporkz_\mathrm{lag}$)} $\#\sporktidMap$ & await synchronization statement ($\sporktidMap$ \textbf{not in user language}) \\
+  &$|$& \texttt{Fence($\sporkQtlArrive, \sporkQtlAwait$)} $\#\sporktidMap$ & sync stmt: non-split barrier \\
+  &$|$& \texttt{Arrive($\sporkQtlArrive$) >> $\sporkwH^*$} $\#\sporktidMap$ & sync stmt: arrive on split barrier \\
+  &$|$& \texttt{Await($\sporkwScalarH$, $\sporkQtlAwait$, $\sporkz_\mathrm{lag}$)} $\#\sporktidMap$ & sync stmt: await on split barrier \\
+  &   & & (sync stmt $\#\sporktidMap$ \textbf{not in user language}) \\
 \bottomrule
 \end{tabular}
 \begin{tabular}{rrll}
