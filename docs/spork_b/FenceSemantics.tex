@@ -1,5 +1,7 @@
 \magicSubsection{Fence Semantics}{sec:FenceSemantics}
 
+\redBox{\textbf{This entire section is out of date. Refer to amspork3.}}
+
 A \lighttt{Fence} statement augments (Section~\ref{sec:Augment}) all visibility records (Section~\ref{sec:VisRecordState}) that it witnesses (Section~\ref{sec:Witness}).
 Specifically, for a given statement \texttt{Fence($\tau_s^\mathrm{pre}, \tau_s^\mathrm{post}$)}, with $g^* = g_{s^\#}(\iota, \sigma)$ assigned to execute it (Section~\ref{sec:SyncSemanticsThreadMapping}), define $\lambda_\mathrm{Fence}: \mathsf{VisRecord} \to \mathsf{VisRecord}$ as
 \begin{equation*}

@@ -1,5 +1,7 @@
 \magicSubsection{Managed Ring Buffer Allocation}{sec:SyncSemanticsManagedRingBuffer}
 
+\redBox{\textbf{This entire section is out of date. Refer to amspork3.}}
+
 Upon allocating a managed ring buffer, for each array element $x[j^*]$ with a non-empty guard barriers set $G$ (Section~\ref{sec:ManagedRingBufferSync}), and with $Q$ being the qualitative timeline mask of $x$'s memory type or barrier mechanism, create a new \textsf{VisRecord} $r$ (Section~\ref{sec:VisRecordState}) with
 \begin{align*}
   & r.s = \{\} \\
