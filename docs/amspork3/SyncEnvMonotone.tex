@@ -1,4 +1,5 @@
-\sporkSubsection{$\sporkConcatEnv$ is Monotone}{sec:SyncEnvMonotone}
+% Had to use words because $\sporkConcatEnv$ in a section title screws up the PDF linking.
+\sporkSubsection{Trace Concatenation is Monotone}{sec:SyncEnvMonotone}
 
 We claim that $\sporkConcatEnv$ is a monotone (increasing) function; this forms the basis for abstracting the synchronization environment.
 
@@ -26,7 +27,8 @@ Take the witness $(\sporkenvEff, \sporkenvVis_s) \in \sporkenv_s$ with $\sporken
 By the preliminary, ``$\sporkenvVis_s$ syncs but $\sporkenvVis_p$ does not'' is impossible, leaving three sub-cases:
 \begin{itemize}
   \item Neither syncs: both unchanged; holds by hypothesis.
-  \item Only $\sporkenvVis_p$ syncs: $\lambda$ only grows the $\sporkOb$, $\sporkAw$ components (mask unchanged), so $\sporkenvVis_s \sporksqVis \sporkenvVis_p \sporksqVis \lambda(\sporkenvVis_p)$, and $\sporksqVis$ is transitive (componentwise $\subseteq$).
+  \item Only $\sporkenvVis_p$ syncs: $\lambda$ only grows the $\sporkOb$, $\sporkAw$ components (mask unchanged),\\
+    so $\sporkenvVis_s \sporksqVis \sporkenvVis_p \sporksqVis \lambda(\sporkenvVis_p)$, and $\sporksqVis$ is transitive (componentwise $\subseteq$).
   \item Both sync: the $\sporkAw$ components are $\sporkAw_s \cup \sporkAwOut(\sporktr) \subseteq \sporkAw_p \cup \sporkAwOut(\sporktr)$;
     the $\sporkOb$ components are $\sporkOb_s \cup (\sporkObOut(\sporktr) \cap (\sporkTid \times \sporkQtlMask[s])) \subseteq \sporkOb_p \cup (\sporkObOut(\sporktr) \cap (\sporkTid \times \sporkQtlMask[p]))$ since $\sporkQtlMask[s] \subseteq \sporkQtlMask[p]$;
     masks are unchanged.
