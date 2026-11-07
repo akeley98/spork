@@ -16,7 +16,6 @@ mostly stemming from our hope to reduce the number of unique visibility records 
     after the checking.
     We reason informally that we no longer have to check WAR hazards with future mutates of $\sporkx_0[\sporkz_0^*]$,
     as we get that for free transitively from the current WAR check and the upcoming WAW check.
-  \item We do the same for prior mutates after tracing non-atomic mutates.
   \item For visibility records containing observers $\sporkob=(\sporktid, \sporkqtl)$ where $\sporkqtl$ is for that of an async instruction,
     the initially traced access sometimes expands the observer set on the $\sporktid$ axis to encompass an entire warp, warpgroup, or CTA,
     when this change would not affect $\sporksyncsWith$ for any subsequent synchronization
