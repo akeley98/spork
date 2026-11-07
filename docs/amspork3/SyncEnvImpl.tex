@@ -1,0 +1,27 @@
+\sporkSubsection{Sync Env Implementation}{sec:SyncEnvImpl}
+
+We wrote an interpreter for the synchronization environment semantics using C++ and linked it to the Python-based Exo compiler.
+The user calls \texttt{$\sporkp$.sync\_check($\cdot$)} with the concrete problem size passed as keyword arguments.
+We check correctness by interpreting $\sporkp$'s body to completion or to an error state.
+This is only possible without data values due to Exo's control-data separation:
+the traced control flow and sequence of array indexing never depends on data values.
+
+We greatly sped up the interpretation by de-duplicating visibility records in a hash table of type $\mathcal{P}(\sporkEnvVis)$.
+For example, this allows us to memoize the effects of $\lambda$ when tracing a new synchronization (Equation~\ref{eq:envConcatSync}).
+We implement several optimizations that we have not fully reasoned to be sound,
+mostly stemming from our hope to reduce the number of unique visibility records in the hash table:
+\begin{itemize}
+  \item Upon tracing a mutate of an array element $\sporkx_0[\sporkz_0^*]$,
+    we discard all prior reads, i.e. $\sporkenv$ entries matching $((\sporkread, \sporkx_0, \sporkz_0^*), \sporkenvVis)$,
+    after the checking.
+    We reason informally that we no longer have to check WAR hazards with future mutates of $\sporkx_0[\sporkz_0^*]$,
+    as we get that for free transitively from the current WAR check and the upcoming WAW check.
+  \item We do the same for prior mutates after tracing non-atomic mutates.
+  \item For visibility records containing observers $\sporkob=(\sporktid, \sporkqtl)$ where $\sporkqtl$ is for that of an async instruction,
+    we sometimes expand the observer set on the $\sporktid$ axis to encompass an entire warp, warpgroup, or CTA,
+    when this change would not affect $\sporksyncsWith$ for any subsequent synchronization
+    due to this synchronization also being warp-, warpgroup-, or CTA-scoped.
+  \item At the end of device tasks (Section~\ref{sec:KernelStructure}) or device function launches,
+    we do the same $\sporktid$ expansion to encompass an entire cluster or entire device,
+    respectively.
+\end{itemize}
