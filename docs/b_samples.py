@@ -223,28 +223,6 @@ def coll_tiling_example(num_tasks: size):
 
 
 if False:
-    @proc
-    def bad_multicast_example():
-        with CudaDeviceFunction(clusterDim=4, blockDim=32):
-            for task_id in cuda_tasks(0, 1):
-                # TeX: version BadMulticastExample 1
-                # TeX: begin BadMulticastExample[0]
-                z: barrier[2, 2, NUM_ITERS] @ CudaMbarrier
-                for m in cuda_threads(0, 2, unit=2 * cuda_cta_in_cluster):
-                    # TeX: color line *
-                    #  ......
-                    if m == 0:  # Valid if statement (m is not multicast)
-                        # TeX: color line *
-                        #   v
-                        for n in cuda_threads(0, 2, unit=cuda_cta_in_cluster):
-                            # TeX: color line *
-                            #  ......
-                            if n == 0:  # Invalid if statement underneath n loop
-                                # TeX: color line *
-                                #                             v             v
-                                Arrive(cuda_in_order) >> z[m, n, k] >> z[m, :, k]  # n is multicast
-                                # TeX: end BadMulticastExample[0]
-                                Await(z[m, n, k], cuda_in_order, 0)
     # TeX: version multicast_flags_example 1
     # TeX: begin multicast_flags_example[0]
     Arrive(cuda_in_order) >> z[m, n, k] >> z[m, :, k] # (False, False, False), (False, True, False)

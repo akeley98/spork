@@ -21,16 +21,4 @@ Currently only \lighttt{CudaMbarrier}-mechanism split barriers (Section~\ref{sec
 Each multicast iterator must have a thread pitch (def~\ref{sec:gThreadPitch}) that is a multiple of \lighttt{blockDim} (Section~\ref{sec:CudaDeviceFunction}).
 That is, multicast iterators must correspond to \lighttt{cuda\_threads} loops that iterate in the CTA-in-cluster dimension (Section~\ref{sec:CollTiling}).
 
-We impose a conservative convergence requirement for multicast iterators.
-This is the only case in Exo-GPU where convergence is enforced other than through scoping.
-Each multicast iterator is defined by some \lighttt{cuda\_threads} loop (Section~\ref{sec:CollTilingCudaThreads}).
-For a given \lighttt{Arrive} statement, it must not have any parent \lighttt{if} or \emph{sequential} \lighttt{for} loop statements that are not also parents of each multicast iterator's defining \lighttt{cuda\_threads} loop (Figure~\ref{fig:BadMulticastExample}).
-
-\begin{figure}[t]
-\codehrule
-\input{spork_b/BadMulticastExample.0.tex}
-\caption{Multicast Convergence Requirement Violation}
-\label{fig:BadMulticastExample}
-\codehrule
-\end{figure}
-
+% Removed: former convergence requirement.
