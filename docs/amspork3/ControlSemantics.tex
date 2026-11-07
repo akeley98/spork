@@ -35,10 +35,10 @@
   \sporkRule{\sporkSub{\texttt{with CudaWarps(...):$\sporks$}}{\sporks}, \sporksigma, \sporktr^*}
 }\\
 \inferrule*[right=C-CudaDeviceFunction]{
-  \sporkRed{TODO define $\sporkQtlCuda$} \\
+  \sporkRed{TODO define $\sporkQtlStream$} \\
   \forall\sporksigma' \in \sporkSigma.\sporktidMap_\mathrm{allThreads}(\sporksigma') = \sporkTid \\
-  \sporks_\mathrm{fence1} = \texttt{Fence($\sporkQtlCuda \cup \{$cpu\_in\_order\_qual$\}$, $\sporkQtlCuda$)} \# \sporktidMap_\mathrm{allThreads} \\
-  \sporks_\mathrm{fence2} = \texttt{Fence($\sporkQtlCuda$, $\sporkQtlCuda$)} \# \sporktidMap_\mathrm{allThreads}
+  \sporks_\mathrm{fence1} = \texttt{Fence($\sporkQtlStream \cup \{$cpu\_in\_order\_qual$\}$, $\sporkQtlStream$)} \# \sporktidMap_\mathrm{allThreads} \\
+  \sporks_\mathrm{fence2} = \texttt{Fence($\sporkQtlStream$, $\sporkQtlStream$)} \# \sporktidMap_\mathrm{allThreads}
 }
 {
   \sporkRule{\sporkSub{\texttt{with CudaDeviceFunction(...):} \sporks_\mathrm{device}}{\texttt{$\sporks_\mathrm{fence1}$;$\sporks_\mathrm{device}$;$\sporks_\mathrm{fence2}$}}, \sporksigma, \sporktr^*}
