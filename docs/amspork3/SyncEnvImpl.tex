@@ -18,10 +18,13 @@ mostly stemming from our hope to reduce the number of unique visibility records 
     as we get that for free transitively from the current WAR check and the upcoming WAW check.
   \item We do the same for prior mutates after tracing non-atomic mutates.
   \item For visibility records containing observers $\sporkob=(\sporktid, \sporkqtl)$ where $\sporkqtl$ is for that of an async instruction,
-    we sometimes expand the observer set on the $\sporktid$ axis to encompass an entire warp, warpgroup, or CTA,
+    the initially traced access sometimes expands the observer set on the $\sporktid$ axis to encompass an entire warp, warpgroup, or CTA,
     when this change would not affect $\sporksyncsWith$ for any subsequent synchronization
     due to this synchronization also being warp-, warpgroup-, or CTA-scoped.
+    % This is Out-of-order Non-convergent Abstract Machine Optimization
   \item At the end of device tasks (Section~\ref{sec:KernelStructure}) or device function launches,
     we do the same $\sporktid$ expansion to encompass an entire cluster or entire device,
     respectively.
+    % This is JoinThreads, intentionally ignored.
+  % TODO item about eager free-on-arrive?
 \end{itemize}
