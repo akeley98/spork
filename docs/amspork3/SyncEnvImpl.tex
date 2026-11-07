@@ -11,11 +11,6 @@ For example, this allows us to memoize the effects of $\lambda$ when tracing a n
 We implement several optimizations that we have not fully reasoned to be sound,
 mostly stemming from our hope to reduce the number of unique visibility records in the hash table:
 \begin{itemize}
-  \item Upon tracing a mutate of an array element $\sporkx_0[\sporkz_0^*]$,
-    we discard all prior reads, i.e. $\sporkenv$ entries matching $((\sporkread, \sporkx_0, \sporkz_0^*), \sporkenvVis)$,
-    after the checking.
-    We reason informally that we no longer have to check WAR hazards with future mutates of $\sporkx_0[\sporkz_0^*]$,
-    as we get that for free transitively from the current WAR check and the upcoming WAW check.
   \item For visibility records containing observers $\sporkob=(\sporktid, \sporkqtl)$ where $\sporkqtl$ is for that of an async instruction,
     the initially traced access sometimes expands the observer set on the $\sporktid$ axis to encompass an entire warp, warpgroup, or CTA,
     when this change would not affect $\sporksyncsWith$ for any subsequent synchronization

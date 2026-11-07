@@ -15,7 +15,10 @@ A read, \lighttt{Arrive}, or \lighttt{Await} access to an array element $x[n^*]$
 \end{equation*}
 This is done subsequent to the to-be-defined checks in Section~\ref{sec:ChecksOnRead}.
 
-A mutate access to an array element $x[n^*]$ causes the read visibility records set to be cleared, then $r^*$ is added to the mutate visibility records set, i.e. $\rho$ is updated as
+% 2026-11-07: Although these docs are totally outdated, David Zhao
+% Akeley went back and updated that we removed the unsound
+% clear-visibility-records-on-mutate behavior.
+A mutate access to an array element $x[n^*]$ causes $r^*$ to be added to the mutate visibility records set, i.e. $\rho$ is updated as
 \begin{align*}
     & \rho[x \to n^* \to (\{\}, r^*, \rho(x, n^*).b)] & \text{if not atomic} \\
     & \rho[x \to n^* \to (\{\}, r^* \cup \rho(x, n^*).m, \rho(x, n^*).b)] & \text{if atomic}
