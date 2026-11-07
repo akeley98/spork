@@ -1,5 +1,5 @@
 \magicSubsection{Mbarrier Usage}{sec:MbarrierUsage}
-% no-VF: cuda_temporal is removed: use cuda_mbarrier_only for the "data ready" Arrive after TMA with trailing barriers, and cuda_async_proxy_retired for the consumer "buffer free" Arrive and producer Await before TMA overwrites.
+% no-VF: cuda_temporal is removed: use cuda_async_proxy_retired for the "data ready" Arrive after TMA with trailing barriers, and for the consumer "buffer free" Arrive and producer Await before TMA overwrites.
 
 A barrier variable $z$ with mbarrier barrier mechanism may be declared with
 
