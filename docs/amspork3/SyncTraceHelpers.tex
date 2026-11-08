@@ -10,7 +10,7 @@
   \sporktrAccessHelper(\sporksigma, \sporktr^*, \sporkmut, \sporkwz, \sporkAwPost) = \sporktr^*
 }\\
 \inferrule*[right=Tr-ConvergentTid]{
-  \sporkqtlConvergent(\sporkqtlInit) \\
+  \sporkqtlInit\text{ is register-class (Section~\ref{sec:Qtl})} \\
   \sporkTidAll = \sporktidMap(\sporksigma) \\
   \sporktr^*_\mathsf{pre} =
   \textbf{(}\sporkTrPreAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTidAll, \sporkQtlPre, \varnothing) \textbf{)}_{
@@ -28,7 +28,7 @@
   = \sporktr^* \sporkConcatChk \sporktr^*_\mathsf{pre} \sporkConcatChk \sporktr^*_\mathsf{post}
 }\\
 \inferrule*[right=Tr-SeparateTid]{
-  \neg\sporkqtlConvergent(\sporkqtlInit) \\
+  \sporkqtlInit\text{ is not register-class (Section~\ref{sec:Qtl})} \\
   \sporkTidAll = \sporktidMap(\sporksigma) \\
   \sporktr^*_\mathsf{pre} =
   \textbf{(}\sporkTrPreAccess(\sporkmut, \sporkx, \sporkz_i^*, \{ \sporktid \}, \sporkQtlPre, \varnothing) \textbf{)}_{
@@ -57,9 +57,16 @@ $\sporktrAccessHelper$ adds one or many $\sporkTrPreAccess$ events followed by o
 ``one'' is the convergent case
 (an event includes all threads given by the $\sporktidMap$)
 and ``many'' is the non-convergent case
-(each thread gets its own events).\\
-$\sporkinstrBarrierHelper$ is defined for both alternatives of $\sporkfBarZ$ (Figure~\ref{fig:stmt}): no trailing barrier expression, or \texttt{\color{barriercolor}>>$\sporkwz_\mathrm{bar}$}.\\
-\sporkRed{TODO:} handwave away undefined ordering of tuple comprehension.}
+(each thread gets its own events).
+The former is less strict and models the implicit synchronization that instructions like
+\texttt{mma.sync} and \texttt{shfl.sync} \cite{ptx} have when shuffling data between registers in a warp.
+\\
+$\sporkinstrBarrierHelper$ is defined for both alternatives of $\sporkfBarZ$ (Figure~\ref{fig:stmt}):
+no trailing barrier expression, or \texttt{\color{barriercolor}>>$\sporkwz_\mathrm{bar}$}.
+\\
+The tuple comprehension has undefined order, but determinism can be forced with an arbitrary ordering, such as lexicographical.
+The order makes no difference to trace analysis as it's performed for each array element independently.
+}
 \label{fig:SyncTraceHelpers}
 \hrule
 \end{figure}
