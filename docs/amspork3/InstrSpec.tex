@@ -1,5 +1,25 @@
 \sporkSection{Instruction Specification}{sec:InstrSpec}
 
+We will use a wgmma instruction (Figure~\ref{fig:Wgmma})
+as an example of the information specified in a \sporkName{} instruction,
+and how that is used for various checks.
+The \texttt{behavior}, which informs unification in Exo's \texttt{replace} rewrite,
+accurately conveys the underlying instruction semantics:
+it implements a $64\times256\times32$ MMA.
+The M dimension is split because the 64 rows of the accumulator (D)
+are distributed across 4 warps; this is specified by making the leftmost
+D dimension distributed, with a thread pitch of 32.
+That the actual D parameter is correctly distributed is checked by distributed memory analysis (Section~\ref{sec:DataLayout}).
+Pre-existing Exo backend checks enforce that the formal parameter $\sporkmem$ type and
+non-distributed dimension strides (if any) must match that of the the actual parameter.
+Each instruction also specifies its expected device scope (CPU or CUDA),
+and, for CUDA instructions, its expected collective unit $\sporkcollUnit$.
+CPU instructions must be called only outside CUDA device function blocks.
+CUDA instructions are the opposite,
+with the additional requirement that the calling scope must type as a
+$\sporkcollUnit$-scope (Section~\ref{sec:CollTiling}):
+in wgmma's case, a \texttt{cuda\_warpgroup}-scope is required.
+
 \input{fig_wgmma.tex}
 
 \input{Qtl.tex}

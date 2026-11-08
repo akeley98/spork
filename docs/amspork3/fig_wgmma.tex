@@ -42,7 +42,7 @@
   % Left of the stack, centered on the warp 0/1 boundary (clear of the inner loop lines),
   % joined to a bracket spanning all four warps.
   \node (distNote) [wg note, anchor=east] at ([xshift=-4.5mm]warp0.south west)
-    {D distributed onto warpgroup};
+    {\texttt{D} distributed onto warpgroup};
   \draw [annotation line] ([xshift=-0.7mm]warp0.north west) -- ([xshift=-2.2mm]warp0.north west)
     -- ([xshift=-2.2mm]warp3.south west) -- ([xshift=-0.7mm]warp3.south west);
   \coordinate (bracketX) at ([xshift=-2.2mm]warp0.west);
@@ -52,7 +52,11 @@
   \node [wg note, align=right, anchor=north east] at ([xshift=-1.5mm, yshift=1.1ex]bodyStart)
     {\sporkKeyA{Behavior:}\\$64{\times}256{\times}32$\\MMA};
 \end{tikzpicture}
-\caption{The \texttt{Sm90\_tk\_mma\_row\_col\_m64n256k32\_bf16} instruction. Each parameter's memory type encodes both a physical memory type and a data layout; the behavior is a $64\times256\times32$ MMA loop nest.}
+\caption{Example \texttt{wgmma} instruction.
+Unseen class code sets the per-parameter qualitative timelines,
+the expected $\sporkcollUnit$ (\texttt{cuda\_warpgroup}),
+and the thread pitch that tiles \texttt{D} across the 4 warps.
+}
 \label{fig:Wgmma}
 \sporkCodeRule
 \end{figure}
