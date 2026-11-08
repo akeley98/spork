@@ -13,8 +13,9 @@ Each trace event $\sporktr$ advertises two kinds of inbound and outbound sets:
 $\sporkObIn(\sporktr)$ and $\sporkObOut(\sporktr)$,
 where an observer $\sporkob: \sporkOb$ is a pair $(\sporktid, \sporkqtl)$;
 and, \textbf{(b)} pending await sets $\sporkAwIn(\sporktr)$ and $\sporkAwOut(\sporktr)$.
-They are defined per-trace-event-constructor in Figure~\ref{fig:InOutSets}.
+They are defined per-trace-event-constructor (Figure~\ref{fig:TraceConstructors}) in Figure~\ref{fig:InOutSets}.
 
+\input{TraceConstructors.tex}
 \input{InOutSets.tex}
 
 For reasons that will become clearer in Section~\ref{sec:SyncEnv} (Synchronization Environment),

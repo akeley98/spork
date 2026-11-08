@@ -36,7 +36,7 @@ To ease analysis,  % Kind of not true; it's actually strictly necessary to avoid
 we split array accesses into ``precondition'' and ``postcondition'' events $\sporkTrPreAccess$ and $\sporkTrPostAccess$.
 These record the accessed array element $\sporkx[\sporkz^*]$,
 a read-or-mutate tag $\sporkmut$,
-and other state described in Section~\ref{sec:TraceChecks}.
+and other state described in Section~\ref{sec:TraceChecks}, Figure~\ref{fig:TraceConstructors}.
 Statements and ``read only'' expressions are carefully stepped to correctly append to the trace
 (\sporkTrRead, Figure~\ref{fig:SyncTraceSemantics}).
 This is done with the checked trace concatenation operator (Section~\ref{sec:TraceConcatChk}),

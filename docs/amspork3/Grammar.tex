@@ -61,7 +61,7 @@ which are wrapped as \emph{trailing barrier expressions} $\sporkfBarH$ (Figure~\
 We provide a \texttt{Fence} statement for non-split barriers,
 and \texttt{Arrive} and \texttt{Await} statements for split barriers (Figure~\ref{fig:stmt}).
 These produce $\sporkTrFence$, $\sporkTrArrive$, and $\sporkTrAwait$ trace events, respectively
-(Section~\ref{sec:Semantics}, Figure~\ref{fig:SyncTraceSemantics}).
+(Section~\ref{sec:TraceChecks}, Figure~\ref{fig:SyncTraceSemantics}).
 The \texttt{Arrive} and \texttt{Await} statements take explicitly allocated \texttt{barrier}-type parameters,
 which are of a user-selected barrier mechanism ($\sporkbarMech$: mbarrier, commit group, or cluster sync).
 

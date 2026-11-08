@@ -2,6 +2,13 @@
 \sporkGrammarStuff
 \begin{tabular}{rrl}
 \toprule
+  $\sporkaw : \sporkAw$ & $\Coloneqq$ &
+        $\sporkPendingAwait(\sporkx, \sporkz^*_i, \sporkz_\mathrm{await})$ \\
+\bottomrule
+\end{tabular}
+\sporkGrammarStuff
+\begin{tabular}{rrl}
+\toprule
   $\sporktr : \sporkTr$ & $\Coloneqq$ &
         $\sporkTrPostAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTidPost, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask, \sporkAwPost)$ \\
   &$|$& $\sporkTrFence(\sporkTidFence, \sporkQtlArrive, \sporkQtlAwait)$ \\
@@ -10,7 +17,7 @@
   &$|$& $\sporkTrPreAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTidPre, \sporkQtlPre, \sporkAwFree)$ \\
 \bottomrule
 \end{tabular}
-\caption{Trace Types.
+\caption{Pending Await Type and Trace Types.
 The $\sporkAwFree$ of $\sporkTrPostAccess$ may be used by the SMEM allocator to impose a synchronization
 requirement on SMEM users to await on a certain barrier first (Section~\ref{sec:SmemAppendix}).\\
 Section~\ref{sec:TraceChecks} forms a graph from the trace events,
@@ -20,5 +27,6 @@ and ending at a $\sporkTrPreAccess$.
 The ``Post'' and ``Pre'' names correspond to the ``postcondition'' and ``precondition'' behavior
 these trace events will take on in the synchronization environment (Section~\ref{sec:SyncEnvConcat}).
 }
-\label{fig:Traces}
+\label{fig:TraceConstructors}
+\sporkCodeRule
 \end{figure}
