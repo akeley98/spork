@@ -38,7 +38,10 @@ so we only sketch the main requirements:
     Different index values on distributed dimensions index into different \emph{shards}.
     The compiler must deduce that each shard is mapped to a thread collective that matches the
     expected $\sporkcollUnit$ for the type:
-    one thread for registers (RMEM) and one CTA for shared memory (SMEM).
+    one thread for registers\footnote{CUDA also includes per-warp \emph{uniform registers},
+    which we model.
+    Unfortunately, we cannot enforce that \texttt{ptxas} actually uses uniform registers.}
+    (RMEM) and one CTA for shared memory (SMEM).
     For practicality, we also include per-warp register tile memory types that map to
     ThunderKittens tiles or vectors\cite{thunderkittens}.
     GMEM is allocated at CPU scope and requires no distributed memory analysis.
