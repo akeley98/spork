@@ -1,3 +1,73 @@
 \sporkSubsection{Qualitative Timelines}{sec:Qtl}
 
-\sporkRed{TODO}
+The compiler deduces \emph{window annotations} (Section~\ref{sec:Grammar}, Figure~\ref{fig:WindowGrammar})
+for windows ($\sporkx[\sporkc^*] \# \sporkwinAnn$)
+depending on the scope, $\sporkmem$ type, and the instruction parameter that the window substitutes.
+
+The annotation includes a precondition qualitative timeline set
+$\sporkQtlPre$ and an initial qualitative timeline $\sporkqtlInit$;
+these control, respectively, the inbound observers of $\sporkTrPreAccess$
+and outbound observers of $\sporkTrPostAccess$ events generated through the window access
+(Section~\ref{sec:TraceVertices}, Figure~\ref{fig:InOutSets}).
+
+Generally, $\sporkqtlInit$ for explicitly-async instructions never
+appear in any precondition qualitative timeline set;
+they appear only in the $\sporkQtlArrive$ set of dedicated \texttt{Fence} or \texttt{Arrive} statements.
+This models that synchronization statements have a monopoly on waiting for async instructions to retire.
+If a recorded $\sporkTrPostAccess$ event has only outbound observers containing such an async $\sporkqtlInit$,
+then no future $\sporkTrPreAccess$ event will have inbound observers containing $\sporkqtlInit$,
+so there is no observer overlap, and no partial parallel ordering existing between the events without synchronization.
+% Using concepts somewhat out of order here (not yet talking about the exact TraceEdge graph
+% but I don't have a perfect solution: relying on earlier TraceIntro only.
+% People can be anxious to "get to the point" wrt hardware so I don't want to lead with a pile of equations.
+
+We divide the qualitative timelines into the following four classes;
+the first two distinguish operations in the \emph{generic proxy} from those in the \emph{async proxy}\cite{LustigMixedProxy}:
+
+\sporkMainKey{Data RAM, Generic Proxy $\sporkqtl$ Class:}
+\\\texttt{cpu\_in\_order\_qual}: Accesses made directly by the CPU
+\\\texttt{cpu\_cuda\_stream\_qual}: Accesses made by CUDA stream-ordered functions, like \texttt{cudaMemcpyAsync}.
+\\\texttt{cuda\_in\_order\_ram\_qual}: Accesses to GMEM or SMEM by non-explicitly-async CUDA instructions.
+\\\texttt{Sm80\_cp\_async\_qual}: $\sporkqtlInit$ for accesses by Ampere \texttt{cp.async} instructions.
+  These instructions have $\{$\texttt{cuda\_in\_order\_ram\_qual}$\}$ as their precondition $\sporkqtl$ set.
+\\\texttt{cuda\_generic\_atomic\_qual}: Models generic proxy atomic accesses.
+  This is in a separate $\sporkQtlAtom$ set (Section~\ref{sec:TraceAtomics}),
+  and such accesses continue to have \texttt{cuda\_in\_order\_qual} in $\sporkQtlPre$ and $\sporkqtlInit$.
+
+\sporkMainKey{Data RAM, Async Proxy $\sporkqtl$ Class:}
+\\\texttt{cuda\_async\_proxy\_retired\_qual}: Included in $\sporkQtlPre$ for all memory access operations in the async proxy.
+  This may be inside the $\sporkQtlAwait$ set of a synchronization statement
+  (either a dedicated async instruction barrier, or a proxy fence; Section~\ref{sec:ProxyFences}),
+  so such synchronization may be partial parallel ordered before memory accesses with
+  $\texttt{cuda\_async\_proxy\_retired\_qual}\in\sporkQtlPre$.
+\\\texttt{tma\_to\_smem\_async\_qual}: $\sporkqtlInit$ for accesses by TMA GMEM-to-SMEM ``loads''.
+\\\texttt{tma\_to\_gmem\_async\_qual}: $\sporkqtlInit$ for accesses by TMA SMEM-to-GMEM ``stores''.
+\\\texttt{wgmma\_async\_smem\_qual}: $\sporkqtlInit$ for SMEM accesses by wgmma instructions.
+\\\texttt{tma\_to\_gmem\_atomic\_qual}: Models atomic GMEM accesses by TMA \texttt{cp.reduce.async.bulk} \cite{ptx} instructions;
+  included in $\sporkQtlAtom$ (Section~\ref{sec:TraceAtomics}) for such TMA GMEM parameters.
+
+\sporkMainKey{Register $\sporkqtl$ Class:}
+We have to do synchronization checking even for registers due to wgmma instructions accessing registers asynchronously.
+\\\texttt{cuda\_in\_order\_rmem\_qual}: Accesses to RMEM by non-explicitly-async CUDA instructions.
+\\\texttt{wgmma\_async\_rmem\_a\_qual}: $\sporkqtlInit$ for RMEM accesses via wgmma A operand parameters.
+\\\texttt{wgmma\_async\_rmem\_d\_qual}: $\sporkqtlInit$ for RMEM accesses via wgmma D (accumulator) operand parameters;
+  unlike for most async accesses, this is also included in $\sporkQtlPre$.
+  This models that wgmma implicitly serializes accumulation to the D operand.
+\\\texttt{wgmma\_rmem\_fenced\_qual}: Contained in $\sporkQtlPre$ for wgmma RMEM accesses.
+  PTX \cite{ptx} requires that a
+  ``\texttt{wgmma.fence} instruction must be used to fence the register accesses of \texttt{wgmma.mma\_async} instruction from their [the register's] prior accesses.''
+  (other than the accumulator exception mentioned).
+  The \texttt{wgmma.fence} instruction corresponds to an \sporkName{} warpgroup-scope
+  \texttt{Fence($\sporkQtlArrive$, $\sporkQtlAwait$)}
+  containing all register class $\sporkqtl$ in $\sporkQtlArrive$, and \texttt{wgmma\_rmem\_fenced\_qual} in $\sporkQtlAwait$.
+  The resulting $\sporkTrFence$ event will be partial parallel ordered after
+  all prior register $\sporkTrPostAccess$ events from the same warpgroup,
+  and partial parallel ordered before later wgmma register $\sporkTrPreAccess$ events from the same warpgroup
+  due to common $(\sporktid, \texttt{wgmma\_rmem\_fenced\_qual})$ observers.
+
+\sporkMainKey{Mbarrier $\sporkqtl$ Class:} The last class consists only of \texttt{cuda\_mbarrier\_qual}.
+This is used for trace events from accesses to mbarriers themselves.
+All explicit accesses are modelled as reads (which cannot conflict with each other);
+the access is only traced to check synchronization obligations
+imposed by the SMEM allocator (Section~\ref{sec:SmemAppendix}).
+
