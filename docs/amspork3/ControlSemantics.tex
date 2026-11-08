@@ -35,9 +35,10 @@
   \sporkRule{\sporkSub{\texttt{with CudaWarps(...):$\sporks$}}{\sporks}, \sporksigma, \sporktr^*}
 }\\
 \inferrule*[right=C-CudaDeviceFunction]{
-  \sporkRed{TODO define $\sporkQtlStream$} \\
+  % Risk of diverging from the code
+  \sporkQtlStream = \sporkQtl \setminus \{ \texttt{cpu\_in\_order\_qual} \} \sporkComment{ [all CUDA $\sporkqtl$, Section~\ref{sec:Qtl}] } \\
   \forall\sporksigma' \in \sporkSigma.\sporktidMap_\mathrm{allThreads}(\sporksigma') = \sporkTid \\
-  \sporks_\mathrm{fence1} = \texttt{Fence($\sporkQtlStream \cup \{$cpu\_in\_order\_qual$\}$, $\sporkQtlStream$)} \# \sporktidMap_\mathrm{allThreads} \\
+  \sporks_\mathrm{fence1} = \texttt{Fence($\sporkQtl$, $\sporkQtlStream$)} \# \sporktidMap_\mathrm{allThreads} \sporkComment{ [implied CPU$\to$CUDA sync]} \\
   \sporks_\mathrm{fence2} = \texttt{Fence($\sporkQtlStream$, $\sporkQtlStream$)} \# \sporktidMap_\mathrm{allThreads}
 }
 {
@@ -87,7 +88,7 @@ Note that the loops are stepped sequentially regardless of $\sporkloopMode$,
 and that \texttt{with CudaWarps} constructs are equivalent to \texttt{if True:}.
 The loop variable is stored in $\sporksigma$ as a 0-dimensional value (read as $\sporkx[]$ by \sporkERead, and visible to $\sporktidMap(\sporksigma)$);
 programs never assign loop variables and variable names are assumed unique, so no scope-exit rule is needed.
-\texttt{with CudaDeviceFunction} includes implicit ``free'' synchronization.
+\texttt{with CudaDeviceFunction} includes implicit ``free'' synchronization between the CPU and all possible CUDA threads.
 No rule steps \texttt{assert $\sporkFalse$}; a failed assertion is intentionally a stuck state.
 }
 \label{fig:ControlSemantics}
