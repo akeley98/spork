@@ -1,0 +1,26 @@
+% Paper version of the Wgmma frame of 26.tex, as of its step 4: listing version 3 (loop variables
+% colored) with the D, A/B, and behavior annotations; the collective unit note (step 5) is left out.
+\begin{figure}[h]
+\sporkCodeRule
+\sporkListing[version=3]{wgmma}
+\begin{tikzpicture}[remember picture, overlay]
+  \tikzset{wg note/.style={annotation, font=\footnotesize, align=left}}
+  \coordinate (dEnd) at (pic cs:wgmma-d_end);
+  \coordinate (aEnd) at (pic cs:wgmma-a_end);
+  \coordinate (bEnd) at (pic cs:wgmma-b_end);
+  \coordinate (miEnd) at (pic cs:wgmma-mi_end);
+  \node (dNote) [wg note, anchor=west] at ([xshift=4mm, yshift=2.5mm]bEnd |- dEnd)
+    {Registers \&\\tile layout};
+  \draw [annotation line] ([xshift=1mm]dEnd) -- (dNote.west);
+  \node (abNote) [wg note, anchor=west]
+    at ([xshift=4mm, yshift=-1.5mm]$(bEnd)!0.5!(bEnd |- aEnd)$)
+    {Shared mem \&\\128B swizzle layout};
+  \draw [annotation line] ([xshift=1mm]aEnd) -- (abNote.west);
+  \draw [annotation line] ([xshift=1mm]bEnd) -- (abNote.west);
+  \node [wg note, anchor=west] at ([xshift=12mm]miEnd)
+    {\sporkKeyA{Behavior:} $64\times256\times32$ MMA};
+\end{tikzpicture}
+\caption{The \texttt{Sm90\_tk\_mma\_row\_col\_m64n256k32\_bf16} instruction. Each parameter's memory type encodes both a physical memory type and a data layout; the behavior is a $64\times256\times32$ MMA loop nest.}
+\label{fig:Wgmma}
+\sporkCodeRule
+\end{figure}
