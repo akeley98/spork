@@ -1,1 +1,54 @@
 \sporkSection{Data Layout}{sec:DataLayout}
+
+Variables in a CUDA C++ program \cite{cuda} are implicitly duplicated depending on their physical backing memory.
+For example, a plain \texttt{int v;}, stored in registers, has an independent value per thread,
+while \texttt{\_\_shared\_\_ int v;}, stored in shared memory, is duplicated per-CTA.
+
+We have chosen not to adopt this approach as it interferes with sequential-parallel equivalence.
+If a single live variable could hold different values depending on thread,
+then a sequential interpretation of the program,
+and the checking in the Exo rewrites,
+would be complicated by specific parallelization and allocation choices.
+We instead view arrays first and foremost by their \emph{logical} tile size
+(the extents $[\sporkexpr^*]$ actually given)
+and then reason about their mapping to hardware.
+
+The mapping is deduced by the \emph{distributed memory analysis} backend check.
+Other than the above motivation, this is incidental to the synchronization focus of this work
+(and could be replaced in future work by a more explicit frontend language),
+so we only sketch the main requirements:
+\begin{itemize}
+  \item
+    The analysis deduces each dimension to either be \emph{distributed} or \emph{non-distributed}.
+    Non-distributed dimensions are strided by register index or memory address.
+    Distributed dimensions are instead strided by a \emph{thread pitch} value,
+    which specifies that adjacent elements on this dimension are mapped onto thread collectives
+    whose local thread indices differ by the thread pitch value (Section~\ref{sec:KernelStructure}).
+    % The above is a weird sentence but I can't find a "get to the point" way of saying it better.
+    This is similar to thread-value layouts in CuTe \cite{cute}.
+  \item
+    Each \texttt{cuda\_threads} loop iterator is also analyzed for its own thread pitch;
+    consecutive loop iterations are mapped onto thread collectives
+    whose local thread indices differ by the thread pitch value (Section~\ref{sec:KernelStructure}).
+    To be implementable, windows into an array must be indexed on distributed dimensions
+    by \texttt{cuda\_threads}-loop iterators that have the same thread pitch as the dimension,
+    or be passed to an instruction (Section~\ref{sec:InstrSpec})
+    compatible with the thread pitch values of the distributed dimensions.
+  \item
+    Different index values on distributed dimensions index into different \emph{shards}.
+    The compiler must deduce that each shard is mapped to a thread collective that matches the
+    expected $\sporkcollUnit$ for the type:
+    one thread for registers (RMEM) and one CTA for shared memory (SMEM).
+    For practicality, we also include per-warp register tile memory types that map to
+    ThunderKittens tiles or vectors\cite{thunderkittens}.
+    GMEM is allocated at CPU scope and requires no distributed memory analysis.
+\end{itemize}
+
+Aside from physical memory type and distributed memory deduction,
+a $\sporkmem$ type also controls some data layout details such as swizzle
+mode\footnote{With gratitude, we learned the required 32-, 64-, or 128-byte swizzle pattern for TMA and wgmma from the ThunderKittens appendix \cite{thunderkittens} which actually documents CUDA correctly.
+Our specific code is \texttt{uint32\_t shr = uint32\_t(addr) >> 3; addr = addr \textasciicircum~(shr \& mask);} where \texttt{mask = 0x70 if swizzle == 128 else 0x30 if swizzle == 64 else 0x10}.
+},
+and allocator.
+
+\input{SmemAllocators.tex}

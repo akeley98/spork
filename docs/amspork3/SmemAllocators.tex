@@ -1,0 +1,28 @@
+\sporkSubsection{SMEM Allocators}{sec:SmemAllocators}
+
+The SMEM allocators present particular challenges.
+Differently-named SMEM arrays may be \emph{aliased} onto the same underlying physical memory if their lifetimes are disjoint
+(at least ostensibly, reasoning with sequential semantics).
+This risks race conditions between accesses via \emph{different names} to the same underlying shared memory.
+
+In order to keep the synchronization checking independent per array element $\sporkx[\sporkz^*]$,
+we approximate the unknown aliased accesses prior to array allocation with additional
+$\sporkTrPostAccess$ trace events upon allocation.
+Similarly, SMEM free may add $\sporkTrPreAccess$ trace events.
+This imposes a ``contract'' on SMEM users,
+to do additional synchronization after the allocation or before the free.
+
+The simplest contract we implement is to require a cluster-wide sync
+between the last use and free of an SMEM array.
+A more sophisticated contract is a \emph{managed ring buffer}.
+One dimension is annotated to be the managed ring buffer dimension,
+with some \texttt{ring\_depth} (not shown in the grammar).
+Array elements strided by \texttt{ring\_depth} on that dimension are aliased to the same underlying memory.
+The allocator imposes a requirement to await on mbarriers after allocation (Section~\ref{sec:Mbarriers}) and arrive before free,
+in order to temporally separate usage of different ring buffer slots.
+
+The implied ring buffering is a deviation from our goal of low-level programming.
+Although Exo supports the modulo operator \texttt{\%},
+we were unable to express this specific allocation strategy with it.
+The details are deferred to appendix (Section~\ref{sec:SmemAppendix}).
+
