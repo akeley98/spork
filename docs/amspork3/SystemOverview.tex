@@ -32,7 +32,7 @@ Exo's \texttt{replace} rewrite lets programmers substitute a code block with an 
 Exo's unification verifies that the replaced code block's behavior matches the instruction,
 while the backend checks (Figure~\ref{fig:RewriteFlow}) that check instr data layout and threads ensure the instruction successfully accesses data and executes with the correct arrangement and kind of threads.
 % Wording is awkward but I need to move on for now.
-The two backend checks (from Exo and \sporkName{}, respectively, Section~\ref{sec:StaticInstrChecks}) and unification together prevent \emph{instruction logic errors}.
+The two backend checks (from Exo and \sporkName{}, respectively, Section~\ref{sec:InstrSpec}) and unification together prevent \emph{instruction logic errors}.
 
 \sporkMainKey{Collective Analysis:}
 This backend check ensures the compiled $\sporkp_n$ procedure's parallel loops are actually implementable (e.g. no warp-loops at thread scope) and deduces the per-scope $\sporktidMap$ (Section~\ref{sec:CollAnalysis}).

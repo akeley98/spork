@@ -70,16 +70,16 @@ This specifies the qualitative timelines of the recorded $\sporkTrFence$ or $\sp
 which filters the kinds of \emph{prior} executed instructions that the synchronization is parallel partially ordered with (Section~\ref{sec:TraceIntro}).
 $\sporkQtlAwait$, for \texttt{Fence} and \texttt{Await}, serves a similar purpose for the outbound observer set and \emph{future} executed instructions.
 Both sets are embedded in the Python DSL as named \emph{synchronization timeline} objects.
-The compiler converts the statement into appropriate synchronization instructions (Section~\ref{sec:InstrSync}) depending on the parameters.
+The compiler converts the statement into appropriate synchronization instructions depending on the parameters.
 As with windows, the thread map ($\sporktidMap$) is deduced by the compiler.
 
 \sporkMainKey{Cornerstones:}
 In order to successfully produce traces,
 we rely on \textbf{(1)} \emph{collective analysis} (Section~\ref{sec:CollAnalysis}) to analyze the parallel loops and warp specializations and produce $\sporktidMap$ annotations,
-and we rely on \textbf{(2)} \emph{instruction specifications} (Section~\ref{sec:InstrSync}) to produce the qualitative timelines for window annotations.
+and we rely on \textbf{(2)} \emph{instruction specifications} to produce the qualitative timelines for window annotations (Section~\ref{sec:Qtl}).
 % This sentence SUCKS and interrupts the flow but not clear where to place it.
 Similar to $\sporktidMap$ mapping statement execution to threads, data allocations (Section~\ref{sec:DataLayout}) also require \emph{distributed memory analysis} to deduce how array shards are mapped across threads.
-The non-qualitative-timeline information in the instruction specification (such as collective unit $\sporkcollUnit$) are used in \textbf{(3)} the backend \emph{static instruction usage checks} (Section~\ref{sec:StaticInstrChecks}),
+The non-qualitative-timeline information in the instruction specification (such as collective unit $\sporkcollUnit$) are used in \textbf{(3)} the backend \emph{static instruction usage checks} (Section~\ref{sec:InstrSpec}),
 and finally, we perform \textbf{(4)} synchronization checking of the compiled proc,
 for a selection of concrete input problem sizes,
 using optimized \emph{synchronization environment semantics} that do checking equivalent to the presented trace semantics.

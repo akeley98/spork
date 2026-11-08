@@ -1,0 +1,10 @@
+\sporkSection{Barrier Details}{sec:BarrierDetails}
+
+Having shown the structure of $\sporkTrArrive$ and $\sporkTrAwait$ events (Figure~\ref{fig:Traces})
+and pending awaits (Figure~\ref{fig:PendingAwait}),
+we now discuss how we map this model to CUDA split barrier constructs,
+and discuss the complication of modelling the generic and async proxy \cite{ptx} \cite{LustigMixedProxy}.
+
+\input{CommitGroups.tex}
+\input{Mbarriers.tex}
+\input{ProxyFences.tex}

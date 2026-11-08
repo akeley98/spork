@@ -8,7 +8,7 @@ and generalized the original loops into three kinds, distinguished by $\sporkloo
 (1) \texttt{seq}$(\sporkexpr_\mathrm{lo},\sporkexpr_\mathrm{hi})$ is a sequential loop that iterates $i$ from $\sporkexpr_\mathrm{lo}$ to $\sporkexpr_\mathrm{hi}-1$.\\
 (2) \texttt{cuda\_tasks}$(\sporkexpr_\mathrm{lo},\sporkexpr_\mathrm{hi})$ distributes iterations across CUDA clusters; on pre-\texttt{sm\_90} (H100) GPUs a cluster coincides with a single CTA (thread block).\\
 (3) \texttt{cuda\_threads}$(\sporkexpr_\mathrm{lo},\sporkexpr_\mathrm{hi},\; \texttt{unit}=\sporkcollUnit)$ assigns iterations to subsets of threads inside the current cluster. %
-The \texttt{unit} parameter is a \emph{collective unit} that specifies the shape of the participating thread set but not concrete indices—for example, $\sporkcollUnit=\,$\texttt{cuda\_warp} denotes contiguous 32-thread groups with thread IDs \(0\text{--}31\), \(32\text{--}63\), \(64\text{--}95\), etc.\ (inclusive), while $\sporkcollUnit=\,$\texttt{cuda\_thread} denotes a single thread (see Figure~\sporkTodoLink{}).
+The \texttt{unit} parameter is a \emph{collective unit} that specifies the shape of the participating thread set but not concrete indices—for example, $\sporkcollUnit=\,$\texttt{cuda\_warp} denotes contiguous 32-thread groups with thread IDs \(0\text{--}31\), \(32\text{--}63\), \(64\text{--}95\), etc.\ (inclusive), while $\sporkcollUnit=\,$\texttt{cuda\_thread} denotes a single thread.  % I decided not to include the list of CollUnit in the thesis.
 
 \input{ScopeExample.tex}
 
