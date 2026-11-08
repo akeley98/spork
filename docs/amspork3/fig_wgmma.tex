@@ -39,6 +39,14 @@
     \node (warp\w) [warp tile] at (warp\prev.south west)
       {warp \w: \texttt{D[\w,:,:]} {\footnotesize(rows \rows)}};
   }
+  % Left of the stack, centered on the warp 0/1 boundary (clear of the inner loop lines),
+  % joined to a bracket spanning all four warps.
+  \node (distNote) [wg note, anchor=east] at ([xshift=-4.5mm]warp0.south west)
+    {D distributed onto warpgroup};
+  \draw [annotation line] ([xshift=-0.7mm]warp0.north west) -- ([xshift=-2.2mm]warp0.north west)
+    -- ([xshift=-2.2mm]warp3.south west) -- ([xshift=-0.7mm]warp3.south west);
+  \coordinate (bracketX) at ([xshift=-2.2mm]warp0.west);
+  \draw [annotation line] (distNote.east) -- (distNote.east -| bracketX);
   % Right-aligned against the indentation of the (wrapped) body, top level with it; any
   % higher would not fit left of the loops without spilling past the text's left edge.
   \node [wg note, align=right, anchor=north east] at ([xshift=-1.5mm, yshift=1.1ex]bodyStart)
