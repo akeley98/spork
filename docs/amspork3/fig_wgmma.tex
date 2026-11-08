@@ -29,6 +29,16 @@
     {Shared mem \&\\128B swizzle layout};
   \draw [annotation line] ([xshift=1mm]aEnd) -- (abNote.west);
   \draw [annotation line] ([xshift=1mm]bEnd) -- (abNote.west);
+  % Warp tiles of D, stacked in the dead space right of the loop nest (notes column), just
+  % under the A/B note. Common text width (fits the widest, rows 16..31) so the edges line up.
+  \tikzset{warp tile/.style={rectangle, draw, fill=white, align=left, anchor=north west,
+    text width=53mm}}
+  \node (warp0) [warp tile] at ([yshift=-1.5mm]abNote.south west)
+    {warp 0: \texttt{D[0,:,:]} {\footnotesize(rows 0..15)}};
+  \foreach \w/\rows [remember=\w as \prev (initially 0)] in {1/16..31, 2/32..47, 3/48..63} {
+    \node (warp\w) [warp tile] at (warp\prev.south west)
+      {warp \w: \texttt{D[\w,:,:]} {\footnotesize(rows \rows)}};
+  }
   % Right-aligned against the indentation of the (wrapped) body, top level with it; any
   % higher would not fit left of the loops without spilling past the text's left edge.
   \node [wg note, align=right, anchor=north east] at ([xshift=-1.5mm, yshift=1.1ex]bodyStart)
