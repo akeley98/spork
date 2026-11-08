@@ -474,6 +474,46 @@ class HideTheFakeInstrs:
       pass  # Doesn't crash if we never instance it...
 
 
+# Paper version of wgmma (the colors of wgmma[3], body wrapped), in its own class
+# so the slide listing stays as is.
+class HideTheFakePaperInstrs:
+  @instr
+  # TeX: listing wgmmaPaper 1
+  # TeX: begin wgmmaPaper
+  class Sm90_tk_mma_row_col_m64n256k32_bf16:
+    # TeX: mark wgmmaPaper behavior_end end
+    def behavior(
+        # TeX: color wgmmaPaper yellow "4"
+        # TeX: mark wgmmaPaper d_end end
+        # TeX: mark wgmmaPaper d_four_l "[f32][" after
+        # TeX: mark wgmmaPaper d_four_r ", 16" before
+        D: [f32][4, 16, 256] @ Sm90_TkRmemTileD(256),
+        # TeX: mark wgmmaPaper a_end end
+        A: [bf16][64, 32]    @ Sm90_SmemSwizzled(128),
+        # TeX: mark wgmmaPaper b_end end
+        B: [bf16][256, 32]   @ Sm90_SmemSwizzled(128)):
+      # TeX: color wgmmaPaper green "mo"
+      # TeX: mark wgmmaPaper mo_start start
+      for mo in seq(0, 4):
+        # TeX: color wgmmaPaper green "mi"
+        for mi in seq(0, 16):
+          # TeX: color wgmmaPaper violet "n"
+          # TeX: mark wgmmaPaper n_start start
+          for n in seq(0, 256):
+            # TeX: color wgmmaPaper blue "k"
+            for k in seq(0, 32):
+              # TeX: color wgmmaPaper green "mo" 2:* "mi" 2:* violet "n" blue "k"
+              # TeX: mark wgmmaPaper body_start start
+              D[mo, mi, n] += (A[mo * 16 + mi, k]
+                               # TeX: color wgmmaPaper violet "n" blue "k"
+                               # TeX: mark wgmmaPaper body_end end
+                               * B[n, k])
+              # TeX: end wgmmaPaper
+
+    def instance(self):
+      pass  # Doesn't crash if we never instance it...
+
+
 # TeX: listing scope 4
 @proc
 def scope_example(X: size):

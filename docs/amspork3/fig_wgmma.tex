@@ -1,24 +1,38 @@
-% Paper version of the Wgmma frame of 26.tex, as of its step 4: listing version 3 (loop variables
-% colored) with the D, A/B, and behavior annotations; the collective unit note (step 5) is left out.
+% Adapted from the Wgmma frame of 26.tex, as of its step 4; the wgmmaPaper listing wraps the loop
+% body, and the behavior note sits left of the loop nest, clearing room on the right.
+% The collective unit note (step 5) is left out.
 \begin{figure}[h]
 \sporkCodeRule
-\sporkListing[version=3]{wgmma}
+\sporkListing{wgmmaPaper}
 \begin{tikzpicture}[remember picture, overlay]
   \tikzset{wg note/.style={annotation, font=\footnotesize, align=left}}
-  \coordinate (dEnd) at (pic cs:wgmma-d_end);
-  \coordinate (aEnd) at (pic cs:wgmma-a_end);
-  \coordinate (bEnd) at (pic cs:wgmma-b_end);
-  \coordinate (miEnd) at (pic cs:wgmma-mi_end);
-  \node (dNote) [wg note, anchor=west] at ([xshift=4mm, yshift=2.5mm]bEnd |- dEnd)
-    {Registers \&\\tile layout};
+  \coordinate (dEnd) at (pic cs:wgmmaPaper-d_end);
+  \coordinate (aEnd) at (pic cs:wgmmaPaper-a_end);
+  \coordinate (bEnd) at (pic cs:wgmmaPaper-b_end);
+  \coordinate (nStart) at (pic cs:wgmmaPaper-n_start);
+  \coordinate (bodyStart) at (pic cs:wgmmaPaper-body_start);
+  \coordinate (behaviorEnd) at (pic cs:wgmmaPaper-behavior_end);
+  % Marks on either side of the yellow 4 (a mark inside the box would land in the wrong place).
+  \coordinate (dFourL) at (pic cs:wgmmaPaper-d_four_l);
+  \coordinate (dFourR) at (pic cs:wgmmaPaper-d_four_r);
+  \coordinate (dFour) at ($(dFourL)!0.5!(dFourR)$);
+  \node (dNote) [wg note, anchor=west] at ([xshift=4mm]bEnd |- dEnd)
+    {Registers \& warp tile layout};
   \draw [annotation line] ([xshift=1mm]dEnd) -- (dNote.west);
+  % Thread pitch of D's leading (yellow) dimension, right of "behavior(" (slightly intruding on
+  % the class name, OK'd by the human), joined to the top of the 4.
+  \node (pitchNote) [wg note, anchor=west] at ([xshift=3mm]dFour |- behaviorEnd)
+    {\sporkKeyA{Thread Pitch:} 32 (per-warp)};
+  \draw [annotation line] ([yshift=1.3ex]dFour) |- (pitchNote.west);
   \node (abNote) [wg note, anchor=west]
     at ([xshift=4mm, yshift=-1.5mm]$(bEnd)!0.5!(bEnd |- aEnd)$)
     {Shared mem \&\\128B swizzle layout};
   \draw [annotation line] ([xshift=1mm]aEnd) -- (abNote.west);
   \draw [annotation line] ([xshift=1mm]bEnd) -- (abNote.west);
-  \node [wg note, anchor=west] at ([xshift=12mm]miEnd)
-    {\sporkKeyA{Behavior:} $64\times256\times32$ MMA};
+  % Right-aligned against the indentation of the (wrapped) body, top level with it; any
+  % higher would not fit left of the loops without spilling past the text's left edge.
+  \node [wg note, align=right, anchor=north east] at ([xshift=-1.5mm, yshift=1.1ex]bodyStart)
+    {\sporkKeyA{Behavior:}\\$64{\times}256{\times}32$\\MMA};
 \end{tikzpicture}
 \caption{The \texttt{Sm90\_tk\_mma\_row\_col\_m64n256k32\_bf16} instruction. Each parameter's memory type encodes both a physical memory type and a data layout; the behavior is a $64\times256\times32$ MMA loop nest.}
 \label{fig:Wgmma}
