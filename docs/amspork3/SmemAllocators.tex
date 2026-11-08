@@ -7,8 +7,8 @@ This risks race conditions between accesses via \emph{different names} to the sa
 
 In order to keep the synchronization checking independent per array element $\sporkx[\sporkz^*]$,
 we approximate the unknown aliased accesses prior to array allocation with additional
-$\sporkTrPostAccess$ trace events upon allocation.
-Similarly, SMEM free may add $\sporkTrPreAccess$ trace events.
+$\sporkTrPostAccess$ trace events upon allocation;
+similarly, SMEM free may add $\sporkTrPreAccess$ trace events to approximate unknown future accesses.
 This imposes a ``contract'' on SMEM users,
 to do additional synchronization after the allocation or before the free.
 
