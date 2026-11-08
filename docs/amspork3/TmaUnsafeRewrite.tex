@@ -1,0 +1,25 @@
+% Putting the entire discussion here to save horizontal space and
+% because it's interrupting the main flow of the paper.
+
+\begin{figure}[h!]
+\sporkCodeRule
+\begin{minipage}{0.275\linewidth}
+\sporkListing{tma_mini_unsafe}
+\end{minipage}
+\begin{minipage}{0.700\linewidth}
+\vspace{2pt}
+The listing shows a minimal example of the sort of situtation that currently forces an unsafe rewrite for TMA usage.
+The situation arises when the \texttt{divide\_loop} (split) rewrite creates an inner loop with a guard
+to account for the tail case.
+Even though removing the example's first guard is safe since \texttt{tmp[6]} and \texttt{tmp[7]} are not being read into \texttt{C}
+in the second loop thanks to the second guard,
+Exo's dependency-based checks treat these writes as semantically relevant and cannot prove they are observationally redundant.
+A similar issue occurs when removing guards inside accumulator loops,
+where accumulating ``past the end'' is safe due to TMA padding with zeros.
+We marked these ``remove guard'' rewrites as \emph{unsafe} in our schedules.
+Both issues would be resolved by future work extending Exo's sequential rewrites with value-sensitivity.
+\end{minipage}
+\caption{TMA unsafe rewrite minimal reproducer \& discussion}
+\label{fig:TmaUnsafeRewrite}
+\sporkCodeRule
+\end{figure}

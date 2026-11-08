@@ -1,5 +1,33 @@
 \sporkSubsection{TMA and its Limitations}{sec:TmaLimitations}
 
 The CUDA TMA (tensor memory accelerator) presents several unique code representation challenges and exposes limitations in our analysis.
+The TMA instructions (\texttt{cp\{.reduce\}.async.bulk} \cite{ptx})
+copy entire tiles between GMEM and SMEM in a single instruction execution.
+Optionally, the SMEM tile is atomically reduced into GMEM.
+Two features in the grammar (Section~\ref{sec:Grammar}, Figure~\ref{fig:stmt}) are unique to TMA usage.
 
-\sporkRed{TODO}
+First, TMA instructions do not take the GMEM pointer, the tile size, GMEM strides, or SMEM swizzle mode directly.
+These attributes are packed as an opaque \texttt{CUtensorMap} on the CPU,
+which is eventually passed to the TMA instruction.
+We represent this with a ``special window statement'' in \sporkName{},
+which constructs an alias to the underlying memory, in CPU scope.
+The TMA instruction performs internal bound checking for the GMEM loads and stores:
+out-of-bound loads fetch zeros or NaN (configurable), and out-of-bounds stores are masked out.
+
+Second, TMA instructions in the GMEM-to-SMEM direction take a trailing barrier expression
+referencing mbarriers (Section~\ref{sec:Mbarriers});
+the instruction directly interacts with the mbarrier.
+We chose to put the barrier separate from the ordinary parameters
+to avoid modifying Exo's \texttt{replace} rule's unification,
+in line with the view that this trailing barrier is an ``annotation'' on sequential code.
+
+Our correctness checking of TMA usage is incomplete in multiple ways.
+\textbf{(1)} We used unsafe rewrites to deal with Exo not being able to handle TMA's padding behavior
+(Figure~\ref{fig:TmaUnsafeRewrite});
+relatedly, we had to disable bounds-checking on a case-by-case basis to enable TMA usage.
+\textbf{(2)} Internally, the \sporkName{} TMA instruction expands to the actual TMA instruction and a hidden expect-tx instruction, both taking the mbarriers as parameters.
+We fail to decouple two instructions,
+and do not reason that this mbarrier usage interacts correctly (is race free) with ordinary arrives and awaits of the mbarrier.
+\textbf{(3)} The atomic reduction somewhat undermines the sequential-parallel equivalence argument (Section~\ref{sec:TraceAtomics}).
+
+\input{TmaUnsafeRewrite.tex}

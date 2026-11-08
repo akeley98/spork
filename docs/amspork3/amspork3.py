@@ -611,3 +611,18 @@ try:
     raise SystemExit(1)
 except Exception:
     pass
+
+
+if False:
+    # TeX: listing tma_mini_unsafe 1
+    # TeX: begin tma_mini_unsafe
+    tmp: f32[8] @ tmp_mem
+    for i in seq(0, 8):
+        # Safe to remove
+        # TeX: color tma_mini_unsafe red "if i < 6"
+        if i < 6:
+            tmp[i] = 0
+    for i in seq(0, 8):
+        if i < 6:
+            C[i] = tmp[i]
+    # TeX: end tma_mini_unsafe
