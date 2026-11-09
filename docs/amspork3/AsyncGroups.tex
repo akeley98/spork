@@ -35,7 +35,7 @@ For a given $\sporkx[\sporkz^*]$ of async-group mechanism,
     $\sporktid$ being one of the executing threads
     and $\sporkqtl$ chosen to correspond to the async instruction targetted by the async group.
     This allows trace edges from prior accesses by such instructions in the same thread
-    to the $\sporkTrArrive$ event.
+    to the $\sporkTrArrive$ event (Figure~\sporkTodoLink{}).
 \\\textbf{(2)} The arrive count of $\sporkx[\sporkz^*]$ is the number of prior
     $\sporkTrArrive$ events issued with that $\sporkx[\sporkz^*]$.
 \\\textbf{(3)} The $\sporkz_\mathrm{arrive}$-th arrive on $\sporkx[\sporkz^*]$ will generate a
@@ -53,7 +53,7 @@ For a given $\sporkx[\sporkz^*]$ of async-group mechanism,
     only when $\sporkz_\mathrm{arrive} \ge n - \sporkz_\mathrm{lag} - 1$.
     This causes trace edges to form from all such $\sporkTrArrive$,
     except for the $\sporkz_\mathrm{lag}$-many most recent,
-    and the $\sporkTrAwait$.
+    and the $\sporkTrAwait$ (Figure~\sporkTodoLink{}).
     The named $\sporkx[\sporkz^*]$ prevents confusion with async groups
     of other threads or other targetted instruction type.
 
