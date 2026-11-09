@@ -196,12 +196,41 @@
 \newcommand{\sporkTrAwait}{\mathord{\sporkPaperLink{fig:TraceConstructors}{\textgpu{TrAwait}}}}
 \newcommand{\sporkTrPreAccess}{\mathord{\sporkPaperLink{fig:TraceConstructors}{\textgpu{TrPreAccess}}}}  % Formerly \sporkTrReqCanAccess
 
+%% Control Semantics
+\newcommand{\sporkCSeqStep}{\sporkPaperLink{fig:ControlSemantics}{\textsc{C-SeqStep}}}
+\newcommand{\sporkCSeqDone}{\sporkPaperLink{fig:ControlSemantics}{\textsc{C-SeqDone}}}
+\newcommand{\sporkCIfStep}{\sporkPaperLink{fig:ControlSemantics}{\textsc{C-IfStep}}}
+\newcommand{\sporkCIfFalse}{\sporkPaperLink{fig:ControlSemantics}{\textsc{C-IfFalse}}}
+\newcommand{\sporkCIfTrue}{\sporkPaperLink{fig:ControlSemantics}{\textsc{C-IfTrue}}}
+\newcommand{\sporkCCudaWarps}{\sporkPaperLink{fig:ControlSemantics}{\textsc{C-CudaWarps}}}
+\newcommand{\sporkCCudaDeviceFunction}{\sporkPaperLink{fig:ControlSemantics}{\textsc{C-CudaDeviceFunction}}}
+\newcommand{\sporkCForStepLo}{\sporkPaperLink{fig:ControlSemantics}{\textsc{C-ForStepLo}}}
+\newcommand{\sporkCForStepHi}{\sporkPaperLink{fig:ControlSemantics}{\textsc{C-ForStepHi}}}
+\newcommand{\sporkCForIter}{\sporkPaperLink{fig:ControlSemantics}{\textsc{C-ForIter}}}
+\newcommand{\sporkCForDone}{\sporkPaperLink{fig:ControlSemantics}{\textsc{C-ForDone}}}
+\newcommand{\sporkCAssertStep}{\sporkPaperLink{fig:ControlSemantics}{\textsc{C-AssertStep}}}
+\newcommand{\sporkCAssertPass}{\sporkPaperLink{fig:ControlSemantics}{\textsc{C-AssertPass}}}
+
 %% Expr Semantics
 \newcommand{\sporkERead}{\sporkPaperLink{fig:ExprSemantics}{\textsc{E-Read}}}
+\newcommand{\sporkENegate}{\sporkPaperLink{fig:ExprSemantics}{\textsc{E-Negate}}}
+\newcommand{\sporkEBinOpLhs}{\sporkPaperLink{fig:ExprSemantics}{\textsc{E-BinOpLhs}}}
+\newcommand{\sporkEBinOpRhs}{\sporkPaperLink{fig:ExprSemantics}{\textsc{E-BinOpRhs}}}
+\newcommand{\sporkEExternArg}{\sporkPaperLink{fig:ExprSemantics}{\textsc{E-ExternArg}}}
 
 %% Data Semantics
+\newcommand{\sporkDStepLhs}{\sporkPaperLink{fig:DataSemantics}{\textsc{D-StepLhs}}}
+\newcommand{\sporkDStepRhs}{\sporkPaperLink{fig:DataSemantics}{\textsc{D-StepRhs}}}
 \newcommand{\sporkDAssign}{\sporkPaperLink{fig:DataSemantics}{\textsc{D-Assign}}}
 \newcommand{\sporkDReduce}{\sporkPaperLink{fig:DataSemantics}{\textsc{D-Reduce}}}
+\newcommand{\sporkDWindowStmtStep}{\sporkPaperLink{fig:DataSemantics}{\textsc{D-WindowStmtStep}}}
+\newcommand{\sporkDWindowStmtSub}{\sporkPaperLink{fig:DataSemantics}{\textsc{D-WindowStmtSub}}}
+\newcommand{\sporkDAllocStep}{\sporkPaperLink{fig:DataSemantics}{\textsc{D-AllocStep}}}
+\newcommand{\sporkDFreeStep}{\sporkPaperLink{fig:DataSemantics}{\textsc{D-FreeStep}}}
+\newcommand{\sporkDAlloc}{\sporkPaperLink{fig:DataSemantics}{\textsc{D-Alloc}}}
+\newcommand{\sporkDFree}{\sporkPaperLink{fig:DataSemantics}{\textsc{D-Free}}}
+\newcommand{\sporkDCtrlStep}{\sporkPaperLink{fig:DataSemantics}{\textsc{D-CtrlStep}}}
+\newcommand{\sporkDCtrlVal}{\sporkPaperLink{fig:DataSemantics}{\textsc{D-CtrlVal}}}
 \newcommand{\sporkDInstrStepParam}{\sporkPaperLink{fig:DataSemantics}{\textsc{D-InstrStepParam}}}
 \newcommand{\sporkDInstrStepBarrier}{\sporkPaperLink{fig:DataSemantics}{\textsc{D-InstrStepBarrier}}}
 \newcommand{\sporkDInstrSub}{\sporkPaperLink{fig:DataSemantics}{\textsc{D-InstrSub}}}
@@ -214,7 +243,33 @@
 \newcommand{\sporkAwFree}{\mathord{\sporkPaperLink{fig:TraceConstructors}{\underset{\textrm{free}}{\textgpu{Aw}}}}}
 \newcommand{\sporkPendingAwait}{\mathord{\sporkPaperLink{fig:TraceConstructors}{\textgpu{PendingAwait}}}}
 
+%% Window Step Semantics
+\newcommand{\sporkWPoint}{\sporkPaperLink{fig:WindowStepSemantics}{\textsc{W-Point}}}
+\newcommand{\sporkWLo}{\sporkPaperLink{fig:WindowStepSemantics}{\textsc{W-Lo}}}
+\newcommand{\sporkWHi}{\sporkPaperLink{fig:WindowStepSemantics}{\textsc{W-Hi}}}
+\newcommand{\sporkWKeepAnnotation}{\sporkPaperLink{fig:WindowStepSemantics}{\textsc{W-KeepAnnotation}}}
+
+%% Window Sub Semantics
+\newcommand{\sporkWSubInitial}{\sporkPaperLink{fig:WindowSubSemantics}{\textsc{W-SubInitial}}}
+\newcommand{\sporkWSubPoint}{\sporkPaperLink{fig:WindowSubSemantics}{\textsc{W-SubPoint}}}
+\newcommand{\sporkWSubInterval}{\sporkPaperLink{fig:WindowSubSemantics}{\textsc{W-SubInterval}}}
+\newcommand{\sporkWSubMixed}{\sporkPaperLink{fig:WindowSubSemantics}{\textsc{W-SubMixed}}}
+\newcommand{\sporkWSubDone}{\sporkPaperLink{fig:WindowSubSemantics}{\textsc{W-SubDone}}}
+
+%% Window Unroll Semantics
+\newcommand{\sporkWEmpty}{\sporkPaperLink{fig:WindowUnrollSemantics}{\textsc{W-Empty}}}
+\newcommand{\sporkWUnion}{\sporkPaperLink{fig:WindowUnrollSemantics}{\textsc{W-Union}}}
+\newcommand{\sporkWRange}{\sporkPaperLink{fig:WindowUnrollSemantics}{\textsc{W-Range}}}
+\newcommand{\sporkWValues}{\sporkPaperLink{fig:WindowUnrollSemantics}{\textsc{W-Values}}}
+
+%% Sync Structural Semantics
+\newcommand{\sporkSAllocStep}{\sporkPaperLink{fig:SyncStructuralSemantics}{\textsc{S-AllocStep}}}
+\newcommand{\sporkSAlloc}{\sporkPaperLink{fig:SyncStructuralSemantics}{\textsc{S-Alloc}}}
+\newcommand{\sporkSArriveStep}{\sporkPaperLink{fig:SyncStructuralSemantics}{\textsc{S-ArriveStep}}}
+\newcommand{\sporkSAwaitStep}{\sporkPaperLink{fig:SyncStructuralSemantics}{\textsc{S-AwaitStep}}}
+
 %% SyncTraceHelpers
+\newcommand{\sporkTrNoAnnotationNoTrace}{\sporkPaperLink{fig:SyncTraceHelpers}{\textsc{Tr-NoAnnotationNoTrace}}}
 \newcommand{\sporkTrConvergentTid}{\sporkPaperLink{fig:SyncTraceHelpers}{\textsc{Tr-ConvergentTid}}}
 \newcommand{\sporkTrSeparateTid}{\sporkPaperLink{fig:SyncTraceHelpers}{\textsc{Tr-SeparateTid}}}
 \newcommand{\sporktrAccessHelper}{\mathord{\sporkPaperLink{fig:SyncTraceHelpers}{\textgpu{trAccessHelper}}}}
@@ -224,6 +279,12 @@
 \newcommand{\sporkTrRead}{\sporkPaperLink{fig:SyncTraceSemantics}{\textsc{Tr-Read}}}
 \newcommand{\sporkTrMutate}{\sporkPaperLink{fig:SyncTraceSemantics}{\textsc{Tr-Mutate}}}
 \newcommand{\sporkTrInstrBarrier}{\sporkPaperLink{fig:SyncTraceSemantics}{\textsc{Tr-InstrBarrier}}}
+\newcommand{\sporkTrInstrParam}{\sporkPaperLink{fig:SyncTraceSemantics}{\textsc{Tr-InstrParam}}}
+\newcommand{\sporkTrFenceRule}{\sporkPaperLink{fig:SyncTraceSemantics}{\textsc{Tr-Fence}}}
+\newcommand{\sporkTrArriveParam}{\sporkPaperLink{fig:SyncTraceSemantics}{\textsc{Tr-ArriveParam}}}
+\newcommand{\sporkTrArriveRule}{\sporkPaperLink{fig:SyncTraceSemantics}{\textsc{Tr-Arrive}}}
+\newcommand{\sporkTrAwaitParam}{\sporkPaperLink{fig:SyncTraceSemantics}{\textsc{Tr-AwaitParam}}}
+\newcommand{\sporkTrAwaitRule}{\sporkPaperLink{fig:SyncTraceSemantics}{\textsc{Tr-Await}}}
 
 %% Trace Checks
 \newcommand{\sporkConcatRaw}{\mathord{\sporkPaperLink{sec:TraceChecks}{\underset{\textsf{raw}}{\texttt{++}}}}}

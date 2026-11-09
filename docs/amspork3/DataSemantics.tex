@@ -2,14 +2,14 @@
 \sporkSemanticsStuff
 \hrule
 \begin{mathpar}
-\inferrule*[right=D-StepLhs]{
+\inferrule*[right=\sporkDStepLhs]{
   \sporkRule{\sporkSub{\sporkwH_1}{\sporkwH_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}\\\\
   \oplus \in \sporkMutateOpSet
 }
 {
   \sporkRule{\sporkSub{\sporkwH_1}{\sporkwH_2} \oplus \sporkexpr, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
-\inferrule*[right=D-StepRhs]{
+\inferrule*[right=\sporkDStepRhs]{
   \sporkRule{\sporkSub{\sporkexpr_1}{\sporkexpr_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}\\\\
   \oplus \in \sporkMutateOpSet
 }
@@ -33,38 +33,38 @@
   \sporkRule{\sporkSub{\sporkx[\sporkz^*] \texttt{ += } \sporkr}{\texttt{pass}}, \sporkSub{\sporksigma}{\sporksigma'}, \sporktr^*}
 }
 \\
-\inferrule*[right=D-WindowStmtStep]{
+\inferrule*[right=\sporkDWindowStmtStep]{
   \sporkRule{\sporkSub{\sporkw_1}{\sporkw_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 {
   \sporkRule{\texttt{$\sporkx$ = $\sporkSub{\sporkw_1}{\sporkw_2}$ @ $\sporkspecialWindow$}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }\\
-\inferrule*[right=D-WindowStmtSub]{
+\inferrule*[right=\sporkDWindowStmtSub]{
 }
 {
   \sporkRule{\sporkSub{\texttt{$\sporkx$ = $\sporkwz$ @ $\sporkspecialWindow$;$\sporks$}}{\sporks[\sporkx \sporkWindowSub \sporkwz]}, \sporksigma, \sporktr^*}
 }\\
-\inferrule*[right=D-AllocStep]{
+\inferrule*[right=\sporkDAllocStep]{
   \sporkRule{\sporkSub{\sporkexpr_1}{\sporkexpr_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 {
   \sporkRule{\texttt{$\sporkx$: $\sporkprim$[$\sporkz^*$, $\sporkSub{\sporkexpr_1}{\sporkexpr_2}$, $\sporkexpr^*$] @ $\sporkmem$}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }\\
-\inferrule*[right=D-FreeStep]{
+\inferrule*[right=\sporkDFreeStep]{
   \sporkmFree = \sporkmem|\sporkbarMech|\texttt{None} \\
   \sporkRule{\sporkSub{\sporkexpr_1}{\sporkexpr_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 {
   \sporkRule{\texttt{free($\sporkx$[$\sporkz^*$, $\sporkSub{\sporkexpr_1}{\sporkexpr_2}$, $\sporkexpr^*$], \sporkmFree)}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }\\
-\inferrule*[right=D-Alloc]{
+\inferrule*[right=\sporkDAlloc]{
   \sporktr^*_2 = \sporktr^*_1 \sporkConcatChk \sporkallocTrDetail(\sporkx[\sporkz_1, \ldots, \sporkz_n], \sporkmem) \\
   \sporksigma' = \sporksigma[(\sporkx, \sporkz^*) \mapsto \bot \mid (\sporkx, \sporkz^*) \in \sporkWunroll(\sporkx[0\texttt{:}\sporkz_1, \ldots, 0\texttt{:}\sporkz_n])]
 }
 {
   \sporkRule{\sporkSub{\texttt{$\sporkx$: $\sporkprim$[$\sporkz_1, \ldots, \sporkz_n$] @ $\sporkmem$}}{\texttt{pass}}, \sporkSub{\sporksigma}{\sporksigma'}, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }\\
-\inferrule*[right=D-Free]{
+\inferrule*[right=\sporkDFree]{
   \sporkmFree = \sporkmem|\sporkbarMech|\texttt{None} \\
   \sporktr^*_2 = \sporktr^*_1 \sporkConcatChk \sporkfreeTrDetail(\sporkx[\sporkz^*], \sporkmFree) \\
   \sporksigma' = \sporksigma|_{\textrm{dom}(\sporksigma) \setminus (\{\sporkx\} \times \mathbb{N}^*)}
@@ -73,13 +73,13 @@
   \sporkRule{\sporkSub{\texttt{free($\sporkx[\sporkz^*]$, $\sporkmFree$)}}{\texttt{pass}}, \sporkSub{\sporksigma}{\sporksigma'}, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 \\
-\inferrule*[right=D-CtrlStep]{
+\inferrule*[right=\sporkDCtrlStep]{
   \sporkRule{\sporkSub{\sporkexpr_1}{\sporkexpr_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 {
   \sporkRule{\texttt{$\sporkx:\sporkcontrol$ = $\sporkSub{\sporkexpr_1}{\sporkexpr_2}$}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
-\inferrule*[right=D-CtrlVal]{
+\inferrule*[right=\sporkDCtrlVal]{
   % Stored like a loop variable (C-ForIter): 0-dimensional, read back as x[] by E-Read.
   \sporksigma' = \sporksigma[(\sporkx, ()) \mapsto \sporkvalue]
 }

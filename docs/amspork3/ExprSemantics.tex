@@ -8,27 +8,27 @@
 {
   \sporkRule{\sporkSub{\sporkx[\sporkz^*]}{\sporkvalue}, \sporksigma, \sporktr^*}
 }
-\inferrule*[right=E-Negate]{
+\inferrule*[right=\sporkENegate]{
   \sporkRule{\sporkSub{\sporkexpr_1}{\sporkexpr_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 {
   \sporkRule{-\sporkSub{\sporkexpr_1}{\sporkexpr_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }\\
-\inferrule*[right=E-BinOpLhs]{
+\inferrule*[right=\sporkEBinOpLhs]{
   \oplus \in \sporkBinOp \\\\
   \sporkRule{\sporkSub{\sporkexpr_1}{\sporkexpr_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 {
   \sporkRule{\sporkSub{\sporkexpr_1}{\sporkexpr_2} \oplus \sporkexpr, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
-\inferrule*[right=E-BinOpRhs]{
+\inferrule*[right=\sporkEBinOpRhs]{
   \oplus \in \sporkBinOp \\\\
   \sporkRule{\sporkSub{\sporkexpr_1}{\sporkexpr_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 {
   \sporkRule{\sporkvalue \oplus \sporkSub{\sporkexpr_1}{\sporkexpr_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }\\
-\inferrule*[right=E-ExternArg]{
+\inferrule*[right=\sporkEExternArg]{
   \sporkRule{\sporkSub{\sporkexpr_1}{\sporkexpr_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 {

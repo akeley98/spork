@@ -12,7 +12,7 @@ $\sporkalphaRename(\sporks)$ renames every bound variable in $\sporks$ to a fres
 consistently throughout its scope;
 free variables are unchanged.
 
-\textsc{C-ForIter} (Figure~\ref{fig:ControlSemantics}) renames each copy of the loop body,
+\sporkCForIter{} (Figure~\ref{fig:ControlSemantics}) renames each copy of the loop body,
 so allocations in different iterations get distinct entries in $\sporksigma$,
 while the loop variable itself (free in the body) is still read from $\sporksigma$.
 Likewise, \sporkDInstrSub\ (Figure~\ref{fig:DataSemantics}) renames each inlined copy of $\sporkfBehavior$'s body
@@ -21,4 +21,4 @@ before substituting the instruction's parameters (free in the body) with the arg
 Substitution (Figure~\ref{fig:WindowSubSemantics}) never captures a variable,
 and $\sporksigma$, which is keyed by name, needs no scoping:
 loop variables simply stay in $\sporksigma$ after their loop ends, where nothing can observe them.
-(Allocations are removed from $\sporksigma$ by \textsc{D-Free}, so a use after \texttt{free} is stuck.)
+(Allocations are removed from $\sporksigma$ by \sporkDFree{} (Figure~\ref{fig:DataSemantics}), so a use after \texttt{free} is stuck.)

@@ -2,25 +2,25 @@
 \sporkSemanticsStuff
 \hrule
 \begin{mathpar}
-\inferrule*[right=W-Point]{
+\inferrule*[right=\sporkWPoint]{
   \sporkRule{\sporkSub{\sporkexpr_1}{\sporkexpr_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 {
   \sporkRule{\sporkx[\sporkcz^*, \sporkSub{\sporkexpr_1}{\sporkexpr_2}, \sporkc^*], \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }\\
-\inferrule*[right=W-Lo]{
+\inferrule*[right=\sporkWLo]{
   \sporkRule{\sporkSub{\sporkexpr_1}{\sporkexpr_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 {
   \sporkRule{ \sporkx[\sporkcz^*, \sporkSub{\sporkexpr_1}{\sporkexpr_2}\texttt{:}\sporkexpr, \sporkc^*], \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
-\inferrule*[right=W-Hi]{
+\inferrule*[right=\sporkWHi]{
   \sporkRule{\sporkSub{\sporkexpr_1}{\sporkexpr_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 {
   \sporkRule{ \sporkx[\sporkcz^*, \sporkz\texttt{:}\sporkSub{\sporkexpr_1}{\sporkexpr_2}, \sporkc^*], \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }\\
-\inferrule*[right=W-KeepAnnotation]{
+\inferrule*[right=\sporkWKeepAnnotation]{
   \sporkRule{\sporkSub{\sporkw_1}{\sporkw_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 {

@@ -2,13 +2,13 @@
 \sporkSemanticsStuff
 \hrule
 \begin{mathpar}
-\inferrule*[right=S-AllocStep]{
+\inferrule*[right=\sporkSAllocStep]{
   \sporkRule{\sporkSub{\sporkexpr_1}{\sporkexpr_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 {
   \sporkRule{\texttt{$\sporkx$: $\texttt{barrier}$[$\sporkz^*$, $\sporkSub{\sporkexpr_1}{\sporkexpr_2}$, $\sporkexpr^*$] @ $\sporkbarMech$}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }\\
-\inferrule*[right=S-Alloc]{
+\inferrule*[right=\sporkSAlloc]{
   \sporktr^*_2 = \sporktr^*_1 \sporkConcatChk \sporkallocTrDetail(\sporkx[\sporkz_1, \ldots, \sporkz_n], \sporkbarMech) \\
   \sporksigma' = \sporksigma[(\sporkx, \sporkz^*) \mapsto 0 \mid (\sporkx, \sporkz^*) \in \sporkWunroll(\sporkx[0\texttt{:}\sporkz_1, \ldots, 0\texttt{:}\sporkz_n])]
 }
@@ -16,13 +16,13 @@
   \sporkRule{\sporkSub{\texttt{$\sporkx$: $\texttt{barrier}$[$\sporkz_1, \ldots, \sporkz_n$] @ $\sporkbarMech$}}{\texttt{pass}}, \sporkSub{\sporksigma}{\sporksigma'}, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 \\
-\inferrule*[right=S-ArriveStep]{
+\inferrule*[right=\sporkSArriveStep]{
   \sporkRule{\sporkSub{\sporkwH_1}{\sporkwH_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 {
   \sporkRule{\texttt{Arrive($\sporkQtlArrive$) >> $\sporkwzH^*,\sporkSub{\sporkwH_1}{\sporkwH_2},\sporkwH^*$} \#\sporktidMap, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }\\
-\inferrule*[right=S-AwaitStep]{
+\inferrule*[right=\sporkSAwaitStep]{
   \sporkRule{\sporkSub{\sporkwH_1}{\sporkwH_2}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 {
@@ -31,7 +31,7 @@
 \end{mathpar}
 \caption{Synchronization Structural Semantics.
 Note, $\sporksigma(\sporkx)$ is used to store ``arrive counts'' for barrier variables $\sporkx$.
-This is initially 0 (\textsc{S-Alloc}), but is overridden in some cases for mbarriers (Section~\ref{sec:SmemAppendix});
+This is initially 0 (\sporkSAlloc), but is overridden in some cases for mbarriers (Section~\ref{sec:SmemAppendix});
 said section also explains the synchronization obligations imposed by $\sporkallocTrDetail$.
 % Totally ignored: Await count assertion.
 }

@@ -2,33 +2,33 @@
 \sporkSemanticsStuff
 \hrule
 \begin{mathpar}
-\inferrule*[right=W-SubInitial]{
+\inferrule*[right=\sporkWSubInitial]{
 }
 {
   \mathbf{\sporkx_1}[\sporkc_R^*] \to \mathbf{\sporkx_2}[][\sporkcz_2^*][\sporkc_R^*]
 }
-\inferrule*[right=W-SubPoint]{
+\inferrule*[right=\sporkWSubPoint]{
 }
 {
   \sporkx[\sporkc^*][\sporkexpr_L, \sporkc_L^*][\sporkc_R^*]
   \to
   \sporkx[\sporkc^*, \sporkexpr_L][\sporkc_L^*][\sporkc_R^*]
 }\\
-\inferrule*[right=W-SubInterval]{
+\inferrule*[right=\sporkWSubInterval]{
 }
 {
   \sporkx[\sporkc^*][\sporkexpr_\mathrm{Llo}\texttt{:}\sporkexpr_\mathrm{Lhi}, \sporkc_L^*][\sporkexpr_\mathrm{Rlo}\texttt{:}\sporkexpr_\mathrm{Rhi}, \sporkc_R^*]
   \to
   \sporkx[\sporkc^*, \sporkexpr_\mathrm{Llo}+\sporkexpr_\mathrm{Rlo}\texttt{:}\sporkexpr_\mathrm{Llo}+\sporkexpr_\mathrm{Rhi}][\sporkc_L^*][\sporkc_R^*]
 }\\
-\inferrule*[right=W-SubMixed]{
+\inferrule*[right=\sporkWSubMixed]{
 }
 {
   \sporkx[\sporkc^*][\sporkexpr_\mathrm{Llo}\texttt{:}\sporkexpr_\mathrm{Lhi}, \sporkc_L^*][\sporkc_R, \sporkc_R^*]
   \to
   \sporkx[\sporkc^*, \sporkexpr_\mathrm{Llo}+\sporkc_R][\sporkc_L^*][\sporkc_R^*]
 }
-\inferrule*[right=W-SubDone]{
+\inferrule*[right=\sporkWSubDone]{
 }
 {
   \mathbf{\sporkx_2}[\sporkc^*][][] \to \mathbf{\sporkx_2}[\sporkc^*]
