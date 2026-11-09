@@ -26,9 +26,9 @@ For $\sporkTrPreAccess$ and $\sporkTrPostAccess$ events from atomic instructions
     \quad \sporkqtlInit = \sporkqtlNa
     \quad \sporkQtlAtom = \{ \sporkqtlA \} \\
   & \textrm{ and so by Figure~\ref{fig:InOutSets} and $\sporkTrSeparateTid$ in Figure~\ref{fig:SyncTraceHelpers},} \\
-  & \sporkObIn(\sporkTrPreAccess(\ldots)) = \{ (\sporktid', \sporkqtlA), (\sporktid', \sporkqtlNa) \} \\
   & \sporkObOut(\sporkTrPostAccess(\ldots)) = (\sporkTid \times \{\sporkqtlA\}) \cup \{ (\sporktid', \sporkqtlNa) \}
-  \sporkComment{ [$\sporkTid$ is all threads]}
+  \sporkComment{ [$\sporkTid$ is all threads]} \\
+  & \sporkObIn(\sporkTrPreAccess(\ldots)) = \{ (\sporktid', \sporkqtlA), (\sporktid', \sporkqtlNa) \}
 \end{align*}
 where $\sporktid'$ is some thread that executes the atomic, according to $\sporktidMap(\sporksigma)$.
 
