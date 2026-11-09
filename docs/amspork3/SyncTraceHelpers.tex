@@ -9,7 +9,7 @@
 {
   \sporktrAccessHelper(\sporksigma, \sporktr^*, \sporkmut, \sporkwz, \sporkAwPost) = \sporktr^*
 }\\
-\inferrule*[right=Tr-ConvergentTid]{
+\inferrule*[right=\sporkTrConvergentTid]{
   \sporkqtlInit\text{ is register-class (Section~\ref{sec:Qtl})} \\
   \sporkTidAll = \sporktidMap(\sporksigma) \\
   \sporktr^*_\mathsf{pre} =
@@ -27,7 +27,7 @@
   \sporkAwPost)
   = \sporktr^* \sporkConcatChk \sporktr^*_\mathsf{pre} \sporkConcatChk \sporktr^*_\mathsf{post}
 }\\
-\inferrule*[right=Tr-SeparateTid]{
+\inferrule*[right=\sporkTrSeparateTid]{
   \sporkqtlInit\text{ is not register-class (Section~\ref{sec:Qtl})} \\
   \sporkTidAll = \sporktidMap(\sporksigma) \\
   \sporktr^*_\mathsf{pre} =

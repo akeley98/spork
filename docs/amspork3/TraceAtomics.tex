@@ -1,7 +1,55 @@
 \sporkSubsection{Trace Atomics}{sec:TraceAtomics}
 
-\sporkRed{TODO}
+Atomic operations arguably undermine our viewpoint of sequential-parallel equivalence.
+We nevertheless model them so that we can include the atomic TMA reduce instruction (Section~\ref{sec:TmaLimitations}).
+Our strategy is to rubber stamp that two atomic mutations are always\footnote{
+Not always: we model generic proxy and async proxy atomic accesses with different qualitative timelines
+(Section~\ref{sec:Qtl}),
+under the conservative reading that atomicity is not guaranteed if the accesses are not in the same proxy.
+}
+partially parallel ordered
+-- regardless of whether an actual ordering is implemented --
+and then informally reason that this is not observable if
+\textbf{(1)} the atomic returns no result,
+which is the case for \sporkName{} atomic instructions and
+\textbf{(2)} ordering between non-atomics and atomics are as usual,
+enforcing that earlier reads (in total trace order) don't have a WAR hazard with the atomic mutation,
+that later reads (in total trace order) observe the full atomic reduction,
+and that no WAW hazards with non-atomic mutates exist.
 
+We implement this situation by assigning each atomic access an ``atomic'' $\sporkqtlA$ and a non-atomic $\sporkqtlNa$.
+For generic proxy accesses, $\sporkqtlA,\sporkqtlNa = \texttt{cuda\_generic\_atomic\_qual},\texttt{cuda\_in\_order\_ram\_qual}$,
+and for TMA, $\sporkqtlA,\sporkqtlNa = \texttt{tma\_to\_gmem\_atomic\_qual}, \texttt{tma\_to\_gmem\_async\_qual}$.
+For $\sporkTrPreAccess$ and $\sporkTrPostAccess$ events from atomic instructions,\\
+\begin{align*}
+  & \sporkQtlPre = \{ \sporkqtlA, \sporkqtlNa \}
+    \quad \sporkqtlInit = \sporkqtlNa
+    \quad \sporkQtlAtom = \{ \sporkqtlA \} \\
+  & \textrm{ and so by Figure~\ref{fig:InOutSets} and $\sporkTrSeparateTid$ in Figure~\ref{fig:SyncTraceHelpers},} \\
+  & \sporkObIn(\sporkTrPreAccess(\ldots)) = \{ (\sporktid', \sporkqtlA), (\sporktid', \sporkqtlNa) \} \\
+  & \sporkObOut(\sporkTrPostAccess(\ldots)) = (\sporkTid \times \sporkqtlA) \cup \{ (\sporktid', \sporkqtlNa) \}
+  \sporkComment{ [$\sporkTid$ is all threads]}
+\end{align*}
+where $\sporktid'$ is some thread that executes the atomic, according to $\sporktidMap(\sporksigma)$.
 
-We currently model only device-scope atomics (full GPU),
-so we model these  XXX...
+Trace edges (Section~\ref{sec:TraceEdges}) are guaranteed between earlier
+ $\sporkTrPostAccess$ and later $\sporkTrPreAccess$ of this atomic form,
+as the intersection of their respective outbound and inbound observer sets will always
+contain some $(\sporktid', \sporkqtlA)$.
+
+All non-atomic accesses use empty $\sporkQtlAtom$.
+The dedicated atomic $\sporkqtlA$ is only ever used in observers for
+$\sporkTrPreAccess$ and $\sporkTrPostAccess$ events stemming from
+atomic accesses, and these will never overlap with the
+observer sets of other events.
+So, forming trace edges with any other sort of trace event (synchronization, or non-atomic accesses)
+relies only on edges labelled with observers $(\sporktid, \sporkqtlNa)$
+with $\sporktid \in \sporktidMap(\sporksigma)$ only,
+which matches the behavior for non-atomic accesses.
+
+We currently model only device-scope atomics (full single GPU),
+which matches the project scope of executing kernels on a single GPU.
+If we were to expand to multiple devices,
+or model smaller-scope atomics (e.g. CTA scope),
+then the use of the entire $\sporkTid$ set in $\sporkTid \times \sporkQtlAtom$
+would have to be replaced with a more precise set.
