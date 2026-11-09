@@ -1,0 +1,61 @@
+\sporkSubsection{Async Groups}{sec:AsyncGroups}
+
+Async groups are used solely to wait for previous async instructions issued in the same thread.
+CUDA programmers use a pair of \texttt{commit\_group} and \texttt{await\_group}
+instructions to do this wait
+(with the instructions specialized for the category of async instruction targetted).
+
+% CUDA doesn't seem to really name the integer parameter so I just use my own.
+An \texttt{await\_group} instruction takes an integer $\sporkz_\mathrm{lag}$ parameter.
+When a thread executes an \texttt{await\_group} instruction,
+it waits for all correct-category async instructions that were issued by the thread
+before an issued \texttt{commit\_group} instruction,
+\emph{except} for the most recent $\sporkz_\mathrm{lag}$-many \texttt{commit\_group}s.
+This allows for deep pipelining.
+
+Async groups are not allocated in CUDA,
+but we allocate ``arrays'' of async-group mechanism barriers in \sporkName{} anyway
+(which generates no C++ code) in order to name them.
+We use distributed memory analysis (Section~\ref{sec:DataLayout})
+and a live async-group-variable check to reason that
+that each different live $\sporkx[\sporkz^*]$ corresponds uniquely
+to a single thread's, warp's, or warpgroup's private async group state.
+The three cases correspond respectively to \texttt{cp.async},
+TMA SMEM-to-GMEM\footnote{
+TMA is specified as a per-thread instruction in PTX, but the implementation of TMA in Exo-GPU expands this to a warp instruction, with \texttt{elect\_one\_sync} used within the instruction implementation.
+This matches the expected usage pattern and underlying hardware reality better: ``TMA programming model is Uniform: all active threads in a warp are executing TMA operation 'with same arguments' ''
+\cite{TerentyevGTC24}
+}, and \texttt{wgmma} async groups.
+
+An \sporkName{} \texttt{Arrive} statement with async-group mechanism de-sugars into a
+$\sporktidMap$-annotated \texttt{Arrive} and an implicit increment of the referenced barrier's arrive count.
+For a given $\sporkx[\sporkz^*]$ of async-group mechanism,
+\\\textbf{(1)} Each $\sporkTrArrive$ event has inbound observer sets consisting of observers
+    $(\sporktid, \sporkqtl)$,
+    $\sporktid$ being one of the executing threads
+    and $\sporkqtl$ chosen to correspond to the async instruction targetted by the async group.
+    This allows trace edges from prior accesses by such instructions in the same thread
+    to the $\sporkTrArrive$ event.
+\\\textbf{(2)} The arrive count of $\sporkx[\sporkz^*]$ is the number of prior
+    $\sporkTrArrive$ events issued with that $\sporkx[\sporkz^*]$.
+\\\textbf{(3)} The $\sporkz_\mathrm{arrive}$-th arrive on $\sporkx[\sporkz^*]$ will generate a
+    $\sporkTrArrive$ event with outbound pending await set
+    $\{ \sporkPendingAwait(\sporkx, \sporkz^*, \sporkz_a) \mid \sporkz_a \ge \sporkz_\mathrm{arrive} \}$
+    (Figure~\ref{fig:InOutSets}, Figure~\ref{fig:SyncTraceSemantics}, $\sporkTrArriveRule$).
+\\\textbf{(4)}
+    With $n$ being the arrive count of $\sporkx[\sporkz^*]$
+    (i.e. after $n$-many arrives on $\sporkx[\sporkz^*]$),
+    an await on $\sporkx[\sporkz^*]$ will generate a $\sporkTrAwait$ event with
+    inbound pending await set
+    $\{ \sporkPendingAwait(\sporkx, \sporkz^*, n - \sporkz_\mathrm{lag} - 1) \}$
+    ($\sporkTrAwaitRule$).
+    This overlaps with the $\sporkTrArrive$ outbound pending await set in \textbf{(3)}
+    only when $\sporkz_\mathrm{arrive} \ge n - \sporkz_\mathrm{lag} - 1$.
+    This causes trace edges to form from all such $\sporkTrArrive$,
+    except for the $\sporkz_\mathrm{lag}$-many most recent,
+    and the $\sporkTrAwait$.
+    The named $\sporkx[\sporkz^*]$ prevents confusion with async groups
+    of other threads or other targetted instruction type.
+
+Points 1 and 4 together imply the trace edges accurately model the underlying CUDA behavior.
+

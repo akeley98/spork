@@ -63,7 +63,7 @@ and \texttt{Arrive} and \texttt{Await} statements for split barriers (Figure~\re
 These produce $\sporkTrFence$, $\sporkTrArrive$, and $\sporkTrAwait$ trace events, respectively
 (Section~\ref{sec:TraceChecks}, Figure~\ref{fig:SyncTraceSemantics}).
 The \texttt{Arrive} and \texttt{Await} statements take explicitly allocated \texttt{barrier}-type parameters,
-which are of a user-selected barrier mechanism ($\sporkbarMech$: mbarrier, commit group, or cluster sync).
+which are of a user-selected barrier mechanism ($\sporkbarMech$: mbarrier, instr-specific async group, or cluster sync).
 
 \texttt{Fence} and \texttt{Arrive} are parameterized with an arrive qualitative timeline set $\sporkQtlArrive$.
 This specifies the qualitative timelines of the recorded $\sporkTrFence$ or $\sporkTrArrive$ event's inbound observer set,
