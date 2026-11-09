@@ -37,12 +37,13 @@
 \vspace{-3pt}
 \inOutDiagramSides
   {\sporkTrPreAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTidPre, \sporkQtlPre, \sporkAwFree)}
-  {\sporkTidPre \times (\sporkQtlPre \cup \sporkQtlAtom)}
+  {\sporkTidPre \times \sporkQtlPre}
   {}
   {\sporkAwFree}
   {}
 \caption{Trace event ``inbound sets'' $\sporkObIn$, $\sporkAwIn$ and ``outbound sets'' $\sporkObOut$, $\sporkAwOut$.\\
-Note, the use of ``all possible thread IDs'' $\sporkTid$ in $(\sporkTid \times \sporkQtlAtom)$ is intentional.
+Note, the use of ``all possible thread IDs'' $\sporkTid$ in $(\sporkTid \times \sporkQtlAtom)$ is intentional
+(Section~\ref{sec:TraceAtomics}).
 $\sporkTrPostAccess$ vertices are \emph{sources} with only outbound edges; $\sporkTrPreAccess$ vertices are \emph{sinks} with only inbound edges.
 }
 \label{fig:InOutSets}

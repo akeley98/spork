@@ -31,7 +31,8 @@ the first two distinguish operations in the \emph{generic proxy} from those in t
 \\\texttt{Sm80\_cp\_async\_qual}: $\sporkqtlInit$ for accesses by Ampere \texttt{cp.async} instructions.
   These instructions have $\{$\texttt{cuda\_in\_order\_ram\_qual}$\}$ as their precondition $\sporkqtl$ set.
 \\\texttt{cuda\_generic\_atomic\_qual}: Models generic proxy atomic accesses.
-  This is in a separate $\sporkQtlAtom$ set (Section~\ref{sec:TraceAtomics}),
+  For such accesses, this is included in $\sporkQtlPre$ and a separate $\sporkQtlAtom$ set
+  (Section~\ref{sec:TraceAtomics}),
   and such accesses continue to have \texttt{cuda\_in\_order\_qual} in $\sporkQtlPre$ and $\sporkqtlInit$.
 
 \sporkMainKey{Data RAM, Async Proxy $\sporkqtl$ Class:}
@@ -44,7 +45,7 @@ the first two distinguish operations in the \emph{generic proxy} from those in t
 \\\texttt{tma\_to\_gmem\_async\_qual}: $\sporkqtlInit$ for accesses by TMA SMEM-to-GMEM ``stores''.
 \\\texttt{wgmma\_async\_smem\_qual}: $\sporkqtlInit$ for SMEM accesses by wgmma instructions.
 \\\texttt{tma\_to\_gmem\_atomic\_qual}: Models atomic GMEM accesses by TMA \texttt{cp.reduce.async.bulk} \cite{ptx} instructions;
-  included in $\sporkQtlAtom$ (Section~\ref{sec:TraceAtomics}) for such TMA GMEM parameters.
+  included in $\sporkQtlPre,\sporkQtlAtom$ (Section~\ref{sec:TraceAtomics}) for such TMA GMEM parameters.
 
 \sporkMainKey{Register $\sporkqtl$ Class:}
 We have to do synchronization checking even for registers due to wgmma instructions accessing registers asynchronously.
