@@ -1,5 +1,56 @@
 \sporkSubsection{Mbarriers}{sec:Mbarriers}
 
-\sporkRed{TODO}
+Unlike async groups, which are singular thread-local state,
+mbarriers are explicitly allocated into SMEM,
+and are theoretically unlimited in number.
+Each is initialized in CUDA with some \emph{expected arrival count}, and a \emph{phase} count of 0.
+Each phase involves having the mbarrier's \emph{pending arrival count} count up from 0 to the expected arrival count.
+Each thread arriving on an mbarrier raises its pending arrival count by one;
+this may complete the phase,
+causing the phase count to increment and the pending arrival count to reset to zero.
+A thread may await for an mbarrier phase to complete \cite{ptx}.
 
-\sporkRed{TODO TMA}
+We represent the mbarrier state rather literally in \sporkName{}.
+In an allocated barrier array of mbarrier mechanism,
+each array element $\sporkx[\sporkz^*]$ names a single \emph{phase} of a single physical mbarrier.
+The arrive count of each array element mirrors the actual per-phase pending arrival count.
+An \sporkName{} \texttt{Arrive} statement execution corresponds to all mapped CUDA threads
+incrementing the pending arrival count by one,
+and an \texttt{Await} statement execution corresponds to all mapped CUDA threads waiting for
+the named phase of the named mbarrier to complete.
+To ensure correspondence between the abstract \sporkName{} state and the real mbarrier state,
+we de-sugar the \texttt{Arrive} statement to additionally increment the \sporkName{} arrive count
+by the number of threads in $\sporktidMap(\sporksigma)$,
+and we de-sugar \texttt{Await} and free statements to \texttt{assert} that the referenced
+barriers have \sporkName{} arrive count equal to the expected arrival count\footnote{%
+In \sporkName{}, the ``expected arrival count'' for an mbarrier is deduced from
+the number of threads mapped by the \texttt{Arrive} statement's $\sporktidMap$
+times the number of CTAs containing threads that will arrive on the mbarrier. %
+} (implementing, respectively, a forward-progress check, and a
+``one named phase actually corresponds to one real mbarrier phase'' check).
+
+An \sporkName{} mbarrier array is a managed ring buffer (Section~\ref{sec:SmemAllocators}),
+with elements separated by \texttt{ring\_depth} on the managed ring buffer dimension
+representing consecutive \emph{phases} of the same physical mbarrier (Figure~\sporkTodoLink{}).
+Furthermore, an \sporkName{} mbarrier array is subject to distributed memory analysis
+(Section~\ref{sec:DataLayout}),
+which maps shards of the array to CTAs (like all other SMEM allocations).
+The \texttt{Arrive} statement may contain intervals \texttt{0:$\sporkz$} on distributed dimensions,
+allowing the thread to arrive on mbarriers in other CTAs.
+
+Although the PTX docs describe phases as counting up ``\{0, 1, 2, $\ldots$\}'',
+in reality phases are identified only by parity (as if the upper bits were ghost state),
+which makes phase $n$ indistinguishable from phase $n + 2$.
+We infer the PTX docs \cite{ptx} address this with
+``For each primary phase of the mbarrier object,
+at least one [successful await]
+% \emph{test\_wait} or \emph{try\_wait}
+operation must be performed ...  % which returns True for waitComplete
+before an arrive-on operation in the subsequent primary phase''.
+The \sporkName{} SMEM allocator imposes synchronization obligations to check this requirement
+(Section~\ref{sec:SmemAppendix}),
+although here we have a safety-checking blind spot as we do not reason
+about safety between different array allocations aliased to the same physical mbarrier.
+Also, as mentioned in Section~\ref{sec:TmaLimitations},
+we do not currently model \emph{tx-count} directly (TMA's completion mechanism),
+nor is our safety checking complete is this area.
