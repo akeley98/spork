@@ -30,6 +30,20 @@
 
 % David Zhao Akeley: TODO some Claude added this and idk why. May just capitulate and bulk replace bare textsf.
 \newcommand{\textgpu}[1]{\textsf{#1}}
+
+% \sporkUS[opt]{label}{base}: descriptive label under a symbol, without wrecking prose line spacing.
+% Stacked (\underset) in display style or when \sporkForceStacktrue (set at the top of non-code figures);
+% plain subscript base_label in inline math otherwise.
+% A non-empty opt always stacks, with opt as an ordinary subscript of base (base_opt over label).
+\newif\ifsporkForceStack
+\newcommand{\sporkUS}[3][]{%
+  \if\relax\detokenize{#1}\relax
+    \ifsporkForceStack \underset{#2}{#3}%
+    \else \mathchoice{\underset{#2}{#3}}{{#3}_{#2}}{{#3}_{#2}}{{#3}_{#2}}\fi
+  \else \underset{#2}{{#3}_{#1}}\fi}
+% Captions are prose even inside a figure: undo \sporkForceStacktrue there.
+\DeclareCaptionFont{sporkNoForceStack}{\sporkForceStackfalse}
+\captionsetup{font+=sporkNoForceStack}
 \definecolor{barriercolor}{HTML}{BB00BB}
 %% CPU vs GPU code: Intel-ish sky blue, NVIDIA-ish yellow-green.
 \definecolor{cpuColor}{HTML}{00A3E0}
@@ -120,12 +134,12 @@
 \newcommand{\sporkSigma}{\mathord{\sporkPaperLink{fig:BasicGrammar}{\Sigma}}}
 \newcommand{\sporktid}{\mathord{\sporkPaperLink{fig:BasicGrammar}{\textgpu{tid}}}}
 \newcommand{\sporkTid}{\mathord{\sporkPaperLink{fig:BasicGrammar}{\textgpu{Tid}}}}
-\newcommand{\sporkTidPost}{\mathord{\sporkPaperLink{fig:BasicGrammar}{\underset{\textrm{post}}{\textgpu{Tid}}}}}  % Formerly \sporkTidNew
-\newcommand{\sporkTidFence}{\mathord{\sporkPaperLink{fig:BasicGrammar}{\underset{\textrm{fence}}{\textgpu{Tid}}}}}
-\newcommand{\sporkTidArrive}{\mathord{\sporkPaperLink{fig:BasicGrammar}{\underset{\textrm{arrive}}{\textgpu{Tid}}}}}
-\newcommand{\sporkTidAwait}{\mathord{\sporkPaperLink{fig:BasicGrammar}{\underset{\textrm{await}}{\textgpu{Tid}}}}}
-\newcommand{\sporkTidPre}{\mathord{\sporkPaperLink{fig:BasicGrammar}{\underset{\textrm{pre}}{\textgpu{Tid}}}}}  % Formerly \sporkTidReq
-\newcommand{\sporkTidAll}{\mathord{\sporkPaperLink{fig:BasicGrammar}{\underset{\textrm{all}}{\textgpu{Tid}}}}}
+\newcommand{\sporkTidPost}{\mathord{\sporkPaperLink{fig:BasicGrammar}{\sporkUS{\textrm{post}}{\textgpu{Tid}}}}}  % Formerly \sporkTidNew
+\newcommand{\sporkTidFence}{\mathord{\sporkPaperLink{fig:BasicGrammar}{\sporkUS{\textrm{fence}}{\textgpu{Tid}}}}}
+\newcommand{\sporkTidArrive}{\mathord{\sporkPaperLink{fig:BasicGrammar}{\sporkUS{\textrm{arrive}}{\textgpu{Tid}}}}}
+\newcommand{\sporkTidAwait}{\mathord{\sporkPaperLink{fig:BasicGrammar}{\sporkUS{\textrm{await}}{\textgpu{Tid}}}}}
+\newcommand{\sporkTidPre}{\mathord{\sporkPaperLink{fig:BasicGrammar}{\sporkUS{\textrm{pre}}{\textgpu{Tid}}}}}  % Formerly \sporkTidReq
+\newcommand{\sporkTidAll}{\mathord{\sporkPaperLink{fig:BasicGrammar}{\sporkUS{\textrm{all}}{\textgpu{Tid}}}}}
 \newcommand{\sporktidMap}{\mathord{\sporkPaperLink{fig:BasicGrammar}{\textgpu{tidMap}}}}
 \newcommand{\sporkTidMap}{\mathord{\sporkPaperLink{fig:BasicGrammar}{\textgpu{TidMap}}}}
 \newcommand{\sporkloopMode}{\mathord{\sporkPaperLink{fig:BasicGrammar}{\textgpu{loopMode}}}}
@@ -137,13 +151,13 @@
 %% Window Grammar
 \newcommand{\sporkqtl}{\mathord{\sporkPaperLink{fig:WindowGrammar}{\textgpu{qtl}}}}
 \newcommand{\sporkQtl}{\mathord{\sporkPaperLink{fig:WindowGrammar}{\textgpu{Qtl}}}}
-\newcommand{\sporkQtlPre}{\mathord{\sporkPaperLink{fig:WindowGrammar}{\underset{\textrm{pre}}{\textgpu{Qtl}}}}}
-\newcommand{\sporkqtlInit}{\mathord{\sporkPaperLink{fig:WindowGrammar}{\underset{\textrm{init}}{\textgpu{qtl}}}}}
-\newcommand{\sporkQtlAtom}{\mathord{\sporkPaperLink{fig:WindowGrammar}{\underset{\textrm{atom}}{\textgpu{Qtl}}}}}
-% Optional subscript goes inside the stack. Really all of the underset commands should change to allow this.
-\newcommand{\sporkQtlMask}[1][]{\mathord{\sporkPaperLink{fig:WindowGrammar}{\underset{\textrm{mask}}{\sporkSubOpt{\textgpu{Qtl}}{#1}}}}}
-\newcommand{\sporkQtlArrive}{\mathord{\sporkPaperLink{fig:WindowGrammar}{\underset{\textrm{arrive}}{\textgpu{Qtl}}}}}
-\newcommand{\sporkQtlAwait}{\mathord{\sporkPaperLink{fig:WindowGrammar}{\underset{\textrm{await}}{\textgpu{Qtl}}}}}
+\newcommand{\sporkQtlPre}{\mathord{\sporkPaperLink{fig:WindowGrammar}{\sporkUS{\textrm{pre}}{\textgpu{Qtl}}}}}
+\newcommand{\sporkqtlInit}{\mathord{\sporkPaperLink{fig:WindowGrammar}{\sporkUS{\textrm{init}}{\textgpu{qtl}}}}}
+\newcommand{\sporkQtlAtom}{\mathord{\sporkPaperLink{fig:WindowGrammar}{\sporkUS{\textrm{atom}}{\textgpu{Qtl}}}}}
+% Optional subscript forces the stacked form (see \sporkUS).
+\newcommand{\sporkQtlMask}[1][]{\mathord{\sporkPaperLink{fig:WindowGrammar}{\sporkUS[#1]{\textrm{mask}}{\textgpu{Qtl}}}}}
+\newcommand{\sporkQtlArrive}{\mathord{\sporkPaperLink{fig:WindowGrammar}{\sporkUS{\textrm{arrive}}{\textgpu{Qtl}}}}}
+\newcommand{\sporkQtlAwait}{\mathord{\sporkPaperLink{fig:WindowGrammar}{\sporkUS{\textrm{await}}{\textgpu{Qtl}}}}}
 \newcommand{\sporkc}{\mathord{\sporkPaperLink{fig:WindowGrammar}{{c}}}}
 \newcommand{\sporkcz}{\mathord{\sporkPaperLink{fig:WindowGrammar}{\overset{z}{c}}}}
 \newcommand{\sporkw}{\mathord{\sporkPaperLink{fig:WindowGrammar}{{w}}}}
@@ -239,8 +253,8 @@
 %% Pending Await Grammar
 \newcommand{\sporkaw}{\mathord{\sporkPaperLink{fig:TraceConstructors}{\textgpu{aw}}}}
 \newcommand{\sporkAw}{\mathord{\sporkPaperLink{fig:TraceConstructors}{\textgpu{Aw}}}}
-\newcommand{\sporkAwPost}{\mathord{\sporkPaperLink{fig:TraceConstructors}{\underset{\textrm{post}}{\textgpu{Aw}}}}}  % Formerly \sporkAwNew
-\newcommand{\sporkAwFree}{\mathord{\sporkPaperLink{fig:TraceConstructors}{\underset{\textrm{free}}{\textgpu{Aw}}}}}
+\newcommand{\sporkAwPost}{\mathord{\sporkPaperLink{fig:TraceConstructors}{\sporkUS{\textrm{post}}{\textgpu{Aw}}}}}  % Formerly \sporkAwNew
+\newcommand{\sporkAwFree}{\mathord{\sporkPaperLink{fig:TraceConstructors}{\sporkUS{\textrm{free}}{\textgpu{Aw}}}}}
 \newcommand{\sporkPendingAwait}{\mathord{\sporkPaperLink{fig:TraceConstructors}{\textgpu{PendingAwait}}}}
 
 %% Window Step Semantics
@@ -287,7 +301,7 @@
 \newcommand{\sporkTrAwaitRule}{\sporkPaperLink{fig:SyncTraceSemantics}{\textsc{Tr-Await}}}
 
 %% Trace Checks
-\newcommand{\sporkConcatRaw}{\mathord{\sporkPaperLink{sec:TraceChecks}{\underset{\textsf{raw}}{\texttt{++}}}}}
+\newcommand{\sporkConcatRaw}{\mathord{\sporkPaperLink{sec:TraceChecks}{\sporkUS{\textsf{raw}}{\texttt{++}}}}}
 
 %% Trace Vertices
 \newcommand{\sporkvert}{\mathord{\sporkPaperLink{sec:TraceVertices}{\textsf{v}}}}  % Naming convention exception (avoid clash with value v)
@@ -303,9 +317,9 @@
 \newcommand{\sporkvEff}{\mathord{\sporkPaperLink{eq:vEff}{\textsf{vEff}}}}
 % InOutSets layout macros (\inOutDiagram, \inOutDiagramSides)
 \input{amspork3_defs_inOutDiagram.tex}
-% \sporkVPost[s], \sporkvPost[s]: optional subscript goes inside the stack (V_s over "post").
-\newcommand{\sporkVPost}[1][]{\mathord{\sporkPaperLink{eq:vEff}{\underset{\textrm{post}}{\sporkSubOpt{\textsf{V}}{#1}}}}}  % Formerly \sporkVNew
-\newcommand{\sporkvPost}[1][]{\mathord{\sporkPaperLink{eq:vEff}{\underset{\textrm{post}}{\sporkSubOpt{\textsf{v}}{#1}}}}}  % Formerly \sporkvNew
+% \sporkVPost[s], \sporkvPost[s]: optional subscript forces the stack (V_s over "post"; see \sporkUS).
+\newcommand{\sporkVPost}[1][]{\mathord{\sporkPaperLink{eq:vEff}{\sporkUS[#1]{\textrm{post}}{\textsf{V}}}}}  % Formerly \sporkVNew
+\newcommand{\sporkvPost}[1][]{\mathord{\sporkPaperLink{eq:vEff}{\sporkUS[#1]{\textrm{post}}{\textsf{v}}}}}  % Formerly \sporkvNew
 
 %% Trace Edges
 \newcommand{\sporkedge}{\mathord{\sporkPaperLink{sec:TraceEdges}{\textsf{e}}}}  % Naming convention exception (avoid clash with expr e)
@@ -314,12 +328,11 @@
 \newcommand{\sporkEdgeArrow}[3]{({#1} \xrightarrow{#2} {#3})}
 
 %% Trace Concatenation Check
-\newcommand{\sporkSubOpt}[2]{\if\relax\detokenize{#2}\relax #1\else #1_{#2}\fi}
 \newcommand{\sporktrReach}{\mathord{\sporkPaperLink{eq:trReach}{\textsf{trReach}}}}
 \newcommand{\sporktrVPost}{\mathord{\sporkPaperLink{eq:trVPost}{\textsf{trVPost}}}}  % Formerly \sporktrVNew
 \newcommand{\sporkmutReqs}{\mathord{\sporkPaperLink{eq:mutReqs}{\textsf{mutReqs}}}}
 \newcommand{\sporkPATH}{\mathord{\sporkPaperLink{eq:trReach}{\textrm{PATH}}}}
-\newcommand{\sporkConcatChk}{\mathord{\sporkPaperLink{eq:concatChk}{\underset{\textsf{chk}}{\texttt{++}}}}}
+\newcommand{\sporkConcatChk}{\mathord{\sporkPaperLink{eq:concatChk}{\sporkUS{\textsf{chk}}{\texttt{++}}}}}
 
 %% Synchronization Environment
 \newcommand{\sporkenv}{\mathord{\sporkPaperLink{sec:SyncEnv}{\textsf{env}}}}
@@ -329,13 +342,13 @@
 \newcommand{\sporkEnvVis}{\mathord{\sporkPaperLink{sec:SyncEnv}{\textsf{EnvVis}}}}
 \newcommand{\sporkenvVis}{\mathord{\sporkPaperLink{sec:SyncEnv}{\textsf{envVis}}}}
 \newcommand{\sporksyncsWith}{\mathord{\sporkPaperLink{eq:syncsWith}{\textsf{syncsWith}}}}
-\newcommand{\sporkConcatEnv}{\mathord{\sporkPaperLink{sec:SyncEnvConcat}{\underset{\textsf{env}}{\texttt{++}}}}}
+\newcommand{\sporkConcatEnv}{\mathord{\sporkPaperLink{sec:SyncEnvConcat}{\sporkUS{\textsf{env}}{\texttt{++}}}}}
 \newcommand{\sporktoEnv}{\mathord{\sporkPaperLink{eq:toEnv}{\textsf{toEnv}}}}
 \newcommand{\sporktoEnvTotal}{\mathord{\sporkPaperLink{eq:toEnvTotal}{\textsf{toEnvTotal}}}}
 \newcommand{\sporkvVis}{\mathord{\sporkPaperLink{eq:vVis}{\textsf{vVis}}}}
 \newcommand{\sporktoChk}{\mathord{\sporkPaperLink{eq:toChk}{\textsf{toChk}}}}
-\newcommand{\sporksqVis}{\mathord{\sporkPaperLink{eq:sqVis}{\underset{\textsf{vis}}{\sqsubseteq}}}}
-\newcommand{\sporksqEnv}{\mathord{\sporkPaperLink{eq:sqEnv}{\underset{\textsf{env}}{\sqsubseteq}}}}
+\newcommand{\sporksqVis}{\mathord{\sporkPaperLink{eq:sqVis}{\sporkUS{\textsf{vis}}{\sqsubseteq}}}}
+\newcommand{\sporksqEnv}{\mathord{\sporkPaperLink{eq:sqEnv}{\sporkUS{\textsf{env}}{\sqsubseteq}}}}
 
 %% Warp Specialization
 \newcommand{\sporkwarpConfig}{\mathord{\sporkPaperLink{fig:CudaWarps}{\textgpu{warpConfig}}}}
@@ -353,7 +366,7 @@
 \newcommand{\sporkfreeTrDetail}{\mathord{\sporkPaperLink{sec:SmemAppendix}{\textsf{\sporkRed{freeTrDetail}}}}}
 
 %% Used in C-CudaDeviceFunction
-\newcommand{\sporkQtlStream}{\mathord{\underset{\textrm{stream}}{\sporkQtl}}}
+\newcommand{\sporkQtlStream}{\mathord{\sporkUS{\textrm{stream}}{\sporkQtl}}}
 
 %% Used in TraceAtomics
 \newcommand{\sporkqtlAt}{\sporkqtl_\mathrm{at}}
