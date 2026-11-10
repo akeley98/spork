@@ -1,6 +1,7 @@
 % Example mbarrier array x[2, 6]: dim 0 distributed by CTA, dim 1 a managed ring buffer of depth 3.
 % Element x[c, j] is phase j / 3 of the physical mbarrier in ring slot j % 3 of CTA c.
 \begin{figure}[h]
+\sporkCodeRule
 \centering
 \begin{sporkfigure}
   \tikzset{
@@ -24,4 +25,5 @@ and the second dimension is a managed ring buffer dimension with \texttt{ring\_d
 Each CTA allocates 3 physical mbarriers (ring slots),
 and elements 3 apart on this dimension name consecutive phases of the same physical mbarrier.}
 \label{fig:MbarrierArray}
+\sporkCodeRule
 \end{figure}
