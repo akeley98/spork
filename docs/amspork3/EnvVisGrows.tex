@@ -60,7 +60,14 @@
     \node [anchor=south west, inner sep=0.5mm, font=\bfseries] at (vis-\e.north west) {\note};
   }
   % Key, centered on the widest envVis box (the last).
-  \node [annotation, anchor=south] at (vis-e3.center |- keyY) {$\sporkenvVis$};
+  \node [annotation, anchor=south] at (vis-e3.center |- keyY) {$\sporkenvVis$ ($\sporkOb_v$ only)};
+  % The TrPostAccess vertex's name, in the empty Ob^in slot of its row.
+  \node (vPostLabel) [anchor=east] at ([xshift=-5mm]e0.west) {$\sporkvPost$};
+  \draw [annotation line] (vPostLabel.east) -- (e0.west);
+  % qtl legend: one line under the whole figure, centered.
+  \node [anchor=north, inner sep=0.5mm] at ([yshift=-2mm]current bounding box.south)
+    {$\cqA = {}$\texttt{\sporkFigSmall Sm80\_cp\_async\_qual}\qquad
+     $\cqIo = {}$\texttt{\sporkFigSmall cuda\_in\_order\_ram\_qual}};
 \end{sporkfigure}
 \caption{\sporkRed{TODO caption}}
 \label{fig:EnvVisGrows}
