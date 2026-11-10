@@ -79,7 +79,6 @@
   \sporkRule{\texttt{assert $\sporkSub{\sporkexpr_1}{\sporkexpr_2}$}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 \inferrule*[right=\sporkCAssertPass]{
-  \sporkComment{(No \texttt{assert False} rule: it's stuck)}
 }
 {
   \sporkRule{\sporkSub{\texttt{assert $\sporkTrue$}}{\texttt{pass}}, \sporksigma, \sporktr^*}
@@ -94,6 +93,7 @@ programs never assign loop variables and variable names are assumed unique, so n
 $\sporkQtlStream$ consists of all ``data RAM'' class $\sporkqtl$ (any proxy),
 excluding \texttt{cpu\_in\_order\_qual} and atomic $\sporkqtl$ (Section~\ref{sec:Qtl}).
 % Single class in paper corresponds to "mask class" and "proxy class" in code.
+No rule exists to step \texttt{assert $\sporkFalse$}.
 }
 \label{fig:ControlSemantics}
 \hrule
