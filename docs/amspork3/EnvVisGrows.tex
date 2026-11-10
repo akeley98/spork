@@ -69,7 +69,13 @@
     {$\cqA = {}$\texttt{\sporkFigSmall Sm80\_cp\_async\_qual}\qquad
      $\cqIo = {}$\texttt{\sporkFigSmall cuda\_in\_order\_ram\_qual}};
 \end{sporkfigure}
-\caption{\sporkRed{TODO caption}}
+\caption{%
+A thread $\sporktid \in \sporkTid_\mathsf{CTA}$ issues an async copy, followed by various synchronization.
+We show the correspondence between the trace graph (left) and the reachable vertices' $\sporkObOut$ union (right).
+More precisely, the $n^\mathit{th}$ entry in the right column shows $\sporkvVis(\sporktr^*_n, \sporkvPost)$
+(Section~\ref{sec:SyncEnvTotal}), where $\sporktr^*_n$ is the first $n$-many trace events depicted.
+Pending awaits are omitted for this example.
+}
 \label{fig:EnvVisGrows}
 \sporkCodeRule
 \end{figure}
