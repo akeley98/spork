@@ -12,10 +12,11 @@ then discuss the cornerstones of \sporkName{} language design that allow for our
 \sporkMainKey{Conventions:}
 Initially-lowercase symbols denote metavariables ranging over the corresponding capitalized set
 (e.g. $a_n \in A$, with some exceptions by custom like $\sporks \in \sporkStmt$).
-$a^*$ denotes a tuple of $A$ elements.
+$a^*$ or $a_n^*$ denote a tuple of $A$ elements.
 The set name with a distinguishing subscript denotes a subset of that set
 (e.g. $A_n \in \mathcal{P}(A)$, where $\mathcal{P}$ denotes the power set).
 Concurrency-specific concepts are denoted with \textgpu{sansSerif} font.
+We sometimes ``stack'' the subscript underneath to save space; $a_\mathrm{long} \equiv \underset{\mathrm{long}}{a}$.
 
 \input{BasicGrammar.tex}
 
