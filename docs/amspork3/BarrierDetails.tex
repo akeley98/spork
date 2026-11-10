@@ -2,8 +2,9 @@
 
 Having shown the structure of $\sporkTrArrive$ and $\sporkTrAwait$ events and pending awaits
 (Figure~\ref{fig:TraceConstructors}),
-we now discuss how we map this model to CUDA split barrier constructs,
-and discuss the complication of modelling the generic and async proxy \cite{ptx} \cite{LustigMixedProxy}.
+we now discuss how we map this model to CUDA split barrier constructs.
+We defer the complication of modelling the generic and async proxy
+\cite{ptx} \cite{LustigMixedProxy} to an appendix (Section~\ref{sec:ProxyFences}).
 
 Split barrier usage in \sporkName{} begins with a barrier allocation statement
 \texttt{$\sporkx$: barrier[$\sporkexpr^*$] @ $\sporkbarMech$},
@@ -17,4 +18,3 @@ The specific behavior depends on the mechanism.
 
 \input{AsyncGroups.tex}
 \input{Mbarriers.tex}
-\input{ProxyFences.tex}
