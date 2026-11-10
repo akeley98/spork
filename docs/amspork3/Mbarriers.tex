@@ -31,12 +31,14 @@ times the number of CTAs containing threads that will arrive on the mbarrier. %
 
 An \sporkName{} mbarrier array is a managed ring buffer (Section~\ref{sec:SmemAllocators}),
 with elements separated by \texttt{ring\_depth} on the managed ring buffer dimension
-representing consecutive \emph{phases} of the same physical mbarrier (Figure~\sporkTodoLink{}).
+representing consecutive \emph{phases} of the same physical mbarrier (Figure~\ref{fig:MbarrierArray}).
 Furthermore, an \sporkName{} mbarrier array is subject to distributed memory analysis
 (Section~\ref{sec:DataLayout}),
 which maps shards of the array to CTAs (like all other SMEM allocations).
 The \texttt{Arrive} statement may contain intervals \texttt{0:$\sporkz$} on distributed dimensions,
 allowing the thread to arrive on mbarriers in other CTAs.
+
+\input{MbarrierArray.tex}
 
 Although the PTX docs describe phases as counting up ``\{0, 1, 2, $\ldots$\}'',
 in reality phases are identified only by parity (as if the upper bits were ghost state),

@@ -1,0 +1,27 @@
+% Example mbarrier array x[2, 6]: dim 0 distributed by CTA, dim 1 a managed ring buffer of depth 3.
+% Element x[c, j] is phase j / 3 of the physical mbarrier in ring slot j % 3 of CTA c.
+\begin{figure}[h]
+\centering
+\begin{sporkfigure}
+  \tikzset{
+    elem/.style={rectangle, draw, thick, minimum width=17mm, minimum height=11mm, align=center, inner sep=0.5mm},
+  }
+  \foreach \c in {0, 1} {
+    \foreach \j [evaluate=\j as \slot using {int(mod(\j, 3))}, evaluate=\j as \phase using {int(\j / 3)}]
+        in {0, ..., 5} {
+      \node (e\c\j) [elem] at (\j * 19mm, -\c * 13mm) {slot \slot\\phase \phase};
+    }
+    \node [anchor=east, align=right, font=\bfseries] at ([xshift=-2mm]e\c0.west)
+      {\texttt{x[\c, :]}\\CTA \c};
+  }
+  \foreach \j in {0, ..., 5} {
+    \node [anchor=south, font=\bfseries] at ([yshift=1mm]e0\j.north) {\texttt{x[:, \j]}};
+  }
+\end{sporkfigure}
+\caption{Example mbarrier array \texttt{x} of shape \texttt{[2, 6]},
+where the first dimension is deduced to be distributed by CTA,
+and the second dimension is a managed ring buffer dimension with \texttt{ring\_depth} 3.
+Each CTA allocates 3 physical mbarriers (ring slots),
+and elements 3 apart on this dimension name consecutive phases of the same physical mbarrier.}
+\label{fig:MbarrierArray}
+\end{figure}
