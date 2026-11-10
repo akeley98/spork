@@ -1,0 +1,68 @@
+% Environment visibility growing along a trace: independent copy of the final envVis step (11) of
+% 26.tex's EnvVisibility frame, so it can diverge from the slides. Reachable-event fill dropped;
+% blue reachability edges and the violet/yellow qtl highlights kept. One event per row, rows stacked
+% downwards in trace order; Ob^in / Ob^out boxes beside each event, envVis column on the right.
+\begin{figure}[h]
+\centering
+\begin{sporkfigure}
+  % Trace rows (copied from 26.tex's \vtrPost / \vtrFence): event box with the observer sets written
+  % in its attached Ob boxes. #1 = node name, #2 = main node options (placement), #3 = event text
+  % below the constructor, then the set(s): post #4 = Ob^out; fence #4 = Ob^in, #5 = Ob^out.
+  % Nodes <name>, <name>-in, <name>-out.
+  \tikzset{
+    tr event/.style={rectangle, draw, thick, align=center, inner sep=1.5mm, minimum height=12mm},
+    vtr event/.style={tr event, minimum width=37mm},
+    tr ob/.style={rectangle, draw, thick, inner sep=1mm, minimum height=7mm},
+    reach edge/.style={spork arrow, line width=1.6pt, draw=sporkBlueFg},
+  }
+  \newcommand{\trObGap}{0.8pt}  % gap between event and Ob boxes: one `thick` line
+  \newcommand{\vtrPost}[4]{%
+    \node (#1) [vtr event, #2] {$\sporkTrPostAccess$\\#3};
+    \node (#1-out) [tr ob, anchor=west] at ([xshift=\trObGap]#1.east) {#4};}
+  \newcommand{\vtrFence}[5]{%
+    \node (#1) [vtr event, #2] {$\sporkTrFence$\\#3};
+    \node (#1-in) [tr ob, anchor=east] at ([xshift=-\trObGap]#1.west) {#4};
+    \node (#1-out) [tr ob, anchor=west] at ([xshift=\trObGap]#1.east) {#5};}
+  \newcommand{\cTid}{\sporktid}
+  \newcommand{\cTidCTA}{\sporkTid_\mathsf{CTA}}
+  \newcommand{\cqA}{\sporkViolet{\ensuremath{\sporkqtl_\mathsf{A}}}}
+  \newcommand{\cqIo}{\sporkYellow{\ensuremath{\sporkqtl_\mathsf{io}}}}
+
+  \vtrPost{e0}{}{\sporkMutateBullet\ $\sporkx[\sporkz^*]$}
+    {$\{(\cTid, \cqA)\}$}
+  \vtrFence{e1}{below=6mm of e0}{\texttt{\_\_syncthreads}}
+    {$\cTidCTA \times \{\cqIo\}$}{$\cTidCTA \times \{\cqIo\}$}
+  \vtrFence{e2}{below=6mm of e1}{\texttt{cp.async.wait\_all}}
+    {$\{(\cTid, \cqA)\}$}{$\{(\cTid, \cqIo)\}$}
+  \vtrFence{e3}{below=6mm of e2}{\texttt{\_\_syncthreads}}
+    {$\cTidCTA \times \{\cqIo\}$}{$\cTidCTA \times \{\cqIo\}$}
+  % Key: annotation boxes centered above the Ob columns (centered on the widest box, row 1's).
+  \coordinate (keyY) at ([yshift=2mm]e0.north);
+  \node [annotation, anchor=south] at (e1-in.center |- keyY) {$\sporkObIn$};
+  \node [annotation, anchor=south] at (e1-out.center |- keyY) {$\sporkObOut$};
+  % 0 -> 2: right past the widest Ob^out box, then left through the gap above event 2.
+  \coordinate (xr) at ([xshift=3mm]e1-out.east);
+  \coordinate (m12) at ($(e1.south)!0.5!(e2.north)$);
+  \coordinate (g12) at (e2-in.north |- m12);
+  \draw [reach edge] (e0-out.east) -- (e0-out.east -| xr) -- (xr |- g12) -- (g12) -- (e2-in.north);
+  % 2 -> 3: down, then left through the gap above event 3.
+  \coordinate (m23) at ($(e2.south)!0.5!(e3.north)$);
+  \coordinate (g23) at (e3-in.north |- m23);
+  \draw [reach edge] (e2-out.south) |- (g23) -- (e3-in.north);
+  % envVis column. Each box sits in its event's row, a bold comment on top.
+  \coordinate (xv) at ([xshift=5mm]xr);
+  \foreach \e/\note/\vis in {
+      e0/{Initial}/{$\{(\cTid, \cqA)\}$},
+      e1/{Unreachable sync, no change}/{$\{(\cTid, \cqA)\}$},
+      e2/{Reachable: add $\sporkObOut$}/{$\{(\cTid, \cqA), (\cTid, \cqIo)\}$},
+      e3/{Reachable: add $\sporkObOut$}/{$\{(\cTid, \cqA)\} \cup (\cTidCTA \times \{\cqIo\})$}} {
+    \node (vis-\e) [tr ob, anchor=south west] at (xv |- \e.south) {\vis};
+    \node [anchor=south west, inner sep=0.5mm, font=\bfseries] at (vis-\e.north west) {\note};
+  }
+  % Key, centered on the widest envVis box (the last).
+  \node [annotation, anchor=south] at (vis-e3.center |- keyY) {$\sporkenvVis$};
+\end{sporkfigure}
+\caption{}
+\label{fig:EnvVisGrows}
+\sporkCodeRule
+\end{figure}
