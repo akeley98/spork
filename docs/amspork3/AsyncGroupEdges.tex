@@ -35,10 +35,14 @@
   \node (e4-in) [ob, anchor=east] at ([xshift=-\obGap]e4.west) {$\{\}, \{\pa{0}\}$};
   \node (e4-out) [ob, anchor=west] at ([xshift=\obGap]e4.east) {$\{(\sporktid, \qIo)\}, \{\}$};
 
-  % Column headers, centered above the widest in / out boxes.
+  % Column headers, pulled in to the event column's sides, leaving the upper right for the qtl key.
   \coordinate (keyY) at ([yshift=2mm]e0.north);
-  \node [annotation, anchor=south] at (e2-in.center |- keyY) {$(\sporkObIn, \sporkAwIn)$};
-  \node [annotation, anchor=south] at (e1-out.center |- keyY) {$(\sporkObOut, \sporkAwOut)$};
+  \node [annotation, anchor=south east] at (e1-in.east |- keyY) {$(\sporkObIn, \sporkAwIn)$};
+  \node [annotation, anchor=south west] at (e0-out.west |- keyY) {$(\sporkObOut, \sporkAwOut)$};
+  % qtl key (blue, like the edges): right of the TrPostAccess's out box, bottom-aligned with its row.
+  \node [anchor=south west, align=left, inner sep=0.5mm, text=sporkBlueFg] at ([xshift=4mm]e0-out.south east)
+    {$\qA = {}$\texttt{\sporkFigSmall Sm80\_cp\_async\_qual}\\
+     $\qIo = {}$\texttt{\sporkFigSmall cuda\_in\_order\_ram\_qual}};
 
   % Gap midlines; trunks left of the widest in box and right of the widest out box.
   \coordinate (g01) at ([yshift=-3mm]e0.south);
@@ -70,6 +74,15 @@
   \foreach \i/\j/\n in {0/1/0, 1/2/1, 2/3/1, 3/4/2}
     \node [annotation, inner sep=0.7mm] at ($(e\i.south)!0.5!(e\j.north)$) {$\sporksigma(\sporkx, \sporkz^*) = \n$};
 \end{sporkfigure}
-\caption{}
+\caption{A single thread $\sporktid$ issues an \texttt{sm\_80 cp.async} instruction,
+followed by two pairs of \texttt{commit\_group} and \texttt{wait\_group} instructions with $\sporkz_\mathrm{lag} = 1$
+(\sporkName{} syntax \texttt{Sm80\_cp\_async\_1d(\sporkComment{$\ldots$})},
+\texttt{Arrive(Sm80\_cp\_async) >> $\sporkx[\sporkz^*]$},
+and \texttt{Await($\sporkx[\sporkz^*]$, cuda\_in\_order, 1)}).
+We visualize the increasing arrive count and the trace vertices reachable from the traced $\sporkTrPostAccess$ of the \texttt{cp.async}.
+% Not getting into the weeds here about how \sporkqtl_\mathsf{io} is alone in this diagram
+% despite cuda_in_order holding 3 qtl's, because the other 2 (rmem/mbarrier) are masked out.
+}
 \label{fig:AsyncGroupEdges}
+\sporkCodeRule
 \end{figure}
