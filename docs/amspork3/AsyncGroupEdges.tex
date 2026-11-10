@@ -1,0 +1,54 @@
+% Trace edges for one thread waiting on a cp.async with an async group x[z^*], z_lag = 1, initial
+% arrive count sigma(x, z^*) = 0: TrPostAccess, TrArrive, TrAwait, TrArrive, TrAwait (rows, top to bottom).
+% Style follows 26.tex's Environment Visibility frame (sets written in the in/out boxes), minus envVis;
+% one-line event boxes. Arrives have Ob^in / Aw^out, awaits Aw^in / Ob^out.
+% The k-th arrive (from 0) has z_arrive = k; an await after n arrives has z_await = n - z_lag - 1.
+% Edges: post -> both arrives (tid, q_A), routed on the left; arrive 0 -> await 2 (pending await 0),
+% routed on the right. The first await (pending await -1) is unreachable.
+\begin{figure}[h]
+\centering
+\begin{sporkfigure}
+  \tikzset{
+    ev/.style={rectangle, draw, thick, inner sep=1mm, minimum height=7mm, minimum width=27mm},
+    ob/.style={rectangle, draw, thick, inner sep=1mm, minimum height=7mm},
+    edge label/.style={inner sep=0.5mm},
+  }
+  \newcommand{\obGap}{0.8pt}
+  \newcommand{\qA}{\sporkqtl_\mathsf{A}}
+  \newcommand{\qIo}{\sporkqtl_\mathsf{io}}
+  \newcommand{\pa}[1]{\sporkPendingAwait(\sporkx, \sporkz^*, #1)}
+  % Rows 13mm apart (6mm gaps for edges).
+  \node (e0) [ev] at (0mm, 0mm) {$\sporkTrPostAccess$};
+  \node (e0-out) [ob, anchor=west] at ([xshift=\obGap]e0.east) {$\sporkObOut = \{(\sporktid, \qA)\}$};
+  \node (e1) [ev] at (0mm, -13mm) {$\sporkTrArrive$};
+  \node (e1-in) [ob, anchor=east] at ([xshift=-\obGap]e1.west) {$\sporkObIn = \{(\sporktid, \qA)\}$};
+  \node (e1-out) [ob, anchor=west] at ([xshift=\obGap]e1.east) {$\sporkAwOut = \{\pa{\sporkz} \mid \sporkz \ge 0\}$};
+  \node (e2) [ev] at (0mm, -26mm) {$\sporkTrAwait$};
+  \node (e2-in) [ob, anchor=east] at ([xshift=-\obGap]e2.west) {$\sporkAwIn = \{\pa{-1}\}$};
+  \node (e2-out) [ob, anchor=west] at ([xshift=\obGap]e2.east) {$\sporkObOut = \{(\sporktid, \qIo)\}$};
+  \node (e3) [ev] at (0mm, -39mm) {$\sporkTrArrive$};
+  \node (e3-in) [ob, anchor=east] at ([xshift=-\obGap]e3.west) {$\sporkObIn = \{(\sporktid, \qA)\}$};
+  \node (e3-out) [ob, anchor=west] at ([xshift=\obGap]e3.east) {$\sporkAwOut = \{\pa{\sporkz} \mid \sporkz \ge 1\}$};
+  \node (e4) [ev] at (0mm, -52mm) {$\sporkTrAwait$};
+  \node (e4-in) [ob, anchor=east] at ([xshift=-\obGap]e4.west) {$\sporkAwIn = \{\pa{0}\}$};
+  \node (e4-out) [ob, anchor=west] at ([xshift=\obGap]e4.east) {$\sporkObOut = \{(\sporktid, \qIo)\}$};
+
+  % Gap midlines; trunks left of the widest Ob^in / Aw^in and right of the widest Ob^out / Aw^out.
+  \coordinate (g01) at ([yshift=-3mm]e0.south);
+  \coordinate (g23) at ([yshift=-3mm]e2.south);
+  \coordinate (g34) at ([yshift=-3mm]e3.south);
+  \coordinate (xl) at ([xshift=-2.5mm]e2-in.west);
+  \coordinate (xr) at ([xshift=2.5mm]e1-out.east);
+
+  % Post -> arrive 0, and post -> arrive 1 down the left trunk.
+  \draw [spork arrow] (e0-out.south) |- (g01) -| (e1-in.north);
+  \node [edge label, anchor=south] at ([yshift=0.5mm]g01 -| e1-in.north) {$(\sporktid, \qA)$};
+  \draw [spork arrow] (e0-out.south) |- (g01) -- (g01 -| xl) -- (g23 -| xl) -- (g23 -| e3-in.north) -- (e3-in.north);
+  \node [edge label, anchor=west] at ([xshift=1mm]xl |- e1) {$(\sporktid, \qA)$};
+  % Arrive 0 -> await 2 down the right trunk.
+  \draw [spork arrow] (e1-out.east) -- (e1-out.east -| xr) -- (g34 -| xr) -- (g34 -| e4-in.north) -- (e4-in.north);
+  \node [edge label, anchor=east, align=right] at ([xshift=-1mm]xr |- e2) {$\sporkPendingAwait$\\$(\sporkx, \sporkz^*, 0)$};
+\end{sporkfigure}
+\caption{}
+\label{fig:AsyncGroupEdges}
+\end{figure}
