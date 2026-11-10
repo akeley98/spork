@@ -46,7 +46,9 @@ observer sets of other events.
 So, forming trace edges with any other sort of trace event (synchronization, or non-atomic accesses)
 relies only on edges labelled with observers $(\sporktid, \sporkqtlNat)$
 with $\sporktid \in \sporktidMap(\sporksigma)$ only,
-which matches the behavior for non-atomic accesses (Figure~\sporkTodoLink{}).
+avoiding implicit synchronization with other threads (Figure~\ref{fig:AtomicEdges}).
+
+\input{AtomicEdges.tex}
 
 We currently model only device-scope atomics (full single GPU),
 which matches the project scope of executing kernels on a single GPU.

@@ -1,0 +1,58 @@
+% Trace edges among 2 atomics then 2 non-atomics on threads tid_0 (raised) and tid_1 (lowered);
+% trace order is left to right (event boxes' left edges). The other 3 TrPostAccess are cut for space.
+% Sets: Ob^out of the atomic TrPostAccess, Ob^in of each TrPreAccess (Section TraceAtomics prose).
+% Edges from the atomic post: (tid_1, qtl_at) to the atomic pre, (tid_0, qtl_nat) to the tid_0 non-atomic;
+% none (red, dotted) to the tid_1 non-atomic. Event box style follows 26.tex's \trPre/\trPost.
+\begin{figure}[h]
+\centering
+\begin{sporkfigure}
+  \tikzset{
+    ev/.style={rectangle, draw, thick, align=center, inner sep=1.5mm, minimum height=12mm, minimum width=27mm},
+    ob/.style={rectangle, draw, thick, inner sep=1mm, minimum height=7mm},
+    set note/.style={annotation, inner sep=1mm},
+    edge label/.style={inner sep=0.5mm},
+  }
+  \newcommand{\obGap}{0.8pt}
+  % tid_0 row centered at y = 0, tid_1 row at y = -21mm.
+  \node (a) [ev, anchor=west] at (0mm, 0mm) {$\sporkTrPostAccess$\\atomic, $\sporktid_0$};
+  \node (a-out) [ob, anchor=west] at ([xshift=\obGap]a.east) {$\sporkObOut$};
+  \node (b-in) [ob, anchor=west] at (52mm, -21mm) {$\sporkObIn$};
+  \node (b) [ev, anchor=west] at ([xshift=\obGap]b-in.east) {$\sporkTrPreAccess$\\atomic, $\sporktid_1$};
+  \node (c-in) [ob, anchor=west] at (84mm, 0mm) {$\sporkObIn$};
+  \node (c) [ev, anchor=west] at ([xshift=\obGap]c-in.east) {$\sporkTrPreAccess$\\non-atomic, $\sporktid_0$};
+  \node (d-in) [ob, anchor=west] at (112mm, -21mm) {$\sporkObIn$};
+  \node (d) [ev, anchor=west] at ([xshift=\obGap]d-in.east) {$\sporkTrPreAccess$\\non-atomic, $\sporktid_1$};
+
+  % Sets: above the tid_0 row, below the tid_1 row.
+  \node (aSet) [set note, anchor=south] at ([yshift=5mm]a-out.north)
+    {$\sporkObOut = (\sporkTid \times \{\sporkqtlAt\}) \cup \{(\sporktid_0, \sporkqtlNat)\}$};
+  \draw [annotation line] (aSet.south -| a-out) -- (a-out.north);
+  \node (cSet) [set note, anchor=south] at ([yshift=5mm]c-in.north)
+    {$\sporkObIn = \{(\sporktid_0, \sporkqtlNat)\}$};
+  \draw [annotation line] (cSet.south -| c-in) -- (c-in.north);
+  \node (bSet) [set note, anchor=north] at ([yshift=-5mm]b-in.south)
+    {$\sporkObIn = \{(\sporktid_1, \sporkqtlAt), (\sporktid_1, \sporkqtlNat)\}$};
+  \draw [annotation line] (bSet.north -| b-in) -- (b-in.south);
+  \node (dSet) [set note, anchor=north] at ([yshift=-5mm]d-in.south)
+    {$\sporkObIn = \{(\sporktid_1, \sporkqtlNat)\}$};
+  \draw [annotation line] (dSet.north -| d-in) -- (d-in.south);
+
+  % Edges.
+  \draw [spork arrow] (a-out) -- node [edge label, above] {$(\sporktid_0, \sporkqtlNat)$} (c-in);
+  \draw [spork arrow] (a-out.south) -- node [edge label, left=2.5mm, pos=0.55] {$(\sporktid_1, \sporkqtlAt)$} (b-in.north);
+  \begin{scope}[draw=sporkRedFg, text=sporkRedFg]
+    \draw [spork arrow, dash pattern=on 2.5pt off 2pt] (a-out.south east) -- coordinate [pos=0.45] (mid) (d-in.north west);
+    \draw [line width=1.5pt] ([shift={(-1.8mm,-1.8mm)}]mid) -- ([shift={(1.8mm,1.8mm)}]mid)
+      ([shift={(-1.8mm,1.8mm)}]mid) -- ([shift={(1.8mm,-1.8mm)}]mid);
+    \node [anchor=south west, font=\bfseries] at ([shift={(1.5mm,0.5mm)}]mid) {No edge};
+  \end{scope}
+\end{sporkfigure}
+\caption{ %
+Two different threads $\sporktid_0,\sporktid_1$ issue one atomic access each followed by one non-atomic access each,
+all to the same array element.
+We visualize the trace vertices reachable from the $\sporkTrPostAccess$ of $\sporktid_0$'s atomic access.
+Only the $\sporkTrPreAccess$ for $\sporktid_1$'s non-atomic access is not reachable without intervening synchronization.
+}
+\label{fig:AtomicEdges}
+\sporkCodeRule
+\end{figure}
