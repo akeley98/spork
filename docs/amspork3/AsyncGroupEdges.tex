@@ -62,12 +62,18 @@
   \draw [edge] (p1) |- (h1) -| (e1-in.north);
   \node [edge label, anchor=south] at ([yshift=0.5mm]h1 -| e1-in.north) {$\{(\sporktid, \qA)\}, \{\}$};
   \draw [edge] (p0) |- (h0) -- (h0 -| xl) -- (g23 -| xl) -- (g23 -| e3-in.north) -- (e3-in.north);
-  % Left of Arrive 0's in box, bottom just into the row 1-2 gap (clear of the Await row below).
-  \node [edge label, anchor=south west] at ([shift={(1mm,-0.5mm)}]g12 -| xl) {$\{(\sporktid, \qA)\}, \{\}$};
+  % Left of Arrive 1's in box, hanging just under the edge's horizontal run into it.
+  \node [edge label, anchor=north west] at ([shift={(1mm,-0.5mm)}]g23 -| xl) {$\{(\sporktid, \qA)\}, \{\}$};
   % Arrive 0 -> await 2 down the right trunk.
   \draw [edge] (e1-out.east) -- (e1-out.east -| xr) -- (g34 -| xr) -- (g34 -| e4-in.north) -- (e4-in.north);
   \node [edge label, anchor=east, align=right] at ([xshift=-1mm]xr |- e2)
     {$\{\}, \{\sporkPendingAwait$\\$(\sporkx, \sporkz^*, 0)\}$};
+
+  % Unreachable marker for the first await: as far left as fits (just right of the left trunk), just above
+  % the await's in box (straddling the row 1-2 gap, so not level with the TrArrive), pointing down into it.
+  \node (unreach) [rectangle, draw, thick, spork red style, inner sep=0.8mm, anchor=south west]
+    at ([shift={(1.5mm,2.5mm)}]xl |- e2-in.north) {Unreachable};
+  \draw [spork arrow, draw=sporkRedFg] (unreach.south) -- (unreach.south |- e2-in.north);
 
   % Arrive count between consecutive events, centered on the event column; drawn last, so their fill
   % hides the edge runs passing under them.
