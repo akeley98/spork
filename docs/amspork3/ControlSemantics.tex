@@ -37,9 +37,9 @@
 }\\
 \inferrule*[right=\sporkCCudaDeviceFunction]{
   % Risk of diverging from the code
-  \sporkQtlStream = \sporkQtl \setminus \{ \texttt{cpu\_in\_order\_qual} \} \sporkComment{ [all CUDA $\sporkqtl$, Section~\ref{sec:Qtl}] } \\
+  \sporkComment{ (See caption for $\sporkQtlStream$) } \\
   \forall\sporksigma' \in \sporkSigma.\sporktidMap_\mathrm{allThreads}(\sporksigma') = \sporkTid \\
-  \sporks_\mathrm{fence1} = \texttt{Fence($\sporkQtl$, $\sporkQtlStream$)} \# \sporktidMap_\mathrm{allThreads} \sporkComment{ [implied CPU$\to$CUDA sync]} \\
+  \sporks_\mathrm{fence1} = \texttt{Fence($\sporkQtlStream \cup \{\texttt{cpu\_in\_order\_qual}\}$, $\sporkQtlStream$)} \# \sporktidMap_\mathrm{allThreads} \\
   \sporks_\mathrm{fence2} = \texttt{Fence($\sporkQtlStream$, $\sporkQtlStream$)} \# \sporktidMap_\mathrm{allThreads}
 }
 {
@@ -79,6 +79,7 @@
   \sporkRule{\texttt{assert $\sporkSub{\sporkexpr_1}{\sporkexpr_2}$}, \sporksigma, \sporkSub{\sporktr^*_1}{\sporktr^*_2}}
 }
 \inferrule*[right=\sporkCAssertPass]{
+  \sporkComment{(No \texttt{assert False} rule: it's stuck)}
 }
 {
   \sporkRule{\sporkSub{\texttt{assert $\sporkTrue$}}{\texttt{pass}}, \sporksigma, \sporktr^*}
@@ -90,7 +91,9 @@ and that \texttt{with CudaWarps} constructs are equivalent to \texttt{if True:}.
 The loop variable is stored in $\sporksigma$ as a 0-dimensional value (read as $\sporkx[]$ by \sporkERead, and visible to $\sporktidMap(\sporksigma)$);
 programs never assign loop variables and variable names are assumed unique, so no scope-exit rule is needed.
 \texttt{with CudaDeviceFunction} includes implicit ``free'' synchronization between the CPU and all possible CUDA threads.
-No rule steps \texttt{assert $\sporkFalse$}; a failed assertion is intentionally a stuck state.
+$\sporkQtlStream$ consists of all ``data RAM'' class $\sporkqtl$ (any proxy),
+excluding \texttt{cpu\_in\_order\_qual} and atomic $\sporkqtl$ (Section~\ref{sec:Qtl}).
+% Single class in paper corresponds to "mask class" and "proxy class" in code.
 }
 \label{fig:ControlSemantics}
 \hrule
