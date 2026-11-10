@@ -1,22 +1,44 @@
 \sporkSection{Synchronization Environment}{sec:SyncEnv}
 
-The goal of the synchronization environment is to ``compress'' the trace into an environment-like object that records a summary of the prior reads and mutates done to each array element.
-Rather than keeping the literal trace, the prior reads and mutates are summarized based on analyzing how synchronization events propagate the observation of the read or mutate to more threads.
-Define
+Raw traces are far too cumbersome to analyze directly,
+especially given the all-to-all checking required by $\sporkConcatChk$.
+Just as a trace like $x \leftarrow 3; y \leftarrow 4; x \leftarrow x + 10; y \leftarrow y + 20$
+may be compressed to a value environment $\{(x, 13), (y, 24)\}$,
+discarding the specific history of how $x$ and $y$ received their values
+in favor of just the final result,
+we would also like to compress our traces into a \emph{synchronization environment}.
+
+This raises the question of what the ``final value'' of a $\sporkTrPostAccess$ vertex $\sporkvPost$ is.
+$\sporkvPost$ may be summarized by considering all vertices reachable from
+$\sporkvPost$ and taking the union of all such vertices' outbound sets
+(Figure~\ref{fig:EnvVisGrows}).
+Then, whether a new vertex $\sporkvert$ is reachable from $\sporkvPost$ is immediately known
+from testing for intersection between $\sporkvert$'s inbound sets and said union.
+This correspondence is $\sporktoEnvTotal$ (Section~\ref{sec:SyncEnvTotal}),
+and this union, along with the $\sporkQtlMask$ of the vertex, is a \emph{visibility record}:
+\begin{align}
+    \sporkenvVis: \sporkEnvVis &\Coloneqq (\sporkOb_v, \sporkAw_v, \sporkQtlMask)
+\end{align}
+The $\sporkTrPostAccess$ as a whole corresponds to a $(\sporkenvEff, \sporkenvVis)$ pair,
+and the entire trace corresponds to a synchronization environment:
 \begin{align}
     % Already defined EnvEff, but this is the proper place.
     \sporkenvEff: \sporkEnvEff &\Coloneqq (\sporkmut, \sporkx, \sporkz_i^*) \\
-    \sporkenvVis: \sporkEnvVis &\Coloneqq (\sporkOb_v, \sporkAw_v, \sporkQtlMask) \sporkComment{\quad(``visibility record'')}\\
     \sporkEnv &= \mathcal{P}(\sporkEnvEff \times \sporkEnvVis)
 \end{align}
-Each $(\sporkenvEff, \sporkenvVis)$ pair in a given $\sporkenv:\sporkEnv$ corresponds 1:1 with a $\sporkTrPostAccess$ event
-(if we ignore set de-duplication).
-The ultimate goal of this section is to define $\sporkenv$ and $\sporkConcatEnv$ as semantics-preserving drop-in replacements for $\sporktr^*$ and $\sporkConcatChk$; i.e., that alternative semantics (Section~\ref{sec:Semantics}) with $\sporktr^*$ and $\sporkConcatChk$ replaced with $\sporkenv$ and $\sporkConcatEnv$ will get stuck on an input program iff said program gets stuck with the original semantics.
-For brevity, we allow treating $\sporkenv$ as a relation $\sporkEnvEff \to \mathcal{P}(\sporkEnvVis)$;
-this looks up a set of visibility records corresponding to prior $\sporkTrPostAccess$ events matching a certain effect (``read/mutate at $\sporkx[\sporkz_i^*]$'').
+Unlike value environments, which store a single value for each $(\sporkx, \sporkz_i^*)$ key,
+the synchronization environment needs to track \emph{all} prior reads/mutates at $\sporkx[\sporkz_i^*]$,
+so we treat $\sporkenv$ as a relation $\sporkEnvEff \to \mathcal{P}(\sporkEnvVis)$:
 \begin{align}
     \sporkenv(\sporkenvEff) = \{ \sporkenvVis \mid (\sporkenvEff, \sporkenvVis) \in \sporkenv \}
 \end{align}
+We ultimately drop the trace graph entirely in favor of $\sporkenv$
+($\sporktoEnvTotal$ is only an intermediate proof step).
+In this section, we'll define $\sporkenv$ and $\sporkConcatEnv$
+as semantics-preserving drop-in replacements for $\sporktr^*$ and $\sporkConcatChk$;
+i.e., alternative semantics (Section~\ref{sec:Semantics})
+with $\sporktr^*$ and $\sporkConcatChk$ replaced with $\sporkenv$ and $\sporkConcatEnv$
+will get stuck on an input program iff said program gets stuck with the original semantics.
 
 \input{EnvVisGrows.tex}
 
