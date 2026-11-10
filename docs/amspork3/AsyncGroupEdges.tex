@@ -50,7 +50,7 @@
   \coordinate (g23) at ([yshift=-3mm]e2.south);
   \coordinate (g34) at ([yshift=-3mm]e3.south);
   \coordinate (xl) at ([xshift=-2.5mm]e2-in.west);
-  \coordinate (xr) at ([xshift=2.5mm]e1-out.east);
+  \coordinate (xr) at ([xshift=14.5mm]e1-out.east);  % room for the one-line label right of the Await's out box
 
   % Post -> arrive 0, and post -> arrive 1 down the left trunk. Their shared run is drawn doubled, 1.4mm
   % apart: the arrive 0 edge takes the upper horizontal, right under its label, so its vertical is on the
@@ -66,8 +66,7 @@
   \node [edge label, anchor=north west] at ([shift={(1mm,-0.5mm)}]g23 -| xl) {$\{(\sporktid, \qA)\}, \{\}$};
   % Arrive 0 -> await 2 down the right trunk.
   \draw [edge] (e1-out.east) -- (e1-out.east -| xr) -- (g34 -| xr) -- (g34 -| e4-in.north) -- (e4-in.north);
-  \node [edge label, anchor=east, align=right] at ([xshift=-1mm]xr |- e2)
-    {$\{\}, \{\sporkPendingAwait$\\$(\sporkx, \sporkz^*, 0)\}$};
+  \node [edge label, anchor=east] at ([xshift=-1mm]xr |- g23) {$\{\}, \{\pa{0}\}$};  % in the row 2-3 gap, off the TrAwait row
 
   % Unreachable marker for the first await: as far left as fits (just right of the left trunk), just above
   % the await's in box (straddling the row 1-2 gap, so not level with the TrArrive), pointing down into it.
