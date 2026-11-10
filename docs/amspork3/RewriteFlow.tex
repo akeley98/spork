@@ -27,7 +27,7 @@
   \draw [rewrite arrow, dash pattern=on 2.5pt off 2pt] (proc1) --
     node (rewritesStar) [above=0.3mm, font=\fontsize{16}{19}\selectfont, text=sporkBlueFg] {$*$} (procM);
   \draw [rewrite arrow] (procM) -- node [rewrite label] {$R_n$} (procN);
-  \path (proc0.south) -- node (rewrites) [below=1mm, text=sporkBlueFg] {Exo Rewrites} (procN.south);
+  \path (proc0.south) -- node (rewrites) [below=0mm, text=sporkBlueFg] {Exo Rewrites} (procN.south);
   \draw [spork arrow] (procN) -- (checks);
   \draw [spork arrow] (checks) -- (code);
 
