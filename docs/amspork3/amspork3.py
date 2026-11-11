@@ -8,6 +8,7 @@ from __future__ import annotations
 import sys
 
 from exo import *
+from exo.stdlib.scheduling import *
 from exo.scalars import f16, bf16, f32
 from exo.platforms.cuda import *
 from exo.platforms.Sm80 import *
@@ -626,3 +627,164 @@ if False:
         if i < 6:
             C[i] = tmp[i]
     # TeX: end tma_mini_unsafe
+
+
+
+# Pseudocode, using scalars to stand-in for tiles.
+# Hacks (which should be cut out of any listing taken from here)
+# to force it to pass sync_check:
+#   * using cuda_in_order in some places where there should be
+#     cuda_async_proxy_retired or cuda_generic_and_async_proxy.
+#   * fake in cuda_threads(0, 1) loops to make the scalar ops OK
+#     with collective analysis.
+#   * Also the focus is just mbarrier sync, obviously the real
+#     gemm will have wgmma waits and also barriers in the epilogue
+#     to protect the RMEM -> SMEM -> GMEM cross-thread shuffles.
+# As usual I force myself to make it pass sync_check to decrease
+# the chance I give bad information to the reader in a listing.
+
+RING = 3
+
+@proc
+def Sm90_coop_gemm_pseudocode(
+    M: size, N: size, K: size,
+    A: f32[M, K] @ CudaGmemLinear,
+    B: f32[K, N] @ CudaGmemLinear,
+    C: f32[M, N] @ CudaGmemLinear
+):
+  with CudaDeviceFunction(warp_config=[
+    CudaWarpConfig("producer", 1),
+    CudaWarpConfig("unused", 3),
+    CudaWarpConfig("consumer", 8),
+  ]):
+    for mt in cuda_tasks(0, M):
+      for nt in cuda_tasks(0, N):
+        cons_bar: barrier[(K + RING) @ ring_buffer_by(RING)] @ CudaMbarrierPreArrive(RING)
+        prod_bar: barrier[K @ ring_buffer_by(RING)] @ CudaMbarrierPreArrive(0)
+        A_smem: f32[RING] @ CudaSmemLinear  # Swizzled in real TMA impl
+        B_smem: f32[RING] @ CudaSmemLinear  # Swizzled in real TMA impl
+        D: f32 @ CudaRmem
+        with CudaWarps(name="consumer"):
+         for fake in cuda_threads(0, 1):
+           D = 0
+        # Main loop
+        for k in seq(0, K):
+         with CudaWarps(name="producer"):
+          for fake in cuda_threads(0, 1):
+            # Real barriers should use cuda_async_proxy_retired in-place of cuda_in_order
+            Await(cons_bar[k], cuda_in_order, 0)
+            A_smem[k % RING] = A[mt, k]
+            B_smem[k % RING] = B[k, nt]
+            Arrive(cuda_in_order) >> prod_bar[k]
+         with CudaWarps(name="consumer"):
+          for fake in cuda_threads(0, 1):
+            Await(prod_bar[k], cuda_in_order, 0)
+            D += A_smem[k % RING] + B_smem[k % RING]
+            Arrive(cuda_in_order) >> cons_bar[k + RING]
+        Fence(cuda_in_order, cuda_in_order)
+        C_smem: f32 @ CudaSmemLinear  # Swizzled in real TMA impl
+        # Epilogue
+        with CudaWarps(name="consumer"):
+         for fake in cuda_threads(0, 1):
+          C_smem = D
+          C[mt,nt] = C_smem
+        Fence(cuda_in_order, cuda_in_order)
+
+Sm90_coop_gemm_pseudocode.sync_check(M=8, N=6, K=20)
+del RING
+
+
+# Further hacks
+#  * K is a constant due to affine indexing restrictions
+#  * Completely fake CudaWarps to express the impossible
+#    thing that cuda_multi_for would make expressible.
+#    (Selecting a warpgroup based on the mp-iteration).
+#  * For the real ping-pong Exo-GPU kernel, we should use
+#    separate "consumer0" and "consumer1" 4-warp groups,
+#    so that the inactive consumer warpgroup is able to statically
+#    eliminate the main loop.
+
+def mk_ping_pong(CudaWarps):
+  K = 42
+  # mp = 0
+  # real_CudaWarps = CudaWarps
+  RING = 3
+
+  # Ignore lo/hi.
+  # CudaWarps = lambda *lo_hi, name: real_CudaWarps(name=name)
+
+  @proc
+  def Sm90_ping_pong_gemm_pseudocode(
+      M: size, N: size,
+      A: f32[M, K] @ CudaGmemLinear,
+      B: f32[K, N] @ CudaGmemLinear,
+      C: f32[M, N] @ CudaGmemLinear
+  ):
+    assert M % 2 == 0  # To keep the pseudocode simpler.
+    with CudaDeviceFunction(warp_config=[
+      CudaWarpConfig("producer", 1),
+      CudaWarpConfig("unused", 3),
+      CudaWarpConfig("consumer", 8),
+    ]):
+      for mt in cuda_tasks(0, M/2):
+        for nt in cuda_tasks(0, N):
+          main_bar: barrier[3 @ ring_buffer_by(2)] @ CudaMbarrierPreArrive(1)
+          ep_bar: barrier[3 @ ring_buffer_by(2)] @ CudaMbarrierPreArrive(1)
+          cons_bar: barrier[(2 * K + RING) @ ring_buffer_by(RING)] @ CudaMbarrierPreArrive(RING)
+          prod_bar: barrier[(2 * K) @ ring_buffer_by(RING)] @ CudaMbarrierPreArrive(0)
+          # All SMEM swizzled in real TMA impl
+          A_smem: f32[(2 * K) @ ring_buffer_by(RING)].ring_guarded_by(cons_bar) @ CudaSmemLinear
+          B_smem: f32[(2 * K) @ ring_buffer_by(RING)].ring_guarded_by(cons_bar) @ CudaSmemLinear
+          C_smem: f32[2 @ ring_buffer_by(1)].ring_guarded_by(ep_bar) @ CudaSmemLinear
+          with python:
+            for mp in range(0, 2):
+              with exo:
+                D: f32 @ CudaRmemLinear
+                with CudaWarps(mp*4, mp*4 + 4, name="consumer"):
+                 for fake in cuda_threads(0, 1):
+                  D = 0
+                  Await(main_bar[mp], cuda_in_order, 0)
+                # Main loop
+                for k in seq(0, K):
+                  with CudaWarps(name="producer"):
+                   for fake in cuda_threads(0, 1):
+                    Await(cons_bar[K*mp + k], cuda_in_order, 0)
+                    A_smem[K*mp + k] = A[2*mt + mp, k]
+                    B_smem[K*mp + k] = B[k, nt]
+                    Arrive(cuda_in_order) >> prod_bar[K*mp + k]
+                  # ======== XXX remember to acknowledge this is not real Exo-GPU. ========
+                  with CudaWarps(mp*4, mp*4 + 4, name="consumer"):
+                   for fake in cuda_threads(0, 1):
+                    Await(prod_bar[K*mp + k], cuda_in_order, 0)
+                    D += A_smem[K*mp + k] * B_smem[K*mp + k]
+                    Arrive(cuda_in_order) >> cons_bar[K*mp + k + RING]
+                # Epilogue
+                # ======== XXX remember to acknowledge this is not real Exo-GPU. ========
+                with CudaWarps(mp*4, mp*4 + 4, name="consumer"):
+                 for fake in cuda_threads(0, 1):
+                  Arrive(cuda_in_order) >> main_bar[mp + 1]
+                  Await(ep_bar[mp], cuda_in_order, 0)
+                  C_smem[mp] = D
+                  C[2*mt + mp,nt] = C_smem[mp]
+                  Arrive(cuda_in_order) >> ep_bar[mp + 1]
+
+  p = Sm90_ping_pong_gemm_pseudocode
+  # mp_cursor, = p.find_all("for mp in _:_")
+  # p = unroll_loop(p, mp_cursor)
+  # k_cursors = p.find_all("for k in _:_")
+  # assert len(k_cursors) == 2
+  # for k_cursor in k_cursors:
+  #   assert len(k_cursor) == 2
+  #   # Real code should use "consumer0" or "consumer1"
+  #   warps_ctx = CudaWarps(mp*4, mp*4 + 4, name="consumer")
+  #   consumer_k_cursor = k_cursor[1]
+  #   assert isinstance(consumer_k_cursor, IfCursor)
+  #   p = wrap_with_context(p, consumer_k_cursor, warps_ctx)
+  #   consumer_ep_cursor = k_cursor.next()
+  #   assert isinstance(consumer_ep_cursor, IfCursor)
+  #   p = wrap_with_context(p, consumer_ep_cursor, warps_ctx)
+  p.sync_check(M=8, N=6)
+  return p
+
+Sm90_ping_pong_gemm_pseudocode = mk_ping_pong(CudaWarps)
+
