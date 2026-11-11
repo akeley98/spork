@@ -32,9 +32,11 @@
 \end{mathpar}
 \caption{Synchronization Structural Semantics.
 Note, $\sporksigma(\sporkx)$ is used to store ``arrive counts'' for barrier variables $\sporkx$.
-This is initially 0 (\sporkSAlloc), but is overridden in some cases for mbarriers (Section~\ref{sec:SmemAppendix});
-said section also explains the synchronization obligations imposed by $\sporkallocTrDetail$.
+This is initially 0 (\sporkSAlloc).
+Section~\ref{sec:SmemAppendix} explains the synchronization obligations imposed by $\sporkallocTrDetail$ for mbarriers
+(Section~\ref{sec:Mbarriers}).
 % Totally ignored: Await count assertion.
+% Also ignored, the pre_arrive stuff.
 }
 \label{fig:SyncStructuralSemantics}
 \hrule

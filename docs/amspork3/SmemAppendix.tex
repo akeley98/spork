@@ -1,3 +1,155 @@
 \sporkSection{Appendix: Shared Memory}{sec:SmemAppendix}
 
-\sporkRed{TODO there's no words on it!}
+% This is mainly written for agents to check my work and not because I expect humans to read this.
+% Even then, I skip the detail of the pre_arrive mechanism for mbarriers.
+
+We give the definitions of $\sporkallocTrDetail$ and $\sporkfreeTrDetail$,
+which were used in $\sporkDAlloc$ (Figure~\ref{fig:DataSemantics}),
+$\sporkSAlloc$ (Figure~\ref{fig:SyncStructuralSemantics}),
+and $\sporkDFree$ to hide the details of the synchronization obligations imposed by the SMEM allocators.
+All non-SMEM $\sporkmem$ and $\sporkbarMech$ types give empty traces.
+
+We implement three SMEM allocators, two for data (either requiring cluster sync or mbarrier synchronization),
+and one for mbarriers (Section~\ref{sec:Mbarriers}).
+All three sub-allocate from their own SMEM pools.
+We currently do not reason about cross-proxy fences (Section~\ref{sec:ProxyFences})
+in the SMEM allocators, so we may fail to notice a missing cross-proxy fence
+between a generic proxy memory access and an async proxy memory access to the same physical address,
+when those accesses are via differently-named \sporkName{} arrays.
+
+\sporkMainKey{SMEM Data, Cluster Sync:}
+This simple allocator is for SMEM data arrays that are not managed ring buffers.
+These arrays must be allocated in CUDA cluster scope (Section~\ref{sec:CollTiling}).
+% Not going to pipe \# sporktidMap through the alloc/free grammar just for this obscure appendix.
+The allocator simply enforces that no thread in the cluster $\sporkTid_\mathrm{cl}$
+may proceed past the free statement until all prior accesses to the array have retired.
+% \sporkx_\mathrm{arg}[\sporkz_\mathrm{arg}^*]
+\begin{align*}
+  & \sporkallocTrDetail(\sporkwz, \sporkmem) = () \\
+  & \sporkfreeTrDetail(\sporkwz, \sporkmem) =
+    \textbf{let } \sporkQtlPre = \{ \texttt{cuda\_in\_order\_ram\_qual} \} \textbf{ in} \\
+  & (
+      \sporkTrPreAccess(\sporkmutate, \sporkx, \sporkz^*, \{ \sporktid \}, \sporkQtlPre, \varnothing)
+    )_{(\sporkx, \sporkz^*) \in \sporkWunroll(\sporkwz), \sporktid \in \sporkTid_\mathrm{cl}}
+\end{align*}
+
+\sporkMainKey{SMEM Data, mbarrier Sync:}
+\sporkName{} expects managed ring buffers of data type to be protected with mbarrier synchronization.
+Each data array element $\sporkx[\sporkz^*]$ is mapped to a set of ``guard'' barrier array elements
+$\mathsf{guards}(\sporkx[\sporkz^*]) : \mathcal{P}(\sporkX \times \sporkZ^*)$.
+Recall that each barrier array element represents a single phase of a single physical mbarrier
+(Section~\ref{sec:Mbarriers}).
+Waiting on \emph{any} of those guards gives permission to access the data array element,
+and such accesses must be partially parallel ordered before arrives
+for \emph{each} guard of the next ring buffer slot aliased to that data array element.
+
+With $\sporkQtlMask$ being all $\sporkqtl$ of data RAM class (Section~\ref{sec:Qtl}),
+$\sporkqtlInit$ being \texttt{cuda\_in\_order\_ram\_qual},
+$\sporkz_\mathrm{eac}$ being the expected arrival count of the mbarrier guards,
+and $\sporkz_\mathrm{off}^*$ (same dimension as the data array) being a vector
+with the \texttt{ring\_depth} of $\sporkx$ on the managed ring buffer dimension
+and 0 on all other dimensions,
+\begin{align*}
+  & \sporkallocTrDetail(\sporkwz, \sporkmem) = \\
+  & \textbf{let }
+    \mathsf{gAwait}(\sporkx[\sporkz^*]) =\{
+      \sporkPendingAwait(\sporkx_b, \sporkz_b^*, \sporkz_\mathrm{await}) \mid
+        (\sporkx_b, \sporkz_b^*) \in \mathsf{guards}(\sporkx[\sporkz^*]),
+        \sporkz_\mathrm{await} \ge \sporkz_\mathrm{eac} - 1
+    \}
+    \textbf{ in}
+  \\
+  & (
+      \sporkTrPostAccess(
+        \sporkmutate, \sporkx, \sporkz^*, \varnothing, \sporkqtlInit,
+        \varnothing, \sporkQtlMask, \mathsf{gAwait}(\sporkx[\sporkz^*]))
+    )_{(\sporkx, \sporkz^*) \in \sporkWunroll(\sporkwz)} \sporkComment{ ($\sporkqtlInit$ doesn't matter)} \\
+  & \sporkfreeTrDetail(\sporkwz, \sporkmem) =
+    \textbf{let }
+    \mathsf{gNext}(\sporkx[\sporkz^*]) = \mathsf{guards}(\sporkx[\sporkz^* + \sporkz_\mathrm{off}^*])
+    \textbf{ in}
+  \\
+  & (
+      \sporkTrPreAccess(
+        \sporkmutate, \sporkx, \sporkz^*, \varnothing, \varnothing,
+        \sporkPendingAwait(\sporkx_b, \sporkz_b^*, \sporkz_\mathrm{eac} - 1)
+    )_{(\sporkx, \sporkz^*) \in \sporkWunroll(\sporkwz), (\sporkx_b, \sporkz_b^*) \in \mathsf{gNext}(\sporkx[\sporkz^*])}
+\end{align*}
+Note there is a $\sporkTrPreAccess$ for each guard, unlike $\sporkTrPostAccess$;
+this is the asymmetry of the earlier ``each'' and ``any'';
+also note that \textsf{gNext} gives the guards of the array element aliased to $\sporkx[\sporkz^*]$
+in the next ring buffer slot.
+
+The details of $\mathsf{guards}(\sporkx[\sporkz^*])$ are:
+\begin{enumerate}
+  \item Let $\sporkx_b$ be from the
+    \texttt{.ring\_guarded\_by($\sporkx$)} directive
+    on the allocation of $\sporkx$ (not shown in grammar).
+    $\sporkx_b$ must name a barrier array with mbarrier $\sporkbarMech$,
+    and with the same managed ring buffer dimension as $\sporkx$.
+    Note, they do \emph{not} have to have the same \texttt{ring\_depth}
+    (very important for the ping-pong kernel).
+  \item Let $\sporkz_b^*$ be the prefix of $\sporkz^*$
+    of length matching the dimensionality of the $\sporkx_b$ array.
+  % This multicast group summary is intentionally short and vague so the
+  % "thesis" doesn't become even more of a technical manual
+  % than it already is.
+  \item All arrive statements using $\sporkx_b$ must have the same multicasting pattern.
+    There must be a single ``home barrier'', which is the intersection of all barrier array elements referenced.
+    For example, \texttt{Arrive(cuda\_in\_order) >> x[m,:,k] >> x[:,n,k]}
+    has home barrier \texttt{x[m,n,k]}.
+    This also implies a reverse mapping from the home barrier back to all referenced barriers.
+  \item $\mathsf{guards}(\sporkx[\sporkz^*])$ is $\sporkx_b[\sporkz_b^*]$
+    passed through said ``multicast'' reverse mapping.
+\end{enumerate}
+
+\sporkMainKey{mbarrier:}
+Barrier array allocations of mbarrier $\sporkbarMech$ are similar to the previous case,
+except mbarriers guard themselves.
+Recall that $\sporkx_b[\sporkz_b^*]$ references a specific phase of a specific physical mbarrier.
+Any \texttt{Arrive} or \texttt{Await} of $\sporkx_b[\sporkz_b^*]$
+must happen after awaiting for the previous phase of that physical mbarrier,
+and must happen before arrives that may complete the next phase of that physical mbarrier.
+Said previous and next phases are $\sporkx_b[\sporkz_b^* - \sporkz_\mathrm{off}^*]$
+and $\sporkx_b[\sporkz_b^* + \sporkz_\mathrm{off}^*]$ in the following.
+
+With $\sporkqtl = \texttt{cuda\_mbarrier\_qual}$,
+$\sporkQtlMask = \{\sporkqtl\}$,
+$\sporkz_\mathrm{eac}$ being the expected arrival count of the mbarriers,
+and $\sporkz_\mathrm{off}^*$ (same dimension as the barrier array) being a vector
+with \texttt{ring\_depth} on the managed ring buffer dimension and 0 on all other dimensions,
+\begin{align*}
+  & \sporkallocTrDetail(\sporkwz, \sporkbarMech) = \\
+  & \textbf{let }
+    \mathsf{gAwait}(\sporkx_b[\sporkz_b^*]) =\{
+      \sporkPendingAwait(\sporkx_b, \sporkz_b^* - \sporkz_\mathrm{off}^*, \sporkz_\mathrm{await}) \mid
+        \sporkz_\mathrm{await} \ge \sporkz_\mathrm{eac} - 1
+    \}
+    \textbf{ in}
+  \\
+  & (
+      \sporkTrPostAccess(
+        \sporkmutate, \sporkx_b, \sporkz_b^*, \varnothing, \sporkqtlInit,
+        \varnothing, \sporkQtlMask, \mathsf{gAwait}(\sporkx_b[\sporkz_b^*]))
+    )_{(\sporkx_b, \sporkz_b^*) \in \sporkWunroll(\sporkwz)} \sporkComment{ ($\sporkqtlInit$ doesn't matter)} \\
+  & \sporkfreeTrDetail(\sporkwz, \sporkbarMech) =
+  \\
+  & (
+      \sporkTrPreAccess(
+        \sporkmutate, \sporkx_b, \sporkz_b^*, \varnothing, \varnothing,
+        \sporkPendingAwait(\sporkx_b, \sporkz_b^* + \sporkz_\mathrm{off}^*, \sporkz_\mathrm{eac} - 1)
+    )_{(\sporkx_b, \sporkz_b^*) \in \sporkWunroll(\sporkwz)}
+\end{align*}
+However, these traces must be skipped when they reference out-of-bounds array elements,
+so checking has blind spots for head and tail cases: the first and last phase of each physical mbarrier.
+
+For all three allocators,
+we leave as future work to \textbf{(1)} fix the soundness issues
+(failing to enforce proxy fences (Section~\ref{sec:ProxyFences})
+between aliased accesses via different proxies,
+and the head/tail cases of mbarrier allocation) and
+\textbf{(2)} use the monotonicity of $\sporkConcatEnv$ (Section~\ref{sec:SyncEnvMonotone})
+to formalize the ``recurrence''.
+However, because we also advocate for even lower level program representations,
+the need for these SMEM allocator abstractions may vanish.
+
