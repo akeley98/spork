@@ -694,28 +694,32 @@ Sm90_coop_gemm_pseudocode.sync_check(M=8, N=6, K=20)
 del RING
 
 
-# Further hacks
-#  * K is a constant due to affine indexing restrictions
-#  * Completely fake CudaWarps to express the impossible
-#    thing that cuda_multi_for would make expressible.
-#    (Selecting a warpgroup based on the mp-iteration).
-#  * For the real ping-pong Exo-GPU kernel, we should use
-#    separate "consumer0" and "consumer1" 4-warp groups,
-#    so that the inactive consumer warpgroup is able to statically
-#    eliminate the main loop.
+# Further hack: Using meta-Exo functionality to syntactically splice-in
+# the two ping-pong iterations (mp loop).
+# We wouldn't have to do this if the cuda_multi_for idea gets implemented.
+# Separate "consumer0" and "consumer1" warpgroups each get their own
+# compiled path of the kernel; they don't waste time in the disabled loop.
+#
+# I am not sure if this kernel is actually schedulable from a plain gemm by Exo.
+# The challenges I see are:
+#  * The managed ring buffer SMEM will require a stage_mem of all the
+#    memory consumed by a single device task, instead of a tile like the coop gemm.
+#    Then a huge amount of loop fusion would need to be done
+#  * Without the meta-Exo hack, intermediate expressions may contain `K*mp`.
+#    This is forbidden by Exo quasi-affine indexing limitations (both are non-constant).
+#  * Relatedly, you might get dimensions of size [2, K] that have to be fused
+#    into the one managed ring buffer dimension. I don't think Exo can do this
+#    because of our old friend, the quasi-affine-indexing restriction.
+#    You could swap them to [K, 2] but then the ring buffer pattern is incorrect.
+#  * If the stage_mem issue is surmountable but the [2, K] isn't,
+#    fall back to specializing for a constant K and take the L in the Results section.
 
 def mk_ping_pong(CudaWarps):
-  K = 42
-  # mp = 0
-  # real_CudaWarps = CudaWarps
   RING = 3
-
-  # Ignore lo/hi.
-  # CudaWarps = lambda *lo_hi, name: real_CudaWarps(name=name)
 
   @proc
   def Sm90_ping_pong_gemm_pseudocode(
-      M: size, N: size,
+      M: size, N: size, K: size,
       A: f32[M, K] @ CudaGmemLinear,
       B: f32[K, N] @ CudaGmemLinear,
       C: f32[M, N] @ CudaGmemLinear
@@ -724,7 +728,8 @@ def mk_ping_pong(CudaWarps):
     with CudaDeviceFunction(warp_config=[
       CudaWarpConfig("producer", 1),
       CudaWarpConfig("unused", 3),
-      CudaWarpConfig("consumer", 8),
+      CudaWarpConfig("consumer0", 4),
+      CudaWarpConfig("consumer1", 4),
     ]):
       for mt in cuda_tasks(0, M/2):
         for nt in cuda_tasks(0, N):
@@ -737,10 +742,10 @@ def mk_ping_pong(CudaWarps):
           B_smem: f32[(2 * K) @ ring_buffer_by(RING)].ring_guarded_by(cons_bar) @ CudaSmemLinear
           C_smem: f32[2 @ ring_buffer_by(1)].ring_guarded_by(ep_bar) @ CudaSmemLinear
           with python:
-            for mp in range(0, 2):
+            for mp in range(0, 2):  # Ping-pong iteration
               with exo:
                 D: f32 @ CudaRmemLinear
-                with CudaWarps(mp*4, mp*4 + 4, name="consumer"):
+                with CudaWarps(name=f"consumer{mp}"):
                  for fake in cuda_threads(0, 1):
                   D = 0
                   Await(main_bar[mp], cuda_in_order, 0)
@@ -752,15 +757,15 @@ def mk_ping_pong(CudaWarps):
                     A_smem[K*mp + k] = A[2*mt + mp, k]
                     B_smem[K*mp + k] = B[k, nt]
                     Arrive(cuda_in_order) >> prod_bar[K*mp + k]
-                  # ======== XXX remember to acknowledge this is not real Exo-GPU. ========
-                  with CudaWarps(mp*4, mp*4 + 4, name="consumer"):
+                  # ======== XXX remember to acknowledge mp is not normal Exo-GPU. ========
+                  with CudaWarps(name=f"consumer{mp}"):
                    for fake in cuda_threads(0, 1):
                     Await(prod_bar[K*mp + k], cuda_in_order, 0)
                     D += A_smem[K*mp + k] * B_smem[K*mp + k]
                     Arrive(cuda_in_order) >> cons_bar[K*mp + k + RING]
                 # Epilogue
-                # ======== XXX remember to acknowledge this is not real Exo-GPU. ========
-                with CudaWarps(mp*4, mp*4 + 4, name="consumer"):
+                # ======== XXX remember to acknowledge mp is not normal Exo-GPU. ========
+                with CudaWarps(name=f"consumer{mp}"):
                  for fake in cuda_threads(0, 1):
                   Arrive(cuda_in_order) >> main_bar[mp + 1]
                   Await(ep_bar[mp], cuda_in_order, 0)
@@ -769,21 +774,7 @@ def mk_ping_pong(CudaWarps):
                   Arrive(cuda_in_order) >> ep_bar[mp + 1]
 
   p = Sm90_ping_pong_gemm_pseudocode
-  # mp_cursor, = p.find_all("for mp in _:_")
-  # p = unroll_loop(p, mp_cursor)
-  # k_cursors = p.find_all("for k in _:_")
-  # assert len(k_cursors) == 2
-  # for k_cursor in k_cursors:
-  #   assert len(k_cursor) == 2
-  #   # Real code should use "consumer0" or "consumer1"
-  #   warps_ctx = CudaWarps(mp*4, mp*4 + 4, name="consumer")
-  #   consumer_k_cursor = k_cursor[1]
-  #   assert isinstance(consumer_k_cursor, IfCursor)
-  #   p = wrap_with_context(p, consumer_k_cursor, warps_ctx)
-  #   consumer_ep_cursor = k_cursor.next()
-  #   assert isinstance(consumer_ep_cursor, IfCursor)
-  #   p = wrap_with_context(p, consumer_ep_cursor, warps_ctx)
-  p.sync_check(M=8, N=6)
+  p.sync_check(M=8, N=6, K=42)
   return p
 
 Sm90_ping_pong_gemm_pseudocode = mk_ping_pong(CudaWarps)
