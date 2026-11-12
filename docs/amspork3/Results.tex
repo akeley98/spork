@@ -1,7 +1,7 @@
 \sporkSection{Results}{sec:Results}
 
 We implemented GEMM kernels for the \texttt{sm\_80} and \texttt{sm\_90a} architectures,
-as well as a port of ThunderKitten's \texttt{sm\_90a} causal and non-causal forward flash attention kernels \cite{thunderkittens:mha_h100} \cite{shah2024flashattention3fastaccurateattention}.
+as well as a port of ThunderKitten's \texttt{sm\_90a} causal and non-causal forward flash attention kernels \cite{thunderkittens:mha_h100, shah2024flashattention3fastaccurateattention}.
 For GEMM, we compared against the \texttt{cublasSgemm} and \texttt{cublasSgemmStridedBatched} functions \cite{cublas},
 and for attention, we compared against the ThunderKittens original.
 We used an \texttt{NVIDIA RTX A5000 Laptop GPU} (\texttt{sm\_80})
