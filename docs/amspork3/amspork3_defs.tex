@@ -410,3 +410,13 @@
     inner sep=1.5mm, align=left},
   annotation line/.style={draw=black!45, thick},
 }
+
+% Aggressively mix floats with text; float-only pages only when nearly full.
+% (textfraction below 0.2 overfills page 18's math-heavy text.)
+\renewcommand{\topfraction}{0.9}
+\renewcommand{\bottomfraction}{0.5}
+\renewcommand{\textfraction}{0.2}
+\renewcommand{\floatpagefraction}{0.92}
+\setcounter{topnumber}{4}
+\setcounter{bottomnumber}{4}
+\setcounter{totalnumber}{6}
