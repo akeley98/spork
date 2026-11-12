@@ -412,10 +412,15 @@
 }
 
 % Aggressively mix floats with text; float-only pages only when nearly full.
-% (textfraction below 0.2 overfills page 18's math-heavy text.)
+% This is especially for the results section, which has huge numbers of charts.
+% Fix any resulting overfills by hand.
+% I want my figures as close as possible to their discussion
+% and don't care about LaTeX's built-in notions of good typography,
+% or if other people think I should accept interrupting my reading experience 
+% with taking time to track down which of the next 4 pages "Figure 23" was in.
 \renewcommand{\topfraction}{0.9}
 \renewcommand{\bottomfraction}{0.5}
-\renewcommand{\textfraction}{0.2}
+\renewcommand{\textfraction}{0.05}
 \renewcommand{\floatpagefraction}{0.92}
 \setcounter{topnumber}{4}
 \setcounter{bottomnumber}{4}

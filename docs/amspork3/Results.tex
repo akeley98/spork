@@ -42,6 +42,8 @@ Here we ran into some expressivity issues with \sporkName{},
 including having to specialize specifically for \texttt{K=512}.
 \sporkRed{TODO discuss}
 
+\input{Sm80Plots.tex}
+
 \sporkMainKey{\texttt{sm\_80} GEMM:}
 These kernels accelerate GEMM with 16-byte \texttt{cp.async} and warp-tile \texttt{mma} instructions.
 Unlike the \texttt{sm\_90a} GEMM kernel,
@@ -66,6 +68,8 @@ rather than reading SMEM directly as \texttt{wgmma} does,
 leading to a large number of executed instructions
 corresponding to pointer and index arithmetic (Figure~\ref{fig:Sm80ncu}).
 
+\input{Sm80ncu.tex}
+
 We also had difficulty forcing uniform register usage (for storing warp-convergent values),
 which to our knowledge is not directly expressible in C++ or PTX.
 We are forced to rely on undocumented PTX-to-SASS compiler optimizations.
@@ -82,9 +86,7 @@ We did not retrofit this to Exo for mapping index variables to uniform registers
 because Exo had no provision for custom instructions that produce $\sporkcontrol$-type values,
 rather than data type.
 
-\input{Sm80Plots.tex}
-
-\input{Sm80ncu.tex}
+\input{FaPlots.tex}
 
 \sporkMainKey{\texttt{sm\_90a} Attention:}
 The story is similar here as it was for the \texttt{sm\_80} GEMM.
@@ -97,6 +99,5 @@ An additional suboptimality is that our hard-wired persistent kernel loop
 (compiled from \texttt{cuda\_tasks} loops, Section~\ref{sec:KernelStructure})
 is a poor fit for the causal kernel variant, leading to workload imbalance.
 
-\input{FaPlots.tex}
 
 
