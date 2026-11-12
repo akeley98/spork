@@ -11,4 +11,4 @@ The semantics yield numeric output values and a trace of load, store, and barrie
 Exo-GPU compilation breaks down into a \emph{rewrite} phase, where the program is optimized with user-selected rewrite rules that preserve numeric output values (but not traces),
 and a \emph{sync-check} phase, where we reason, for concrete input sizes, that the barriers prevent any reordering of load/store events that could prevent the CUDA program from implementing the sequential baseline.
 Together, the phases transitively ensure the CUDA program functionally matches the simpler pre-rewrite program.
-\texttt{<results here>}.
+\texttt{\sporkRed{<results here>}}.
