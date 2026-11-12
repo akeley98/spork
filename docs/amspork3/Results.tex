@@ -1,3 +1,8 @@
 \sporkSection{Results}{sec:Results}
 
+% TODO(reminder): state the FLOP counting convention used for TFLOPS (sporkbench README,
+% "Benchmark Methodology"): 1 multiply-add = 2 FLOPs, tensor FLOPs only.
+% Attention forward core (Q K^T and P V), per batch, n = SeqLen, d = (query heads) * Hdim:
+% 4 n^2 d non-causal; ~2 n^2 d causal (only the unmasked half of the score matrix).
+
 \sporkRed{TODO}
