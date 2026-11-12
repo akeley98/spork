@@ -1,9 +1,21 @@
 \begin{figure}[tbp]
 \centering
 \sporkCodeRule
-\includegraphics[width=\linewidth]{ncu_figures/cropped/cutlass_Sm80_sass_light_top8.png}
 \includegraphics[width=\linewidth]{ncu_figures/cropped/exo_Sm80_sass_light_top8.png}
-\caption{\sporkRed{TODO speculate about CSE, uniform registers}}
+\includegraphics[width=\linewidth]{ncu_figures/cropped/cutlass_Sm80_sass_light_top8.png}
+\caption{Recolored nsight compute ``executed instructions'' graph, for \sporkName{} \texttt{sm\_80} GEMM (above)
+and a CUTLASS reference \texttt{sm\_80} GEMM (below).
+In blue are \textsf{HMMA} (tensor), \textsf{LDSM} (load SMEM to RMEM warp tile),
+and \textsf{LDGSTS} (async copy GMEM to SMEM) instructions;
+these are the key accelerator instructions doing useful GEMM work.
+The \sporkName{} kernel has a much larger count of non-GEMM instructions executed
+stemming from inefficient array indexing and pointer arithmetic.
+We speculate that pointer swizzling (\textsf{LOP3}) intensifies the issue
+because it introduces a non-linearity as the final step of array indexing,
+undermining common compiler optimizations.
+We also note that the CUTLASS kernel uses \textsf{UIADD3},
+a uniform datapath instruction \cite{cuda_binary_utilities},
+which we were unable to reproduce.}
 \label{fig:Sm80ncu}
 \sporkCodeRule
 \end{figure}
