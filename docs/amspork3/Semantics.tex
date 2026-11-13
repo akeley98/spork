@@ -14,6 +14,9 @@ accesses outside $\textrm{dom}(\sporksigma)$, and reads of uninitialized ($\bot$
 we do not otherwise spell out type checking or bounds checking.
 For programs with unsafe parallelization, the ``checked trace concatenation operator''
 $\sporkConcatChk$ (Section~\ref{sec:TraceChecks}) serves a similar purpose.
+By Section~\ref{sec:SyncEnvEquiv}, we can replace the intially-empty $\sporktr^*$
+with $\sporkenv = \varnothing$ and replace $\sporkConcatChk$ with $\sporkConcatEnv$
+without affecting whether a program gets stuck.
 
 For brevity and to highlight which rules can or cannot yield a changed $\sporksigma$ or $\sporktr^*$,
 small step reductions $\langle \text{``before''} \rangle \to \langle \text{``after''} \rangle$
