@@ -8,13 +8,13 @@ Define
 \end{align}
 Define
 \begin{align}
-  & \sporkvVis : \sporkTr^* \times \sporkVPost \to \sporkEnvVis \notag \\
+  & \sporkvVis : \sporkTr^* \times \sporkVPost \to \sporkEnvVis \sporkComment{ ($\sporkTrPostAccess$ vertex to reachable outbound set union)} \notag \\
   & \sporkvVis(\sporktr^*, \sporkvPost) = \textbf{let } \sporkVert_d = \sporktrReach(\sporktr^*, \sporkvPost), \sporkQtlMask = \sporkvMask(\sporkvPost) \textbf{ in} \notag \\
   & \quad ( \bigcup_{(z, \sporktr_d) \in \sporkVert_d} \sporkObOut(\sporktr_d) \cap (\sporkTid \times \sporkQtlMask),
       \bigcup_{(z, \sporktr_d) \in \sporkVert_d} \sporkAwOut(\sporktr_d),
       \sporkQtlMask)
   \label{eq:vVis} \\
-  & \sporktoEnvTotal: \sporkTr^* \to \sporkEnv \notag \\
+  & \sporktoEnvTotal: \sporkTr^* \to \sporkEnv \sporkComment{ (Convert all $\sporkTrPostAccess$ vertices to $\sporkenv$)} \notag \\
   & \sporktoEnvTotal(\sporktr^*) = \{ (\sporkvEff(\sporkvPost), \sporkvVis(\sporktr^*, \sporkvPost)) \mid \sporkvPost \in \sporktrVPost(\sporktr^*, \sporkEnvEff) \}
   \label{eq:toEnvTotal}
 \end{align}
