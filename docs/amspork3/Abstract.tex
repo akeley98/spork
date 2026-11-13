@@ -1,14 +1,10 @@
-For maximum performance, modern GPU programs require not only SIMT-style parallelism, but also software-managed concurrent compute and data movement.
-Performance engineers must reason about subdividing work and data into the thread hierarchy (threads, warps, warpgroups, blocks, clusters) and safe usage of asynchronous tensor core and memcpy instructions that target each level of the memory hierarchy.
-Unlike CPUs, which abstract away intra-thread instruction re-ordering, these asynchronous instructions expose explicit instruction reordering to the software.
+Modern GPUs require not only SIMT-style parallelism but also software-managed concurrency between compute and data movement to reach maximum performance. Performance engineers must reason about subdividing work into the hierarchy of computation resources (threads, warps, warpgroups, blocks, clusters), and, in many cases, also must use asynchronous tensor core and memcpy instructions on different levels of the memory hierarchy (registers, tensor core accumulators, shared memory, global memory).
+Unlike CPUs, where out-of-order execution is managed by hardware and hidden from programmers, GPUs expose explicit instruction reordering to software through these asynchronous instructions.
+Well-established GPU programming languages generally offer either direct low-level control without safety guarantees (e.g., CUDA C++ inline assembly or intrinsics) or easier-to-analyze, high-level abstractions (e.g., Triton’s tile-based model) that hide asynchronous instructions in the compiler backend, which may prevent performance engineers from maximizing performance by tuning critical details.
 
-To provide safety checking for synchronization and functional correctness while preserving low-level control,
-we propose Exo-GPU, an imperative, array-based, user-schedulable language.
-Constructs include sequential and hierarchical parallel loops, warp specialization, wrapped PTX assembly accelerator instructions (mma, wgmma, TMA), and split barriers, all explicitly inserted by the programmer.
-For checking, \emph{deterministic} small step semantics dictate the expected sequential baseline program behavior.
-The semantics yield numeric output values and a trace of load, store, and barrier events, each tagged with the threads and ``qualitative timeline'' (accelerator identifier) that execute the corresponding event in the lowered CUDA program.
 
-Exo-GPU compilation breaks down into a \emph{rewrite} phase, where the program is optimized with user-selected rewrite rules that preserve numeric output values (but not traces),
-and a \emph{sync-check} phase, where we reason, for concrete input sizes, that the barriers prevent any reordering of load/store events that could prevent the CUDA program from implementing the sequential baseline.
-Together, the phases transitively ensure the CUDA program functionally matches the simpler pre-rewrite program.
-\texttt{\sporkRed{<results here>}}.
+We propose Exo-GPU, an imperative, low-level language that creates minimal abstraction over CUDA.
+Our key idea is to treat parallelism and synchronization as mere annotations on sequential code rather than as fundamental control flow primitives, enabling verification that these constructs do not alter the program semantics.
+The benefit is two-fold: programmers can reason about code without hidden control flow or mutation, while allowing the \sporkName{} compiler to verify \emph{sequential-parallel equivalence}---guaranteeing that parallel execution is functionally equivalent to its sequential interpretation.
+We used Exo-GPU to author GEMM kernels for the H100 GPU, using wgmma, TMA, and split-k.
+Our kernels achieved over 70\% of theoretical peak on large problem sizes, in some cases outperforming the vendor-provided CUBLAS library.
