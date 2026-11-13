@@ -40,7 +40,7 @@ We created a ping-pong variant of the \texttt{bf16} GEMM kernel,
 also scheduled from a simple baseline GEMM (Figure~\ref{fig:Sm90aPingPongPlots}).
 Here we ran into some expressivity issues with \sporkName{},
 including having to specialize specifically for \texttt{K=512}.
-\sporkRed{TODO discuss}
+We contrast cooperative vs. ping-pong scheduling, and the \texttt{K=512} limit, in Section~\ref{sec:PingPongAppendix}.
 
 \input{Sm80Plots.tex}
 

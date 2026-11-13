@@ -1,3 +1,29 @@
 \sporkSection{Conclusion}{sec:Conclusion}
 
-\sporkRed{TODO}
+Our ability to reason about parallelism is incomplete in several ways.
+Our programming model and output CUDA synchronization code is generated based on our understanding of PTX as documented by NVIDIA in natural language \cite{ptx}.
+We do not show that our generated code is correct with respect to any formal CUDA semantics.
+We currently do not support Blackwell Tensor Cores (\texttt{tcgen05}),
+nor do we support platforms not providing CUDA C++ and inline PTX support.
+Finally, our current synchronization checking approach
+supports only concrete problem sizes and limits compiler performance.
+
+We further noted issues stemming from limitations of the Exo rewrite language:
+unsafe rewrites for TMA (Section~\ref{sec:TmaLimitations}),
+concrete problem size limitations (Section~\ref{sec:PingPongAppendix}),
+and limited ability to optimize computations on $\sporkcontrol$-typed values
+due to control-data separation (Section~\ref{sec:Results}, Figure~\ref{fig:Sm80ncu}).
+
+With the advent of LLM-generated program proofs,
+both the \emph{concrete problem sizes} and \emph{rewrite language}
+limitations may be solvable in future work at an acceptable cost.
+Because the parallel semantics and sequential-parallel equivalence are defined using deterministic semantics
+(Section~\ref{sec:Semantics}),
+we propose, as future work, to adapt off-the-shelf formal methods originally intended
+for analyzing sequential programs to instead prove sequential-parallel equivalence.
+If successful, further application of existing methods may be used to prove the sequential baseline program correct,
+even if the program contains mutable pointers and data-dependent indexing, completing the chain-of-equivalence.
+As such,
+we believe that our approach---exposing detailed control to programmers while verifying its safety---offers a promising path forward for GPU programming.
+By treating parallelism and synchronization as analyzable annotations on sequential code,
+\sporkName{} provides both transparency, static guarantees, and analyzability that high-performance GPU kernels demand.
