@@ -1,7 +1,7 @@
 \sporkSubsection{Synchronization Environment Concatenation}{sec:SyncEnvConcat}
 % ``concatenation'' maybe dumb
 
-Define helper
+Define helpers
 \begin{align}
     & \sporksyncsWith: \sporkEnvVis \times \sporkTr \to \sporkBool
     \label{eq:syncsWith}
@@ -10,6 +10,12 @@ Define helper
     \sporkOb_v \cap \sporkObIn(\sporktr) \cap (\sporkTid \times \sporkQtlMask) \ne \varnothing
       \lor
       \sporkAw_v \cap \sporkAwIn(\sporktr) \ne \varnothing \notag % f the overfull hbox
+    \\
+    & \sporkConcatVis: \sporkEnvVis \times \sporkTr \to \sporkEnvVis
+    \label{eq:ConcatVis}
+    \\
+    & (\sporkOb_v, \sporkAw_v, \sporkQtlMask) \sporkConcatVis \sporktr =
+    (\sporkOb_v \cup (\sporkObOut(\sporktr) \cap (\sporkTid \times \sporkQtlMask)), \sporkAw_v \cup \sporkAwOut(\sporktr), \sporkQtlMask)
 \end{align}
 Define $\sporkenv \sporkConcatEnv \sporktr_d$ by cases; all cases are total except $\sporkTrPreAccess$:
 
@@ -28,7 +34,7 @@ Define $\sporkenv \sporkConcatEnv \sporktr_d$ by cases; all cases are total exce
     % PL community should invest in standardized math syntax that's actually good.
     & \text{where } \lambda(\sporkenvVis) = \lambda((\sporkOb_v, \sporkAw_v, \sporkQtlMask)) = \notag \\
     & \quad \begin{cases}
-      (\sporkOb_v \cup (\sporkObOut(\sporktr_d) \cap (\sporkTid \times \sporkQtlMask)), \sporkAw_v \cup \sporkAwOut(\sporktr_d), \sporkQtlMask)
+      \sporkenvVis \sporkConcatVis \sporktr_d
       & \sporksyncsWith(\sporkenvVis, \sporktr_d) \\
       \sporkenvVis & \text{otherwise}
     \end{cases} \notag
