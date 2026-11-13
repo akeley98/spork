@@ -9,8 +9,7 @@ Define
 Define
 \begin{align}
   & \sporkvVis : \sporkTr^* \times \sporkVPost \to \sporkEnvVis \sporkComment{ ($\sporkTrPostAccess$ vertex to reachable outbound set union)} \notag \\
-  & \sporkvVis(\sporktr^*, \sporkvPost) = \textbf{let } \sporkVert_r = \sporktrReach(\sporktr^*, \sporkvPost), \sporkQtlMask = \sporkvMask(\sporkvPost) \textbf{ in} \notag \\
-  & (\varnothing, \varnothing, \sporkQtlMask) \sporkConcatVis \sporkVert_r
+  & \sporkvVis(\sporktr^*, \sporkvPost) = (\varnothing, \varnothing, \sporkvMask(\sporkvPost)) \sporkConcatVis \sporktrReach(\sporktr^*, \sporkvPost)
   \label{eq:vVis} \\
   & \sporktoEnvTotal: \sporkTr^* \to \sporkEnv \sporkComment{ \sporkComment{ ($\sporkTrPostAccess$ become $\sporkenv$ elements; $\sporkEnvEff$ means no filter)}} \notag \\
   & \sporktoEnvTotal(\sporktr^*) = \{ (\sporkvEff(\sporkvPost), \sporkvVis(\sporktr^*, \sporkvPost)) \mid \sporkvPost \in \sporktrVPost(\sporktr^*, \sporkEnvEff) \}

@@ -24,17 +24,14 @@ Define $\sporkenv \sporkConcatEnv \sporktr_d$ by cases; all cases are total exce
 \begin{align}
     \sporkenv \sporkConcatEnv \sporktr_d =
     % \sporkenv \cup \{ ((\sporkmut, \sporkx, \sporkz_i^*), (\sporkTidPost \times \{\sporkqtlInit\}, \sporkAwPost, \sporkQtlMask)) \}
-    \sporkenv \cup \{ ((\sporkmut, \sporkx, \sporkz_i^*), (\sporkObOut(\sporktr_d) \cap (\sporkTid \times \sporkQtlMask), \sporkAwOut(\sporktr_d), \sporkQtlMask)) \}
+    \sporkenv \cup \{ ((\sporkmut, \sporkx, \sporkz_i^*), (\varnothing, \varnothing, \sporkQtlMask) \sporkConcatVis \{ \sporktr_d \}) \}
     \label{eq:envConcatPost}
 \end{align}
 \sporkMainKey{Case 2/3:} $\sporktr_d$ is constructed with $\sporkTrFence$, $\sporkTrArrive$, or $\sporkTrAwait$.
 \begin{align}
     & \sporkenv \sporkConcatEnv \sporktr_d = \{ (\sporkenvEff, \lambda(\sporkenvVis)) \mid (\sporkenvEff, \sporkenvVis) \in \sporkenv \}
     \label{eq:envConcatSync} \\
-    % Idiotic unpacking of \sporkenvVis for now.
-    % PL community should invest in standardized math syntax that's actually good.
-    & \text{where } \lambda(\sporkenvVis) = \lambda((\sporkOb_v, \sporkAw_v, \sporkQtlMask)) = \notag \\
-    & \quad \begin{cases}
+    & \text{where } \lambda(\sporkenvVis) = \begin{cases}
       \sporkenvVis \sporkConcatVis \{ \sporktr_d \}
       & \sporksyncsWith(\sporkenvVis, \sporktr_d) \\
       \sporkenvVis & \text{otherwise}
