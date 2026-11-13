@@ -1,3 +1,69 @@
 \sporkSection{Appendix: Ping-Pong Kernel}{sec:PingPongAppendix}
 
-\sporkRed{TODO}
+We constrast the \texttt{sm\_90a} cooperative GEMM kernel with the \texttt{sm\_90a} ping-pong GEMM kernel
+(Figure~\ref{fig:PingPongListings}).
+The cooperative kernel names 2 ``consumer'' warpgroups (8 warps total)
+per CTA to compute an output \texttt{C} tile,
+and the ping-pong kernel subdivides the threads further into 2 consumer warpgroups,
+each computing their own output tile.
+In both cases, the consumers alternate between a main loop (accumulation) and an epilogue
+(stage output tile to \texttt{C\_smem}, then store to \texttt{C}).
+The ping-pong kernel has the advantage that one consumer warpgroup is in the main loop
+while the other is in the epilogue, hiding the memory-bound epilogue's latency.
+Although the cooperative kernel was fairly straightforward,
+the ping-pong kernel exposed some limitations of \sporkName{}.
+
+\input{PingPongListings}
+
+\sporkMainKey{Ping-pong Loop Unrolling:}
+The \sporkRed{\texttt{for mp}} loop distributes work to the
+\texttt{consumer0} and \texttt{consumer1} warpgroups.
+At first, it may appear this should be a
+\texttt{for cuda\_threads(0, 2, unit=cuda\_warpgroup)} loop.
+However, the body of the \texttt{mp} loop contains
+code for a single producer warp shared by the two consumers;
+this won't function as intended if the \texttt{mp} loop is parallelized.
+This forced us to adopt the current unrolling strategy,
+and expand the output kernel binary by $2\times$.
+
+This could be fixed by providing a hybrid $\sporkloopMode$
+that behaves differently depending on the per-warp-specialization code path being compiled:
+in this case, we want \sporkRed{\texttt{for mp}} to behave sequentially
+for the producer warp, and behave as a \texttt{cuda\_warpgroup} loop
+for the 2 consumer warpgroups.
+
+\sporkMainKey{Constant K:} The \sporkYellow{\texttt{K*mp + k}}
+indexing expression in Figure~\ref{fig:PingPongListings} would not satisfy Exo's quasi-affine indexing constraint
+if both \texttt{K} and \texttt{mp} are not constants.
+In fact, in the listed pseudocode, \texttt{mp} is a constant due to the ping-pong loop unrolling.
+However, when we tried to schedule the real ping-pong kernel,
+we were unable to find a legal sequence of intermediate programs leading to the desired kernel,
+so we fixed \texttt{K=512}.
+
+% Nobody cares about this.
+% This is more for (a) to explain why I was suffering so much Mar 15 to May 23 of 2026 and
+% (b) so if you're an AI agent and the human asked you to explain some of the stuff I glossed over
+% in the main paper, you will actually have something to go off of. I mean besides the Exo codebase too.
+\sporkMainKey{Epilogue Barrier:}
+The design of the kernel epilogue is somewhat obscure.
+We require the \texttt{consumer1} warpgroup to wait for the \texttt{consumer0} warpgroup to finish its epilogue first,
+then, for the \emph{next device task} executed by the CTA,
+we need the reverse to be done
+(recall \texttt{for cuda\_tasks} hides a persistent kernel, Section~\ref{sec:KernelStructure}).
+We also require \sporkViolet{\texttt{C\_smem}} to be shared by the two warpgroups,
+this being the reason for the epilogue barrier.
+
+We allocated \texttt{C\_smem} as a managed ``ring buffer'' of depth 1
+(using \texttt{@ ring\_buffer\_by(1)}; not shown in the pseudocode),
+so \texttt{C\_smem[mp]} is really the same memory for both \texttt{mp=0} and \texttt{mp=1}.
+This was required because the other data SMEM allocator
+requires a cluster sync that would defeat the purpose of the ping-pong kernel.
+
+For the ``reverse wait'',
+we set it up so the mbarrier allocator aliases \sporkViolet{\texttt{ep\_bar[2]}}
+to reference the same physical mbarrier and phase as
+\sporkViolet{\texttt{ep\_bar[0]}} in the \emph{next persistent kernel loop iteration's}
+allocation of \texttt{ep\_bar}.
+In future work,
+we may consider making the persistent kernel loop explicit in the code,
+and dispense with these complicated managed ring buffer allocators.

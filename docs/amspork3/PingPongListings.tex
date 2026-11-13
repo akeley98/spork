@@ -1,0 +1,19 @@
+% Both listings side by side at one shared small font size; the narrower column is coop.
+\begin{figure}[tbp]
+\sporkCodeRule
+\fontsize{8}{9.6}\selectfont
+\begin{minipage}[t]{0.465\linewidth}
+\vspace{0pt}
+\sporkListing{coop}
+\end{minipage}%
+\hfill
+\begin{minipage}[t]{0.515\linewidth}
+\vspace{0pt}
+\sporkListing{ping_pong}
+\end{minipage}
+\caption{Cooperative (left) and ping-pong (right) \texttt{sm\_90a} GEMM pseudocode.
+We use real \sporkName{} syntax, but use scalars to stand-in for tiles and omit variable declarations
+and detailed \texttt{wgmma} and TMA synchronization.}
+\label{fig:PingPongListings}
+\sporkCodeRule
+\end{figure}

@@ -652,6 +652,8 @@ def Sm90_coop_gemm_pseudocode(
     B: f32[K, N] @ CudaGmemLinear,
     C: f32[M, N] @ CudaGmemLinear
 ):
+  # TeX: listing coop 1
+  # TeX: begin coop
   with CudaDeviceFunction(warp_config=[
     CudaWarpConfig("producer", 1),
     CudaWarpConfig("unused", 3),
@@ -659,36 +661,61 @@ def Sm90_coop_gemm_pseudocode(
   ]):
     for mt in cuda_tasks(0, M):
       for nt in cuda_tasks(0, N):
+        # TeX: end coop
         cons_bar: barrier[(K + RING) @ ring_buffer_by(RING)] @ CudaMbarrierPreArrive(RING)
         prod_bar: barrier[K @ ring_buffer_by(RING)] @ CudaMbarrierPreArrive(0)
         A_smem: f32[RING] @ CudaSmemLinear  # Swizzled in real TMA impl
         B_smem: f32[RING] @ CudaSmemLinear  # Swizzled in real TMA impl
         D: f32 @ CudaRmem
+        # TeX: begin coop
         with CudaWarps(name="consumer"):
+         # TeX: end coop
          for fake in cuda_threads(0, 1):
-           D = 0
-        # Main loop
+          # TeX: begin coop
+          D = 0
+        # Main `k` loop
         for k in seq(0, K):
-         with CudaWarps(name="producer"):
-          for fake in cuda_threads(0, 1):
+          with CudaWarps(name="producer"):
+           # TeX: end coop
+           for fake in cuda_threads(0, 1):
             # Real barriers should use cuda_async_proxy_retired in-place of cuda_in_order
+            # TeX: begin coop
+            # TeX: color coop elide "cuda_in_order"
             Await(cons_bar[k], cuda_in_order, 0)
+            # Manual ring buffering
             A_smem[k % RING] = A[mt, k]
             B_smem[k % RING] = B[k, nt]
+            # Unblock iteration `k` of consumer
+            # TeX: color coop elide "cuda_in_order"
             Arrive(cuda_in_order) >> prod_bar[k]
-         with CudaWarps(name="consumer"):
-          for fake in cuda_threads(0, 1):
+          with CudaWarps(name="consumer"):
+           # TeX: end coop
+           for fake in cuda_threads(0, 1):
+            # TeX: begin coop
+            # TeX: color coop elide "cuda_in_order"
             Await(prod_bar[k], cuda_in_order, 0)
             D += A_smem[k % RING] + B_smem[k % RING]
+            # Unblock producer warp waiting to overwrite
+            # the SMEM we just read, i.e. iteration `k + RING`.
+            # TeX: color coop elide "cuda_in_order"
             Arrive(cuda_in_order) >> cons_bar[k + RING]
+        # `C_smem` is aliased to `A_smem,B_smem`.
+        # This requires a cluster sync (Section $\ref{sec:SmemAppendix}$)
+        # TeX: color coop elide "cuda_in_order" 2:*
         Fence(cuda_in_order, cuda_in_order)
+        # TeX: end coop
         C_smem: f32 @ CudaSmemLinear  # Swizzled in real TMA impl
+        # TeX: begin coop
         # Epilogue
         with CudaWarps(name="consumer"):
+         # TeX: end coop
          for fake in cuda_threads(0, 1):
+          # TeX: begin coop
           C_smem = D
           C[mt,nt] = C_smem
-        Fence(cuda_in_order, cuda_in_order)
+        # TeX: color coop elide "cuda_in_order" 2:*
+        Fence(cuda_in_order, cuda_in_order)  # Protects implied free(`C_smem`)
+        # TeX: end coop
 
 Sm90_coop_gemm_pseudocode.sync_check(M=8, N=6, K=20)
 del RING
@@ -725,6 +752,8 @@ def mk_ping_pong(CudaWarps):
       C: f32[M, N] @ CudaGmemLinear
   ):
     assert M % 2 == 0  # To keep the pseudocode simpler.
+    # TeX: listing ping_pong 1
+    # TeX: begin ping_pong
     with CudaDeviceFunction(warp_config=[
       CudaWarpConfig("producer", 1),
       CudaWarpConfig("unused", 3),
@@ -733,45 +762,100 @@ def mk_ping_pong(CudaWarps):
     ]):
       for mt in cuda_tasks(0, M/2):
         for nt in cuda_tasks(0, N):
+          # TeX: end ping_pong
           main_bar: barrier[3 @ ring_buffer_by(2)] @ CudaMbarrierPreArrive(1)
           ep_bar: barrier[3 @ ring_buffer_by(2)] @ CudaMbarrierPreArrive(1)
-          cons_bar: barrier[(2 * K + RING) @ ring_buffer_by(RING)] @ CudaMbarrierPreArrive(RING)
-          prod_bar: barrier[(2 * K) @ ring_buffer_by(RING)] @ CudaMbarrierPreArrive(0)
+          cons_bar: barrier[(2*K + RING) @ ring_buffer_by(RING)] @ CudaMbarrierPreArrive(RING)
+          prod_bar: barrier[(2*K) @ ring_buffer_by(RING)] @ CudaMbarrierPreArrive(0)
           # All SMEM swizzled in real TMA impl
-          A_smem: f32[(2 * K) @ ring_buffer_by(RING)].ring_guarded_by(cons_bar) @ CudaSmemLinear
-          B_smem: f32[(2 * K) @ ring_buffer_by(RING)].ring_guarded_by(cons_bar) @ CudaSmemLinear
+          A_smem: f32[(2*K) @ ring_buffer_by(RING)].ring_guarded_by(cons_bar) @ CudaSmemLinear
+          B_smem: f32[(2*K) @ ring_buffer_by(RING)].ring_guarded_by(cons_bar) @ CudaSmemLinear
           C_smem: f32[2 @ ring_buffer_by(1)].ring_guarded_by(ep_bar) @ CudaSmemLinear
+          # TeX: begin ping_pong
           with python:
-            for mp in range(0, 2):  # Ping-pong iteration
-              with exo:
-                D: f32 @ CudaRmemLinear
-                with CudaWarps(name=f"consumer{mp}"):
+           # Ping-pong iteration
+           # `with python/exo` is meta:
+           # the following loop is unrolled
+           # with `mp=0`, `mp=1` substituted;
+           # see `ping-pong loop` discussion.
+           # TeX: color ping_pong red "for mp in range(0, 2):"
+           for mp in range(0, 2):
+            with exo:
+              # TeX: end ping_pong
+              D: f32 @ CudaRmem
+              # TeX: begin ping_pong
+              # NOTE: "consumer{mp}" is not $\textsf{\sporkName{}}$
+              # grammar; it's Exo's pre-existing.
+              # metaprogramming. See `multi_for`.
+              with CudaWarps(name=f"consumer{mp}"):
+               # TeX: end ping_pong
+               for fake in cuda_threads(0, 1):
+                # TeX: begin ping_pong
+                D = 0
+                # `main_bar` ensures only one warpgroup
+                # at a time is executing the main loop.
+                # TeX: color ping_pong elide "cuda_in_order"
+                Await(main_bar[mp], cuda_in_order, 0)
+              # Main `k` loop
+              for k in seq(0, K):
+                # Single producer warp active
+                with CudaWarps(name="producer"):
+                 # TeX: end ping_pong
                  for fake in cuda_threads(0, 1):
-                  D = 0
-                  Await(main_bar[mp], cuda_in_order, 0)
-                # Main loop
-                for k in seq(0, K):
-                  with CudaWarps(name="producer"):
-                   for fake in cuda_threads(0, 1):
-                    Await(cons_bar[K*mp + k], cuda_in_order, 0)
-                    A_smem[K*mp + k] = A[2*mt + mp, k]
-                    B_smem[K*mp + k] = B[k, nt]
-                    Arrive(cuda_in_order) >> prod_bar[K*mp + k]
-                  # ======== XXX remember to acknowledge mp is not normal Exo-GPU. ========
-                  with CudaWarps(name=f"consumer{mp}"):
-                   for fake in cuda_threads(0, 1):
-                    Await(prod_bar[K*mp + k], cuda_in_order, 0)
-                    D += A_smem[K*mp + k] * B_smem[K*mp + k]
-                    Arrive(cuda_in_order) >> cons_bar[K*mp + k + RING]
-                # Epilogue
-                # ======== XXX remember to acknowledge mp is not normal Exo-GPU. ========
+                  # TeX: begin ping_pong
+                  # TeX: color ping_pong elide "cuda_in_order"
+                  Await(cons_bar[K*mp + k], cuda_in_order, 0)
+                  # Managed ring buffer (Section $\ref{sec:SmemAllocators}$).
+                  # This is implicitly ring-buffered by `RING`.
+                  # The first `K`-many logical entries are
+                  # consumed by warps named `consumer0`;
+                  # the second `K`-many, by `consumer1`.
+                  # See "constant K" discussion.
+                  # TeX: color ping_pong yellow "K*mp + k"
+                  A_smem[K*mp + k] = A[2*mt + mp, k]
+                  # TeX: color ping_pong yellow "K*mp + k"
+                  B_smem[K*mp + k] = B[k, nt]
+                  # Unblock `(mp, k)` iteration of consumer
+                  # TeX: color ping_pong elide "cuda_in_order"
+                  Arrive(cuda_in_order) >> prod_bar[K*mp + k]
+                # `consumer0` and `consumer1` warpgroups take turns
                 with CudaWarps(name=f"consumer{mp}"):
+                 # TeX: end ping_pong
                  for fake in cuda_threads(0, 1):
-                  Arrive(cuda_in_order) >> main_bar[mp + 1]
-                  Await(ep_bar[mp], cuda_in_order, 0)
-                  C_smem[mp] = D
-                  C[2*mt + mp,nt] = C_smem[mp]
-                  Arrive(cuda_in_order) >> ep_bar[mp + 1]
+                  # TeX: begin ping_pong
+                  # TeX: color ping_pong elide "cuda_in_order"
+                  Await(prod_bar[K*mp + k], cuda_in_order, 0)
+                  D += A_smem[K*mp + k] * B_smem[K*mp + k]
+                  # Unblock producer warp waiting to overwrite
+                  # the SMEM we just read.
+                  # TeX: color ping_pong elide "cuda_in_order"
+                  Arrive(cuda_in_order) >> cons_bar[K*mp + k + RING]
+              # end `for k`; epilogue begins
+              with CudaWarps(name=f"consumer{mp}"):
+               # TeX: end ping_pong
+               for fake in cuda_threads(0, 1):
+                # TeX: begin ping_pong
+                # TeX: color ping_pong elide "cuda_in_order"
+                Arrive(cuda_in_order) >> main_bar[mp + 1]
+                # `ep_bar` ensures only one warpgroup at a time
+                # is executing the epilogue; this is critical,
+                # for safe usage of the shared `C_smem` buffer,
+                # which is a managed "ring buffer" of depth 1.
+                # The managed ring buffer allocator does not
+                # alias `C_smem` with `A_smem` or `B_smem`.
+                # See "epilogue" discussion.
+                # TeX: color ping_pong elide "cuda_in_order"
+                # TeX: color ping_pong violet "ep_bar[mp]"
+                Await(ep_bar[mp], cuda_in_order, 0)
+                # TeX: color ping_pong violet "C_smem[mp]"
+                C_smem[mp] = D
+                C[2*mt + mp,nt] = C_smem[mp]
+                # TeX: color ping_pong elide "cuda_in_order" violet "ep_bar[mp + 1]"
+                Arrive(cuda_in_order) >> ep_bar[mp + 1]
+              # TeX: color ping_pong red "ping-pong"
+              # End ping-pong loop; each consumer warpgroup
+              # has its own main loop and epilogue.
+              # TeX: end ping_pong
 
   p = Sm90_ping_pong_gemm_pseudocode
   p.sync_check(M=8, N=6, K=42)
