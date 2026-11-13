@@ -36,12 +36,12 @@ Define $\sporkenv \sporkConcatEnv \sporktr_d$ by cases; all cases are total exce
 \sporkMainKey{Case 3/3:} $\sporktr_d = \sporkTrPreAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTidPre, \sporkQtlPre, \sporkAwFree)$
 \begin{align}
     & \sporkenv \sporkConcatEnv \sporktr_d = \begin{cases}
-        \sporkenv & \textsf{isLegal} \\
+        \sporkenv & \sporkisLegalEnv \\
         \emph{undefined} & \text{otherwise}
     \end{cases}
     \label{eq:envConcatPre}
     \\
-    \text{where \textsf{isLegal} = }
+    \text{where $\sporkisLegalEnv$ = }
     & \textbf{let } \sporkEnvEff_e = \sporkmutReqs(\sporkmut) \times \{ \sporkx \} \times \{ \sporkz_i^* \} \textbf{ in} \notag \\
     & \forall \sporkenvEff \in \sporkEnvEff_e. \notag \\
     & \forall \sporkenvVis \in \sporkenv(\sporkenvEff).\,

@@ -41,11 +41,11 @@ define helpers $\sporktrReach$, $\sporktrVPost$, $\sporkmutReqs$:
 For $\sporktr_d = \sporkTrPreAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTidPre, \sporkQtlPre, \sporkAwFree)$,
 \begin{align}
     & \sporktr^* \sporkConcatChk \sporktr_d = \begin{cases}
-        \sporktr^* \sporkConcatRaw \sporktr_d & \textsf{isLegal} \\
+        \sporktr^* \sporkConcatRaw \sporktr_d & \sporkisLegalChk \\
         \emph{undefined} & \text{otherwise}
     \end{cases}
     \label{eq:concatChk} \\
-    \text{where \textsf{isLegal} = }
+    \text{where $\sporkisLegalChk$ = }
     & \textbf{let } \sporktr^*_\mathrm{cat} = \sporktr^* \sporkConcatRaw \sporktr_d \textbf{ in} \notag \\
     \sporkComment{(newly added vertex)\quad}
     & \textbf{let } \sporkvert_d = (\abs{\sporktr^*}, \sporktr_d) \textbf{ in} \notag \\

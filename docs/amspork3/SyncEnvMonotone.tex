@@ -35,7 +35,7 @@ By the preliminary, ``$\sporkenvVis_s$ syncs but $\sporkenvVis_p$ does not'' is 
 \end{itemize}
 
 \sporkMainKey{Case $\sporkTrPreAccess$:}
-Since $(\sporkenv_s, \sporktr) \in \textrm{dom}(\sporkConcatEnv)$, \textsf{isLegal} holds for $\sporkenv_s$.
-For \textsf{isLegal} on $\sporkenv_p$, take any $\sporkenvEff \in \sporkEnvEff_e$ and $\sporkenvVis_p \in \sporkenv_p(\sporkenvEff)$.
+Since $(\sporkenv_s, \sporktr) \in \textrm{dom}(\sporkConcatEnv)$, $\sporkisLegalEnv$ holds for $\sporkenv_s$.
+For $\sporkisLegalEnv$ on $\sporkenv_p$, take any $\sporkenvEff \in \sporkEnvEff_e$ and $\sporkenvVis_p \in \sporkenv_p(\sporkenvEff)$.
 The hypothesis gives $\sporkenvVis_s \in \sporkenv_s(\sporkenvEff)$ with $\sporkenvVis_s \sporksqVis \sporkenvVis_p$; $\sporksyncsWith(\sporkenvVis_s, \sporktr)$ holds, so by the preliminary $\sporksyncsWith(\sporkenvVis_p, \sporktr)$ does too.
 Hence $\sporkenv_p \sporkConcatEnv \sporktr = \sporkenv_p$ is defined, $\sporkenv_s \sporkConcatEnv \sporktr = \sporkenv_s$, and the conclusion is the hypothesis. $\square$
