@@ -1,15 +1,21 @@
-\sporkSubsection{Lemma 2}{sec:SyncEnvEquiv}
+\sporkSubsection{Equivalence with Trace Checking}{sec:SyncEnvEquiv}
 
-Similar to $\sporktoEnv$, define
-\begin{align}
-  & \sporktoChk: \sporkTr^* \rightharpoonup \sporkTr^* \notag \\
-  & \sporktoChk((\sporktr_0, ..., \sporktr_n)) = () \sporkConcatChk \sporktr_0 \sporkConcatChk ... \sporkConcatChk \sporktr_n
-  \label{eq:toChk}
-\end{align}
-I claim that $\sporktoEnv(\sporktr^*)$ is undefined iff $\sporktoChk(\sporktr^*)$ is:
-\begin{align}
-  \textrm{dom}(\sporktoChk) = \textrm{dom}(\sporktoEnv)
-\end{align}
-Presumably proven by induction on the trace length.
+\sporkMainKey{Theorem:}
+$() \sporkConcatChk \sporktr^*$ is defined iff $\varnothing \sporkConcatEnv \sporktr^*$ is defined.
 
-\sporkRed{TODO proof}
+\emph{Proof} by induction on $\abs{\sporktr^*}$.
+Base: both are defined for $\sporktr^* = ()$.
+Step: if either fold over $\sporktr^*$ is undefined, then by induction both are, and so are both folds over $\sporktr^*_\mathrm{cat}$.
+Otherwise $() \sporkConcatChk \sporktr^* = \sporktr^*$ (every successful $\sporkConcatChk$ is $\sporkConcatRaw$),
+and $\sporkenv = \varnothing \sporkConcatEnv \sporktr^* = \sporktoEnvTotal(\sporktr^*)$ by the Closed-Form Lemma.
+If $\sporktr_d$ is not constructed with $\sporkTrPreAccess$, both steps are defined.
+Otherwise let $\sporktr_d = \sporkTrPreAccess(\sporkmut, \sporkx, \sporkz_i^*, \_, \_, \_)$ and $\sporkEnvEff_e = \sporkmutReqs(\sporkmut) \times \{\sporkx\} \times \{\sporkz_i^*\}$;
+it remains to show that $\sporkisLegalChk$ of equation~\ref{eq:concatChk} holds iff $\sporkisLegalEnv$ of equation~\ref{eq:envConcatPre} does.
+
+Step Lemma (a) rewrites $\sporkisLegalChk$ (equation~\ref{eq:concatChk}) as
+\begin{align}
+  \forall \sporkvPost \in \sporktrVPost(\sporktr^*, \sporkEnvEff_e).\; \sporksyncsWith(\sporkvVis(\sporktr^*, \sporkvPost), \sporktr_d)
+\end{align}
+By equation~\ref{eq:toEnvTotal}, $\sporkenv(\sporkenvEff) = \{ \sporkvVis(\sporktr^*, \sporkvPost) \mid \sporkvPost \in \sporktrVPost(\sporktr^*, \{\sporkenvEff\}) \}$,
+so quantifying over $\sporkenvEff \in \sporkEnvEff_e$, then $\sporkenvVis \in \sporkenv(\sporkenvEff)$, as $\sporkisLegalEnv$ does (equation~\ref{eq:envConcatPre}),
+is the same as quantifying over $\sporkvPost \in \sporktrVPost(\sporktr^*, \sporkEnvEff_e)$. $\square$

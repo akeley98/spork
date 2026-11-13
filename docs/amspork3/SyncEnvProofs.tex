@@ -1,5 +1,21 @@
 \sporkSection{Synchronization Environment Proofs}{sec:SyncEnvProofs}
 
+\textbf{AI Disclosure: Proofs in Sections~\ref{sec:SyncEnvTotal} and \ref{sec:SyncEnvEquiv} written by Claude Opus 5.5}
+
+\sporkMainKey{Notation:}
+$\varnothing \sporkConcatEnv \sporktr^*$ is a left fold, like $() \sporkConcatChk \sporktr^*$ (Section~\ref{sec:TraceChecks}).
+When appending one trace event $\sporktr_d$ to $\sporktr^*$, we reuse the names from equation~\ref{eq:concatChk}:
+$\sporktr^*_\mathrm{cat} = \sporktr^* \sporkConcatRaw \sporktr_d$, with new vertex $\sporkvert_d = (\abs{\sporktr^*}, \sporktr_d)$.
+
+\sporkMainKey{Facts}, immediate from the definitions:
+\begin{itemize}
+  \item[(F1)] $(\sporkenvVis \sporkConcatVis \sporkTr_a) \sporkConcatVis \sporkTr_b = \sporkenvVis \sporkConcatVis (\sporkTr_a \cup \sporkTr_b)$, since $\sporkConcatVis$ only takes unions.
+  \item[(F2)] $\sporkenvVis \sporkAugmentVis \sporktr = \sporkenvVis$ if $\sporktr$ is constructed with $\sporkTrPostAccess$ (empty in-sets, so $\sporksyncsWith$ fails)
+    or $\sporkTrPreAccess$ (empty out-sets, so $\sporkConcatVis \{\sporktr\}$ changes nothing).
+  \item[(F3)] Edges only go to higher-indexed vertices, and whether an edge exists depends only on its two endpoints (and $\sporkQtlMask$).
+    So $\sporktrE(\sporktr^*_\mathrm{cat}, \sporkQtlMask)$ is $\sporktrE(\sporktr^*, \sporkQtlMask)$ plus edges into $\sporkvert_d$, and $\sporkvert_d$ has no outbound edges.
+\end{itemize}
+
 \input{SyncEnvTotal.tex}
 \input{SyncEnvEquiv.tex}
 \input{SyncEnvMonotone.tex}

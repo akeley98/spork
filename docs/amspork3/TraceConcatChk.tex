@@ -51,7 +51,7 @@ For $\sporktr_d = \sporkTrPreAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTidPr
     \sporkComment{(mutates and maybe reads at $\sporkx[\sporkz_i^*]$)\quad}
     & \textbf{let } \sporkEnvEff_e = \sporkmutReqs(\sporkmut) \times \{ \sporkx \} \times \{ \sporkz_i^* \} \textbf{ in} \notag \\
     \sporkComment{(all prior matching $\sporkTrPostAccess$...\quad}
-    & \textbf{let } \sporkVPost[s] = \sporktrVPost(\sporktr^*_\mathrm{cat}, \sporkEnvEff_e) \textbf{ in} \notag \\
+    & \textbf{let } \sporkVPost[s] = \sporktrVPost(\sporktr^*, \sporkEnvEff_e) \textbf{ in} \notag \\
     \sporkComment{...must have a path to $\sporkvert_d$)\quad}
     & \forall \sporkvPost[s] \in \sporkVPost[s].\quad
     \sporkvert_d \in \sporktrReach(\sporktr^*_\mathrm{cat}, \sporkvPost[s])

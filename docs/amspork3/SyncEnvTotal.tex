@@ -1,11 +1,5 @@
-\sporkSubsection{Lemma 1}{sec:SyncEnvTotal}
+\sporkSubsection{Closed-Form Environment}{sec:SyncEnvTotal}
 
-Define
-\begin{align}
-  & \sporktoEnv: \sporkTr^* \rightharpoonup \sporkEnv \notag \\
-  & \sporktoEnv((\sporktr_0, ..., \sporktr_n)) = \varnothing \sporkConcatEnv \sporktr_0 \sporkConcatEnv ... \sporkConcatEnv \sporktr_n
-  \label{eq:toEnv}
-\end{align}
 Define
 \begin{align}
   & \sporkvVis : \sporkTr^* \times \sporkVPost \to \sporkEnvVis \sporkComment{ ($\sporkTrPostAccess$ vertex to reachable outbound set union)} \notag \\
@@ -15,10 +9,57 @@ Define
   & \sporktoEnvTotal(\sporktr^*) = \{ (\sporkvEff(\sporkvPost), \sporkvVis(\sporktr^*, \sporkvPost)) \mid \sporkvPost \in \sporktrVPost(\sporktr^*, \sporkEnvEff) \}
   \label{eq:toEnvTotal}
 \end{align}
-Claim
-\begin{align}
-    \sporktr^* \in \textrm{dom}(\sporktoEnv) \implies \sporktoEnv(\sporktr^*) = \sporktoEnvTotal(\sporktr^*)
-\end{align}
-i.e. $\sporktoEnvTotal$ is a closed-form version of $\sporktoEnv$ with error checking omitted.
 
-\sporkRed{TODO proof}
+\sporkMainKey{Step Lemma:}
+For any $\sporktr^*$, $\sporktr_d$, and $\sporkvPost \in \sporktrVPost(\sporktr^*, \sporkEnvEff)$,
+\begin{align}
+  \text{(a)}\quad & \sporkvert_d \in \sporktrReach(\sporktr^*_\mathrm{cat}, \sporkvPost) \iff \sporksyncsWith(\sporkvVis(\sporktr^*, \sporkvPost), \sporktr_d) \\
+  \text{(b)}\quad & \sporkvVis(\sporktr^*_\mathrm{cat}, \sporkvPost) = \sporkvVis(\sporktr^*, \sporkvPost) \sporkAugmentVis \sporktr_d
+\end{align}
+\emph{Proof.}
+Let $\sporkQtlMask = \sporkvMask(\sporkvPost)$ and $\sporkVert_r = \sporktrReach(\sporktr^*, \sporkvPost)$.
+By (F3), a path from $\sporkvPost$ in the new graph is either a path in the old graph,
+or ends at $\sporkvert_d$ with a last edge from some $\sporkvert \in \sporkVert_r$. So
+\begin{align}
+  \sporktrReach(\sporktr^*_\mathrm{cat}, \sporkvPost) = \begin{cases}
+    \sporkVert_r \cup \{\sporkvert_d\} & \exists \sporkvert \in \sporkVert_r \text{ with an edge } \sporkvert \to \sporkvert_d \\
+    \sporkVert_r & \text{otherwise}
+  \end{cases}
+  \label{eq:reachStep}
+\end{align}
+Unfolding equations~\ref{eq:syncsWith} and \ref{eq:ConcatVis}, the edge condition of Section~\ref{sec:TraceEdges} is
+\begin{align*}
+  \sporksyncsWith((\varnothing, \varnothing, \sporkQtlMask) \sporkConcatVis \{\sporkvert\}, \sporktr_d)
+  \quad \sporkComment{(the second $\sporkTid \times \sporkQtlMask$ filter is redundant)}
+\end{align*}
+$\sporksyncsWith$ is a disjunction of non-empty intersection tests and $\sporkConcatVis$ takes unions,
+so this holds for some $\sporkvert \in \sporkVert_r$ iff
+$\sporksyncsWith((\varnothing, \varnothing, \sporkQtlMask) \sporkConcatVis \sporkVert_r, \sporktr_d) = \sporksyncsWith(\sporkvVis(\sporktr^*, \sporkvPost), \sporktr_d)$.
+This proves (a).
+For (b), when (a) holds, F1 gives
+$(\varnothing, \varnothing, \sporkQtlMask) \sporkConcatVis (\sporkVert_r \cup \{\sporkvert_d\}) = \sporkvVis(\sporktr^*, \sporkvPost) \sporkConcatVis \{\sporktr_d\}$;
+otherwise the reachable set, hence $\sporkvVis$, is unchanged.
+This is the definition of $\sporkAugmentVis$ (equation~\ref{eq:AugmentVis}). $\square$
+
+\sporkMainKey{Closed-Form Lemma:}
+If $\varnothing \sporkConcatEnv \sporktr^*$ is defined, then $\varnothing \sporkConcatEnv \sporktr^* = \sporktoEnvTotal(\sporktr^*)$;
+i.e. $\sporktoEnvTotal$ is a closed form of $\sporkConcatEnv$ with error checking omitted.
+
+\emph{Proof} by induction on $\abs{\sporktr^*}$.
+Base: $\sporktoEnvTotal(()) = \varnothing$, as $\sporktrV(()) = \varnothing$.
+Step: suppose $\varnothing \sporkConcatEnv \sporktr^*_\mathrm{cat}$ is defined.
+Then so is the shorter fold, and by induction $\sporkenv = \varnothing \sporkConcatEnv \sporktr^* = \sporktoEnvTotal(\sporktr^*)$;
+we show $\sporkenv \sporkConcatEnv \sporktr_d = \sporktoEnvTotal(\sporktr^*_\mathrm{cat})$.
+Each old $\sporkvPost \in \sporktrVPost(\sporktr^*, \sporkEnvEff)$ keeps its $\sporkvEff$,
+and by Step Lemma (b) its $\sporkvVis$ becomes $\sporkvVis(\sporktr^*, \sporkvPost) \sporkAugmentVis \sporktr_d$. By cases on $\sporktr_d$:
+\begin{itemize}
+  \item $\sporkTrFence$, $\sporkTrArrive$, $\sporkTrAwait$:
+    no new $\sporkTrPostAccess$ vertex, so applying $\cdot \sporkAugmentVis \sporktr_d$ to the visibility record of every pair of $\sporktoEnvTotal(\sporktr^*)$
+    gives $\sporktoEnvTotal(\sporktr^*_\mathrm{cat})$; this is equation~\ref{eq:envConcatSync}.
+  \item $\sporkTrPreAccess$: no new $\sporkTrPostAccess$ vertex, and $\sporkAugmentVis \sporktr_d$ is the identity (F2),
+    so $\sporktoEnvTotal(\sporktr^*_\mathrm{cat}) = \sporkenv$, matching equation~\ref{eq:envConcatPre} (defined by assumption).
+  \item $\sporkTrPostAccess$: old pairs are unchanged (F2).
+    The new $\sporkvPost = \sporkvert_d$ reaches only itself (0-length path; F3),
+    so it contributes $(\sporkvEff(\sporktr_d), (\varnothing, \varnothing, \sporkvMask(\sporktr_d)) \sporkConcatVis \{\sporktr_d\})$:
+    the pair added by equation~\ref{eq:envConcatPost}. $\square$
+\end{itemize}
