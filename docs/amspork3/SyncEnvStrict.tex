@@ -19,4 +19,6 @@ Define this as
   & \sporkenvEff_s = \sporkenvEff_p \land \sporkenvVis_s \sporksqVis \sporkenvVis_p
   \label{eq:sqEnv}
 \end{align}
+The naming is also based on the fact that $\sporkenv_p \sporkConcatEnv \sporktr$
+won't fail if a stricter $\sporkenv_s \sporkConcatEnv \sporktr$ doesn't fail (Section~\ref{sec:SyncEnvMonotone}).
 We note that $\sporkenv_p \subseteq \sporkenv_s$ trivially implies $\sporkenv_s \sporksqEnv \sporkenv_p$ ($p,s$ are transposed!), and that $\varnothing$ is the most permissive (i.e. least strict) $\sporkenv$ possible.
