@@ -26,12 +26,12 @@ define helpers $\sporktrReach$, $\sporktrVPost$, $\sporkmutReqs$:
     %% \} \label{eq:trReach} \\
     {\color{gray}\bullet\,} &
     \sporktrVPost: \sporkTr^* \times \mathcal{P}(\sporkEnvEff) \to \mathcal{P}(\sporkVPost) \notag \\
-    & \sporktrVPost(\sporktr^*, \sporkEnvEff_a) = \{
+    & \sporktrVPost(\sporktr^*, \sporkEnvEff_e) = \{
     \sporkComment{\,($\sporkTrPostAccess$-constructed vertices, filtered by $(\sporkmut, \sporkx, \sporkz_i^*)$)}
     \notag \\
     & \quad (\sporkz, \sporkTrPostAccess(\sporkmut, \sporkx, \sporkz_i^*, \_, \_, \_, \_, \_))
       \in \sporktrV(\sporktr^*)
-      \mid (\sporkmut, \sporkx, \sporkz_i^*) \in \sporkEnvEff_a \}
+      \mid (\sporkmut, \sporkx, \sporkz_i^*) \in \sporkEnvEff_e \}
     \label{eq:trVPost} \\
     {\color{gray}\bullet\,} & \sporkmutReqs: \sporkMut \to \mathcal{P}(\sporkMut)
     \sporkComment{\,(Will be used to ignore read/read pairs)} \notag \\
@@ -50,9 +50,9 @@ For $\sporktr_d = \sporkTrPreAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTidPr
     \sporkComment{(newly added vertex)\quad}
     & \textbf{let } \sporkvert_d = (\abs{\sporktr^*}, \sporktr_d) \textbf{ in} \notag \\
     \sporkComment{(mutates and maybe reads at $\sporkx[\sporkz_i^*]$)\quad}
-    & \textbf{let } \sporkEnvEff_a = \sporkmutReqs(\sporkmut) \times \{ \sporkx \} \times \{ \sporkz_i^* \} \textbf{ in} \notag \\
+    & \textbf{let } \sporkEnvEff_e = \sporkmutReqs(\sporkmut) \times \{ \sporkx \} \times \{ \sporkz_i^* \} \textbf{ in} \notag \\
     \sporkComment{(all prior matching $\sporkTrPostAccess$...\quad}
-    & \textbf{let } \sporkVPost[s] = \sporktrVPost(\sporktr^*_\mathrm{cat}, \sporkEnvEff_a) \textbf{ in} \notag \\
+    & \textbf{let } \sporkVPost[s] = \sporktrVPost(\sporktr^*_\mathrm{cat}, \sporkEnvEff_e) \textbf{ in} \notag \\
     \sporkComment{...must have a path to $\sporkvert_d$)\quad}
     & \forall \sporkvPost[s] \in \sporkVPost[s].\quad
     \sporkvert_d \in \sporktrReach(\sporktr^*_\mathrm{cat}, \sporkvPost[s])
