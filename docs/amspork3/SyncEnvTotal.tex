@@ -9,9 +9,8 @@ Define
 Define
 \begin{align}
   & \sporkvVis : \sporkTr^* \times \sporkVPost \to \sporkEnvVis \sporkComment{ ($\sporkTrPostAccess$ vertex to reachable outbound set union)} \notag \\
-  & \sporkvVis(\sporktr^*, \sporkvPost) = \textbf{let } \{ \sporkvert_1, ..., \sporkvert_n \} = \sporktrReach(\sporktr^*, \sporkvPost), \sporkQtlMask = \sporkvMask(\sporkvPost) \textbf{ in} \notag \\
-  & (\varnothing, \varnothing, \sporkQtlMask) \sporkConcatVis \sporkvert_1 \sporkConcatVis ... \sporkConcatVis \sporkvert_n
-    \sporkComment{ (note $\sporkConcatVis$ is right-commutative)}
+  & \sporkvVis(\sporktr^*, \sporkvPost) = \textbf{let } \sporkVert_r = \sporktrReach(\sporktr^*, \sporkvPost), \sporkQtlMask = \sporkvMask(\sporkvPost) \textbf{ in} \notag \\
+  & (\varnothing, \varnothing, \sporkQtlMask) \sporkConcatVis \sporkVert_r
   \label{eq:vVis} \\
   & \sporktoEnvTotal: \sporkTr^* \to \sporkEnv \sporkComment{ \sporkComment{ ($\sporkTrPostAccess$ become $\sporkenv$ elements; $\sporkEnvEff$ means no filter)}} \notag \\
   & \sporktoEnvTotal(\sporktr^*) = \{ (\sporkvEff(\sporkvPost), \sporkvVis(\sporktr^*, \sporkvPost)) \mid \sporkvPost \in \sporktrVPost(\sporktr^*, \sporkEnvEff) \}

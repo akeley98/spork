@@ -25,13 +25,12 @@ define helpers $\sporktrReach$, $\sporktrVPost$, $\sporkmutReqs$:
     %%     \sporkPATH(\sporktrV(\sporktr^*), \sporktrE(\sporktr^*, \textsf{maskOf}(\sporkvert_s)), \sporkvert_s, \sporkvert_d)
     %% \} \label{eq:trReach} \\
     {\color{gray}\bullet\,} &
-    \sporktrVPost: \sporkTr^* \times \mathcal{P}(\sporkEnvEff) \to \mathcal{P}(\sporkVPost) \notag \\
-    & \sporktrVPost(\sporktr^*, \sporkEnvEff_e) = \{
-    \sporkComment{\,($\sporkTrPostAccess$-constructed vertices, filtered by $(\sporkmut, \sporkx, \sporkz_i^*)$)}
+    \sporktrVPost: \sporkTr^* \times \mathcal{P}(\sporkEnvEff) \to \mathcal{P}(\sporkVPost)
+    \sporkComment{\,($\sporkTrPostAccess$-constructed vertices, filtered by $\sporkEnvEff_e$)}
     \notag \\
-    & \quad (\sporkz, \sporkTrPostAccess(\sporkmut, \sporkx, \sporkz_i^*, \_, \_, \_, \_, \_))
-      \in \sporktrV(\sporktr^*)
-      \mid (\sporkmut, \sporkx, \sporkz_i^*) \in \sporkEnvEff_e \}
+    & \sporktrVPost(\sporktr^*, \sporkEnvEff_e) = \{
+      \sporkvPost \in \sporktrV(\sporktr^*) \cap \sporkVPost
+      \mid \sporkvEff(\sporkvPost) \in \sporkEnvEff_e \}
     \label{eq:trVPost} \\
     {\color{gray}\bullet\,} & \sporkmutReqs: \sporkMut \to \mathcal{P}(\sporkMut)
     \sporkComment{\,(Will be used to ignore read/read pairs)} \notag \\

@@ -17,21 +17,28 @@ where an observer $\sporkob: \sporkOb$ is a pair $(\sporktid, \sporkqtl)$;
 and, \textbf{(b)} pending await sets $\sporkAwIn(\sporktr)$ and $\sporkAwOut(\sporktr)$.
 They are defined per-trace-event-constructor (Figure~\ref{fig:TraceConstructors}) in Figure~\ref{fig:InOutSets}.
 
+Vertices (and sets of vertices) implicitly coerce to their trace events (and sets of trace events),
+e.g. $\sporkObIn((\sporkz, \sporktr)) = \sporkObIn(\sporktr)$.
+In/out sets lift to sets of trace events by union:
+$\sporkObOut(\sporkTr_a) = \bigcup_{\sporktr \in \sporkTr_a} \sporkObOut(\sporktr)$,
+and likewise for $\sporkObIn$, $\sporkAwIn$, $\sporkAwOut$.
+
 \input{InOutSets.tex}
 
 For reasons that will become clearer in Section~\ref{sec:SyncEnv} (Synchronization Environment),
-we define querying the ``environment effect'' (read/mutate tag at some $x[z_i^*]$) of $\sporkTrPostAccess$ vertices.
-We can also query the qualitative timeline mask of such vertices.
-With $\sporkvPost: \sporkVPost$ (subset of $\sporkVert$) denoting vertices $(\sporkz, \sporktr)$ where $\sporktr$ is constructed with $\sporkTrPostAccess$,
+we define querying the ``environment effect'' (read/mutate tag at some $x[z_i^*]$) of $\sporkTrPostAccess$ trace events.
+We can also query the qualitative timeline mask of such trace events.
+With $\sporkTrPost$ (subset of $\sporkTr$) denoting trace events constructed with $\sporkTrPostAccess$,
+and $\sporkvPost: \sporkVPost$ (subset of $\sporkVert$) denoting vertices $(\sporkz, \sporktr)$ where $\sporktr \in \sporkTrPost$,
 \begin{align}
 {\color{gray}\bullet\,}
 & \sporkenvEff: \sporkEnvEff \Coloneqq (\sporkmut, \sporkx, \sporkz_i^*) & \\
 {\color{gray}\bullet\,}
-& \sporkvEff: \sporkVPost \to \sporkEnvEff \notag \\
-& \sporkvEff((\sporkz, \sporkTrPostAccess(\sporkmut, \sporkx, \sporkz_i^*, \_, \_, \_, \_, \_))) = (\sporkmut, \sporkx, \sporkz_i^*)
+& \sporkvEff: \sporkTrPost \to \sporkEnvEff \notag \\
+& \sporkvEff(\sporkTrPostAccess(\sporkmut, \sporkx, \sporkz_i^*, \_, \_, \_, \_, \_)) = (\sporkmut, \sporkx, \sporkz_i^*)
 \label{eq:vEff} \\
 {\color{gray}\bullet\,}
-& \sporkvMask: \sporkVPost \to \mathcal{P}(\sporkQtl) \notag \\
-& \sporkvMask((\sporkz, \sporkTrPostAccess(\_, \_, \_, \_, \_, \_, \sporkQtlMask, \_))) = \sporkQtlMask
+& \sporkvMask: \sporkTrPost \to \mathcal{P}(\sporkQtl) \notag \\
+& \sporkvMask(\sporkTrPostAccess(\_, \_, \_, \_, \_, \_, \sporkQtlMask, \_)) = \sporkQtlMask
 \label{eq:vMask}
 \end{align}

@@ -11,12 +11,13 @@ Define helpers
       \lor
       \sporkAw_v \cap \sporkAwIn(\sporktr) \ne \varnothing \notag % f the overfull hbox
     \\
-    & \sporkConcatVis: \sporkEnvVis \times \sporkTr \to \sporkEnvVis
+    & \sporkConcatVis: \sporkEnvVis \times \mathcal{P}(\sporkTr) \to \sporkEnvVis
     \label{eq:ConcatVis}
     \\
-    & (\sporkOb_v, \sporkAw_v, \sporkQtlMask) \sporkConcatVis \sporktr =
-    (\sporkOb_v \cup (\sporkObOut(\sporktr) \cap (\sporkTid \times \sporkQtlMask)), \sporkAw_v \cup \sporkAwOut(\sporktr), \sporkQtlMask)
+    & (\sporkOb_v, \sporkAw_v, \sporkQtlMask) \sporkConcatVis \sporkTr_a =
+    (\sporkOb_v \cup (\sporkObOut(\sporkTr_a) \cap (\sporkTid \times \sporkQtlMask)), \sporkAw_v \cup \sporkAwOut(\sporkTr_a), \sporkQtlMask)
 \end{align}
+
 Define $\sporkenv \sporkConcatEnv \sporktr_d$ by cases; all cases are total except $\sporkTrPreAccess$:
 
 \sporkMainKey{Case 1/3:} $\sporktr_d = \sporkTrPostAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTidPost, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask, \sporkAwPost)$
@@ -34,7 +35,7 @@ Define $\sporkenv \sporkConcatEnv \sporktr_d$ by cases; all cases are total exce
     % PL community should invest in standardized math syntax that's actually good.
     & \text{where } \lambda(\sporkenvVis) = \lambda((\sporkOb_v, \sporkAw_v, \sporkQtlMask)) = \notag \\
     & \quad \begin{cases}
-      \sporkenvVis \sporkConcatVis \sporktr_d
+      \sporkenvVis \sporkConcatVis \{ \sporktr_d \}
       & \sporksyncsWith(\sporkenvVis, \sporktr_d) \\
       \sporkenvVis & \text{otherwise}
     \end{cases} \notag
