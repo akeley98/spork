@@ -16,6 +16,16 @@ Define helpers
     \\
     & (\sporkOb_v, \sporkAw_v, \sporkQtlMask) \sporkConcatVis \sporkTr_a =
     (\sporkOb_v \cup (\sporkObOut(\sporkTr_a) \cap (\sporkTid \times \sporkQtlMask)), \sporkAw_v \cup \sporkAwOut(\sporkTr_a), \sporkQtlMask)
+    \\
+    & \sporkAugmentVis: \sporkEnvVis \times \sporkTr \to \sporkEnvVis
+    \sporkComment{\,(conditional augment)}
+    \label{eq:AugmentVis}
+    \\
+    & \sporkenvVis \sporkAugmentVis \sporktr = \begin{cases}
+      \sporkenvVis \sporkConcatVis \{ \sporktr \}
+      & \sporksyncsWith(\sporkenvVis, \sporktr) \\
+      \sporkenvVis & \text{otherwise}
+    \end{cases} \notag
 \end{align}
 
 Define $\sporkenv \sporkConcatEnv \sporktr_d$ by cases; all cases are total except $\sporkTrPreAccess$:
@@ -29,13 +39,8 @@ Define $\sporkenv \sporkConcatEnv \sporktr_d$ by cases; all cases are total exce
 \end{align}
 \sporkMainKey{Case 2/3:} $\sporktr_d$ is constructed with $\sporkTrFence$, $\sporkTrArrive$, or $\sporkTrAwait$.
 \begin{align}
-    & \sporkenv \sporkConcatEnv \sporktr_d = \{ (\sporkenvEff, \lambda(\sporkenvVis)) \mid (\sporkenvEff, \sporkenvVis) \in \sporkenv \}
-    \label{eq:envConcatSync} \\
-    & \text{where } \lambda(\sporkenvVis) = \begin{cases}
-      \sporkenvVis \sporkConcatVis \{ \sporktr_d \}
-      & \sporksyncsWith(\sporkenvVis, \sporktr_d) \\
-      \sporkenvVis & \text{otherwise}
-    \end{cases} \notag
+    & \sporkenv \sporkConcatEnv \sporktr_d = \{ (\sporkenvEff, \sporkenvVis \sporkAugmentVis \sporktr_d) \mid (\sporkenvEff, \sporkenvVis) \in \sporkenv \}
+    \label{eq:envConcatSync}
 \end{align}
 \sporkMainKey{Case 3/3:} $\sporktr_d = \sporkTrPreAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTidPre, \sporkQtlPre, \sporkAwFree)$
 \begin{align}

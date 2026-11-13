@@ -23,13 +23,13 @@ For a pair of $\sporkenv_p \cup \{q\}$ taken from $\sporkenv_p$, use the witness
 for $q$ itself, use $q$ (reflexivity).
 
 \sporkMainKey{Case $\sporkTrFence$/$\sporkTrArrive$/$\sporkTrAwait$:}
-Every pair of $\sporkenv_p \sporkConcatEnv \sporktr$ has the form $(\sporkenvEff, \lambda(\sporkenvVis_p))$ for some $(\sporkenvEff, \sporkenvVis_p) \in \sporkenv_p$.
-Take the witness $(\sporkenvEff, \sporkenvVis_s) \in \sporkenv_s$ with $\sporkenvVis_s \sporksqVis \sporkenvVis_p$; then $(\sporkenvEff, \lambda(\sporkenvVis_s)) \in \sporkenv_s \sporkConcatEnv \sporktr$, and it suffices to show $\lambda(\sporkenvVis_s) \sporksqVis \lambda(\sporkenvVis_p)$.
+Every pair of $\sporkenv_p \sporkConcatEnv \sporktr$ has the form $(\sporkenvEff, \sporkenvVis_p \sporkAugmentVis \sporktr)$ for some $(\sporkenvEff, \sporkenvVis_p) \in \sporkenv_p$.
+Take the witness $(\sporkenvEff, \sporkenvVis_s) \in \sporkenv_s$ with $\sporkenvVis_s \sporksqVis \sporkenvVis_p$; then $(\sporkenvEff, \sporkenvVis_s \sporkAugmentVis \sporktr) \in \sporkenv_s \sporkConcatEnv \sporktr$, and it suffices to show $(\sporkenvVis_s \sporkAugmentVis \sporktr) \sporksqVis (\sporkenvVis_p \sporkAugmentVis \sporktr)$.
 By the preliminary, ``$\sporkenvVis_s$ syncs but $\sporkenvVis_p$ does not'' is impossible, leaving three sub-cases:
 \begin{itemize}
   \item Neither syncs: both unchanged; holds by hypothesis.
-  \item Only $\sporkenvVis_p$ syncs: $\lambda$ only grows the $\sporkOb$, $\sporkAw$ components (mask unchanged),\\
-    so $\sporkenvVis_s \sporksqVis \sporkenvVis_p \sporksqVis \lambda(\sporkenvVis_p)$, and $\sporksqVis$ is transitive (componentwise $\subseteq$).
+  \item Only $\sporkenvVis_p$ syncs: $\sporkAugmentVis$ only grows the $\sporkOb$, $\sporkAw$ components (mask unchanged),\\
+    so $\sporkenvVis_s \sporksqVis \sporkenvVis_p \sporksqVis (\sporkenvVis_p \sporkAugmentVis \sporktr)$, and $\sporksqVis$ is transitive (componentwise $\subseteq$).
   \item Both sync: the $\sporkAw$ components are $\sporkAw_s \cup \sporkAwOut(\sporktr) \subseteq \sporkAw_p \cup \sporkAwOut(\sporktr)$;
     the $\sporkOb$ components are $\sporkOb_s \cup (\sporkObOut(\sporktr) \cap (\sporkTid \times \sporkQtlMask[s])) \subseteq \sporkOb_p \cup (\sporkObOut(\sporktr) \cap (\sporkTid \times \sporkQtlMask[p]))$ since $\sporkQtlMask[s] \subseteq \sporkQtlMask[p]$;
     masks are unchanged.

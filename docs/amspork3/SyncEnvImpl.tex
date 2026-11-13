@@ -7,7 +7,7 @@ This is only possible without data values due to Exo's control-data separation:
 the traced control flow and sequence of array indexing never depends on data values.
 
 We greatly sped up the interpretation by de-duplicating visibility records in a hash table of type $\mathcal{P}(\sporkEnvVis)$.
-For example, this allows us to memoize the effects of $\lambda$ when tracing a new synchronization (Equation~\ref{eq:envConcatSync}).
+For example, this allows us to memoize $\sporkenvVis \sporkAugmentVis \sporktr_d$ when tracing a new synchronization (Equation~\ref{eq:envConcatSync}).
 We implement several optimizations that we have not fully reasoned to be sound,
 mostly stemming from our hope to reduce the number of unique visibility records in the hash table:
 \begin{itemize}
