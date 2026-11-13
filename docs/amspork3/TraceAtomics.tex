@@ -44,7 +44,7 @@ $\sporkTrPreAccess$ and $\sporkTrPostAccess$ events stemming from
 atomic accesses, and these will never overlap with the
 observer sets of other events.
 So, forming trace edges with any other sort of trace event (synchronization, or non-atomic accesses)
-relies only on edges labelled with observers $(\sporktid, \sporkqtlNat)$
+relies only on edges witnessed by observers $(\sporktid, \sporkqtlNat)$
 with $\sporktid \in \sporktidMap(\sporksigma)$ only,
 avoiding implicit synchronization with other threads (Figure~\ref{fig:AtomicEdges}).
 

@@ -17,29 +17,30 @@ For any $\sporktr^*$, $\sporktr_d$, and $\sporkvPost \in \sporktrVPost(\sporktr^
   \text{(b)}\quad & \sporkvVis(\sporktr^*_\mathrm{cat}, \sporkvPost) = \sporkvVis(\sporktr^*, \sporkvPost) \sporkAugmentVis \sporktr_d
 \end{align}
 \emph{Proof.}
-Let $\sporkQtlMask = \sporkvMask(\sporkvPost)$ and $\sporkVert_r = \sporktrReach(\sporktr^*, \sporkvPost)$.
-By (F3), a path from $\sporkvPost$ in the new graph is either a path in the old graph,
-or ends at $\sporkvert_d$ with a last edge from some $\sporkvert \in \sporkVert_r$. So
-\begin{align}
-  \sporktrReach(\sporktr^*_\mathrm{cat}, \sporkvPost) = \begin{cases}
-    \sporkVert_r \cup \{\sporkvert_d\} & \exists \sporkvert \in \sporkVert_r \text{ with an edge } \sporkvert \to \sporkvert_d \\
-    \sporkVert_r & \text{otherwise}
-  \end{cases}
-  \label{eq:reachStep}
-\end{align}
-Unfolding equations~\ref{eq:syncsWith} and \ref{eq:ConcatVis}, the edge condition of Section~\ref{sec:TraceEdges} is
+Let $\sporkQtlMask = \sporkvMask(\sporkvPost)$, $\sporkVert_r = \sporktrReach(\sporktr^*, \sporkvPost)$,
+and $\sporkenvVis = \sporkvVis(\sporktr^*, \sporkvPost) = (\varnothing, \varnothing, \sporkQtlMask) \sporkConcatVis \sporkVert_r$.
+\begin{itemize}
+  \item[(S1)] $\sporktrReach(\sporktr^*_\mathrm{cat}, \sporkvPost) = \sporkVert_r \cup \{\sporkvert_d\}$
+    if $\exists \sporkvert \in \sporkVert_r.\, \sporkEdgeArrow{\sporkvert}{\sporkvert_d} \in \sporktrE(\sporktr^*_\mathrm{cat}, \sporkQtlMask)$,
+    and $\sporkVert_r$ otherwise.
+    \sporkComment{(F3)}
+  \item[(S2)] For $\sporkvert \in \sporktrV(\sporktr^*)$:
+    $\sporkEdgeArrow{\sporkvert}{\sporkvert_d} \in \sporktrE(\sporktr^*_\mathrm{cat}, \sporkQtlMask) \iff
+    \sporksyncsWith((\varnothing, \varnothing, \sporkQtlMask) \sporkConcatVis \{\sporkvert\}, \sporktr_d)$. \\
+    \sporkComment{(unfold equations~\ref{eq:syncsWith}, \ref{eq:ConcatVis} and Section~\ref{sec:TraceEdges}; the second $\sporkTid \times \sporkQtlMask$ filter is redundant)}
+  \item[(S3)] $(\exists \sporkvert \in \sporkVert_r.\, \sporksyncsWith((\varnothing, \varnothing, \sporkQtlMask) \sporkConcatVis \{\sporkvert\}, \sporktr_d))
+    \iff \sporksyncsWith(\sporkenvVis, \sporktr_d)$. \\
+    \sporkComment{($\sporksyncsWith$ is non-empty intersection tests; $\sporkConcatVis$ takes unions)}
+\end{itemize}
+(a) is S1--S3 chained. For (b), by S1 and (a),
 \begin{align*}
-  \sporksyncsWith((\varnothing, \varnothing, \sporkQtlMask) \sporkConcatVis \{\sporkvert\}, \sporktr_d)
-  \quad \sporkComment{(the second $\sporkTid \times \sporkQtlMask$ filter is redundant)}
+  \sporkvVis(\sporktr^*_\mathrm{cat}, \sporkvPost) = \begin{cases}
+    (\varnothing, \varnothing, \sporkQtlMask) \sporkConcatVis (\sporkVert_r \cup \{\sporkvert_d\}) = \sporkenvVis \sporkConcatVis \{\sporktr_d\} \;\sporkComment{(F1)}
+      & \sporksyncsWith(\sporkenvVis, \sporktr_d) \\
+    \sporkenvVis & \text{otherwise}
+  \end{cases}
 \end{align*}
-$\sporksyncsWith$ is a disjunction of non-empty intersection tests and $\sporkConcatVis$ takes unions,
-so this holds for some $\sporkvert \in \sporkVert_r$ iff
-$\sporksyncsWith((\varnothing, \varnothing, \sporkQtlMask) \sporkConcatVis \sporkVert_r, \sporktr_d) = \sporksyncsWith(\sporkvVis(\sporktr^*, \sporkvPost), \sporktr_d)$.
-This proves (a).
-For (b), when (a) holds, F1 gives
-$(\varnothing, \varnothing, \sporkQtlMask) \sporkConcatVis (\sporkVert_r \cup \{\sporkvert_d\}) = \sporkvVis(\sporktr^*, \sporkvPost) \sporkConcatVis \{\sporktr_d\}$;
-otherwise the reachable set, hence $\sporkvVis$, is unchanged.
-This is the definition of $\sporkAugmentVis$ (equation~\ref{eq:AugmentVis}). $\square$
+which is $\sporkenvVis \sporkAugmentVis \sporktr_d$ (equation~\ref{eq:AugmentVis}). $\square$
 
 \sporkMainKey{Closed-Form Lemma:}
 If $\varnothing \sporkConcatEnv \sporktr^*$ is defined, then $\varnothing \sporkConcatEnv \sporktr^* = \sporktoEnvTotal(\sporktr^*)$;

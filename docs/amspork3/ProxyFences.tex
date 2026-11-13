@@ -11,8 +11,8 @@ causing a trace graph path (Section~\ref{sec:TraceConcatChk})
 to exist from a generic proxy access's $\sporkTrPostAccess$
 to a later async proxy access's $\sporkTrPreAccess$.
 
-Recall that trace edges (Section~\ref{sec:TraceEdges}) are labelled with
-a set of observers and a set of pending awaits, at least one not empty.
+Recall that each trace edge (Section~\ref{sec:TraceEdges}) has at least one witness:
+an observer or a pending await.
 Suppose \emph{for now} that all $\sporkqtl$ can be categorized as
 either generic proxy or async proxy (Section~\ref{sec:Qtl}).
 A barrier variable name $\sporkx$ is categorized by analyzing all
@@ -20,12 +20,12 @@ $\texttt{Arrive}(\sporkQtlArrive)$ statements referencing $\sporkx$;
 the variable name is generic proxy if \emph{any} such $\sporkQtlArrive$
 contains a generic proxy $\sporkqtl$; otherwise, $\sporkx$ is async proxy.
 
-We call an edge \emph{generic} if it is labelled with an observer containing a generic proxy $\sporkqtl$,
-or if it is labelled with a pending await containing a generic proxy $\sporkx$.
+We call an edge \emph{generic} if it is witnessed by an observer containing a generic proxy $\sporkqtl$,
+or if it is witnessed by a pending await containing a generic proxy $\sporkx$.
 The definition of \emph{async edge} is similar.
 An edge may be both generic and async;
 however, critically, it's not possible for an edge to be neither
-(it must be labelled with at least one observer or at least one pending await,
+(it must have at least one witness,
 and, for now, all $\sporkqtl$ or barrier variable names are categorized as generic or async).
 
 The sequence of events we care about is a memory access in the generic proxy,
@@ -54,11 +54,11 @@ and $\sporkQtlAwait$ contains async proxy $\sporkqtl$;
 otherwise, either inbound generic edges are impossible, or outbound async edges are impossible.
 
 \sporkMainKey{Case \texttt{Arrive($\sporkQtlArrive$)}, referencing generic proxy $\sporkx$:}
-No cross-proxy fence is inserted; the outbound edges (labelled only with pending awaits
+No cross-proxy fence is inserted; the outbound edges (witnessed only by pending awaits
 referencing the generic proxy $\sporkx$) are generic.
 
 \sporkMainKey{Case \texttt{Arrive($\sporkQtlArrive$)}, referencing async proxy $\sporkx$:}
-No cross-proxy fence is inserted; the inbound edges (labelled only with observers
+No cross-proxy fence is inserted; the inbound edges (witnessed only by observers
 containing async proxy $\sporkqtl$) are async, by definition of ``$\sporkx$ is async proxy''.
 
 \sporkMainKey{Case \texttt{Await($\sporkwScalarH$, $\sporkQtlAwait$, $\sporkz_\mathrm{lag}$)},
@@ -73,7 +73,7 @@ No cross-proxy fence is inserted, as only async inbound edges are possible.
 
 Regarding the earlier ``suppose for now'':
 this analysis would be undermined if the constructed trace graph contained edges
-labelled by observers with $\sporkqtl$ categorized neither as generic proxy or async proxy.
+witnessed by observers with $\sporkqtl$ categorized neither as generic proxy or async proxy.
 This is the purpose of $\sporkQtlMask$:
 for $\sporkTrPostAccess$ events corresponding to data RAM accesses (not registers, not mbarriers),
 the mask contains only $\sporkqtl$ of data RAM class (either proxy).
