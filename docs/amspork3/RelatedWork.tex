@@ -1,3 +1,81 @@
 \sporkSection{Related Work}{sec:RelatedWork}
 
-\sporkRed{TODO}
+\sporkSubsection{GPU Kernel Authoring Languages}{sec:RelatedKernelLanguages}
+
+While CUDA offers fine-grained control, it remains low-level and error-prone.
+To address this, various approaches have emerged at different abstraction levels.
+
+Tile-level DSLs like Triton \cite{triton}, Pallas \cite{pallas}, TileLang \cite{tilelang}, and cuTile \cite{cutile}
+abstract away low-level details by enabling programmers to express computations at the block level,
+with compilers automatically handling the thread-level mapping.
+However, these abstractions can hide performance-critical details.
+Citing the difficulty of reaching peak performance on recent GPUs through compiler automation alone,
+the Triton developers introduced Gluon \cite{triton:gluon_update},
+a lower-level language exposing layouts, memory allocations, and user-inserted synchronization.
+
+Gluon's increased user responsibility for synchronization was paired with a synchronization checker,
+ConSan \cite{triton:consan}.
+Although implemented with runtime instrumentation rather than program analysis,
+the design has similarities to our implemented synchronization checking (Section~\ref{sec:SyncEnvImpl}),
+tracking ``visibility'' of prior reads and mutates,
+and being currently limited to detecting bugs triggered by a specific input.
+We view our approach of providing detailed instruction semantics (Section~\ref{sec:InstrSpec})
+and synchronization environment semantics (Section~\ref{sec:SyncEnv})
+as holding promise for surmounting the ``specific input'' restriction.
+We leave as future work to back this belief with evidence.
+
+CUTLASS~\cite{cutlass} and ThunderKittens~\cite{thunderkittens} are C++ template-based libraries that raise the abstraction level of GPU programming while preserving performance.
+Instead of hiding CUDA behind rigid abstractions, they provide composable, architecture-aware primitives that integrate with raw CUDA code.
+This approach lets programmers work at the tile level when convenient, yet seamlessly drop to thread-level operations when fine control is needed.
+%
+CuTe~\cite{cute}, introduced in CUTLASS 3.0, offers flexible abstraction for defining tensor layouts and transformations.
+%
+While these libraries are effective engineering toolkits, they do not provide safety guarantees or whole-program analyses for asynchronous instructions and synchronization statements.
+
+Achieving both peak performance and safety remains a fundamental challenge.
+Existing approaches either provide limited safety guarantees or lack support for modern GPU features.
+For instance, Descend~\cite{descend} introduces Rust-like borrow checking to ensure race freedom but does not support key GPU features such as tensor cores and split barriers.
+The aforementioned C++ libraries are practical tools,
+but none provide automated checking of correct dataflow, thread convergence, or synchronization.
+%
+This motivated Exo checked rewrites (Section~\ref{sec:SystemOverview}),
+collective analysis (Section~\ref{sec:CollAnalysis})
+and synchronization checking (Section~\ref{sec:SyncEnv}).
+
+\sporkSubsection{User-schedulable Languages}{sec:RelatedUSL}
+
+User-schedulable languages (USLs) describe optimization as rewriting programs into new programs that compute the same result, but execute much faster.
+Rather than relying on opaque compiler heuristics,
+programmers directly control these rewrites by specifying scheduling operations.
+%
+Halide~\cite{Halide:SIGGRAPH,Halide:CACM} popularized the idea of USLs, and subsequent Halide-inspired languages explored different target applications and abstraction for a given domain~\cite{Legion,TVM,TensorComprehensions,TACO,GraphIt,SWIRL,FireIron,Taichi,exo,lift2017}.
+%
+For instance, TVM offers accelerator abstraction through \texttt{tensorize}, TACO separates tensor definitions from sparse formats, and Taichi abstracts memory layout and management with \texttt{fields}.
+
+% This paragraph broke every language name (Ten-sorIR, Cy-press) without the forced newline
+Several systems have extended user-scheduling to support modern GPU features.\\
+TVM's TensorIR~\cite{tensorir} provides intrinsics for manipulating low-level constructs like split barriers, while Cypress~\cite{cypress} lets programmers describe computations as tasks and map them to different resources.
+%
+\sporkName{} differs from these approaches in two key ways. First, \sporkName{} exposes low-level control to the programmer; there is little hidden control flow in \sporkName{} programs.
+In this sense, \sporkName{} follows a WYSIWYG (what you see is what you get) philosophy: the structure of the program directly reflects its execution. This contrasts with Cypress, which hides warp specialization as an internal compiler optimization, and with TensorIR, which focuses on automatically generating schedules with lowering-based intrinsics.
+Second, \sporkName{} gives direct control over synchronization while guaranteeing sequential-parallel equivalence through a synchronization checker that detects data races, hazards, and other concurrency bugs.
+
+\sporkSubsection{Exo vs. \sporkName{}}{sec:RelatedExo}
+
+\sporkName{} fundamentally extends existing the Exo language by introducing parallel semantics.
+While Exo~\cite{exo, exo2} is a high-performance USL that achieves peak performance on many vector machines and accelerators, it was designed to exploit only the \emph{implicit parallelism} exposed by hardware.
+%
+Exo's scheduling reasoning operates exclusively under a sequential execution model.
+This approach suffices for vector machines and matrix accelerators because CPU frontends maintain instruction ordering; even with out-of-order execution and reorder buffers, the hardware guarantees that parallel execution produces results equivalent to sequential execution.
+Therefore, the compiler needs only to verify program equivalence when interpreting programs sequentially.
+Even within this sequential framework, Exo's optimizations could exploit implicit hardware parallelism through techniques like software pipelining~\cite{exo, exo2}.
+
+In contrast, GPUs expose \emph{explicit data- and instruction-parallelism} to software.
+Unlike traditional CPUs and accelerators that maintain the illusion of sequential execution through their frontend, modern GPUs shift this responsibility entirely to software.
+%
+For Exo, this shift requires reasoning about parallel execution at a deeper level than simple fork-join loops,
+and bridging between fundamentally sequential semantics and a highly-asynchronous hardware reality.
+%
+We address this fundamental challenge through two key contributions. First, we extend Exo's grammar and scheduling language to expose user-controlled parallel loops and synchronization features.
+Second, we provide safety guarantees by establishing sequential-parallel equivalence through synchronization checking for concrete problem sizes (Section~\ref{sec:SyncEnv}).
+This completes the equivalence chain from the simple, initial Exo program through to its optimized, parallel implementation in \sporkName{}, ensuring correctness at every transformation step.
