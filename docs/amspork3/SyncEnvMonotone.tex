@@ -5,7 +5,8 @@ We claim that $\sporkConcatEnv$ is a monotone (increasing) function; this forms 
 
 Claim: $\sporkenv_s \sporksqEnv \sporkenv_p \land (\sporkenv_s, \sporktr) \in \textrm{dom}(\sporkConcatEnv) \implies (\sporkenv_s \sporkConcatEnv \sporktr) \sporksqEnv (\sporkenv_p \sporkConcatEnv \sporktr)$
 
-\textbf{AI Disclosure: Written by Claude Opus 5.5}
+% David Zhao Akeley 2026-11-12: I checked this against the \sporkConcatEnv definition and it's correct.
+\textbf{AI Disclosure: Proof written by Claude Opus 5.5}
 
 Note the conclusion implicitly also claims $(\sporkenv_p, \sporktr) \in \textrm{dom}(\sporkConcatEnv)$, i.e. a less strict environment never gets stuck where a stricter one does not; we prove this too.
 
