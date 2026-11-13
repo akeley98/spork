@@ -30,7 +30,7 @@ and $\sporkenvVis = \sporkvVis(\sporktr^*, \sporkvPost) = (\varnothing, \varnoth
     \sporkComment{(unfold equations~\ref{eq:syncsWith}, \ref{eq:ConcatVis} and Section~\ref{sec:TraceEdges}; the second $\sporkTid \times \sporkQtlMask$ filter is redundant)}
   \item[(S3)] $(\exists \sporkvert \in \sporkVert_r.\, \sporksyncsWith((\varnothing, \varnothing, \sporkQtlMask) \sporkConcatVis \{\sporkvert\}, \sporktr_d))
     \iff \sporksyncsWith(\sporkenvVis, \sporktr_d)$. \\
-    \sporkComment{($\sporksyncsWith$ is non-empty intersection tests; $\sporkConcatVis$ takes unions)}
+    \sporkComment{($\sporksyncsWith$ is non-empty intersection tests; $\sporkConcatVis$ built $\sporkenvVis$ as unions of $\sporkob,\sporkaw$ in $\sporkvert\in\sporkVert_r$)}
 \end{itemize}
 (a) is S1--S3 chained. For (b), by S1 and (a),
 \begin{align*}
