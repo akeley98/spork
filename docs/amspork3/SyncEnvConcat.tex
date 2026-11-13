@@ -53,3 +53,9 @@ Define $\sporkenv \sporkConcatEnv \sporktr_d$ by cases; all cases are total exce
 \end{align}
 The $\sporkTrPostAccess$ behavior acts as a ``postcondition'' in that in controls how $\sporkenv$ is modified,
 and the $\sporkTrPreAccess$ behavior acts as a ``precondition'' that must be satisfied to allow progress.
+
+These semantics are a drop-in replacement for trace-checking semantics;
+$() \sporkConcatChk \sporktr^*$ is undefined
+(i.e. causes a program producing trace $\sporktr^*$ to get stuck)
+if and only if $\varnothing \sporkConcatEnv \sporktr^*$ is undefined
+(Section~\ref{sec:SyncEnvEquiv}).
