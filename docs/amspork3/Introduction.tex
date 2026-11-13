@@ -59,4 +59,8 @@ Synchronization events become meaningful in the synchronization environment, con
 We built \sporkName{} as an extension to Exo \cite{exo, exo2}, a user-schedulable language providing composable, checked rewrite rules for transforming (optimizing) sequential programs without risking dataflow or instruction usage bugs.
 Exo lacks GPU support, and we significantly extended its frontend language design, static analysis, semantics, and codegen to enable safe parallel program transformation.
 Treating parallel constructs as annotations over a sequential semantic baseline enabled us to reuse Exo's over 60 verified rewrites as-is, which allowed us to transform a simple sequential GEMM program into a complex GEMM kernel for the NVIDIA Hopper architecture, with every step of transformation\footnote{Except unsound rewrites modelling TMA's zero padding, Section~\ref{sec:TmaLimitations}} verified via a \emph{chain of equivalence}: Exo verified equivalence between the original $p_0$ and the final $p_n$ while ignoring all the synchronization constructs, and \sporkName{} verified functional equivalence between the parallel and sequential interpretations of $p_n$, checking the legality of the parallel and synchronous annotations (Section~\ref{sec:SyncEnv}).
-Combining Exo's pre-existing checked rewrite rules with \sporkName{}'s new language features and synchronization checking, we created a GEMM kernel achieving over 80\% of theoretical peak for large problem sizes, in some cases outperforming the vendor-supplied CUBLAS library (Section~\sporkRed{TODO link; new results}). \sporkRed{TODO cry about efficency failures}
+%
+Combining Exo's pre-existing checked rewrite rules with \sporkName{}'s new language features and synchronization checking,
+we created an H100 GEMM kernel achieving over 70\% of theoretical peak for large problem sizes,
+in some cases outperforming the vendor-supplied CUBLAS library (Section~\ref{sec:Results})).
+
