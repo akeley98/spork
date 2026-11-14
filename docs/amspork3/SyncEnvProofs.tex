@@ -1,6 +1,16 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%  AI-WRITTEN PROOFS: every proof in this section (SyncEnvTotal.tex,
+%%  SyncEnvEquiv.tex, SyncEnvMonotone.tex) was written by Claude Opus 5.5.
+%%  The one disclosure below covers all of them. If you move or reuse any of
+%%  these proofs elsewhere, ADD AN AI DISCLOSURE THERE if the venue requires it.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Exception to amspork3_defs.tex holding all macros: the subsection files check that this is defined,
+% so they fail to compile if \input anywhere without this section's AI disclosure.
+\newcommand{\sporkSyncEnvProofsAiDisclosure}{\textbf{AI Disclosure: All proofs in Section~\ref{sec:SyncEnvProofs} written by Claude Opus 5.5}}
+
 \sporkSection{Synchronization Environment Proofs}{sec:SyncEnvProofs}
 
-\textbf{AI Disclosure: Proofs in Sections~\ref{sec:SyncEnvTotal} and \ref{sec:SyncEnvEquiv} written by Claude Opus 5.5}
+\sporkSyncEnvProofsAiDisclosure
 
 \sporkMainKey{Notation:}
 $\varnothing \sporkConcatEnv \sporktr^*$ is a left fold, like $() \sporkConcatChk \sporktr^*$ (Section~\ref{sec:TraceChecks}).

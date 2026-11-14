@@ -1,3 +1,14 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%  AI-WRITTEN PROOF: this file is covered by the single AI disclosure for
+%%  the appendix section in SyncEnvProofs.tex (\sporkSyncEnvProofsAiDisclosure).
+%%  If you move or reuse this proof elsewhere, ADD AN AI DISCLOSURE THERE
+%%  if the venue requires it.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Only \input this from SyncEnvProofs.tex, so the disclosure can't be dropped by accident.
+\ifdefined\sporkSyncEnvProofsAiDisclosure\else
+  \errmessage{SyncEnvMonotone.tex must be \string\input\space from SyncEnvProofs.tex, which defines \string\sporkSyncEnvProofsAiDisclosure}
+\fi
+
 % Had to use words because $\sporkConcatEnv$ in a section title screws up the PDF linking.
 \sporkSubsection{Trace Concatenation is Monotone}{sec:SyncEnvMonotone}
 
@@ -6,7 +17,6 @@ We claim that $\sporkConcatEnv$ is a monotone (increasing) function; this forms 
 Claim: $\sporkenv_s \sporksqEnv \sporkenv_p \land (\sporkenv_s, \sporktr) \in \textrm{dom}(\sporkConcatEnv) \implies (\sporkenv_s \sporkConcatEnv \sporktr) \sporksqEnv (\sporkenv_p \sporkConcatEnv \sporktr)$
 
 % David Zhao Akeley 2026-11-12: I checked this against the \sporkConcatEnv definition and it's correct.
-\textbf{AI Disclosure: Proof written by Claude Opus 5.5}
 
 Note the conclusion implicitly also claims $(\sporkenv_p, \sporktr) \in \textrm{dom}(\sporkConcatEnv)$, i.e. a less strict environment never gets stuck where a stricter one does not; we prove this too.
 
