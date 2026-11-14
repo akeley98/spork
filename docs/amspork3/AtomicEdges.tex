@@ -10,7 +10,8 @@
     ev/.style={rectangle, draw, thick, align=center, inner sep=1.5mm, minimum height=12mm, minimum width=27mm},
     ob/.style={rectangle, draw, thick, inner sep=1mm, minimum height=7mm},
     set note/.style={annotation, inner sep=1mm},
-    edge label/.style={inner sep=0.5mm},
+    edge/.style={spork arrow, draw=sporkBlueFg},
+    edge label/.style={inner sep=0.5mm, text=sporkBlueFg},
   }
   \newcommand{\obGap}{0.8pt}
   % tid_0 row centered at y = 0, tid_1 row at y = -22.5mm; the no-edge line runs flat at y = -13.5mm.
@@ -38,8 +39,10 @@
   \draw [annotation line] (dSet.north -| d-in) -- (d-in.south);
 
   % Edges.
-  \draw [spork arrow] (a-out) -- node [edge label, above] {$(\sporktid_0, \sporkqtlNat)$} (c-in);
-  \draw [spork arrow] (a-out.south) -- node [edge label, left=2.5mm, pos=0.55] {$(\sporktid_1, \sporkqtlAt)$} (b-in.north);
+  \draw [edge] (a-out) -- node [edge label, above] {$(\sporktid_0, \sporkqtlNat)$} (c-in);
+  \draw [edge] (a-out.south) -- node [edge label, left=2.5mm, pos=0.55] {$(\sporktid_1, \sporkqtlAt)$} (b-in.north);
+  % Witness key (as in Figure AsyncGroupEdges): standalone blue arrow, top right, level with the set notes.
+  \draw [edge] ([xshift=-12mm]d.east |- cSet.center) -- node [edge label, above] {\sporkFigSmall witness (\ref{sec:TraceEdges})} (d.east |- cSet.center);
   \begin{scope}[draw=sporkRedFg, text=sporkRedFg]
     \draw [spork arrow, dash pattern=on 2.5pt off 2pt] (a-out.south east) to [out=-35, in=180] (55mm, -13.5mm)
       -- coordinate (mid) (100mm, -13.5mm) to [out=0, in=90] (d-in.north);

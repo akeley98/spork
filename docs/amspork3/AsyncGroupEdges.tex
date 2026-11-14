@@ -2,9 +2,9 @@
 % arrive count sigma(x, z^*) = 0: TrPostAccess, TrArrive, TrAwait, TrArrive, TrAwait (rows, top to bottom).
 % Style follows 26.tex's Environment Visibility frame (sets written in the in/out boxes, column headers
 % as annotations), minus envVis; one-line event boxes. Each box and edge label is an (observers, pending
-% awaits) pair: arrives have Ob^in / Aw^out, awaits Aw^in / Ob^out.
+% awaits) pair: arrives have Ob^in / Aw^out, awaits Aw^in / Ob^out. Edge labels are each edge's single witness.
 % Arrive count sigma(x, z^*) annotated between events. The k-th arrive (from 0) has z_arrive = k; an await after n arrives has z_await = n - z_lag - 1.
-% Edges: post -> both arrives ({(tid, q_A)}, {}), routed on the left; arrive 0 -> await 2 ({}, {pending await 0}),
+% Edges: post -> both arrives (witness (tid, q_A)), routed on the left; arrive 0 -> await 2 (witness pending await 0),
 % routed on the right. The first await (pending await -1) is unreachable.
 \begin{figure}[h]
 \centering
@@ -40,9 +40,12 @@
   \node [annotation, anchor=south east] at (e1-in.east |- keyY) {$(\sporkObIn, \sporkAwIn)$};
   \node [annotation, anchor=south west] at (e0-out.west |- keyY) {$(\sporkObOut, \sporkAwOut)$};
   % qtl key (blue, like the edges): right of the TrPostAccess's out box, bottom-aligned with its row.
-  \node [anchor=south west, align=left, inner sep=0.5mm, text=sporkBlueFg] at ([xshift=4mm]e0-out.south east)
+  \node (key) [anchor=south west, align=left, inner sep=0.5mm, text=sporkBlueFg] at ([xshift=4mm]e0-out.south east)
     {$\qA = {}$\texttt{\sporkFigSmall Sm80\_cp\_async\_qual}\\
      $\qIo = {}$\texttt{\sporkFigSmall cuda\_in\_order\_ram\_qual}};
+  % Witness key: standalone edge arrow just above the qtl key, left-aligned with it.
+  \draw [edge] ([shift={(0.5mm,1.5mm)}]key.north west) -- node [edge label, right=1mm, pos=1] {\sporkFigSmall witness (\ref{sec:TraceEdges})}
+    ([shift={(10.5mm,1.5mm)}]key.north west);
 
   % Gap midlines; trunks left of the widest in box and right of the widest out box.
   \coordinate (g01) at ([yshift=-3mm]e0.south);
@@ -60,13 +63,13 @@
   \coordinate (h0) at ([yshift=-0.7mm]g01);
   \coordinate (h1) at ([yshift=0.7mm]g01);
   \draw [edge] (p1) |- (h1) -| (e1-in.north);
-  \node [edge label, anchor=south] at ([yshift=0.5mm]h1 -| e1-in.north) {$\{(\sporktid, \qA)\}, \{\}$};
+  \node [edge label, anchor=south] at ([yshift=0.5mm]h1 -| e1-in.north) {$(\sporktid, \qA)$};
   \draw [edge] (p0) |- (h0) -- (h0 -| xl) -- (g23 -| xl) -- (g23 -| e3-in.north) -- (e3-in.north);
   % Left of Arrive 1's in box, hanging just under the edge's horizontal run into it.
-  \node [edge label, anchor=north west] at ([shift={(1mm,-0.5mm)}]g23 -| xl) {$\{(\sporktid, \qA)\}, \{\}$};
+  \node [edge label, anchor=north west] at ([shift={(1mm,-0.5mm)}]g23 -| xl) {$(\sporktid, \qA)$};
   % Arrive 0 -> await 2 down the right trunk.
   \draw [edge] (e1-out.east) -- (e1-out.east -| xr) -- (g34 -| xr) -- (g34 -| e4-in.north) -- (e4-in.north);
-  \node [edge label, anchor=east] at ([xshift=-1mm]xr |- g23) {$\{\}, \{\pa{0}\}$};  % in the row 2-3 gap, off the TrAwait row
+  \node [edge label, anchor=east] at ([shift={(-1mm,4mm)}]xr |- g23) {$\pa{0}$};  % beside the short TrAwait out box, clear of Arrive 1's out box
 
   % Unreachable marker for the first await: as far left as fits (just right of the left trunk), just above
   % the await's in box (straddling the row 1-2 gap, so not level with the TrArrive), pointing down into it.
