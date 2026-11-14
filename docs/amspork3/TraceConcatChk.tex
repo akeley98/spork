@@ -13,27 +13,27 @@ The reachability depends on edges filtered by the $\sporkQtlMask$ of the source 
 
 With $\sporkPATH$ denoting the typical path-existence decision problem (accepts 0-length paths),
 define helpers $\sporkvReach$, $\sporkvPostOf$, $\sporkmutReqs$:
-\begin{align}
+\begin{sporkBulletAlign}
     {\color{gray}\bullet\,} &
     \sporkvReach: \sporkTr^* \times \sporkVPost \to \mathcal{P}(\sporkVert)
     \sporkComment{\,(Vertices with path from given source $\sporkTrPostAccess$ vertex)}
-    \notag \\
+    \notag \\*
     & \sporkvReach(\sporktr^*, \sporkvPost[s]) = \{
-        \sporkvert_d \in \sporkVert_G \mid \sporkPATH(\sporkVert_G, \sporkEdge_G, \sporkvPost[s], \sporkvert_d) \} \label{eq:vReach} \\
+        \sporkvert_d \in \sporkVert_G \mid \sporkPATH(\sporkVert_G, \sporkEdge_G, \sporkvPost[s], \sporkvert_d) \} \label{eq:vReach} \\*
     & \text{where } \sporkVert_G = \sporktrV(\sporktr^*), \sporkEdge_G = \sporktrE(\sporktr^*, \sporkvMask(\sporkvPost[s])) \notag \\
     {\color{gray}\bullet\,} &
     \sporkvPostOf: \sporkTr^* \times \mathcal{P}(\sporkEnvEff) \to \mathcal{P}(\sporkVPost)
     \sporkComment{\,($\sporkTrPostAccess$-constructed vertices, filtered by $\sporkEnvEff_e$)}
-    \notag \\
+    \notag \\*
     & \sporkvPostOf(\sporktr^*, \sporkEnvEff_e) = \{
       \sporkvPost \in \sporktrV(\sporktr^*) \cap \sporkVPost
       \mid \sporkvEff(\sporkvPost) \in \sporkEnvEff_e \}
     \label{eq:vPostOf} \\
     {\color{gray}\bullet\,} & \sporkmutReqs: \sporkMut \to \mathcal{P}(\sporkMut)
-    \sporkComment{\,(Will be used to ignore read/read pairs)} \notag \\
+    \sporkComment{\,(Will be used to ignore read/read pairs)} \notag \\*
     & \sporkmutReqs(\sporkread) = \{\sporkmutate\} \quad \sporkmutReqs(\sporkmutate) = \{ \sporkread, \sporkmutate \}
     \label{eq:mutReqs}
-\end{align}
+\end{sporkBulletAlign}
 For $\sporktr_d = \sporkTrPreAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTidPre, \sporkQtlPre, \sporkAwFree)$,
 \begin{align}
     & \sporktr^* \sporkConcatChk \sporktr_d = \begin{cases}

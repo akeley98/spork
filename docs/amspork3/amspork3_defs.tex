@@ -9,6 +9,10 @@
 \usepackage{mathpartir}
 \usepackage{stmaryrd}
 
+%% "Bullet list" of definitions ({\color{gray}\bullet\,} per item; TraceVertices.tex, TraceConcatChk.tex):
+%% an align that may page-break, but end lines inside one bullet with \\* so breaks fall only between bullets.
+\newenvironment{sporkBulletAlign}{\allowdisplaybreaks\align}{\endalign}
+
 %% Natural-width box for centering listings in figures (ScopeExample.tex).
 \usepackage{varwidth}
 
