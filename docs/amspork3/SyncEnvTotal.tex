@@ -15,24 +15,24 @@
 Define
 \begin{align}
   & \sporkvVis : \sporkTr^* \times \sporkVPost \to \sporkEnvVis \sporkComment{ ($\sporkTrPostAccess$ vertex to reachable outbound set union)} \notag \\
-  & \sporkvVis(\sporktr^*, \sporkvPost) = (\varnothing, \varnothing, \sporkvMask(\sporkvPost)) \sporkConcatVis \sporktrReach(\sporktr^*, \sporkvPost)
+  & \sporkvVis(\sporktr^*, \sporkvPost) = (\varnothing, \varnothing, \sporkvMask(\sporkvPost)) \sporkConcatVis \sporkvReach(\sporktr^*, \sporkvPost)
   \label{eq:vVis} \\
-  & \sporktoEnvTotal: \sporkTr^* \to \sporkEnv \sporkComment{ \sporkComment{ ($\sporkTrPostAccess$ become $\sporkenv$ elements; $\sporkEnvEff$ means no filter)}} \notag \\
-  & \sporktoEnvTotal(\sporktr^*) = \{ (\sporkvEff(\sporkvPost), \sporkvVis(\sporktr^*, \sporkvPost)) \mid \sporkvPost \in \sporktrVPost(\sporktr^*, \sporkEnvEff) \}
+  & \sporktoEnvTotal: \sporkTr^* \to \sporkEnv \sporkComment{ ($\sporkTrPostAccess$ become $\sporkenv$ elements)} \notag \\
+  & \sporktoEnvTotal(\sporktr^*) = \{ (\sporkvEff(\sporkvPost), \sporkvVis(\sporktr^*, \sporkvPost)) \mid \sporkvPost \in \sporktrV(\sporktr^*) \cap \sporkVPost \}
   \label{eq:toEnvTotal}
 \end{align}
 
 \sporkMainKey{Step Lemma:}
-For any $\sporktr^*$, $\sporktr_d$, and $\sporkvPost \in \sporktrVPost(\sporktr^*, \sporkEnvEff)$,
+For any $\sporktr^*$, $\sporktr_d$, and $\sporkvPost \in \sporktrV(\sporktr^*) \cap \sporkVPost$,
 \begin{align}
-  \text{(a)}\quad & \sporkvert_d \in \sporktrReach(\sporktr^*_\mathrm{cat}, \sporkvPost) \iff \sporksyncsWith(\sporkvVis(\sporktr^*, \sporkvPost), \sporktr_d) \\
+  \text{(a)}\quad & \sporkvert_d \in \sporkvReach(\sporktr^*_\mathrm{cat}, \sporkvPost) \iff \sporksyncsWith(\sporkvVis(\sporktr^*, \sporkvPost), \sporktr_d) \\
   \text{(b)}\quad & \sporkvVis(\sporktr^*_\mathrm{cat}, \sporkvPost) = \sporkvVis(\sporktr^*, \sporkvPost) \sporkAugmentVis \sporktr_d
 \end{align}
 \emph{Proof.}
-Let $\sporkQtlMask = \sporkvMask(\sporkvPost)$, $\sporkVert_r = \sporktrReach(\sporktr^*, \sporkvPost)$,
+Let $\sporkQtlMask = \sporkvMask(\sporkvPost)$, $\sporkVert_r = \sporkvReach(\sporktr^*, \sporkvPost)$,
 and $\sporkenvVis = \sporkvVis(\sporktr^*, \sporkvPost) = (\varnothing, \varnothing, \sporkQtlMask) \sporkConcatVis \sporkVert_r$.
 \begin{itemize}
-  \item[(S1)] $\sporktrReach(\sporktr^*_\mathrm{cat}, \sporkvPost) = \sporkVert_r \cup \{\sporkvert_d\}$
+  \item[(S1)] $\sporkvReach(\sporktr^*_\mathrm{cat}, \sporkvPost) = \sporkVert_r \cup \{\sporkvert_d\}$
     if $\exists \sporkvert \in \sporkVert_r.\, \sporkEdgeArrow{\sporkvert}{\sporkvert_d} \in \sporktrE(\sporktr^*_\mathrm{cat}, \sporkQtlMask)$,
     and $\sporkVert_r$ otherwise.
     \sporkComment{(F3)}
@@ -63,7 +63,7 @@ Base: $\sporktoEnvTotal(()) = \varnothing$, as $\sporktrV(()) = \varnothing$.
 Step: suppose $\varnothing \sporkConcatEnv \sporktr^*_\mathrm{cat}$ is defined.
 Then so is the shorter fold, and by induction $\sporkenv = \varnothing \sporkConcatEnv \sporktr^* = \sporktoEnvTotal(\sporktr^*)$;
 we show $\sporkenv \sporkConcatEnv \sporktr_d = \sporktoEnvTotal(\sporktr^*_\mathrm{cat})$.
-Each old $\sporkvPost \in \sporktrVPost(\sporktr^*, \sporkEnvEff)$ keeps its $\sporkvEff$,
+Each old $\sporkvPost \in \sporktrV(\sporktr^*) \cap \sporkVPost$ keeps its $\sporkvEff$,
 and by Step Lemma (b) its $\sporkvVis$ becomes $\sporkvVis(\sporktr^*, \sporkvPost) \sporkAugmentVis \sporktr_d$. By cases on $\sporktr_d$:
 \begin{itemize}
   \item $\sporkTrFence$, $\sporkTrArrive$, $\sporkTrAwait$:

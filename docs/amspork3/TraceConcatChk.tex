@@ -12,26 +12,26 @@ so we don't analyze paths within a single access only.
 The reachability depends on edges filtered by the $\sporkQtlMask$ of the source event.
 
 With $\sporkPATH$ denoting the typical path-existence decision problem (accepts 0-length paths),
-define helpers $\sporktrReach$, $\sporktrVPost$, $\sporkmutReqs$:
+define helpers $\sporkvReach$, $\sporkvPostOf$, $\sporkmutReqs$:
 \begin{align}
     {\color{gray}\bullet\,} &
-    \sporktrReach: \sporkTr^* \times \sporkVPost \to \mathcal{P}(\sporkVert)
+    \sporkvReach: \sporkTr^* \times \sporkVPost \to \mathcal{P}(\sporkVert)
     \sporkComment{\,(Vertices with path from given source $\sporkTrPostAccess$ vertex)}
     \notag \\
-    & \sporktrReach(\sporktr^*, \sporkvPost[s]) = \{
-        \sporkvert_d \in \sporkVert_G \mid \sporkPATH(\sporkVert_G, \sporkEdge_G, \sporkvPost[s], \sporkvert_d) \} \label{eq:trReach} \\
+    & \sporkvReach(\sporktr^*, \sporkvPost[s]) = \{
+        \sporkvert_d \in \sporkVert_G \mid \sporkPATH(\sporkVert_G, \sporkEdge_G, \sporkvPost[s], \sporkvert_d) \} \label{eq:vReach} \\
     & \text{where } \sporkVert_G = \sporktrV(\sporktr^*), \sporkEdge_G = \sporktrE(\sporktr^*, \sporkvMask(\sporkvPost[s])) \notag \\
     %% & \quad\mid
     %%     \sporkPATH(\sporktrV(\sporktr^*), \sporktrE(\sporktr^*, \textsf{maskOf}(\sporkvert_s)), \sporkvert_s, \sporkvert_d)
-    %% \} \label{eq:trReach} \\
+    %% \} \label{eq:vReach} \\
     {\color{gray}\bullet\,} &
-    \sporktrVPost: \sporkTr^* \times \mathcal{P}(\sporkEnvEff) \to \mathcal{P}(\sporkVPost)
+    \sporkvPostOf: \sporkTr^* \times \mathcal{P}(\sporkEnvEff) \to \mathcal{P}(\sporkVPost)
     \sporkComment{\,($\sporkTrPostAccess$-constructed vertices, filtered by $\sporkEnvEff_e$)}
     \notag \\
-    & \sporktrVPost(\sporktr^*, \sporkEnvEff_e) = \{
+    & \sporkvPostOf(\sporktr^*, \sporkEnvEff_e) = \{
       \sporkvPost \in \sporktrV(\sporktr^*) \cap \sporkVPost
       \mid \sporkvEff(\sporkvPost) \in \sporkEnvEff_e \}
-    \label{eq:trVPost} \\
+    \label{eq:vPostOf} \\
     {\color{gray}\bullet\,} & \sporkmutReqs: \sporkMut \to \mathcal{P}(\sporkMut)
     \sporkComment{\,(Will be used to ignore read/read pairs)} \notag \\
     & \sporkmutReqs(\sporkread) = \{\sporkmutate\} \quad \sporkmutReqs(\sporkmutate) = \{ \sporkread, \sporkmutate \}
@@ -51,17 +51,17 @@ For $\sporktr_d = \sporkTrPreAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTidPr
     \sporkComment{(mutates and maybe reads at $\sporkx[\sporkz_i^*]$)\quad}
     & \textbf{let } \sporkEnvEff_e = \sporkmutReqs(\sporkmut) \times \{ \sporkx \} \times \{ \sporkz_i^* \} \textbf{ in} \notag \\
     \sporkComment{(all prior matching $\sporkTrPostAccess$...\quad}
-    & \textbf{let } \sporkVPost[s] = \sporktrVPost(\sporktr^*, \sporkEnvEff_e) \textbf{ in} \notag \\
+    & \textbf{let } \sporkVPost[s] = \sporkvPostOf(\sporktr^*, \sporkEnvEff_e) \textbf{ in} \notag \\
     \sporkComment{...must have a path to $\sporkvert_d$)\quad}
     & \forall \sporkvPost[s] \in \sporkVPost[s].\quad
-    \sporkvert_d \in \sporktrReach(\sporktr^*_\mathrm{cat}, \sporkvPost[s])
+    \sporkvert_d \in \sporkvReach(\sporktr^*_\mathrm{cat}, \sporkvPost[s])
 \end{align}
 $\sporktr^* \sporkConcatChk \sporktr_d = \sporktr^* \sporkConcatRaw \sporktr_d$ for all other $\sporktr_d$.
 %% XXX
 %% \begin{itemize}
-%%   \item $\sporktrReach: \sporkTr^* \times \mathcal{P}(\sporkQtl) \times \sporkVert \to \mathcal{P}(\sporkVert)$
+%%   \item $\sporkvReach: \sporkTr^* \times \mathcal{P}(\sporkQtl) \times \sporkVert \to \mathcal{P}(\sporkVert)$
 %%   \sporkComment{\# Vertices with path from given source vertex}
-%%   \item $\sporktrVPost: \sporkTr^* \times \mathcal{P}(\sporkMut \times \sporkX \times \sporkZ^*)$
+%%   \item $\sporkvPostOf: \sporkTr^* \times \mathcal{P}(\sporkMut \times \sporkX \times \sporkZ^*)$
 %%   \sporkComment{\# $\sporkTrPostAccess$ vertices with given $(\sporkmut, \sporkx, \sporkz^*)$ ``key''}
 %% \end{itemize}
 %% \begin{gather}
@@ -71,23 +71,23 @@ $\sporktr^* \sporkConcatChk \sporktr_d = \sporktr^* \sporkConcatRaw \sporktr_d$ 
 %%   \sporkPATH(\sporkVert_G, \sporkEdge_G, \sporkvert_s, \sporkvert_d)
 %% }
 %% {
-%%   \sporkvert_d \in \sporktrReach(\sporktr^*, \sporkQtlMask, \sporkvert_s)
+%%   \sporkvert_d \in \sporkvReach(\sporktr^*, \sporkQtlMask, \sporkvert_s)
 %% }
 %% \hspace{-48pt} % spill into the left margin so the tag stays on this line
-%% \sporktrReach(\sporktr^*, \sporkQtlMask, \sporkvert_s) = \{
+%% \sporkvReach(\sporktr^*, \sporkQtlMask, \sporkvert_s) = \{
 %%     \sporkvert_d \in \sporktrV(\sporktr^*) \mid
 %%     \sporkPATH(\sporktrV(\sporktr^*), \sporktrE(\sporktr^*, \sporkQtlMask), \sporkvert_s, \sporkvert_d)
 %% \}
-%% \label{eq:trReach}
+%% \label{eq:vReach}
 %% \end{gather}
 %% where $\sporkPATH$ is the typical path decision problem (ignoring edge labels).
 %% \begin{align}
 %%   \hspace{-24pt} % spill into the left margin instead of the right
-%%   \sporktrVPost(\sporktr^*, \sporkEnvEff_a) = \{ &
+%%   \sporkvPostOf(\sporktr^*, \sporkEnvEff_a) = \{ &
 %%       (z, \sporkTrPostAccess(\sporkmut, \sporkx, \sporkz_i^*, \sporkTidPost, \sporkqtlInit, \sporkQtlAtom, \sporkQtlMask, \sporkAwPost))
 %%       \in \sporktrV(\sporktr^*) \notag \\
 %%       & \mid
 %%       (\sporkmut, \sporkx, \sporkz_i^*) \in \sporkEnvEff_a
 %%   \}
-%%   \label{eq:trVPost}
+%%   \label{eq:vPostOf}
 %% \end{align}

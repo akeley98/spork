@@ -26,8 +26,8 @@ it remains to show that $\sporkisLegalChk$ of equation~\ref{eq:concatChk} holds 
 
 Step Lemma (a) rewrites $\sporkisLegalChk$ (equation~\ref{eq:concatChk}) as
 \begin{align}
-  \forall \sporkvPost \in \sporktrVPost(\sporktr^*, \sporkEnvEff_e).\; \sporksyncsWith(\sporkvVis(\sporktr^*, \sporkvPost), \sporktr_d)
+  \forall \sporkvPost \in \sporkvPostOf(\sporktr^*, \sporkEnvEff_e).\; \sporksyncsWith(\sporkvVis(\sporktr^*, \sporkvPost), \sporktr_d)
 \end{align}
-By equation~\ref{eq:toEnvTotal}, $\sporkenv(\sporkenvEff) = \{ \sporkvVis(\sporktr^*, \sporkvPost) \mid \sporkvPost \in \sporktrVPost(\sporktr^*, \{\sporkenvEff\}) \}$,
+By equation~\ref{eq:toEnvTotal}, $\sporkenv(\sporkenvEff) = \{ \sporkvVis(\sporktr^*, \sporkvPost) \mid \sporkvPost \in \sporkvPostOf(\sporktr^*, \{\sporkenvEff\}) \}$,
 so quantifying over $\sporkenvEff \in \sporkEnvEff_e$, then $\sporkenvVis \in \sporkenv(\sporkenvEff)$, as $\sporkisLegalEnv$ does (equation~\ref{eq:envConcatPre}),
-is the same as quantifying over $\sporkvPost \in \sporktrVPost(\sporktr^*, \sporkEnvEff_e)$. $\square$
+is the same as quantifying over $\sporkvPost \in \sporkvPostOf(\sporktr^*, \sporkEnvEff_e)$. $\square$
