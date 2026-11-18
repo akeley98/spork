@@ -32,7 +32,7 @@
     \small
 }
 
-% David Zhao Akeley: TODO some Claude added this and idk why. May just capitulate and bulk replace bare textsf.
+% Current convention is GPU-specific math mode symbols are in sans serif.
 \newcommand{\textgpu}[1]{\textsf{#1}}
 
 % \sporkUS[opt]{label}{base}: descriptive label under a symbol, without wrecking prose line spacing.
@@ -115,7 +115,7 @@
 \newcommand{\sporkFalse}{\mathord{\sporkPaperLink{fig:BasicGrammar}{\texttt{False}}}}
 \newcommand{\sporkf}{\mathord{\sporkPaperLink{fig:BasicGrammar}{f}}}
 \newcommand{\sporkF}{\mathord{\sporkPaperLink{fig:BasicGrammar}{\mathbf{F}}}}
-\newcommand{\sporkfBehavior}{\mathord{\sporkPaperLink{fig:BasicGrammar}{f.\textsf{behavior}}}}
+\newcommand{\sporkfBehavior}{\mathord{\sporkPaperLink{fig:BasicGrammar}{f.\textgpu{behavior}}}}
 \newcommand{\sporkr}{\mathord{\sporkPaperLink{fig:BasicGrammar}{r}}}
 \newcommand{\sporkvalue}{\mathord{\sporkPaperLink{fig:BasicGrammar}{v}}}  % Naming convention exception (avoid clash with vertex v)
 \newcommand{\sporkValue}{\mathord{\sporkPaperLink{fig:BasicGrammar}{\mathbb{V}}}}  % Naming convention exception (avoid clash with vertex set V)
@@ -183,8 +183,8 @@
 \newcommand{\sporks}{\mathord{\sporkPaperLink{fig:stmt}{s}}}
 \newcommand{\sporkStmt}{\mathord{\sporkPaperLink{fig:stmt}{\textrm{Stmt}}}}
 \newcommand{\sporkMutateOpSet}{\sporkPaperLink{fig:stmt}{\{\texttt{=},\texttt{+=}\}}}
-\newcommand{\sporkfBarH}{\mathord{\sporkPaperLink{fig:stmt}{\overset{\#}{\textsf{fBar?}}}}}
-\newcommand{\sporkfBarZ}{\mathord{\sporkPaperLink{fig:stmt}{\overset{z}{\textsf{fBar?}}}}}
+\newcommand{\sporkfBarH}{\mathord{\sporkPaperLink{fig:stmt}{\overset{\#}{\textgpu{fBar?}}}}}
+\newcommand{\sporkfBarZ}{\mathord{\sporkPaperLink{fig:stmt}{\overset{z}{\textgpu{fBar?}}}}}
 
 %% Procedure Grammar
 \newcommand{\sporkformalParam}{\mathord{\sporkPaperLink{fig:ProcGrammar}{\textrm{formalParam}}}}
@@ -252,7 +252,7 @@
 \newcommand{\sporkDInstrStepParam}{\sporkPaperLink{fig:DataSemantics}{\textsc{D-InstrStepParam}}}
 \newcommand{\sporkDInstrStepBarrier}{\sporkPaperLink{fig:DataSemantics}{\textsc{D-InstrStepBarrier}}}
 \newcommand{\sporkDInstrSub}{\sporkPaperLink{fig:DataSemantics}{\textsc{D-InstrSub}}}
-\newcommand{\sporkmFree}{\textsf{mFree}}
+\newcommand{\sporkmFree}{\textgpu{mFree}}
 
 %% Pending Await Grammar
 \newcommand{\sporkaw}{\mathord{\sporkPaperLink{fig:TraceConstructors}{\textgpu{aw}}}}
@@ -305,57 +305,57 @@
 \newcommand{\sporkTrAwaitRule}{\sporkPaperLink{fig:SyncTraceSemantics}{\textsc{Tr-Await}}}
 
 %% Trace Checks
-\newcommand{\sporkConcatRaw}{\mathord{\sporkPaperLink{sec:TraceChecks}{\sporkUS{\textsf{raw}}{\texttt{++}}}}}
+\newcommand{\sporkConcatRaw}{\mathord{\sporkPaperLink{sec:TraceChecks}{\sporkUS{\textgpu{raw}}{\texttt{++}}}}}
 
 %% Trace Vertices
-\newcommand{\sporkvert}{\mathord{\sporkPaperLink{sec:TraceVertices}{\textsf{v}}}}  % Naming convention exception (avoid clash with value v)
-\newcommand{\sporkVert}{\mathord{\sporkPaperLink{sec:TraceVertices}{\textsf{V}}}}  % Naming convention exception (avoid clash with value set V)
-\newcommand{\sporktrV}{\mathord{\sporkPaperLink{eq:trV}{\textsf{trV}}}}
-\newcommand{\sporkob}{\mathord{\sporkPaperLink{sec:TraceVertices}{\textsf{ob}}}}
-\newcommand{\sporkOb}{\mathord{\sporkPaperLink{sec:TraceVertices}{\textsf{Ob}}}}
-\newcommand{\sporkObIn}{\mathord{\sporkPaperLink{fig:InOutSets}{\textsf{Ob}^\mathrm{in}}}}
-\newcommand{\sporkObOut}{\mathord{\sporkPaperLink{fig:InOutSets}{\textsf{Ob}^\mathrm{out}}}}
-\newcommand{\sporkAwIn}{\mathord{\sporkPaperLink{fig:InOutSets}{\textsf{Aw}^\mathrm{in}}}}
-\newcommand{\sporkAwOut}{\mathord{\sporkPaperLink{fig:InOutSets}{\textsf{Aw}^\mathrm{out}}}}
-\newcommand{\sporkvMask}{\mathord{\sporkPaperLink{eq:vMask}{\textsf{vMask}}}}
-\newcommand{\sporkvEff}{\mathord{\sporkPaperLink{eq:vEff}{\textsf{vEff}}}}
+\newcommand{\sporkvert}{\mathord{\sporkPaperLink{sec:TraceVertices}{\textgpu{v}}}}  % Naming convention exception (avoid clash with value v)
+\newcommand{\sporkVert}{\mathord{\sporkPaperLink{sec:TraceVertices}{\textgpu{V}}}}  % Naming convention exception (avoid clash with value set V)
+\newcommand{\sporktrV}{\mathord{\sporkPaperLink{eq:trV}{\textgpu{trV}}}}
+\newcommand{\sporkob}{\mathord{\sporkPaperLink{sec:TraceVertices}{\textgpu{ob}}}}
+\newcommand{\sporkOb}{\mathord{\sporkPaperLink{sec:TraceVertices}{\textgpu{Ob}}}}
+\newcommand{\sporkObIn}{\mathord{\sporkPaperLink{fig:InOutSets}{\textgpu{Ob}^\mathrm{in}}}}
+\newcommand{\sporkObOut}{\mathord{\sporkPaperLink{fig:InOutSets}{\textgpu{Ob}^\mathrm{out}}}}
+\newcommand{\sporkAwIn}{\mathord{\sporkPaperLink{fig:InOutSets}{\textgpu{Aw}^\mathrm{in}}}}
+\newcommand{\sporkAwOut}{\mathord{\sporkPaperLink{fig:InOutSets}{\textgpu{Aw}^\mathrm{out}}}}
+\newcommand{\sporkvMask}{\mathord{\sporkPaperLink{eq:vMask}{\textgpu{vMask}}}}
+\newcommand{\sporkvEff}{\mathord{\sporkPaperLink{eq:vEff}{\textgpu{vEff}}}}
 % InOutSets layout macros (\inOutDiagram, \inOutDiagramSides)
 \input{amspork3_defs_inOutDiagram.tex}
 % \sporkVPost[s], \sporkvPost[s]: optional subscript forces the stack (V_s over "post"; see \sporkUS).
-\newcommand{\sporkVPost}[1][]{\mathord{\sporkPaperLink{eq:vEff}{\sporkUS[#1]{\textrm{post}}{\textsf{V}}}}}  % Formerly \sporkVNew
+\newcommand{\sporkVPost}[1][]{\mathord{\sporkPaperLink{eq:vEff}{\sporkUS[#1]{\textrm{post}}{\textgpu{V}}}}}  % Formerly \sporkVNew
 \newcommand{\sporkTrPost}{\mathord{\sporkPaperLink{eq:vEff}{\sporkUS{\textrm{post}}{\textgpu{Tr}}}}}
-\newcommand{\sporkvPost}[1][]{\mathord{\sporkPaperLink{eq:vEff}{\sporkUS[#1]{\textrm{post}}{\textsf{v}}}}}  % Formerly \sporkvNew
+\newcommand{\sporkvPost}[1][]{\mathord{\sporkPaperLink{eq:vEff}{\sporkUS[#1]{\textrm{post}}{\textgpu{v}}}}}  % Formerly \sporkvNew
 
 %% Trace Edges
-\newcommand{\sporkedge}{\mathord{\sporkPaperLink{sec:TraceEdges}{\textsf{e}}}}  % Naming convention exception (avoid clash with expr e)
-\newcommand{\sporkEdge}{\mathord{\sporkPaperLink{sec:TraceEdges}{\textsf{E}}}}  % Naming convention exception (no clash; matches \sporkedge)
-\newcommand{\sporktrE}{\mathord{\sporkPaperLink{sec:TraceEdges}{\textsf{trE}}}}
+\newcommand{\sporkedge}{\mathord{\sporkPaperLink{sec:TraceEdges}{\textgpu{e}}}}  % Naming convention exception (avoid clash with expr e)
+\newcommand{\sporkEdge}{\mathord{\sporkPaperLink{sec:TraceEdges}{\textgpu{E}}}}  % Naming convention exception (no clash; matches \sporkedge)
+\newcommand{\sporktrE}{\mathord{\sporkPaperLink{sec:TraceEdges}{\textgpu{trE}}}}
 \newcommand{\sporkEdgeArrow}[2]{({#1} \to {#2})}
 
 %% Trace Concatenation Check
-\newcommand{\sporkvReach}{\mathord{\sporkPaperLink{eq:vReach}{\textsf{vReach}}}}  % Formerly \sporktrReach
-\newcommand{\sporkvPostOf}{\mathord{\sporkPaperLink{eq:vPostOf}{\textsf{vPostOf}}}}  % Formerly \sporktrVPost, \sporktrVNew
-\newcommand{\sporkmutReqs}{\mathord{\sporkPaperLink{eq:mutReqs}{\textsf{mutReqs}}}}
+\newcommand{\sporkvReach}{\mathord{\sporkPaperLink{eq:vReach}{\textgpu{vReach}}}}  % Formerly \sporktrReach
+\newcommand{\sporkvPostOf}{\mathord{\sporkPaperLink{eq:vPostOf}{\textgpu{vPostOf}}}}  % Formerly \sporktrVPost, \sporktrVNew
+\newcommand{\sporkmutReqs}{\mathord{\sporkPaperLink{eq:mutReqs}{\textgpu{mutReqs}}}}
 \newcommand{\sporkPATH}{\mathord{\sporkPaperLink{eq:vReach}{\textrm{PATH}}}}
-\newcommand{\sporkConcatChk}{\mathord{\sporkPaperLink{eq:concatChk}{\sporkUS{\textsf{chk}}{\texttt{++}}}}}
-\newcommand{\sporkisLegalChk}{\mathord{\sporkPaperLink{eq:concatChk}{\textsf{isLegal}}}}
+\newcommand{\sporkConcatChk}{\mathord{\sporkPaperLink{eq:concatChk}{\sporkUS{\textgpu{chk}}{\texttt{++}}}}}
+\newcommand{\sporkisLegalChk}{\mathord{\sporkPaperLink{eq:concatChk}{\textgpu{isLegal}}}}
 
 %% Synchronization Environment
-\newcommand{\sporkenv}{\mathord{\sporkPaperLink{sec:SyncEnv}{\textsf{env}}}}
-\newcommand{\sporkEnv}{\mathord{\sporkPaperLink{sec:SyncEnv}{\textsf{Env}}}}
-\newcommand{\sporkEnvEff}{\mathord{\sporkPaperLink{sec:SyncEnv}{\textsf{EnvEff}}}}
-\newcommand{\sporkenvEff}{\mathord{\sporkPaperLink{sec:SyncEnv}{\textsf{envEff}}}}
-\newcommand{\sporkEnvVis}{\mathord{\sporkPaperLink{sec:SyncEnv}{\textsf{EnvVis}}}}
-\newcommand{\sporkenvVis}{\mathord{\sporkPaperLink{sec:SyncEnv}{\textsf{envVis}}}}
-\newcommand{\sporksyncsWith}{\mathord{\sporkPaperLink{eq:syncsWith}{\textsf{syncsWith}}}}
-\newcommand{\sporkConcatEnv}{\mathord{\sporkPaperLink{sec:SyncEnvConcat}{\sporkUS{\textsf{env}}{\texttt{++}}}}}
-\newcommand{\sporkConcatVis}{\mathord{\sporkPaperLink{eq:ConcatVis}{\sporkUS{\textsf{vis}}{\texttt{++}}}}}
-\newcommand{\sporkAugmentVis}{\mathord{\sporkPaperLink{eq:AugmentVis}{\sporkUS{\textsf{vis}}{\triangleright}}}}
-\newcommand{\sporkisLegalEnv}{\mathord{\sporkPaperLink{eq:envConcatPre}{\textsf{isLegal}}}}
-\newcommand{\sporktoEnvTotal}{\mathord{\sporkPaperLink{eq:toEnvTotal}{\textsf{toEnvTotal}}}}
-\newcommand{\sporkvVis}{\mathord{\sporkPaperLink{eq:vVis}{\textsf{vVis}}}}
-\newcommand{\sporksqVis}{\mathord{\sporkPaperLink{eq:sqVis}{\sporkUS{\textsf{vis}}{\sqsubseteq}}}}
-\newcommand{\sporksqEnv}{\mathord{\sporkPaperLink{eq:sqEnv}{\sporkUS{\textsf{env}}{\sqsubseteq}}}}
+\newcommand{\sporkenv}{\mathord{\sporkPaperLink{sec:SyncEnv}{\textgpu{env}}}}
+\newcommand{\sporkEnv}{\mathord{\sporkPaperLink{sec:SyncEnv}{\textgpu{Env}}}}
+\newcommand{\sporkEnvEff}{\mathord{\sporkPaperLink{sec:SyncEnv}{\textgpu{EnvEff}}}}
+\newcommand{\sporkenvEff}{\mathord{\sporkPaperLink{sec:SyncEnv}{\textgpu{envEff}}}}
+\newcommand{\sporkEnvVis}{\mathord{\sporkPaperLink{sec:SyncEnv}{\textgpu{EnvVis}}}}
+\newcommand{\sporkenvVis}{\mathord{\sporkPaperLink{sec:SyncEnv}{\textgpu{envVis}}}}
+\newcommand{\sporksyncsWith}{\mathord{\sporkPaperLink{eq:syncsWith}{\textgpu{syncsWith}}}}
+\newcommand{\sporkConcatEnv}{\mathord{\sporkPaperLink{sec:SyncEnvConcat}{\sporkUS{\textgpu{env}}{\texttt{++}}}}}
+\newcommand{\sporkConcatVis}{\mathord{\sporkPaperLink{eq:ConcatVis}{\sporkUS{\textgpu{vis}}{\texttt{++}}}}}
+\newcommand{\sporkAugmentVis}{\mathord{\sporkPaperLink{eq:AugmentVis}{\sporkUS{\textgpu{vis}}{\triangleright}}}}
+\newcommand{\sporkisLegalEnv}{\mathord{\sporkPaperLink{eq:envConcatPre}{\textgpu{isLegal}}}}
+\newcommand{\sporktoEnvTotal}{\mathord{\sporkPaperLink{eq:toEnvTotal}{\textgpu{toEnvTotal}}}}
+\newcommand{\sporkvVis}{\mathord{\sporkPaperLink{eq:vVis}{\textgpu{vVis}}}}
+\newcommand{\sporksqVis}{\mathord{\sporkPaperLink{eq:sqVis}{\sporkUS{\textgpu{vis}}{\sqsubseteq}}}}
+\newcommand{\sporksqEnv}{\mathord{\sporkPaperLink{eq:sqEnv}{\sporkUS{\textgpu{env}}{\sqsubseteq}}}}
 
 %% Warp Specialization
 \newcommand{\sporkwarpConfig}{\mathord{\sporkPaperLink{fig:CudaWarps}{\textgpu{warpConfig}}}}
@@ -368,8 +368,8 @@
 \newcommand{\sporkdimBox}{\mathord{\sporkPaperLink{sec:CollTiling}{\textgpu{dimBox}}}}
 
 %% SmemAppendix
-\newcommand{\sporkallocTrDetail}{\mathord{\sporkPaperLink{sec:SmemAppendix}{\textsf{allocTrDetail}}}}
-\newcommand{\sporkfreeTrDetail}{\mathord{\sporkPaperLink{sec:SmemAppendix}{\textsf{freeTrDetail}}}}
+\newcommand{\sporkallocTrDetail}{\mathord{\sporkPaperLink{sec:SmemAppendix}{\textgpu{allocTrDetail}}}}
+\newcommand{\sporkfreeTrDetail}{\mathord{\sporkPaperLink{sec:SmemAppendix}{\textgpu{freeTrDetail}}}}
 
 %% Used in C-CudaDeviceFunction
 \newcommand{\sporkQtlStream}{\mathord{\sporkUS{\textrm{stream}}{\sporkQtl}}}
@@ -379,9 +379,9 @@
 \newcommand{\sporkqtlNat}{\sporkqtl_\mathrm{nat}}
 
 %% Trace event read/mutate labels (TraceIntro figures, 26.tex, amspork3.py listing comments).
-%% Wrapped in textsf to force it to work in math mode.
-\newcommand{\sporkReadBullet}{\textsf{$\circ$ read}}
-\newcommand{\sporkMutateBullet}{\textsf{$\bullet$ mutate}}
+%% Wrapped in textgpu to force it to work in math mode.
+\newcommand{\sporkReadBullet}{\textgpu{$\circ$ read}}
+\newcommand{\sporkMutateBullet}{\textgpu{$\bullet$ mutate}}
 
 %% Shared figure helpers (fig_*_body.tex, used by main.tex and 26.tex).
 % Warp stack figure (fig_warpStack_body.tex), rendered before placing it (26.tex page overlay, fig_cudaWarps.tex).

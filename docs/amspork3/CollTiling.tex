@@ -23,11 +23,11 @@ the per-dimension offset and box determine (from given $\sporksigma$)
 the specific ranges of local thread indices selected by $\sporktidMap(\sporksigma)$,
 as follows:
 \begin{align*}
-    & \textbf{let } \textsf{toLocal}(\sporkz_0, \ldots, \sporkz_{n-1}) = \sum_{i=0}^{n-1} \sporkz_i \prod_{j=i+1}^{n-1} \sporkdimExt(\sporkdim_j) \textbf{ in}
+    & \textbf{let } \textgpu{toLocal}(\sporkz_0, \ldots, \sporkz_{n-1}) = \sum_{i=0}^{n-1} \sporkz_i \prod_{j=i+1}^{n-1} \sporkdimExt(\sporkdim_j) \textbf{ in}
     & \sporkComment{ (lexicographical ordering)} \\
-    & \textbf{let } \textsf{Range}(i) = \{ \sporkz + \sporkdimOff(\sporkdim_i)(\sporksigma) \mid \sporkz \in 0..\sporkdimBox(\sporkdim_i) - 1 \} \textbf{ in}
+    & \textbf{let } \textgpu{Range}(i) = \{ \sporkz + \sporkdimOff(\sporkdim_i)(\sporksigma) \mid \sporkz \in 0..\sporkdimBox(\sporkdim_i) - 1 \} \textbf{ in}
     & \sporkComment{ ($i^\text{th}$ dim selected range)} \\
-    & \{ \textsf{toLocal}(\sporkz^*) \mid \sporkz^* \in \textsf{Range}(0) \times \cdots \times \textsf{Range}(n-1) \}
+    & \{ \textgpu{toLocal}(\sporkz^*) \mid \sporkz^* \in \textgpu{Range}(0) \times \cdots \times \textgpu{Range}(n-1) \}
 \end{align*}
 Collective analysis of \texttt{cuda\_threads} loops and warp specialization statements takes the collective tiling of the parent scope and deduces a modified collective tiling for the child scope, possibly by
 \begin{itemize}
