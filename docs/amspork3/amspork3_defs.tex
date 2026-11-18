@@ -46,8 +46,11 @@
     \else \mathchoice{\underset{#2}{#3}}{{#3}_{#2}}{{#3}_{#2}}{{#3}_{#2}}\fi
   \else \underset{#2}{{#3}_{#1}}\fi}
 % Captions are prose even inside a figure: undo \sporkForceStacktrue there.
-\DeclareCaptionFont{sporkNoForceStack}{\sporkForceStackfalse}
-\captionsetup{font+=sporkNoForceStack}
+% Paper only: decks (beamer) don't load the caption package.
+\ifdefined\DeclareCaptionFont
+  \DeclareCaptionFont{sporkNoForceStack}{\sporkForceStackfalse}
+  \captionsetup{font+=sporkNoForceStack}
+\fi
 \definecolor{barriercolor}{HTML}{BB00BB}
 %% CPU vs GPU code: Intel-ish sky blue, NVIDIA-ish yellow-green.
 \definecolor{cpuColor}{HTML}{00A3E0}
