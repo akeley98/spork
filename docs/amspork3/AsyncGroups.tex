@@ -18,7 +18,7 @@ but we allocate ``arrays'' of async-group mechanism barriers in \sporkName{} any
 (which generates no C++ code) in order to name them.
 We use distributed memory analysis (Section~\ref{sec:DataLayout})
 and a live async-group-variable check to reason that
-that each different live $\sporkx[\sporkz^*]$ corresponds uniquely
+each different live $\sporkx[\sporkz^*]$ corresponds uniquely
 to a single thread's, warp's, or warpgroup's private async group state.
 The three cases correspond respectively to \texttt{cp.async},
 TMA SMEM-to-GMEM\footnote{
